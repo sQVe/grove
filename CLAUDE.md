@@ -9,6 +9,13 @@ CLI tool for Git worktree management with TUI interface. Built with TypeScript, 
 - **Always run validation**: `pnpm format && pnpm lint && pnpm tsc --noEmit && pnpm test:ci` after ALL code changes
 - **Update ROADMAP.md** when completing implementation phases or making architectural decisions
 
+## **IMPORTANT** Git workflow
+- **Follow conventional commits**: Use format `type: description` (feat, fix, chore, docs, refactor, test)
+- **Use imperative mood**: "add feature" not "added feature"
+- **Limit first line to 72 characters**
+- **Multiple commits**: Split logical changes into separate commits
+- **Concise descriptions**: Keep commit messages brief but clear
+
 ## Technical stack (decided)
 
 ### Core dependencies
