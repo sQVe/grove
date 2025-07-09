@@ -79,17 +79,45 @@ grove/
 - [ ] Comprehensive testing
 - [ ] Documentation and distribution
 
-## TUI design (future)
+## TUI design (decided: vim-like modal interface)
 ```
-┌─ Grove ─────────────────────────────────────┐
-│ Search: [main_____]    │ Branch: main       │
-│ > main      *active    │ Status: ✓ Clean    │
-│   feature/auth         │ Files:  3 modified │
-│   bugfix/login         │ Commits: 2 ahead   │
-│                        │                    │
-│ [j/k] navigate [enter] switch [q] quit      │
-└─────────────────────────────────────────────┘
+┌─ Grove ──────────────────────────────────────────────────────────────────┐
+│ ┌─ Search & Filter ──────────────────────────────────────────────────────┐ │
+│ │ Query: [main_______]  [x] Show dirty  [x] Show ahead  [ ] Show locked │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│ ┌─ Worktrees ─────────────────────┐ ┌─ Details ─────────────────────────┐ │
+│ │                                 │ │ Branch: main                      │ │
+│ │ > main              *active     │ │ Path: /repo/main                  │ │
+│ │   feature-auth      2 ahead     │ │ Status: ✓ Clean                   │ │
+│ │   bugfix-login      dirty       │ │ Files: 12 total                   │ │
+│ │   feature-ui        1 behind    │ │ Commits: 3 ahead, 1 behind       │ │
+│ │   hotfix-security   locked      │ │                                   │ │
+│ │                                 │ │ Recent commits:                   │ │
+│ │                                 │ │ abc123f Fix authentication bug    │ │
+│ │                                 │ │ def456a Update user interface     │ │
+│ │                                 │ │ ghi789b Add comprehensive tests   │ │
+│ │                                 │ │                                   │ │
+│ │                                 │ │                                   │ │
+│ └─────────────────────────────────┘ └───────────────────────────────────┘ │
+│                                                                          │
+│ -- NORMAL -- Type '?' for help                          4 worktrees       │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Modal interface (vim-like)
+- **Normal mode**: `j/k` navigate, `enter` switch, `c` clone, `r` remove, `q` quit, `/` search
+- **Insert mode**: Active when typing in search (shows `-- INSERT --`)
+- **Command mode**: `:` for commands like `:help`, `:quit`
+- **Help toggle**: `?` shows/hides help panel (optional, not always visible)
+
+### Component structure
+- **FilterBar**: Top search input + status filter checkboxes
+- **WorktreeListPanel**: Left panel with fuzzy-filtered and status-filtered list
+- **DetailsPanel**: Right panel showing selected worktree information  
+- **App**: Main container with modal state management and keyboard handling
+- **StatusLine**: Bottom status with mode indicator and worktree count
+- **HelpPanel**: Optional overlay triggered by `?`
 
 ## Configuration
 - **cosmiconfig** for flexible loading (JSON/JS/TOML)

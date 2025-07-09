@@ -61,11 +61,13 @@ src/
 - Handle cross-platform differences
 - Always validate git repository state
 
-## TUI design (future)
-- Vim-like navigation (j/k, enter, q)
-- Fuzzy search with fuse.js
-- Multi-panel layout with React components
-- Real-time git status updates
+## TUI design (decided: vim-like modal interface)
+- **Layout**: FilterBar + two-panel flexbox + StatusLine
+- **Modal interface**: Normal/Insert/Command modes like vim
+- **Components**: App → FilterBar + WorktreeListPanel + DetailsPanel + StatusLine + HelpPanel
+- **Keybindings**: `j/k` navigate, `enter` switch, `c` clone, `r` remove, `/` search, `?` help, `q` quit
+- **Filtering**: Fuzzy search + status filters (dirty, ahead, behind, locked)
+- **Clean UI**: No always-visible hotkeys, optional help toggle
 
 ## Configuration
 - cosmiconfig for flexible config loading (JSON/JS/TOML support)
