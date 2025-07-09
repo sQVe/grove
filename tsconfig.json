@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    // Base options for broad compatibility
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    
+    // Strict type checking
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    
+    // Node.js configuration
+    "module": "NodeNext",
+    "outDir": "dist",
+    "sourceMap": true,
+    
+    // Modern JavaScript features
+    "lib": ["es2022"]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests"
+  ]
+}
