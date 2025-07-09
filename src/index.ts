@@ -127,11 +127,22 @@ async function handleInit(
 	path: string,
 	options: { bare: boolean; defaultBranch: string },
 ) {
-	console.log(
-		chalk.blue(figures.info),
-		`Initializing grove repository at: ${path}`,
-	);
-	console.log(chalk.yellow(figures.warning), "Command not implemented yet");
+	const { initRepository } = await import("./commands/init.js");
+
+	try {
+		await initRepository({
+			path,
+			bare: options.bare,
+			defaultBranch: options.defaultBranch,
+		});
+	} catch (error) {
+		console.error(
+			chalk.red(figures.cross),
+			"Error:",
+			error instanceof Error ? error.message : error,
+		);
+		process.exit(1);
+	}
 }
 
 async function handleClone(
@@ -139,22 +150,43 @@ async function handleClone(
 	path?: string,
 	options: { checkout: boolean } = { checkout: true },
 ) {
-	console.log(
-		chalk.blue(figures.info),
-		`Cloning worktree for branch: ${branch}`,
-	);
-	if (path) {
-		console.log(chalk.blue(figures.info), `Path: ${path}`);
+	const { cloneWorktree } = await import("./commands/clone.js");
+
+	try {
+		await cloneWorktree({
+			branch,
+			path,
+			checkout: options.checkout,
+		});
+	} catch (error) {
+		console.error(
+			chalk.red(figures.cross),
+			"Error:",
+			error instanceof Error ? error.message : error,
+		);
+		process.exit(1);
 	}
-	console.log(chalk.yellow(figures.warning), "Command not implemented yet");
 }
 
 async function handleSwitch(
 	worktree: string,
 	options: { create: boolean } = { create: false },
 ) {
-	console.log(chalk.blue(figures.info), `Switching to worktree: ${worktree}`);
-	console.log(chalk.yellow(figures.warning), "Command not implemented yet");
+	const { switchWorktree } = await import("./commands/switch.js");
+
+	try {
+		await switchWorktree({
+			worktree,
+			create: options.create,
+		});
+	} catch (error) {
+		console.error(
+			chalk.red(figures.cross),
+			"Error:",
+			error instanceof Error ? error.message : error,
+		);
+		process.exit(1);
+	}
 }
 
 async function handleList(
@@ -163,9 +195,21 @@ async function handleList(
 		showLocked: false,
 	},
 ) {
-	console.log(chalk.blue(figures.info), "Listing worktrees...");
-	console.log(chalk.blue(figures.info), `Format: ${options.format}`);
-	console.log(chalk.yellow(figures.warning), "Command not implemented yet");
+	const { listWorktrees } = await import("./commands/list.js");
+
+	try {
+		await listWorktrees({
+			format: options.format,
+			showLocked: options.showLocked,
+		});
+	} catch (error) {
+		console.error(
+			chalk.red(figures.cross),
+			"Error:",
+			error instanceof Error ? error.message : error,
+		);
+		process.exit(1);
+	}
 }
 
 async function launchTUI() {
