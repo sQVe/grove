@@ -21,7 +21,8 @@
     "sourceMap": true,
     
     // Modern JavaScript features
-    "lib": ["es2022"]
+    "lib": ["es2022"],
+    "types": ["node"]
   },
   "include": [
     "src/**/*"
