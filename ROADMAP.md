@@ -106,7 +106,7 @@ grove/
 ```
 
 ### Modal interface (vim-like)
-- **Normal mode**: `j/k` navigate, `enter` switch, `c` clone, `r` remove, `q` quit, `/` search
+- **Normal mode**: `j/k` navigate, `enter` switch, `c` clone, `d` delete, `q` quit, `/` search
 - **Insert mode**: Active when typing in search (shows `-- INSERT --`)
 - **Command mode**: `:` for commands like `:help`, `:quit`
 - **Help toggle**: `?` shows/hides help panel (optional, not always visible)

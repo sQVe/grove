@@ -65,7 +65,7 @@ src/
 - **Layout**: FilterBar + two-panel flexbox + StatusLine
 - **Modal interface**: Normal/Insert/Command modes like vim
 - **Components**: App → FilterBar + WorktreeListPanel + DetailsPanel + StatusLine + HelpPanel
-- **Keybindings**: `j/k` navigate, `enter` switch, `c` clone, `r` remove, `/` search, `?` help, `q` quit
+- **Keybindings**: `j/k` navigate, `enter` switch, `c` clone, `d` delete, `/` search, `?` help, `q` quit
 - **Filtering**: Fuzzy search + status filters (dirty, ahead, behind, locked)
 - **Clean UI**: No always-visible hotkeys, optional help toggle
 
