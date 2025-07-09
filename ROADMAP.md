@@ -60,13 +60,16 @@ grove/
 - [x] **Key Decision**: Co-located types/tests vs separate folders
 - [x] **Key Decision**: Subcommands (`grove init`) vs flags (`grove --init`)
 
-### Phase 2: Git operations (NEXT)
-- [ ] Complete git operations wrapper (`lib/git.ts`)
-- [ ] Implement worktree creation, removal, switching
-- [ ] Implement repository initialization
-- [ ] Error handling and validation
+### ✅ Phase 2: Git operations (COMPLETED)
+- [x] Complete git operations wrapper (`lib/git.ts`)
+- [x] Implement worktree creation, removal, switching
+- [x] Implement repository initialization
+- [x] Error handling and validation
+- [x] All CLI commands functional with proper git integration
+- [x] Comprehensive error handling and user-friendly messages
+- [x] Tests for git parsing and error handling
 
-### Phase 3: TUI development
+### Phase 3: TUI development (NEXT)
 - [ ] Basic Ink app with React components
 - [ ] Worktree list with fuzzy search integration
 - [ ] Vim-like navigation (j/k, enter, q)
