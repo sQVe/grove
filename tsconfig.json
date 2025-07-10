@@ -16,13 +16,18 @@
     "noImplicitOverride": true,
     
     // Node.js configuration
-    "module": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "outDir": "dist",
     "sourceMap": true,
     
     // Modern JavaScript features
     "lib": ["es2022"],
-    "types": ["node"]
+    "types": ["node"],
+    
+    // JSX configuration for React/Ink
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": [
     "src/**/*"
