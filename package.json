@@ -18,6 +18,7 @@
     "test:ci": "vitest run",
     "lint": "biome lint src",
     "format": "biome format --write src",
+    "format:md": "prettier --write *.md",
     "check": "biome check src",
     "check:fix": "biome check --write src"
   },
@@ -46,6 +47,7 @@
     "@types/node": "^24.0.12",
     "@types/react": "^18.0.0",
     "@types/yargs": "^17.0.0",
+    "prettier": "^3.6.2",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
