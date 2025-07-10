@@ -7,6 +7,8 @@ Grove-specific development guidelines for the Git worktree management CLI tool.
 ### Development workflow
 
 - **Always run validation**: `pnpm format && pnpm format:md && pnpm lint && pnpm tsc --noEmit && pnpm test:ci` after ALL code changes.
+- **Pre-commit hooks**: Automatically run format, lint, typecheck, and tests on staged files before each commit.
+- **Commit message validation**: All commits must follow [Conventional Commits](https://www.conventionalcommits.org/) format.
 - **Double-check before committing**: Review all changes, verify tests pass, ensure code follows guidelines.
 - **Update ROADMAP.md** when completing implementation phases or making architectural decisions.
 
@@ -108,3 +110,26 @@ src/
 - Debounced search filtering.
 - Efficient React re-renders.
 - Minimal git command execution.
+
+### Pre-commit hooks
+
+Automated quality enforcement using **Husky** and **lint-staged**:
+
+#### Pre-commit hook
+
+- **Format**: Auto-format TypeScript files with Biome, markdown files with Prettier.
+- **Lint**: Auto-fix linting issues with Biome.
+- **Type check**: Verify TypeScript compilation without emitting files.
+- **Test**: Run full test suite to ensure no regressions.
+
+#### Commit message hook
+
+- **Validation**: Enforce [Conventional Commits](https://www.conventionalcommits.org/) format.
+- **Allowed types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `revert`.
+- **Rules**: Subject must be lowercase, max 72 characters, not empty.
+
+#### Setup
+
+- Hooks are automatically installed via `pnpm install` (prepare script).
+- Configuration in `package.json` (lint-staged) and `commitlint.config.js`.
+- Manual hook testing: `.husky/pre-commit` and `echo "message" | npx commitlint`.
