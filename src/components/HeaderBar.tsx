@@ -8,7 +8,7 @@ interface HeaderBarProps {
 
 export function HeaderBar({ worktrees }: HeaderBarProps) {
 	const activeWorktree = worktrees.find((w) => w.active);
-	const currentBranch = activeWorktree?.branch || "unknown";
+	const currentWorktree = activeWorktree?.name || "unknown";
 	const worktreeCount = worktrees.length;
 
 	return (
@@ -17,7 +17,7 @@ export function HeaderBar({ worktrees }: HeaderBarProps) {
 				Grove
 			</Text>
 			<Text color="gray"> - </Text>
-			<Text color="green">{currentBranch}</Text>
+			<Text color="green">{currentWorktree}</Text>
 			<Text color="gray">*</Text>
 			<Box flexGrow={1} />
 			<Text color="gray">{worktreeCount} worktrees</Text>

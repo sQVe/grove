@@ -28,11 +28,11 @@ describe("HeaderBar", () => {
 		const { lastFrame } = render(<HeaderBar worktrees={mockWorktrees} />);
 
 		expect(lastFrame()).toContain("Grove");
-		expect(lastFrame()).toContain("main"); // Active branch
+		expect(lastFrame()).toContain("main"); // Active worktree
 		expect(lastFrame()).toContain("2 worktrees");
 	});
 
-	it("should show active worktree branch with asterisk", () => {
+	it("should show active worktree name with asterisk", () => {
 		const { lastFrame } = render(<HeaderBar worktrees={mockWorktrees} />);
 
 		expect(lastFrame()).toContain("main*");
@@ -42,7 +42,7 @@ describe("HeaderBar", () => {
 		const { lastFrame } = render(<HeaderBar worktrees={[]} />);
 
 		expect(lastFrame()).toContain("Grove");
-		expect(lastFrame()).toContain("unknown"); // No active branch
+		expect(lastFrame()).toContain("unknown"); // No active worktree
 		expect(lastFrame()).toContain("0 worktrees");
 	});
 
