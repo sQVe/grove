@@ -213,8 +213,8 @@ async function handleList(
 }
 
 async function launchTUI() {
-	console.log(chalk.green(figures.tick), "Launching Grove TUI...");
-	console.log(chalk.yellow(figures.warning), "TUI not implemented yet");
+	const { launchTUI: startTUI } = await import("./components/tui");
+	await startTUI();
 }
 
 main().catch((error) => {

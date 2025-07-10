@@ -38,3 +38,18 @@ export class WorktreeFuzzySearch {
 		this.fuse.setCollection(worktrees);
 	}
 }
+
+/**
+ * Simple wrapper function for fuzzy searching worktrees.
+ */
+export function searchWorktrees(
+	worktrees: Worktree[],
+	query: string,
+): Worktree[] {
+	if (!query.trim()) {
+		return worktrees;
+	}
+
+	const fuzzySearch = new WorktreeFuzzySearch(worktrees);
+	return fuzzySearch.search(query);
+}
