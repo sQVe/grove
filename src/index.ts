@@ -9,7 +9,7 @@ async function main() {
 	const cli = yargs(hideBin(process.argv))
 		.scriptName("grove")
 		.usage("$0 <command>")
-		.example("$0", "Launch interactive TUI")
+		.example("$0", "List all worktrees")
 		.example("$0 init", "Initialize bare repository")
 		.example("$0 clone feature-branch", "Clone worktree for branch")
 		.example("$0 switch main", "Switch to main worktree")
@@ -101,12 +101,18 @@ async function main() {
 						describe: "Show locked worktrees",
 						type: "boolean",
 						default: false,
+					})
+					.option("show-status", {
+						describe: "Show detailed status information",
+						type: "boolean",
+						default: true,
 					});
 			},
 			async (argv) => {
 				await handleList({
 					format: argv.format as "table" | "json",
 					showLocked: argv.showLocked,
+					showStatus: argv.showStatus,
 				});
 			},
 		)
@@ -119,7 +125,7 @@ async function main() {
 	const argv = await cli.parseAsync();
 
 	if (argv._.length === 0) {
-		await launchTUI();
+		await handleList();
 	}
 }
 
@@ -190,9 +196,14 @@ async function handleSwitch(
 }
 
 async function handleList(
-	options: { format: "table" | "json"; showLocked: boolean } = {
+	options: {
+		format: "table" | "json";
+		showLocked: boolean;
+		showStatus?: boolean;
+	} = {
 		format: "table",
 		showLocked: false,
+		showStatus: true,
 	},
 ) {
 	const { listWorktrees } = await import("./commands/list.js");
@@ -201,6 +212,7 @@ async function handleList(
 		await listWorktrees({
 			format: options.format,
 			showLocked: options.showLocked,
+			showStatus: options.showStatus,
 		});
 	} catch (error) {
 		console.error(
@@ -210,11 +222,6 @@ async function handleList(
 		);
 		process.exit(1);
 	}
-}
-
-async function launchTUI() {
-	const { launchTUI: startTUI } = await import("./components/tui");
-	await startTUI();
 }
 
 main().catch((error) => {

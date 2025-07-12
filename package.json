@@ -1,7 +1,7 @@
 {
   "name": "grove-cli",
   "version": "1.0.0",
-  "description": "A CLI tool for Git worktree management with interactive TUI",
+  "description": "A CLI tool for Git worktree management",
   "main": "dist/index.js",
   "bin": {
     "grove": "dist/index.js"
@@ -36,7 +36,6 @@
     "git",
     "worktree",
     "cli",
-    "tui",
     "fuzzy-search",
     "developer-tools"
   ],
@@ -47,8 +46,6 @@
     "cosmiconfig": "^9.0.0",
     "figures": "^6.1.0",
     "fuse.js": "^7.0.0",
-    "ink": "^5.0.0",
-    "react": "^18.0.0",
     "yargs": "^17.7.0",
     "zod": "^3.22.0"
   },
@@ -56,12 +53,9 @@
     "@biomejs/biome": "^1.8.0",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@testing-library/react": "^16.3.0",
     "@types/node": "^24.0.12",
-    "@types/react": "^18.0.0",
     "@types/yargs": "^17.0.0",
     "husky": "^9.1.7",
-    "ink-testing-library": "^4.0.0",
     "lint-staged": "^16.1.2",
     "prettier": "^3.6.2",
     "tsx": "^4.0.0",
