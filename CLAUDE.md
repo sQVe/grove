@@ -39,7 +39,7 @@ CLI tool for Git worktree management with TUI interface. Built with TypeScript, 
 ### Usage patterns
 
 - **Primary**: `grove` launches interactive TUI.
-- **Scripting**: `grove init`, `grove clone <branch>`, `grove switch <name>`, `grove list`.
+- **Scripting**: `grove init`, `grove create <branch>`, `grove switch <name>`, `grove list`.
 
 ### Project structure
 
@@ -86,7 +86,7 @@ src/
 - **Layout**: FilterBar + two-panel flexbox + StatusLine.
 - **Modal interface**: Normal/Insert/Command modes like vim.
 - **Components**: App → FilterBar + WorktreeListPanel + DetailsPanel + StatusLine + HelpPanel.
-- **Keybindings**: `j/k` navigate, `enter` switch, `c` clone, `d` delete, `/` search, `?` help, `q` quit.
+- **Keybindings**: `j/k` navigate, `enter` switch, `c` create, `d` delete, `/` search, `?` help, `q` quit.
 - **Filtering**: Fuzzy search + status filters (dirty, ahead, behind, locked).
 - **Clean UI**: No always-visible hotkeys, optional help toggle.
 

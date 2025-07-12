@@ -1,14 +1,14 @@
-export interface CloneOptions {
+export interface CreateOptions {
 	branch: string;
 	path?: string;
 	checkout?: boolean;
 }
 
-export async function cloneWorktree({
+export async function createWorktreeCommand({
 	branch,
 	path,
 	checkout = true,
-}: CloneOptions) {
+}: CreateOptions) {
 	const { createWorktree, isGitRepository, GitOperationError } = await import(
 		"../lib/git.js"
 	);
@@ -50,7 +50,7 @@ export async function cloneWorktree({
 					"Worktree path already exists. Choose a different path or remove the existing worktree.",
 				);
 			}
-			throw new Error(`Failed to clone worktree: ${error.message}`);
+			throw new Error(`Failed to create worktree: ${error.message}`);
 		}
 		throw error;
 	}

@@ -11,7 +11,7 @@ Grove transforms Git worktrees from a power-user feature into an essential produ
 ```bash
 grove                    # List all worktrees (default)
 grove init [path]        # Initialize bare repository
-grove clone <branch>     # Clone worktree from branch
+grove create <branch>     # Create worktree from branch
 grove switch <worktree>  # Switch to worktree
 grove list               # List with enhanced formatting
 ```

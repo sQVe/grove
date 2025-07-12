@@ -11,7 +11,7 @@ async function main() {
 		.usage("$0 <command>")
 		.example("$0", "List all worktrees")
 		.example("$0 init", "Initialize bare repository")
-		.example("$0 clone feature-branch", "Clone worktree for branch")
+		.example("$0 create feature-branch", "Create worktree for branch")
 		.example("$0 switch main", "Switch to main worktree")
 		.example("$0 list", "List all worktrees")
 		.command(
@@ -43,12 +43,12 @@ async function main() {
 			},
 		)
 		.command(
-			"clone <branch> [path]",
-			"Clone worktree from existing branch",
+			"create <branch> [path]",
+			"Create worktree from existing branch",
 			(yargs) => {
 				return yargs
 					.positional("branch", {
-						describe: "Branch name to clone",
+						describe: "Branch name to create worktree from",
 						type: "string",
 						demandOption: true,
 					})
@@ -57,13 +57,13 @@ async function main() {
 						type: "string",
 					})
 					.option("checkout", {
-						describe: "Checkout branch after cloning",
+						describe: "Checkout branch after creating worktree",
 						type: "boolean",
 						default: true,
 					});
 			},
 			async (argv) => {
-				await handleClone(argv.branch, argv.path, { checkout: argv.checkout });
+				await handleCreate(argv.branch, argv.path, { checkout: argv.checkout });
 			},
 		)
 		.command(
@@ -151,15 +151,15 @@ async function handleInit(
 	}
 }
 
-async function handleClone(
+async function handleCreate(
 	branch: string,
 	path?: string,
 	options: { checkout: boolean } = { checkout: true },
 ) {
-	const { cloneWorktree } = await import("./commands/clone.js");
+	const { createWorktreeCommand } = await import("./commands/create.js");
 
 	try {
-		await cloneWorktree({
+		await createWorktreeCommand({
 			branch,
 			path,
 			checkout: options.checkout,
