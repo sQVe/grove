@@ -14,11 +14,15 @@ Grove is being rewritten in Go for better performance and easier distribution. T
 
 - [x] Project structure setup
 - [x] Basic CLI architecture planning
+- [x] Go module initialization with dependencies (cobra, viper, testify)
+- [x] Git command execution foundation with error handling
+- [x] Repository validation and git availability checks
+- [x] `grove init` command - Initialize bare repositories
+- [ ] Implement Mage build system (build, test, lint, clean tasks)
 - [ ] Core git operations (`git worktree list`, `git worktree add`, `git worktree remove`)
-- [ ] Configuration system (TOML support)
-- [ ] Cross-platform compatibility
-- [ ] Error handling and validation
-- [ ] Basic commands: `grove`, `grove init`, `grove create`, `grove switch`, `grove list`
+- [ ] Configuration system (TOML support) 
+- [ ] Cross-platform compatibility testing
+- [ ] Basic commands: `grove list`, `grove create`, `grove switch`, enhanced `grove`
 
 ### Phase 2: Enhanced Features 📅 *Planned*
 
@@ -54,10 +58,14 @@ Grove is being rewritten in Go for better performance and easier distribution. T
 ## Milestones
 
 ### v0.1.0 - Core Foundation
-- [ ] Basic CLI commands working
-- [ ] Cross-platform compatibility
+- [x] Go project foundation with dependencies
+- [x] Git operations infrastructure
+- [x] `grove init` command working
+- [x] Test suite foundation (unit tests for git operations and commands)
+- [ ] Mage build system with essential development tasks
+- [ ] `grove list`, `grove create`, `grove switch` commands
+- [ ] Cross-platform compatibility testing
 - [ ] Configuration system
-- [ ] Test suite and CI/CD
 
 ### v0.2.0 - Enhanced Experience
 - [ ] Smart cleanup features
@@ -84,6 +92,19 @@ Grove is being rewritten in Go for better performance and easier distribution. T
 3. **Configuration system**: TOML-based configuration with validation
 4. **Error handling**: Clear, actionable error messages
 5. **Testing**: Comprehensive test suite for git operations
+
+## Development Infrastructure Decisions
+
+### Build System: Mage
+**Decision**: Use Mage for Grove's build automation  
+**Rationale**: 
+- Cross-platform (no bash/make dependencies)
+- Go-native (same language as Grove)
+- Modern 2025 best practice for Go projects
+- Parallel task execution with goroutines
+- Can import Grove packages for advanced build logic
+
+**Tasks to implement**: Build, Test, TestCoverage, Lint, Fmt, Clean, Install
 
 ## Contributing
 
