@@ -1,201 +1,90 @@
 # Grove roadmap
 
-> **Git worktree management CLI** - Fast, intuitive worktree operations with optional TUI interface.
+Development roadmap and implementation tracking for Grove.
 
-## Overview
+## Current status
 
-Grove transforms Git worktrees from a power-user feature into an essential productivity tool. Currently focused on delivering exceptional CLI experience with plans for interactive TUI.
+Grove is being rewritten in Go for better performance and easier distribution. The TypeScript implementation is being replaced with a focused CLI-first approach.
 
-### Current capabilities
+## Implementation phases
 
-```bash
-grove                    # List all worktrees (default)
-grove init [path]        # Initialize bare repository
-grove create <branch>     # Create worktree from branch
-grove switch <worktree>  # Switch to worktree
-grove list               # List with enhanced formatting
-```
+### Phase 1: Core CLI Foundation ⏳ *In Progress*
 
-### Planned capabilities
+**Goal**: Essential worktree management commands with Go foundation
 
-```bash
-grove tui                # Interactive TUI interface
-grove pr <number>        # Create worktree from GitHub PR
-grove linear <issue-id>  # Create worktree from Linear issue
-```
+- [x] Project structure setup
+- [x] Basic CLI architecture planning
+- [ ] Core git operations (`git worktree list`, `git worktree add`, `git worktree remove`)
+- [ ] Configuration system (TOML support)
+- [ ] Cross-platform compatibility
+- [ ] Error handling and validation
+- [ ] Basic commands: `grove`, `grove init`, `grove create`, `grove switch`, `grove list`
 
-## Implementation status
+### Phase 2: Enhanced Features 📅 *Planned*
 
-### ✅ Foundation (complete)
+**Goal**: Improved user experience and productivity features
 
-**Core infrastructure established**
+- [ ] Smart cleanup commands (`grove clean --merged`, `grove clean --stale`)
+- [ ] Enhanced status display (age indicators, disk usage)
+- [ ] JSON output format for scripting
+- [ ] Fuzzy search for worktree selection
+- [ ] Configuration file management
+- [ ] Performance optimizations
 
-- [x] TypeScript project with ES modules and Node.js types
-- [x] CLI structure with yargs subcommands and auto-completion
-- [x] Validation workflow (format, lint, typecheck, test)
-- [x] Co-located types and tests for maintainability
-- [x] Fuzzy search implementation with comprehensive tests
+### Phase 3: Service Integrations 🔮 *Future*
 
-### ✅ Git operations (complete)
+**Goal**: Seamless integration with development workflows
 
-**Full worktree management functionality**
+- [ ] GitHub PR integration (`grove pr 123`)
+- [ ] Linear issue integration (`grove linear PROJ-456`)
+- [ ] Authentication system (OAuth, token management)
+- [ ] Branch name generation from PR/issue metadata
+- [ ] Status updates and workflow automation
 
-- [x] Complete git operations wrapper in `lib/git.ts`
-- [x] Worktree creation, removal, and switching
-- [x] Repository initialization with bare repo support
-- [x] Robust error handling and git validation
-- [x] All CLI commands functional with proper integration
+### Phase 4: Interactive TUI 🔮 *Future*
 
-### 🚧 CLI polish (in progress)
+**Goal**: Optional interactive interface for power users
 
-**Enhanced command-line experience**
+- [ ] Multi-panel TUI layout
+- [ ] Vim-like navigation and keybindings
+- [ ] Real-time git status updates
+- [ ] Interactive cleanup and management
+- [ ] Mouse support and contextual actions
 
-- [x] Enhanced list output with colors and status indicators
-- [x] Improved table formatting with proper spacing
-- [ ] Environment file cloning between worktrees
-- [ ] Configuration management with cosmiconfig + zod
-- [ ] Shell auto-completion for commands and worktree names
-- [ ] Comprehensive documentation and distribution setup
+## Milestones
 
-### 📋 Planned features
+### v0.1.0 - Core Foundation
+- [ ] Basic CLI commands working
+- [ ] Cross-platform compatibility
+- [ ] Configuration system
+- [ ] Test suite and CI/CD
 
-**External integrations**
+### v0.2.0 - Enhanced Experience
+- [ ] Smart cleanup features
+- [ ] Enhanced status display
+- [ ] Fuzzy search integration
+- [ ] Performance optimizations
 
-- [ ] GitHub PR support (`grove pr <number>`)
-- [ ] Linear issue support (`grove linear <issue-id>`)
-- [ ] API authentication and metadata display
-- [ ] Enhanced CLI output for external data
+### v0.3.0 - Service Integrations
+- [ ] GitHub PR support
+- [ ] Linear issue support
+- [ ] Authentication system
+- [ ] Workflow automation
 
-**Interactive TUI** _(future)_
+### v1.0.0 - Complete CLI
+- [ ] All core features stable
+- [ ] Comprehensive documentation
+- [ ] Cross-platform distribution
+- [ ] Community feedback integration
 
-- [ ] React/Ink-based interface with vim-like navigation
-- [ ] Multi-panel layout with real-time git status
-- [ ] Fuzzy search filtering and contextual actions
-- [ ] Visual git state display with rich metadata
+## Current priorities
 
-## Technical architecture
+1. **Core git operations**: Implement reliable worktree management
+2. **Cross-platform testing**: Ensure Windows/macOS/Linux compatibility
+3. **Configuration system**: TOML-based configuration with validation
+4. **Error handling**: Clear, actionable error messages
+5. **Testing**: Comprehensive test suite for git operations
 
-### Technology stack
+## Contributing
 
-**Core technologies**
-
-- TypeScript/Node.js with ES modules
-- yargs for CLI parsing and auto-completion
-- Biome for linting/formatting, Vitest for testing
-- Direct git execution via child_process
-- fuse.js for fuzzy search, cosmiconfig + zod for configuration
-
-**Future TUI stack**
-
-- Ink + React for terminal interface
-- Vim-like navigation patterns
-- Multi-panel layout with real-time updates
-
-### Project structure
-
-```
-grove/
-├── src/
-│   ├── index.ts              # CLI entry point
-│   ├── commands/             # Command implementations
-│   │   ├── init.ts, clone.ts, switch.ts, list.ts
-│   └── lib/                  # Core functionality
-│       ├── git.ts           # Git operations
-│       ├── config.ts        # Configuration
-│       └── fuzzy.ts         # Fuzzy search
-├── package.json, tsconfig.json
-└── ROADMAP.md
-```
-
-### Configuration approach
-
-**Flexible configuration loading**
-
-- cosmiconfig for JSON/JS/TOML support
-- Global: `~/.config/grove/config.*`
-- Repository: `.grove/config.*`
-- Validation with zod schemas
-
-### Design principles
-
-**Core philosophy**
-
-- **Simplicity**: Make Git worktree operations intuitive
-- **Speed**: Fast fuzzy search and keyboard shortcuts
-- **CLI-first**: Excellent command-line experience with optional TUI
-- **Vim-like**: Familiar navigation patterns for power users
-
-## Future vision
-
-### Interactive TUI interface
-
-**When CLI foundation is solid**
-
-- Multi-panel layout with vim-like navigation
-- Real-time fuzzy search with status filters
-- Visual git status with rich metadata display
-- Contextual keyboard shortcuts for common actions
-
-**Planned TUI design**
-
-```
-┌─ Grove ─ /repo/project ─ main* ──────────── 4 worktrees ──┐
-│ ┌─ Worktrees ─────────────┐ ┌─ Details ─────────────────┐ │
-│ │ > main        *active   │ │ Branch: main              │ │
-│ │   feature     2 ahead   │ │ Status: ✓ Clean           │ │
-│ │   bugfix      dirty     │ │ Files: 12 total           │ │
-│ │   pr-123     PR #123    │ │ Commits: 3↑ 1↓            │ │
-│ └─────────────────────────┘ └───────────────────────────┘ │
-│ [c]reate [d]elete [/]filter [?]help [q]uit               │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Advanced integrations
-
-**Developer workflow**
-
-- Editor launching (VS Code, Cursor, configurable)
-- Shell access in worktree directories
-- Project-aware actions (npm install, tests)
-- Environment file cloning between worktrees
-
-**External services**
-
-- GitHub PR worktree creation
-- Linear issue integration with automatic branch naming
-- API authentication and metadata display
-- Team configuration sharing
-
-### Performance enhancements
-
-**Scalability and speed**
-
-- Background git status updates
-- Lazy loading for large repositories
-- Smart caching with file system watching
-- Handle 10+ worktrees efficiently
-
-**User experience**
-
-- Customizable information density
-- Workflow templates for teams
-- Enhanced git context (stashes, untracked files)
-- Activity tracking and timestamps
-
----
-
-## Value proposition
-
-**Transform Git worktrees** from a power-user feature into an essential productivity tool.
-
-### Key benefits
-
-- **Instant visibility**: Real-time worktree status monitoring
-- **Zero friction**: Fast switching with fuzzy search
-- **Smart integration**: GitHub/Linear workflow support
-- **Cross-platform**: Works everywhere Git works
-- **Extensible**: Configuration for team workflows
-
----
-
-_This roadmap reflects current implementation status and future vision._
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [FEATURES.md](FEATURES.md) for detailed feature descriptions.
