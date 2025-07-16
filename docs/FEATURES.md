@@ -11,7 +11,8 @@ grove init <remote-url>      # Clone remote with worktree structure
 grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch setup
 ```
 
-**Features**: 
+**Features**:
+
 - Worktree-optimized structure with .bare/ subdirectory
 - Smart URL parsing for GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, Codeberg
 - Multi-branch worktree creation with --branches flag
@@ -22,7 +23,7 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 ### Infrastructure
 
 - Robust git command execution with error handling
-- Repository validation and comprehensive URL detection  
+- Repository validation and comprehensive URL detection
 - 96.4% test coverage with comprehensive test infrastructure
 - Cross-platform compatibility (Windows/macOS/Linux)
 

@@ -12,7 +12,8 @@
 
 - Go 1.21+, Git 2.5+, golangci-lint v2.0+
 
-**Install golangci-lint**: 
+**Install golangci-lint**:
+
 ```bash
 # macOS
 brew install golangci-lint
@@ -53,14 +54,14 @@ go build ./cmd/grove                           # Build
 
 - **Coverage**: Aim for 90%+ (currently 85.6% overall: 94.3% utils, 86.4% commands, 85.0% git)
 - **Types**: Unit tests (mocked), integration tests (real git operations)
-- **Structure**: 
-  - `file_test.go` - Unit tests with mocked dependencies
-  - `file_integration_test.go` - Integration tests with real git operations
+- **Structure**:
+    - `file_test.go` - Unit tests with mocked dependencies
+    - `file_integration_test.go` - Integration tests with real git operations
 - **Build tags**: Integration tests use `//go:build integration` tag
 - **Running tests**:
-  - Unit tests: `go test ./...`
-  - Integration tests: `go test -tags=integration ./...`
-  - All tests: `go test -tags=integration ./...`
+    - Unit tests: `go test ./...`
+    - Integration tests: `go test -tags=integration ./...`
+    - All tests: `go test -tags=integration ./...`
 
 ## Architecture
 
@@ -117,7 +118,7 @@ Grove provides structured debug logging to troubleshoot git operations and repos
 # Command line flag
 grove --debug init https://github.com/user/repo.git
 
-# Environment variable  
+# Environment variable
 GROVE_DEBUG=1 grove init https://github.com/user/repo.git
 
 # JSON format for parsing
@@ -135,21 +136,27 @@ grove --log-format=json --debug init
 ### Common Issues
 
 #### Git Not Found
+
 ```
 level=ERROR component=system_utils msg="git not found in PATH"
 ```
+
 **Solution**: Install git or add to PATH
 
 #### Network Timeouts
+
 ```
 level=DEBUG component=default_branch msg="context deadline exceeded"
 ```
+
 **Solution**: Check network connectivity or use local repository
 
 #### Repository Not Found
+
 ```
-level=ERROR component=git_executor msg="repository not found"  
+level=ERROR component=git_executor msg="repository not found"
 ```
+
 **Solution**: Verify URL is correct and accessible
 
 ### Debug Log Format
