@@ -188,8 +188,8 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 
 	log.DebugOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
 
-	// Use retry mechanism for clone operation
-	err := retry.WithRetry(context.Background(), func() error {
+	// Use configured retry mechanism for clone operation
+	err := retry.WithConfiguredRetry(context.Background(), func() error {
 		_, err := executor.Execute("clone", "--bare", repoURL, targetDir)
 		if err != nil {
 			// Classify error for retry logic
@@ -276,9 +276,9 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string
 		return err
 	}
 
-	// Fetch all remote branches with retry
+	// Fetch all remote branches with configured retry
 	log.Debug("fetching all remote branches", "remote", remoteName)
-	err = retry.WithRetry(context.Background(), func() error {
+	err = retry.WithConfiguredRetry(context.Background(), func() error {
 		_, err := executor.Execute("fetch")
 		if err != nil {
 			// Classify error for retry logic
