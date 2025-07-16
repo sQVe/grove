@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,19 +19,46 @@ func NewInitCmd() *cobra.Command {
 		Short: "Initialize or clone a Git repository optimized for worktrees",
 		Long: `Initialize a new bare Git repository or clone an existing one with worktree-optimized structure.
 
-Three modes:
+Basic usage:
   grove init                    # Initialize new bare repository in current directory
   grove init <directory>        # Initialize new bare repository in specified directory  
   grove init <remote-url>       # Clone existing repository with worktree setup
   grove init --convert          # Convert existing traditional repo to Grove structure
 
+Multi-branch setup:
+  grove init <remote-url> --branches=main,develop,feature/auth
+
+Smart URL parsing supports:
+  - GitHub: github.com/owner/repo, github.com/owner/repo/tree/branch, github.com/owner/repo/pull/123
+  - GitLab: gitlab.com/owner/repo, gitlab.com/owner/repo/-/tree/branch
+  - Bitbucket: bitbucket.org/owner/repo, bitbucket.org/owner/repo/src/branch
+  - Azure DevOps: dev.azure.com/org/project/_git/repo
+  - Codeberg: codeberg.org/owner/repo, codeberg.org/owner/repo/src/branch/branch
+  - And standard Git URLs (.git suffix, SSH format)
+
+Examples:
+  grove init https://github.com/owner/repo
+  grove init https://github.com/owner/repo/tree/main --branches=develop,staging
+  grove init https://gitlab.com/owner/repo --branches=main,feature/auth
+  grove init git@github.com:owner/repo.git --branches=main
+
 The repository structure uses a .bare/ subdirectory for git objects and a .git file
 pointing to it, allowing the main directory to function as a working directory.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			convert, _ := cmd.Flags().GetBool("convert")
+			branches, _ := cmd.Flags().GetString("branches")
+
 			if convert && len(args) > 0 {
 				_ = cmd.Usage()
 				return fmt.Errorf("cannot specify arguments when using --convert flag")
+			}
+			if convert && branches != "" {
+				_ = cmd.Usage()
+				return fmt.Errorf("cannot use --branches flag with --convert")
+			}
+			if branches != "" && len(args) == 0 {
+				_ = cmd.Usage()
+				return fmt.Errorf("--branches flag requires a remote URL")
 			}
 			if !convert && len(args) > 1 {
 				_ = cmd.Usage()
@@ -42,6 +70,7 @@ pointing to it, allowing the main directory to function as a working directory.`
 	}
 
 	cmd.Flags().Bool("convert", false, "Convert existing traditional Git repository to Grove structure")
+	cmd.Flags().String("branches", "", "Comma-separated list of branches to create worktrees for (e.g., 'main,develop,feature/auth')")
 
 	return cmd
 }
@@ -72,9 +101,54 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Determine if argument is a URL or directory path.
-	if targetArg != "" && utils.IsGitURL(targetArg) {
-		log.InfoOperation("running init remote", "repo_url", targetArg, "duration", time.Since(start))
-		return runInitRemote(targetArg)
+	if targetArg != "" {
+		// First check if it's a URL (either smart platform URL or standard Git URL)
+		urlInfo, err := utils.ParseGitPlatformURL(targetArg)
+		switch {
+		case err == nil:
+			// It's a recognized Git platform URL
+			branches, _ := cmd.Flags().GetString("branches")
+
+			// If URL contains branch information, add it to branches list
+			if urlInfo.BranchName != "" {
+				if branches == "" {
+					branches = urlInfo.BranchName
+				} else {
+					// Check if the branch from URL is already in the branches list
+					branchList := strings.Split(branches, ",")
+					found := false
+					for _, b := range branchList {
+						if strings.TrimSpace(b) == urlInfo.BranchName {
+							found = true
+							break
+						}
+					}
+					if !found {
+						branches = urlInfo.BranchName + "," + branches
+					}
+				}
+			}
+
+			log.InfoOperation("running init remote with smart URL", "original_url", targetArg, "repo_url", urlInfo.RepoURL, "platform", urlInfo.Platform, "branch", urlInfo.BranchName, "pr", urlInfo.PRNumber, "branches", branches, "duration", time.Since(start))
+
+			if urlInfo.PRNumber != "" {
+				fmt.Printf("Detected %s pull request #%s\n", urlInfo.Platform, urlInfo.PRNumber)
+			}
+			if urlInfo.BranchName != "" {
+				fmt.Printf("Detected %s branch: %s\n", urlInfo.Platform, urlInfo.BranchName)
+			}
+
+			return runInitRemote(urlInfo.RepoURL, branches)
+		case utils.IsGitURL(targetArg):
+			// Fall back to standard Git URL handling
+			branches, _ := cmd.Flags().GetString("branches")
+			log.InfoOperation("running init remote", "repo_url", targetArg, "branches", branches, "duration", time.Since(start))
+			return runInitRemote(targetArg, branches)
+		default:
+			// Not a URL, treat as directory path
+			log.InfoOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
+			return runInitLocal(targetArg)
+		}
 	} else {
 		log.InfoOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
 		return runInitLocal(targetArg)
@@ -152,11 +226,11 @@ func runInitLocal(targetDir string) error {
 	return nil
 }
 
-func runInitRemote(repoURL string) error {
-	return runInitRemoteWithExecutor(git.DefaultExecutor, repoURL)
+func runInitRemote(repoURL, branches string) error {
+	return RunInitRemoteWithExecutor(git.DefaultExecutor, repoURL, branches)
 }
 
-func runInitRemoteWithExecutor(executor git.GitExecutor, repoURL string) error {
+func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches string) error {
 	log := logger.WithComponent("init_remote")
 	start := time.Now()
 
@@ -192,6 +266,18 @@ func runInitRemoteWithExecutor(executor git.GitExecutor, repoURL string) error {
 		// Don't fail the init if worktree creation fails
 		log.Warn("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
 		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
+	}
+
+	// Create additional worktrees if branches were specified
+	if branches != "" {
+		fmt.Println("Creating additional worktrees...")
+		branchList := ParseBranches(branches)
+		log.Debug("creating additional worktrees", "branches", branchList)
+		if err := CreateAdditionalWorktrees(executor, targetDir, branchList); err != nil {
+			// Don't fail the init if additional worktree creation fails
+			log.Warn("additional worktree creation failed but continuing", "error", err, "branches", branchList)
+			fmt.Printf("Warning: failed to create additional worktrees: %v\n", err)
+		}
 	}
 
 	log.InfoOperation("remote repository initialization completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
@@ -329,6 +415,139 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	fmt.Println("\nNext steps:")
 	fmt.Println("  grove create <branch-name>  # Create a worktree for a branch")
 	fmt.Println("  grove list                  # List all worktrees")
+
+	return nil
+}
+
+// ParseBranches parses a comma-separated string of branch names and returns a slice
+func ParseBranches(branchesStr string) []string {
+	if branchesStr == "" {
+		return nil
+	}
+
+	var branches []string
+	for _, branch := range strings.Split(branchesStr, ",") {
+		branch = strings.TrimSpace(branch)
+		if branch != "" && isValidBranchName(branch) {
+			branches = append(branches, branch)
+		}
+	}
+	return branches
+}
+
+// isValidBranchName validates that a branch name follows Git naming conventions
+func isValidBranchName(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	// Git branch naming rules (simplified):
+	// - Cannot start or end with /
+	// - Cannot contain ..
+	// - Cannot contain ASCII control characters
+	// - Cannot contain spaces (in most contexts)
+	// - Cannot be just -
+	// - Cannot start with -
+	// - Cannot end with .lock
+
+	if name == "-" || strings.HasPrefix(name, "-") || strings.HasSuffix(name, ".lock") {
+		return false
+	}
+
+	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
+		return false
+	}
+
+	if strings.Contains(name, "..") {
+		return false
+	}
+
+	// Check for control characters and spaces
+	for _, r := range name {
+		if r < 32 || r == 127 || r == ' ' {
+			return false
+		}
+	}
+
+	// Additional Git-specific invalid characters
+	invalidChars := []string{"~", "^", ":", "?", "*", "[", "\\"}
+	for _, char := range invalidChars {
+		if strings.Contains(name, char) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// CreateAdditionalWorktrees creates worktrees for the specified branches
+func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branches []string) error {
+	if len(branches) == 0 {
+		return nil
+	}
+
+	log := logger.WithComponent("additional_worktrees")
+
+	// Change to target directory to run git commands
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := os.Chdir(targetDir); err != nil {
+		return fmt.Errorf("failed to change to directory %s: %w", targetDir, err)
+	}
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// Get list of available remote branches
+	output, err := executor.Execute("branch", "-r")
+	if err != nil {
+		log.Warn("failed to get remote branches", "error", err)
+		return fmt.Errorf("failed to get remote branches: %w", err)
+	}
+
+	availableBranches := make(map[string]bool)
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "->") {
+			continue // Skip empty lines and symbolic refs
+		}
+		// Remove "origin/" prefix
+		if strings.HasPrefix(line, "origin/") {
+			branchName := strings.TrimPrefix(line, "origin/")
+			availableBranches[branchName] = true
+		}
+	}
+
+	log.Debug("available remote branches", "branches", availableBranches)
+
+	// Create worktrees for requested branches
+	for _, branch := range branches {
+		if !availableBranches[branch] {
+			log.Warn("branch not found on remote", "branch", branch)
+			fmt.Printf("Warning: branch '%s' not found on remote, skipping\n", branch)
+			continue
+		}
+
+		// Check if worktree already exists (e.g., if this was the default branch)
+		worktreePath := filepath.Join(targetDir, branch)
+		if _, err := os.Stat(worktreePath); err == nil {
+			log.Debug("worktree already exists", "branch", branch, "path", worktreePath)
+			continue
+		}
+
+		fmt.Printf("Creating worktree for branch '%s'...\n", branch)
+		log.Debug("creating worktree", "branch", branch, "path", worktreePath)
+
+		_, err := executor.Execute("worktree", "add", worktreePath, branch)
+		if err != nil {
+			log.Warn("failed to create worktree", "branch", branch, "error", err)
+			fmt.Printf("Warning: failed to create worktree for branch '%s': %v\n", branch, err)
+			continue
+		}
+
+		log.InfoOperation("worktree created successfully", "branch", branch, "path", worktreePath)
+	}
 
 	return nil
 }

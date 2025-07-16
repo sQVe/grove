@@ -66,12 +66,12 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "grove-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to the temporary directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 
 	// Test directory with hidden files (should pass)
 	hiddenFile := filepath.Join(tempDir, ".hidden")
-	err = os.WriteFile(hiddenFile, []byte("test"), 0644)
+	err = os.WriteFile(hiddenFile, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	result, err = validateAndPrepareDirectory()
@@ -92,7 +92,7 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 
 	// Test directory with non-hidden files (should fail)
 	visibleFile := filepath.Join(tempDir, "visible.txt")
-	err = os.WriteFile(visibleFile, []byte("test"), 0644)
+	err = os.WriteFile(visibleFile, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	_, err = validateAndPrepareDirectory()
@@ -110,12 +110,12 @@ func TestPrintSuccessMessage(t *testing.T) {
 	done := make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		buf.ReadFrom(r)
+		_, _ = buf.ReadFrom(r)
 		done <- buf.String()
 	}()
 
 	printSuccessMessage("/test/dir", "/test/dir/.bare")
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	output := <-done
@@ -134,12 +134,12 @@ func TestRunInitLocal(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-local-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to temp directory
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Test successful local initialization
 	err = runInitLocal("")
@@ -165,7 +165,7 @@ func TestRunInitLocalWithTargetDir(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-local-target-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	targetDir := filepath.Join(tempDir, "new-repo")
 
@@ -193,12 +193,12 @@ func TestRunInitConvertWithExecutor(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
@@ -215,23 +215,23 @@ func TestRunInitConvertAlreadyGrove(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-grove-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
 	// Create a mock .git file and .bare directory to simulate a grove repo
 	gitFile := filepath.Join(tempDir, ".git")
-	err = os.WriteFile(gitFile, []byte("gitdir: .bare"), 0644)
+	err = os.WriteFile(gitFile, []byte("gitdir: .bare"), 0o644)
 	require.NoError(t, err)
 
 	bareDir := filepath.Join(tempDir, ".bare")
-	err = os.MkdirAll(bareDir, 0755)
+	err = os.MkdirAll(bareDir, 0o755)
 	require.NoError(t, err)
 
 	mockExecutor := testutils.NewMockGitExecutor()
