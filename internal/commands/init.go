@@ -94,7 +94,7 @@ func runInitLocal(targetDir string) error {
 		return fmt.Errorf("directory %s already contains a .bare directory", absPath)
 	}
 
-	// Initialize bare repository in .bare subdirectory. AI: Why are we doing this? Add short explanation.
+	// Initialize bare repository in .bare subdirectory.
 	if err := git.InitBare(bareDir); err != nil {
 		return fmt.Errorf("failed to initialize bare repository: %w", err)
 	}
@@ -158,7 +158,7 @@ func validateAndPrepareDirectory() (string, error) {
 }
 
 func cloneAndSetupRepository(executor git.GitExecutor, repoURL, targetDir, bareDir string) error {
-	// Clone as bare repository into .bare subdirectory. AI: Why are we doing this? Add short explanation.
+	// Clone as bare repository into .bare subdirectory.
 	fmt.Printf("Cloning %s...\n", repoURL)
 	if err := git.CloneBareWithExecutor(executor, repoURL, bareDir); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
