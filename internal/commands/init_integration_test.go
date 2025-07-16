@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -376,6 +377,220 @@ func TestInitCommandConvertSuccess(t *testing.T) {
 		}
 		assert.Equal(t, expectedContent, string(actualContent), "Gitignored file %s content should be preserved", filePath)
 	}
+}
+
+func TestInitCommandConvertNonMainBranch(t *testing.T) {
+	// Create temporary directory
+	tempDir, err := os.MkdirTemp("", "grove-init-convert-nonmain-*")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Initialize a real git repository
+	_, err = git.ExecuteGit("init", tempDir)
+	require.NoError(t, err)
+
+	// Save current directory
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// Change to temp directory
+	err = os.Chdir(tempDir)
+	require.NoError(t, err)
+
+	// Create initial commit on main branch
+	files := map[string]string{
+		"README.md":    "# Test Repository\n",
+		"main.js":      "console.log('Hello World');\n",
+		"package.json": `{"name": "test", "version": "1.0.0"}`,
+	}
+
+	for filePath, content := range files {
+		err = os.WriteFile(filepath.Join(tempDir, filePath), []byte(content), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Create .gitignore file
+	gitignoreContent := "*.log\n.env\nnode_modules/\n.DS_Store\n"
+	err = os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte(gitignoreContent), 0o644)
+	require.NoError(t, err)
+
+	// Commit initial files
+	_, err = git.ExecuteGit("add", ".")
+	require.NoError(t, err)
+	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
+	require.NoError(t, err)
+
+	// Create and checkout feature branch
+	branchName := "feat/user-auth"
+	_, err = git.ExecuteGit("checkout", "-b", branchName)
+	require.NoError(t, err)
+
+	// Add feature-specific files
+	featureFiles := map[string]string{
+		"src/auth.js":        "// Authentication module\nmodule.exports = {};\n",
+		"src/user.js":        "// User model\nclass User {}\nmodule.exports = User;\n",
+		"tests/auth.test.js": "// Auth tests\ndescribe('Auth', () => {});\n",
+	}
+
+	for filePath, content := range featureFiles {
+		dir := filepath.Dir(filePath)
+		if dir != "." {
+			err = os.MkdirAll(filepath.Join(tempDir, dir), 0o755)
+			require.NoError(t, err)
+		}
+		err = os.WriteFile(filepath.Join(tempDir, filePath), []byte(content), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Create gitignored files specific to this branch
+	gitignoredFiles := map[string]string{
+		".env":                 "AUTH_SECRET=secret123\nDB_URL=localhost\n",
+		"debug.log":            "Feature branch debug log\n",
+		"node_modules/express": "Express package content\n",
+		".DS_Store":            "Mac OS metadata\n",
+	}
+
+	for filePath, content := range gitignoredFiles {
+		dir := filepath.Dir(filePath)
+		if dir != "." {
+			err = os.MkdirAll(filepath.Join(tempDir, dir), 0o755)
+			require.NoError(t, err)
+		}
+		err = os.WriteFile(filepath.Join(tempDir, filePath), []byte(content), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Commit feature branch changes
+	_, err = git.ExecuteGit("add", "src/", "tests/")
+	require.NoError(t, err)
+	_, err = git.ExecuteGit("commit", "-m", "Add user authentication feature")
+	require.NoError(t, err)
+
+	// Set up fake remote to pass safety checks
+	fakeRemoteDir := filepath.Join(tempDir, "..", "fake-remote.git")
+	_, err = git.ExecuteGit("init", "--bare", fakeRemoteDir)
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(fakeRemoteDir) }()
+
+	_, err = git.ExecuteGit("remote", "add", "origin", fakeRemoteDir)
+	require.NoError(t, err)
+
+	// Push both branches to remote
+	_, err = git.ExecuteGit("push", "-u", "origin", "main")
+	require.NoError(t, err)
+	_, err = git.ExecuteGit("push", "-u", "origin", branchName)
+	require.NoError(t, err)
+
+	// Verify current branch is the feature branch
+	currentBranch, err := git.ExecuteGit("branch", "--show-current")
+	require.NoError(t, err)
+	assert.Equal(t, branchName, strings.TrimSpace(currentBranch))
+
+	// Verify it's a traditional repo before conversion
+	assert.True(t, git.IsTraditionalRepo(tempDir))
+	assert.False(t, git.IsGroveRepo(tempDir))
+
+	// Execute conversion
+	cmd := NewInitCmd()
+	cmd.SetArgs([]string{"--convert"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Verify conversion was successful
+	assert.False(t, git.IsTraditionalRepo(tempDir))
+	assert.True(t, git.IsGroveRepo(tempDir))
+
+	// Verify Grove structure exists
+	bareDir := filepath.Join(tempDir, ".bare")
+	assert.DirExists(t, bareDir)
+
+	gitFile := filepath.Join(tempDir, ".git")
+	assert.FileExists(t, gitFile)
+
+	// Verify .git file content
+	gitContent, err := os.ReadFile(gitFile)
+	require.NoError(t, err)
+	assert.Equal(t, "gitdir: .bare\n", string(gitContent))
+
+	// CRITICAL: Verify worktree was created with feature branch name, not "main"
+	worktreeDir := filepath.Join(tempDir, branchName)
+	assert.DirExists(t, worktreeDir, "Worktree should be created with feature branch name")
+
+	// Verify no main worktree was created
+	mainWorktreeDir := filepath.Join(tempDir, "main")
+	assert.NoDirExists(t, mainWorktreeDir, "Main worktree should not be created automatically")
+
+	// Verify worktree .git file
+	worktreeGitFile := filepath.Join(worktreeDir, ".git")
+	assert.FileExists(t, worktreeGitFile)
+
+	worktreeGitContent, err := os.ReadFile(worktreeGitFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(worktreeGitContent), "gitdir:")
+
+	// Git worktree names sanitize branch names by replacing slashes with dashes
+	// "feat/user-auth" becomes "user-auth" in the worktree directory name
+	expectedWorktreeName := strings.ReplaceAll(branchName, "/", "-")
+	// Remove "feat-" prefix if present since git may further sanitize
+	if strings.HasPrefix(expectedWorktreeName, "feat-") {
+		expectedWorktreeName = expectedWorktreeName[5:] // Remove "feat-" prefix
+	}
+	assert.Contains(t, string(worktreeGitContent), fmt.Sprintf(".bare/worktrees/%s", expectedWorktreeName))
+
+	// Verify all tracked files are preserved in feature branch worktree
+	allFiles := make(map[string]string)
+	for k, v := range files {
+		allFiles[k] = v
+	}
+	for k, v := range featureFiles {
+		allFiles[k] = v
+	}
+	allFiles[".gitignore"] = gitignoreContent
+
+	for filePath, expectedContent := range allFiles {
+		actualContent, err := os.ReadFile(filepath.Join(worktreeDir, filePath))
+		require.NoError(t, err, "File %s should exist in feature branch worktree", filePath)
+		assert.Equal(t, expectedContent, string(actualContent), "File %s content should be preserved", filePath)
+	}
+
+	// CRITICAL: Verify gitignored files are preserved in feature branch worktree
+	for filePath, expectedContent := range gitignoredFiles {
+		actualContent, err := os.ReadFile(filepath.Join(worktreeDir, filePath))
+		if err != nil {
+			t.Errorf("Gitignored file %s should be preserved during conversion but was not found", filePath)
+			continue
+		}
+		assert.Equal(t, expectedContent, string(actualContent), "Gitignored file %s content should be preserved", filePath)
+	}
+
+	// Verify git functionality works in the new worktree
+	originalDir2, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(originalDir2) }()
+
+	err = os.Chdir(worktreeDir)
+	require.NoError(t, err)
+
+	// Test git status works
+	_, err = git.ExecuteGit("status")
+	require.NoError(t, err)
+
+	// Test current branch is correct
+	currentBranchAfter, err := git.ExecuteGit("branch", "--show-current")
+	require.NoError(t, err)
+	assert.Equal(t, branchName, strings.TrimSpace(currentBranchAfter))
+
+	// Test that we can create new commits
+	err = os.WriteFile(filepath.Join(worktreeDir, "new-file.txt"), []byte("test content"), 0o644)
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("add", "new-file.txt")
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("commit", "-m", "Test commit after conversion")
+	require.NoError(t, err)
 }
 
 func TestInitCommandConvertFailures(t *testing.T) {
