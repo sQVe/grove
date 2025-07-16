@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testContextKey string
+
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 
@@ -169,7 +171,7 @@ func TestWithContext(t *testing.T) {
 	}
 
 	logger := New(config)
-	ctx := context.WithValue(context.Background(), "test-key", "test-value")
+	ctx := context.WithValue(context.Background(), testContextKey("test-key"), "test-value")
 	contextLogger := logger.WithContext(ctx)
 
 	contextLogger.Info("test message")
