@@ -698,6 +698,146 @@ func performConversion(dir string) error {
 	return nil
 }
 
+// createProperWorktreeStructure creates a proper worktree structure after conversion.
+func createProperWorktreeStructure(executor GitExecutor, dir string) error {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		return fmt.Errorf("failed to change to directory %s: %w", dir, err)
+	}
+
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// Get the current branch name
+	currentBranch, err := executor.Execute("branch", "--show-current")
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	currentBranch = strings.TrimSpace(currentBranch)
+	if currentBranch == "" {
+		currentBranch = "main" // fallback
+	}
+
+	// Create worktree directory path
+	worktreePath := filepath.Join(dir, currentBranch)
+
+	// Check if worktree directory already exists
+	if _, err := os.Stat(worktreePath); err == nil {
+		// Directory exists, skip creation
+		return nil
+	}
+
+	// Get list of files in the current directory (excluding .bare and .git)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var workingFiles []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if name != ".bare" && name != ".git" && name != ".git.backup" {
+			workingFiles = append(workingFiles, name)
+		}
+	}
+
+	// If there are working files, we need to create a proper worktree structure
+	if len(workingFiles) > 0 {
+		// Create temporary directory to hold files during conversion
+		tempDir := filepath.Join(dir, ".grove-temp-files")
+		if err := os.MkdirAll(tempDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create temporary directory: %w", err)
+		}
+
+		// Move all working files to temporary directory to preserve them
+		for _, file := range workingFiles {
+			srcPath := filepath.Join(dir, file)
+			dstPath := filepath.Join(tempDir, file)
+
+			// Create parent directory if needed
+			parentDir := filepath.Dir(dstPath)
+			if err := os.MkdirAll(parentDir, 0o755); err != nil {
+				return fmt.Errorf("failed to create parent directory %s: %w", parentDir, err)
+			}
+
+			// Move the file/directory
+			if err := os.Rename(srcPath, dstPath); err != nil {
+				return fmt.Errorf("failed to move %s to temporary location: %w", file, err)
+			}
+		}
+
+		// Configure the repository as bare to allow worktree creation
+		_, err = executor.Execute("config", "--bool", "core.bare", "true")
+		if err != nil {
+			return fmt.Errorf("failed to set core.bare: %w", err)
+		}
+
+		// Create the worktree - this will populate it with the files from the branch
+		_, err = executor.Execute("worktree", "add", worktreePath, currentBranch)
+		if err != nil {
+			return fmt.Errorf("failed to create worktree for branch %s: %w", currentBranch, err)
+		}
+
+		// Move all files from temporary directory to worktree, preserving gitignored files
+		err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if path == tempDir {
+				return nil // Skip the root temp directory itself
+			}
+
+			// Calculate relative path from temp dir
+			relPath, err := filepath.Rel(tempDir, path)
+			if err != nil {
+				return err
+			}
+
+			// Destination path in worktree
+			dstPath := filepath.Join(worktreePath, relPath)
+
+			if info.IsDir() {
+				// If it's a directory, ensure it exists in worktree
+				if err := os.MkdirAll(dstPath, info.Mode()); err != nil {
+					return fmt.Errorf("failed to create directory %s in worktree: %w", relPath, err)
+				}
+			} else {
+				// If destination file already exists (from git worktree add), remove it first
+				// This handles the case where the file is tracked by git
+				if _, err := os.Stat(dstPath); err == nil {
+					if err := os.Remove(dstPath); err != nil {
+						return fmt.Errorf("failed to remove existing file %s: %w", dstPath, err)
+					}
+				}
+
+				// Move the file to worktree
+				if err := os.Rename(path, dstPath); err != nil {
+					return fmt.Errorf("failed to move %s to worktree: %w", relPath, err)
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to move files to worktree: %w", err)
+		}
+
+		// Clean up temporary directory
+		if err := os.RemoveAll(tempDir); err != nil {
+			// Log warning but don't fail the conversion
+			// The conversion succeeded, just cleanup failed
+			return fmt.Errorf("failed to clean up temporary directory: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ValidateGroveStructure verifies that a Grove repository structure is valid and functional.
 func ValidateGroveStructure(dir string) error {
 	return ValidateGroveStructureWithExecutor(DefaultExecutor, dir)
@@ -754,4 +894,14 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 	}
 
 	return nil
+}
+
+// CreateDefaultWorktree creates a worktree for the current branch after conversion.
+func CreateDefaultWorktree(dir string) error {
+	return CreateDefaultWorktreeWithExecutor(DefaultExecutor, dir)
+}
+
+// CreateDefaultWorktreeWithExecutor creates a worktree using the specified executor.
+func CreateDefaultWorktreeWithExecutor(executor GitExecutor, dir string) error {
+	return createProperWorktreeStructure(executor, dir)
 }

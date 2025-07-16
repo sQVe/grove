@@ -27,9 +27,11 @@ pointing to it, allowing the main directory to function as a working directory.`
 		Args: func(cmd *cobra.Command, args []string) error {
 			convert, _ := cmd.Flags().GetBool("convert")
 			if convert && len(args) > 0 {
+				_ = cmd.Usage()
 				return fmt.Errorf("cannot specify arguments when using --convert flag")
 			}
 			if !convert && len(args) > 1 {
+				_ = cmd.Usage()
 				return fmt.Errorf("too many arguments")
 			}
 			return nil
@@ -231,6 +233,13 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	// Perform the conversion
 	if err := git.ConvertToGroveStructureWithExecutor(executor, currentDir); err != nil {
 		return fmt.Errorf("failed to convert repository: %w", err)
+	}
+
+	// Create default worktree for the current branch
+	fmt.Println("Creating default worktree for current branch...")
+	if err := git.CreateDefaultWorktreeWithExecutor(executor, currentDir); err != nil {
+		// Don't fail the conversion if worktree creation fails
+		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
 	}
 
 	// Print success message
