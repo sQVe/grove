@@ -10,8 +10,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "grove",
-	Short: "Fast, intuitive Git worktree management",
+	Use:     "grove",
+	Short:   "Fast, intuitive Git worktree management",
+	Version: "v0.1.0",
 	Long: `Grove transforms Git worktrees from a power-user feature into an essential productivity tool.
 Manage multiple working directories effortlessly with smart cleanup and seamless integration.`,
 	Run: func(cmd *cobra.Command, args []string) {
