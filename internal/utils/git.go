@@ -70,7 +70,7 @@ func IsGitURL(str string) bool {
 		`^https?://github\.com/[\w\-\.]+/[\w\-\.]+/?$`,  // https://github.com/user/repo
 		`^https?://gitlab\.com/[\w\-\.]+/[\w\-\.]+/?$`,  // https://gitlab.com/user/repo
 		`^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`,       // git@github.com:user/repo.git
-		`^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`, // ssh://git@github.com/user/repo.git
+		`^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`, // SSH format: ssh://git@github.com/user/repo.git
 	}
 
 	for _, pattern := range patterns {
