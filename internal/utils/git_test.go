@@ -6,48 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sqve/grove/internal/testutils"
 )
-
-// MockGitExecutor for testing utils functions.
-type MockGitExecutor struct {
-	Commands  [][]string
-	Responses map[string]MockResponse
-	CallCount int
-}
-
-type MockResponse struct {
-	Output string
-	Error  error
-}
-
-func NewMockGitExecutor() *MockGitExecutor {
-	return &MockGitExecutor{
-		Commands:  [][]string{},
-		Responses: make(map[string]MockResponse),
-		CallCount: 0,
-	}
-}
-
-func (m *MockGitExecutor) Execute(args ...string) (string, error) {
-	m.CallCount++
-	m.Commands = append(m.Commands, args)
-
-	cmdKey := fmt.Sprintf("%v", args)
-	if response, exists := m.Responses[cmdKey]; exists {
-		return response.Output, response.Error
-	}
-
-	// Default response for unmatched commands
-	return "", fmt.Errorf("mock: unhandled git command: %v", args)
-}
-
-func (m *MockGitExecutor) SetResponse(args []string, output string, err error) {
-	key := fmt.Sprintf("%v", args)
-	m.Responses[key] = MockResponse{
-		Output: output,
-		Error:  err,
-	}
-}
 
 func TestIsGitRepository(t *testing.T) {
 	tests := []struct {
@@ -82,8 +43,8 @@ func TestIsGitRepository(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := NewMockGitExecutor()
-			mock.SetResponse([]string{"rev-parse", "--git-dir"}, tt.gitOutput, tt.gitError)
+			mock := testutils.NewMockGitExecutor()
+			mock.SetResponseSlice([]string{"rev-parse", "--git-dir"}, tt.gitOutput, tt.gitError)
 
 			isRepo, err := IsGitRepository(mock)
 
@@ -127,8 +88,8 @@ func TestGetRepositoryRoot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := NewMockGitExecutor()
-			mock.SetResponse([]string{"rev-parse", "--show-toplevel"}, tt.gitOutput, tt.gitError)
+			mock := testutils.NewMockGitExecutor()
+			mock.SetResponseSlice([]string{"rev-parse", "--show-toplevel"}, tt.gitOutput, tt.gitError)
 
 			root, err := GetRepositoryRoot(mock)
 
@@ -193,9 +154,9 @@ func TestValidateRepository(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := NewMockGitExecutor()
-			mock.SetResponse([]string{"rev-parse", "--git-dir"}, tt.isRepoOutput, tt.isRepoError)
-			mock.SetResponse([]string{"rev-parse", "HEAD"}, tt.headOutput, tt.headError)
+			mock := testutils.NewMockGitExecutor()
+			mock.SetResponseSlice([]string{"rev-parse", "--git-dir"}, tt.isRepoOutput, tt.isRepoError)
+			mock.SetResponseSlice([]string{"rev-parse", "HEAD"}, tt.headOutput, tt.headError)
 
 			err := ValidateRepository(mock)
 

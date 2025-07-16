@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/utils"
@@ -82,7 +83,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	log.InfoOperation("starting grove init", "args", args)
 
 	if !utils.IsGitAvailable() {
-		err := fmt.Errorf("git is not available in PATH")
+		err := errors.ErrGitNotFound(nil)
 		log.ErrorOperation("git availability check failed", err)
 		return err
 	}

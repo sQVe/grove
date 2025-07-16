@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,58 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sqve/grove/internal/testutils"
 )
-
-// MockGitExecutor implementation for command tests.
-type MockGitExecutor struct {
-	Commands  [][]string
-	Responses map[string]MockResponse
-	CallCount int
-}
-
-type MockResponse struct {
-	Output string
-	Error  error
-}
-
-func NewMockGitExecutor() *MockGitExecutor {
-	return &MockGitExecutor{
-		Commands:  [][]string{},
-		Responses: make(map[string]MockResponse),
-		CallCount: 0,
-	}
-}
-
-func (m *MockGitExecutor) Execute(args ...string) (string, error) {
-	return m.ExecuteWithContext(context.Background(), args...)
-}
-
-// ExecuteWithContext implements the GitExecutor interface with context support.
-func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
-	m.CallCount++
-	m.Commands = append(m.Commands, args)
-
-	// Special handling for clone command to create directory.
-	if len(args) >= 3 && args[0] == "clone" && args[1] == "--bare" {
-		targetDir := args[3]
-		if err := os.MkdirAll(targetDir, 0o750); err != nil {
-			return "", err
-		}
-	}
-
-	cmdKey := fmt.Sprintf("%v", args)
-	for pattern, response := range m.Responses {
-		if cmdKey == pattern || (len(args) > 0 && args[0] == pattern) {
-			return response.Output, response.Error
-		}
-	}
-
-	return "", fmt.Errorf("mock: unhandled git command: %v", args)
-}
-
-func (m *MockGitExecutor) SetResponse(pattern, output string, err error) {
-	m.Responses[pattern] = MockResponse{Output: output, Error: err}
-}
 
 func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
 	// Create temporary directory.
@@ -78,7 +28,7 @@ func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with successful responses..
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
@@ -126,7 +76,7 @@ func TestRunInitFromRemoteWithExecutor_CloneFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with clone failure.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", fmt.Errorf("authentication failed"))
 
 	// Test clone failure.
@@ -151,7 +101,7 @@ func TestRunInitFromRemoteWithExecutor_ConfigFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with config failure.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", fmt.Errorf("config write failed"))
 
@@ -177,7 +127,7 @@ func TestRunInitFromRemoteWithExecutor_FetchFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with fetch failure.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", fmt.Errorf("network timeout"))
@@ -204,7 +154,7 @@ func TestRunInitFromRemoteWithExecutor_UpstreamWarning(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with upstream failure (should not fail overall).
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
@@ -241,7 +191,7 @@ func TestRunInitFromRemoteWithExecutor_NonEmptyDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor (shouldn't be called).
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 
 	// Test non-empty directory failure.
 	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
@@ -273,7 +223,7 @@ func TestRunInitFromRemoteWithExecutor_HiddenFilesAllowed(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with successful responses.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
@@ -308,7 +258,7 @@ func TestRunInitRemoteWithBranches(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor with successful responses.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("clone", "", nil)
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
@@ -399,7 +349,7 @@ func TestCreateAdditionalWorktrees(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create mock executor.
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
 	mock.SetResponse("worktree add", "", nil)
 

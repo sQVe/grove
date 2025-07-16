@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/retry"
 )
 
 // GitExecutor defines the interface for executing git commands.
@@ -35,31 +36,59 @@ func (e *DefaultGitExecutor) ExecuteWithContext(ctx context.Context, args ...str
 // DefaultExecutor is the default git command executor.
 var DefaultExecutor GitExecutor = &DefaultGitExecutor{}
 
+// isNetworkError checks if an error is likely a network-related issue
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "timeout") ||
+		strings.Contains(errStr, "network") ||
+		strings.Contains(errStr, "connection") ||
+		strings.Contains(errStr, "dns") ||
+		strings.Contains(errStr, "resolve") ||
+		strings.Contains(errStr, "unreachable")
+}
+
+// isAuthError checks if an error is likely an authentication issue
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "authentication") ||
+		strings.Contains(errStr, "permission denied") ||
+		strings.Contains(errStr, "access denied") ||
+		strings.Contains(errStr, "unauthorized") ||
+		strings.Contains(errStr, "403") ||
+		strings.Contains(errStr, "401")
+}
+
 // validatePaths validates that the provided paths are safe to use.
 func validatePaths(mainDir, bareDir string) error {
 	// Check for directory traversal in original paths before conversion
 	if strings.Contains(mainDir, "..") || strings.Contains(bareDir, "..") {
-		return fmt.Errorf("paths contain directory traversal sequences")
+		return errors.ErrPathTraversal("paths contain directory traversal sequences")
 	}
 
 	// Convert to absolute paths for validation
 	absMainDir, err := filepath.Abs(mainDir)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for main directory: %w", err)
+		return errors.ErrFileSystem("get absolute path for main directory", err)
 	}
 
 	absBareDir, err := filepath.Abs(bareDir)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for bare directory: %w", err)
+		return errors.ErrFileSystem("get absolute path for bare directory", err)
 	}
 
 	// Ensure paths are clean and don't contain unnecessary separators
 	if absMainDir != filepath.Clean(absMainDir) {
-		return fmt.Errorf("main directory path is not clean: %s", mainDir)
+		return errors.ErrPathTraversal(mainDir).WithContext("type", "unclean_path")
 	}
 
 	if absBareDir != filepath.Clean(absBareDir) {
-		return fmt.Errorf("bare directory path is not clean: %s", bareDir)
+		return errors.ErrPathTraversal(bareDir).WithContext("type", "unclean_path")
 	}
 
 	return nil
@@ -158,7 +187,23 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 	start := time.Now()
 
 	log.InfoOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
-	_, err := executor.Execute("clone", "--bare", repoURL, targetDir)
+
+	// Use retry mechanism for clone operation
+	err := retry.WithRetry(context.Background(), func() error {
+		_, err := executor.Execute("clone", "--bare", repoURL, targetDir)
+		if err != nil {
+			// Classify error for retry logic
+			if isNetworkError(err) {
+				return errors.ErrNetworkTimeout("clone", err)
+			}
+			if isAuthError(err) {
+				return errors.ErrAuthenticationFailed("clone", err)
+			}
+			// Default to git operation error (retryable)
+			return errors.ErrGitOperation("clone", err)
+		}
+		return nil
+	})
 	if err != nil {
 		log.ErrorOperation("clone bare failed", err, "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
 		return err
@@ -231,9 +276,23 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string
 		return err
 	}
 
-	// Fetch all remote branches
+	// Fetch all remote branches with retry
 	log.Debug("fetching all remote branches", "remote", remoteName)
-	_, err = executor.Execute("fetch")
+	err = retry.WithRetry(context.Background(), func() error {
+		_, err := executor.Execute("fetch")
+		if err != nil {
+			// Classify error for retry logic
+			if isNetworkError(err) {
+				return errors.ErrNetworkTimeout("fetch", err)
+			}
+			if isAuthError(err) {
+				return errors.ErrAuthenticationFailed("fetch", err)
+			}
+			// Default to git operation error (retryable)
+			return errors.ErrGitOperation("fetch", err)
+		}
+		return nil
+	})
 	if err != nil {
 		log.ErrorOperation("fetch remote branches failed", err, "remote", remoteName, "duration", time.Since(start))
 		return err

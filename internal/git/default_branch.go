@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/retry"
 )
 
 // DetectDefaultBranch detects the default branch for a repository using a multi-tier fallback strategy.
@@ -294,7 +296,29 @@ func checkRemoteSymref(executor GitExecutor, log *logger.Logger, ctx context.Con
 	}
 
 	log.Debug("running git ls-remote --symref", "remote", remoteName)
-	output, err := executor.ExecuteWithContext(ctx, "ls-remote", "--symref", remoteName, "HEAD")
+
+	var output string
+	err := retry.ExecuteWithRetry(ctx, retry.RetryConfig{
+		MaxAttempts:   3,
+		BaseDelay:     500 * time.Millisecond,
+		MaxDelay:      2 * time.Second,
+		JitterEnabled: true,
+	}, func() error {
+		result, err := executor.ExecuteWithContext(ctx, "ls-remote", "--symref", remoteName, "HEAD")
+		if err != nil {
+			// Classify error for retry logic
+			if isNetworkError(err) {
+				return errors.ErrNetworkTimeout("ls-remote", err)
+			}
+			if isAuthError(err) {
+				return errors.ErrAuthenticationFailed("ls-remote", err)
+			}
+			// Default to git operation error (retryable)
+			return errors.ErrGitOperation("ls-remote", err)
+		}
+		output = result
+		return nil
+	})
 	if err != nil {
 		log.Debug("ls-remote --symref failed", "remote", remoteName, "error", err)
 		return ""
@@ -339,7 +363,29 @@ func checkRemoteShow(executor GitExecutor, log *logger.Logger, ctx context.Conte
 	}
 
 	log.Debug("running git remote show", "remote", remoteName)
-	output, err := executor.ExecuteWithContext(ctx, "remote", "show", remoteName)
+
+	var output string
+	err := retry.ExecuteWithRetry(ctx, retry.RetryConfig{
+		MaxAttempts:   3,
+		BaseDelay:     500 * time.Millisecond,
+		MaxDelay:      2 * time.Second,
+		JitterEnabled: true,
+	}, func() error {
+		result, err := executor.ExecuteWithContext(ctx, "remote", "show", remoteName)
+		if err != nil {
+			// Classify error for retry logic
+			if isNetworkError(err) {
+				return errors.ErrNetworkTimeout("remote show", err)
+			}
+			if isAuthError(err) {
+				return errors.ErrAuthenticationFailed("remote show", err)
+			}
+			// Default to git operation error (retryable)
+			return errors.ErrGitOperation("remote show", err)
+		}
+		output = result
+		return nil
+	})
 	if err != nil {
 		log.Debug("remote show failed", "remote", remoteName, "error", err)
 		return ""

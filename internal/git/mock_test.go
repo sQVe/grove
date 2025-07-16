@@ -1,165 +1,18 @@
 package git
 
 import (
-	"context"
 	"fmt"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sqve/grove/internal/testutils"
 )
-
-// MockGitExecutor is a mock implementation of GitExecutor for testing.
-type MockGitExecutor struct {
-	// Commands stores the executed commands for verification
-	Commands [][]string
-	// Responses maps command patterns to their responses
-	Responses map[string]MockResponse
-	// CallCount tracks how many times Execute was called
-	CallCount int
-	// For simpler test setup
-	responses map[string]string
-	errors    map[string]error
-	delays    map[string]time.Duration
-}
-
-// MockResponse defines a mock git command response.
-type MockResponse struct {
-	Output string
-	Error  error
-}
-
-// NewMockGitExecutor creates a new mock executor with default responses.
-func NewMockGitExecutor() *MockGitExecutor {
-	return &MockGitExecutor{
-		Commands:  [][]string{},
-		Responses: make(map[string]MockResponse),
-		CallCount: 0,
-		responses: make(map[string]string),
-		errors:    make(map[string]error),
-		delays:    make(map[string]time.Duration),
-	}
-}
-
-// Execute simulates git command execution.
-func (m *MockGitExecutor) Execute(args ...string) (string, error) {
-	return m.executeInternal(args)
-}
-
-// ExecuteWithContext simulates git command execution with context support.
-func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
-	// Check if context is cancelled before execution
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	default:
-	}
-
-	return m.executeInternal(args)
-}
-
-// executeInternal contains the common execution logic for both Execute methods.
-func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
-	m.CallCount++
-	m.Commands = append(m.Commands, args)
-
-	// Create a command key for lookup
-	cmdKey := strings.Join(args, " ")
-
-	// Handle delay if configured
-	if delay, exists := m.delays[cmdKey]; exists {
-		time.Sleep(delay)
-	}
-
-	// Check simple responses first
-	if response, exists := m.responses[cmdKey]; exists {
-		if err, hasError := m.errors[cmdKey]; hasError {
-			return "", err
-		}
-		return response, nil
-	}
-
-	// Check for exact match in old format
-	if response, exists := m.Responses[cmdKey]; exists {
-		return response.Output, response.Error
-	}
-
-	// Check for pattern matches
-	for pattern, response := range m.Responses {
-		if strings.HasPrefix(cmdKey, pattern) {
-			return response.Output, response.Error
-		}
-	}
-
-	// Check for errors without responses
-	if err, exists := m.errors[cmdKey]; exists {
-		return "", err
-	}
-
-	// Default response for unmatched commands
-	return "", fmt.Errorf("mock: unhandled git command: %s", cmdKey)
-}
-
-// SetResponse configures a response for a specific command pattern.
-func (m *MockGitExecutor) SetResponse(pattern, output string, err error) {
-	m.Responses[pattern] = MockResponse{
-		Output: output,
-		Error:  err,
-	}
-}
-
-// SetSuccessResponse configures a successful response.
-func (m *MockGitExecutor) SetSuccessResponse(pattern, output string) {
-	m.SetResponse(pattern, output, nil)
-}
-
-// SetErrorResponse configures an error response.
-func (m *MockGitExecutor) SetErrorResponse(pattern, errMsg string) {
-	m.SetResponse(pattern, "", fmt.Errorf("%s", errMsg))
-}
-
-// Reset clears all recorded commands and responses.
-func (m *MockGitExecutor) Reset() {
-	m.Commands = [][]string{}
-	m.CallCount = 0
-	m.Responses = make(map[string]MockResponse)
-	m.responses = make(map[string]string)
-	m.errors = make(map[string]error)
-	m.delays = make(map[string]time.Duration)
-}
-
-// LastCommand returns the last executed command.
-func (m *MockGitExecutor) LastCommand() []string {
-	if len(m.Commands) == 0 {
-		return nil
-	}
-	return m.Commands[len(m.Commands)-1]
-}
-
-// HasCommand checks if a specific command was executed.
-func (m *MockGitExecutor) HasCommand(expected ...string) bool {
-	for _, cmd := range m.Commands {
-		if len(cmd) == len(expected) {
-			match := true
-			for i, arg := range expected {
-				if cmd[i] != arg {
-					match = false
-					break
-				}
-			}
-			if match {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // TestMockGitExecutor tests the mock executor itself.
 func TestMockGitExecutor(t *testing.T) {
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 
 	// Test default behavior
 	_, err := mock.Execute("unknown", "command")
@@ -173,7 +26,7 @@ func TestMockGitExecutor(t *testing.T) {
 	assert.Equal(t, "output", output)
 
 	// Test error response
-	mock.SetErrorResponse("fail", "test error")
+	mock.SetErrorResponseWithMessage("fail", "test error")
 	_, err = mock.Execute("fail")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "test error")
@@ -213,7 +66,7 @@ func TestCloneBareWithExecutor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := NewMockGitExecutor()
+			mock := testutils.NewMockGitExecutor()
 			mock.SetResponse("clone --bare", tt.mockOutput, tt.mockError)
 
 			err := CloneBareWithExecutor(mock, tt.repoURL, tt.targetDir)
@@ -267,7 +120,7 @@ func TestConfigureRemoteTrackingWithExecutor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := NewMockGitExecutor()
+			mock := testutils.NewMockGitExecutor()
 			mock.SetResponse("config", "", tt.configError)
 			mock.SetResponse("fetch", "", tt.fetchError)
 
@@ -348,7 +201,7 @@ func getSetupUpstreamTestCases() []setupUpstreamTestCase {
 
 func runSetupUpstreamTest(t *testing.T, tt setupUpstreamTestCase) {
 	t.Helper()
-	mock := NewMockGitExecutor()
+	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("for-each-ref", tt.branchOutput, tt.branchError)
 
 	// Set up upstream responses

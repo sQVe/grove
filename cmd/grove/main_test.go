@@ -32,15 +32,15 @@ func TestVersionFlag(t *testing.T) {
 			// Create a new command instance for each test
 			cmd := rootCmd
 			cmd.SetArgs(tt.args)
-			
+
 			// Capture output
 			buf := new(bytes.Buffer)
 			cmd.SetOut(buf)
-			
+
 			// Execute command
 			err := cmd.Execute()
 			require.NoError(t, err)
-			
+
 			// Check output
 			output := strings.TrimSpace(buf.String())
 			assert.Equal(t, tt.expected, output)
@@ -51,13 +51,13 @@ func TestVersionFlag(t *testing.T) {
 func TestRootCommandHelp(t *testing.T) {
 	cmd := rootCmd
 	cmd.SetArgs([]string{"--help"})
-	
+
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
-	
+
 	err := cmd.Execute()
 	require.NoError(t, err)
-	
+
 	output := buf.String()
 	assert.Contains(t, output, "Grove transforms Git worktrees")
 	assert.Contains(t, output, "Usage:")
@@ -68,13 +68,13 @@ func TestRootCommandHelp(t *testing.T) {
 func TestRootCommandDefault(t *testing.T) {
 	cmd := rootCmd
 	cmd.SetArgs([]string{})
-	
+
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
-	
+
 	err := cmd.Execute()
 	require.NoError(t, err)
-	
+
 	output := buf.String()
 	// When no arguments are provided, cobra shows help by default
 	assert.Contains(t, output, "Grove transforms Git worktrees")
