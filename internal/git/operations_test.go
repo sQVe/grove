@@ -736,3 +736,62 @@ func TestFormatSafetyIssuesError(t *testing.T) {
 	assert.Contains(t, errMsg, "add to .gitignore")
 	assert.Contains(t, errMsg, "Please resolve these issues before converting")
 }
+
+func TestValidatePaths(t *testing.T) {
+	t.Run("valid paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := tempDir + "/.bare"
+
+		err := validatePaths(tempDir, bareDir)
+		assert.NoError(t, err)
+	})
+
+	t.Run("path with directory traversal", func(t *testing.T) {
+		tempDir := t.TempDir()
+		maliciousPath := tempDir + "/../../../etc/passwd"
+
+		err := validatePaths(tempDir, maliciousPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "paths contain directory traversal sequences")
+	})
+
+	t.Run("bare directory with directory traversal", func(t *testing.T) {
+		tempDir := t.TempDir()
+		maliciousPath := "../../../etc/passwd"
+
+		err := validatePaths(tempDir, maliciousPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "paths contain directory traversal sequences")
+	})
+}
+
+func TestCreateGitFileWithSecurity(t *testing.T) {
+	t.Run("valid paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := tempDir + "/.bare"
+
+		err := CreateGitFile(tempDir, bareDir)
+		assert.NoError(t, err)
+	})
+
+	t.Run("path with directory traversal in bare directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		maliciousPath := tempDir + "/../../../etc/passwd"
+
+		err := CreateGitFile(tempDir, maliciousPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid paths")
+	})
+
+	t.Run("relative path with directory traversal", func(t *testing.T) {
+		tempDir := t.TempDir()
+		// Create a path that would result in ../ in the relative path
+		parentDir := tempDir + "/.."
+		bareDir := parentDir + "/malicious"
+
+		err := CreateGitFile(tempDir, bareDir)
+		assert.Error(t, err)
+		// The error should come from validatePaths first (since path contains ..)
+		assert.Contains(t, err.Error(), "invalid paths")
+	})
+}

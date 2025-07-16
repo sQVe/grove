@@ -25,6 +25,36 @@ func (e *DefaultGitExecutor) Execute(args ...string) (string, error) {
 // DefaultExecutor is the default git command executor.
 var DefaultExecutor GitExecutor = &DefaultGitExecutor{}
 
+// validatePaths validates that the provided paths are safe to use.
+func validatePaths(mainDir, bareDir string) error {
+	// Check for directory traversal in original paths before conversion
+	if strings.Contains(mainDir, "..") || strings.Contains(bareDir, "..") {
+		return fmt.Errorf("paths contain directory traversal sequences")
+	}
+
+	// Convert to absolute paths for validation
+	absMainDir, err := filepath.Abs(mainDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for main directory: %w", err)
+	}
+
+	absBareDir, err := filepath.Abs(bareDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for bare directory: %w", err)
+	}
+
+	// Ensure paths are clean and don't contain unnecessary separators
+	if absMainDir != filepath.Clean(absMainDir) {
+		return fmt.Errorf("main directory path is not clean: %s", mainDir)
+	}
+
+	if absBareDir != filepath.Clean(absBareDir) {
+		return fmt.Errorf("bare directory path is not clean: %s", bareDir)
+	}
+
+	return nil
+}
+
 // GitError represents an error from a git command execution.
 type GitError struct {
 	Command  string
@@ -37,7 +67,7 @@ func (e *GitError) Error() string {
 	return fmt.Sprintf("git %s failed (exit %d): %s", strings.Join(e.Args, " "), e.ExitCode, e.Stderr)
 }
 
-// Runs a git command with the given arguments and returns stdout.
+// ExecuteGit runs a git command with the given arguments and returns stdout.
 // If the command fails, it returns a GitError with stderr and exit code.
 func ExecuteGit(args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
@@ -61,7 +91,7 @@ func ExecuteGit(args ...string) (string, error) {
 	return strings.TrimSpace(string(stdout)), nil
 }
 
-// Runs git clone --bare for the given repository URL.
+// CloneBare runs git clone --bare for the given repository URL.
 func CloneBare(repoURL, targetDir string) error {
 	return CloneBareWithExecutor(DefaultExecutor, repoURL, targetDir)
 }
@@ -72,8 +102,13 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 	return err
 }
 
-// Writes a .git file with gitdir pointing to the bare repository.
+// CreateGitFile writes a .git file with gitdir pointing to the bare repository.
 func CreateGitFile(mainDir, bareDir string) error {
+	// Validate input paths for security
+	if err := validatePaths(mainDir, bareDir); err != nil {
+		return fmt.Errorf("invalid paths: %w", err)
+	}
+
 	gitFilePath := filepath.Join(mainDir, ".git")
 
 	// Make bareDir relative to mainDir if possible, otherwise use absolute path
@@ -82,11 +117,17 @@ func CreateGitFile(mainDir, bareDir string) error {
 		relPath = bareDir
 	}
 
+	// Validate that the relative path doesn't try to escape multiple directory levels
+	// Allow single level traversal (../something) but reject deep traversal (../../something)
+	if strings.HasPrefix(relPath, "../../") || strings.Contains(relPath, "/../..") {
+		return fmt.Errorf("relative path contains directory traversal: %s", relPath)
+	}
+
 	content := fmt.Sprintf("gitdir: %s\n", relPath)
 	return os.WriteFile(gitFilePath, []byte(content), 0o600)
 }
 
-// Sets up fetch refspec and fetches all remote branches.
+// ConfigureRemoteTracking sets up fetch refspec and fetches all remote branches.
 func ConfigureRemoteTracking() error {
 	return ConfigureRemoteTrackingWithExecutor(DefaultExecutor)
 }
@@ -104,7 +145,7 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor) error {
 	return err
 }
 
-// Configures branch.*.remote for existing local branches.
+// SetupUpstreamBranches configures branch.*.remote for existing local branches.
 func SetupUpstreamBranches() error {
 	return SetupUpstreamBranchesWithExecutor(DefaultExecutor)
 }
@@ -134,7 +175,7 @@ func SetupUpstreamBranchesWithExecutor(executor GitExecutor) error {
 	return nil
 }
 
-// Runs git init --bare in the target directory.
+// InitBare runs git init --bare in the target directory.
 func InitBare(targetDir string) error {
 	_, err := ExecuteGit("init", "--bare", targetDir)
 	return err
@@ -239,51 +280,28 @@ func checkRepositorySafetyForConversion(executor GitExecutor, dir string) ([]Saf
 
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	var issues []SafetyIssue
-
-	// Check for uncommitted changes and ongoing operations
-	if statusIssues, err := checkGitStatus(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, statusIssues...)
+	// Define all safety check functions
+	safetyChecks := []func(GitExecutor) ([]SafetyIssue, error){
+		checkGitStatus,
+		checkStashedChanges,
+		checkUntrackedFiles,
+		checkExistingWorktrees,
+		checkUnpushedCommits,
+		checkLocalOnlyBranches,
 	}
 
-	// Check for stashed changes
-	if stashIssues, err := checkStashedChanges(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, stashIssues...)
+	var allIssues []SafetyIssue
+
+	// Run all safety checks
+	for _, check := range safetyChecks {
+		issues, err := check(executor)
+		if err != nil {
+			return nil, err
+		}
+		allIssues = append(allIssues, issues...)
 	}
 
-	// Check for untracked files
-	if untrackedIssues, err := checkUntrackedFiles(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, untrackedIssues...)
-	}
-
-	// Check for existing worktrees
-	if worktreeIssues, err := checkExistingWorktrees(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, worktreeIssues...)
-	}
-
-	// Check for unpushed commits
-	if unpushedIssues, err := checkUnpushedCommits(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, unpushedIssues...)
-	}
-
-	// Check for local-only branches
-	if localBranchIssues, err := checkLocalOnlyBranches(executor); err != nil {
-		return nil, err
-	} else {
-		issues = append(issues, localBranchIssues...)
-	}
-
-	return issues, nil
+	return allIssues, nil
 }
 
 // GitChangeCounts represents the counts of different types of git changes.
