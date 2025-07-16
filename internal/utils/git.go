@@ -66,7 +66,7 @@ func ValidateRepository(executor GitExecutor) error {
 	log := logger.WithComponent("git_utils")
 	start := time.Now()
 
-	log.InfoOperation("validating git repository")
+	log.DebugOperation("validating git repository")
 
 	// Check git availability
 	log.Debug("checking git availability in PATH")
@@ -105,7 +105,7 @@ func ValidateRepository(executor GitExecutor) error {
 	}
 	log.Debug("repository has commits")
 
-	log.InfoOperation("git repository validation completed successfully", "duration", time.Since(start))
+	log.DebugOperation("git repository validation completed successfully", "duration", time.Since(start))
 	return nil
 }
 

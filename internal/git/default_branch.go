@@ -40,7 +40,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	// Tier 1: Fast local detection
 	log.Debug("tier 1: checking local remote HEAD cache", "remote", remoteName)
 	if branch := checkLocalRemoteHead(executor, log, remoteName); branch != "" {
-		log.Info("default branch detected via local remote HEAD",
+		log.Debug("default branch detected via local remote HEAD",
 			"branch", branch,
 			"remote", remoteName,
 			"method", "local_cache",
@@ -52,7 +52,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 
 	log.Debug("tier 1: checking current branch")
 	if branch := checkCurrentBranch(executor, log); branch != "" {
-		log.Info("default branch detected via current branch",
+		log.Debug("default branch detected via current branch",
 			"branch", branch,
 			"method", "current_branch",
 			"duration", time.Since(start),
@@ -68,7 +68,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 
 	log.Debug("tier 2: checking remote symbolic reference", "remote", remoteName)
 	if branch := checkRemoteSymref(executor, log, ctx, remoteName); branch != "" {
-		log.Info("default branch detected via remote symref",
+		log.Debug("default branch detected via remote symref",
 			"branch", branch,
 			"remote", remoteName,
 			"method", "remote_symref",
@@ -80,7 +80,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 
 	log.Debug("tier 2: checking remote show command", "remote", remoteName)
 	if branch := checkRemoteShow(executor, log, ctx, remoteName); branch != "" {
-		log.Info("default branch detected via remote show",
+		log.Debug("default branch detected via remote show",
 			"branch", branch,
 			"remote", remoteName,
 			"method", "remote_show",
@@ -94,7 +94,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	log.Debug("tier 3: trying heuristic fallback methods")
 	log.Debug("tier 3: checking common branch patterns", "remote", remoteName)
 	if branch := findCommonBranchPattern(executor, log, remoteName); branch != "" {
-		log.Info("default branch detected via common pattern",
+		log.Debug("default branch detected via common pattern",
 			"branch", branch,
 			"remote", remoteName,
 			"method", "common_pattern",
@@ -106,7 +106,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 
 	log.Debug("tier 3: getting first remote branch", "remote", remoteName)
 	if branch := getFirstRemoteBranch(executor, log, remoteName); branch != "" {
-		log.Info("default branch detected via first remote",
+		log.Debug("default branch detected via first remote",
 			"branch", branch,
 			"remote", remoteName,
 			"method", "first_remote",

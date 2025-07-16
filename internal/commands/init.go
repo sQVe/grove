@@ -80,7 +80,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	log := logger.WithComponent("init_command")
 	start := time.Now()
 
-	log.InfoOperation("starting grove init", "args", args)
+	log.DebugOperation("starting grove init", "args", args)
 
 	if !utils.IsGitAvailable() {
 		err := errors.ErrGitNotFound(nil)
@@ -92,7 +92,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	log.Debug("init mode determined", "convert", convert, "args_count", len(args))
 
 	if convert {
-		log.InfoOperation("running init convert", "duration", time.Since(start))
+		log.DebugOperation("running init convert", "duration", time.Since(start))
 		return runInitConvert()
 	}
 
@@ -130,7 +130,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			log.InfoOperation("running init remote with smart URL", "original_url", targetArg, "repo_url", urlInfo.RepoURL, "platform", urlInfo.Platform, "branch", urlInfo.BranchName, "pr", urlInfo.PRNumber, "branches", branches, "duration", time.Since(start))
+			log.DebugOperation("running init remote with smart URL", "original_url", targetArg, "repo_url", urlInfo.RepoURL, "platform", urlInfo.Platform, "branch", urlInfo.BranchName, "pr", urlInfo.PRNumber, "branches", branches, "duration", time.Since(start))
 
 			if urlInfo.PRNumber != "" {
 				fmt.Printf("Detected %s pull request #%s\n", urlInfo.Platform, urlInfo.PRNumber)
@@ -143,15 +143,15 @@ func runInit(cmd *cobra.Command, args []string) error {
 		case utils.IsGitURL(targetArg):
 			// Fall back to standard Git URL handling
 			branches, _ := cmd.Flags().GetString("branches")
-			log.InfoOperation("running init remote", "repo_url", targetArg, "branches", branches, "duration", time.Since(start))
+			log.DebugOperation("running init remote", "repo_url", targetArg, "branches", branches, "duration", time.Since(start))
 			return runInitRemote(targetArg, branches)
 		default:
 			// Not a URL, treat as directory path
-			log.InfoOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
+			log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
 			return runInitLocal(targetArg)
 		}
 	} else {
-		log.InfoOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
+		log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
 		return runInitLocal(targetArg)
 	}
 }
@@ -160,7 +160,7 @@ func runInitLocal(targetDir string) error {
 	log := logger.WithComponent("init_local")
 	start := time.Now()
 
-	log.InfoOperation("starting local repository initialization", "target_dir", targetDir)
+	log.DebugOperation("starting local repository initialization", "target_dir", targetDir)
 
 	// Determine target directory
 	if targetDir == "" {
@@ -216,7 +216,7 @@ func runInitLocal(targetDir string) error {
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
-	log.InfoOperation("local repository initialization completed", "target_dir", absPath, "bare_dir", bareDir, "duration", time.Since(start))
+	log.DebugOperation("local repository initialization completed", "target_dir", absPath, "bare_dir", bareDir, "duration", time.Since(start))
 
 	fmt.Printf("Initialized bare Git repository in %s\n", absPath)
 	fmt.Printf("Git objects stored in: %s\n", bareDir)
@@ -235,7 +235,7 @@ func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches strin
 	log := logger.WithComponent("init_remote")
 	start := time.Now()
 
-	log.InfoOperation("starting remote repository initialization", "repo_url", repoURL)
+	log.DebugOperation("starting remote repository initialization", "repo_url", repoURL)
 
 	log.Debug("validating and preparing directory")
 	targetDir, err := validateAndPrepareDirectory()
@@ -281,7 +281,7 @@ func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches strin
 		}
 	}
 
-	log.InfoOperation("remote repository initialization completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
+	log.DebugOperation("remote repository initialization completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
 	printSuccessMessage(targetDir, bareDir)
 	return nil
 }
@@ -364,7 +364,7 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	log := logger.WithComponent("init_convert")
 	start := time.Now()
 
-	log.InfoOperation("starting repository conversion to Grove structure")
+	log.DebugOperation("starting repository conversion to Grove structure")
 
 	// Get current working directory
 	currentDir, err := os.Getwd()
@@ -394,7 +394,7 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	// Perform the conversion
 	log.Debug("performing conversion", "current_dir", currentDir)
 	if err := git.ConvertToGroveStructureWithExecutor(executor, currentDir); err != nil {
-		log.ErrorOperation("conversion failed", err, "current_dir", currentDir)
+		log.Debug("conversion failed", "error", err, "current_dir", currentDir)
 		return fmt.Errorf("failed to convert repository: %w", err)
 	}
 
@@ -409,7 +409,7 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 
 	// Print success message
 	bareDir := filepath.Join(currentDir, ".bare")
-	log.InfoOperation("repository conversion completed successfully", "current_dir", currentDir, "bare_dir", bareDir, "duration", time.Since(start))
+	log.DebugOperation("repository conversion completed successfully", "current_dir", currentDir, "bare_dir", bareDir, "duration", time.Since(start))
 
 	fmt.Printf("Successfully converted repository to Grove structure in %s\n", currentDir)
 	fmt.Printf("Git objects moved to: %s\n", bareDir)
@@ -547,7 +547,7 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 			continue
 		}
 
-		log.InfoOperation("worktree created successfully", "branch", branch, "path", worktreePath)
+		log.DebugOperation("worktree created successfully", "branch", branch, "path", worktreePath)
 	}
 
 	return nil

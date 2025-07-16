@@ -186,7 +186,7 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 	log := logger.WithComponent("git_clone")
 	start := time.Now()
 
-	log.InfoOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
+	log.DebugOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
 
 	// Use retry mechanism for clone operation
 	err := retry.WithRetry(context.Background(), func() error {
@@ -209,7 +209,7 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 		return err
 	}
 
-	log.InfoOperation("clone bare completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
+	log.DebugOperation("clone bare completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
 	return nil
 }
 
@@ -249,7 +249,7 @@ func CreateGitFile(mainDir, bareDir string) error {
 		return err
 	}
 
-	log.InfoOperation(".git file created successfully", "path", gitFilePath, "gitdir", relPath)
+	log.DebugOperation(".git file created successfully", "path", gitFilePath, "gitdir", relPath)
 	return nil
 }
 
@@ -263,7 +263,7 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string
 	log := logger.WithComponent("remote_tracking")
 	start := time.Now()
 
-	log.InfoOperation("configuring remote tracking", "remote", remoteName)
+	log.DebugOperation("configuring remote tracking", "remote", remoteName)
 
 	// Set up fetch refspec to get all remote branches
 	fetchRefspec := fmt.Sprintf("remote.%s.fetch", remoteName)
@@ -298,7 +298,7 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string
 		return err
 	}
 
-	log.InfoOperation("remote tracking configured successfully", "remote", remoteName, "duration", time.Since(start))
+	log.DebugOperation("remote tracking configured successfully", "remote", remoteName, "duration", time.Since(start))
 	return nil
 }
 
@@ -382,27 +382,27 @@ func ConvertToGroveStructureWithExecutor(executor GitExecutor, dir string) error
 	log := logger.WithComponent("conversion")
 	start := time.Now()
 
-	log.InfoOperation("starting Grove structure conversion", "directory", dir)
+	log.DebugOperation("starting Grove structure conversion", "directory", dir)
 
 	log.Debug("validating conversion preconditions", "directory", dir)
 	if err := validateConversionPreconditions(dir); err != nil {
-		log.ErrorOperation("conversion precondition validation failed", err, "directory", dir)
+		log.Debug("conversion precondition validation failed", "error", err, "directory", dir)
 		return err
 	}
 
 	log.Debug("checking repository cleanliness", "directory", dir)
 	if err := checkRepositoryClean(executor, dir); err != nil {
-		log.ErrorOperation("repository cleanliness check failed", err, "directory", dir)
+		log.Debug("repository cleanliness check failed", "error", err, "directory", dir)
 		return err
 	}
 
 	log.Debug("performing conversion", "directory", dir)
 	if err := performConversion(dir); err != nil {
-		log.ErrorOperation("conversion failed", err, "directory", dir, "duration", time.Since(start))
+		log.Debug("conversion failed", "error", err, "directory", dir, "duration", time.Since(start))
 		return err
 	}
 
-	log.InfoOperation("Grove structure conversion completed successfully", "directory", dir, "duration", time.Since(start))
+	log.DebugOperation("Grove structure conversion completed successfully", "directory", dir, "duration", time.Since(start))
 	return nil
 }
 
@@ -446,7 +446,7 @@ func checkRepositorySafetyForConversion(executor GitExecutor, dir string) ([]Saf
 	log := logger.WithComponent("safety_checks")
 	start := time.Now()
 
-	log.InfoOperation("starting repository safety checks", "directory", dir)
+	log.DebugOperation("starting repository safety checks", "directory", dir)
 
 	originalDir, err := os.Getwd()
 	if err != nil {
@@ -485,7 +485,7 @@ func checkRepositorySafetyForConversion(executor GitExecutor, dir string) ([]Saf
 		log.Debug("safety check completed", "check_index", i+1, "issues_found", len(issues))
 	}
 
-	log.InfoOperation("repository safety checks completed", "directory", dir, "total_issues", len(allIssues), "duration", time.Since(start))
+	log.DebugOperation("repository safety checks completed", "directory", dir, "total_issues", len(allIssues), "duration", time.Since(start))
 	return allIssues, nil
 }
 
@@ -1031,7 +1031,7 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 	log := logger.WithComponent("validation")
 	start := time.Now()
 
-	log.InfoOperation("validating Grove structure", "directory", dir)
+	log.DebugOperation("validating Grove structure", "directory", dir)
 
 	// Check that .git file exists and is not a directory
 	gitPath := filepath.Join(dir, ".git")
@@ -1097,7 +1097,7 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 		return fmt.Errorf("git status failed in converted repository: %w", err)
 	}
 
-	log.InfoOperation("Grove structure validation completed successfully", "directory", dir, "duration", time.Since(start))
+	log.DebugOperation("Grove structure validation completed successfully", "directory", dir, "duration", time.Since(start))
 	return nil
 }
 
