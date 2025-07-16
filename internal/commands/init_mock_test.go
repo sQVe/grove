@@ -37,7 +37,7 @@ func (m *MockGitExecutor) Execute(args ...string) (string, error) {
 	// Special handling for clone command to create directory.
 	if len(args) >= 3 && args[0] == "clone" && args[1] == "--bare" {
 		targetDir := args[3]
-		if err := os.MkdirAll(targetDir, 0750); err != nil {
+		if err := os.MkdirAll(targetDir, 0o750); err != nil {
 			return "", err
 		}
 	}
@@ -52,7 +52,7 @@ func (m *MockGitExecutor) Execute(args ...string) (string, error) {
 	return "", fmt.Errorf("mock: unhandled git command: %v", args)
 }
 
-func (m *MockGitExecutor) SetResponse(pattern string, output string, err error) {
+func (m *MockGitExecutor) SetResponse(pattern, output string, err error) {
 	m.Responses[pattern] = MockResponse{Output: output, Error: err}
 }
 
@@ -212,7 +212,7 @@ func TestRunInitFromRemoteWithExecutor_NonEmptyDirectory(t *testing.T) {
 
 	// Create a non-hidden file.
 	testFile := filepath.Join(tempDir, "existing.txt")
-	err = os.WriteFile(testFile, []byte("content"), 0600)
+	err = os.WriteFile(testFile, []byte("content"), 0o600)
 	require.NoError(t, err)
 
 	// Save current directory.
@@ -244,7 +244,7 @@ func TestRunInitFromRemoteWithExecutor_HiddenFilesAllowed(t *testing.T) {
 
 	// Create hidden files (should be allowed).
 	hiddenFile := filepath.Join(tempDir, ".gitignore")
-	err = os.WriteFile(hiddenFile, []byte("*.log"), 0600)
+	err = os.WriteFile(hiddenFile, []byte("*.log"), 0o600)
 	require.NoError(t, err)
 
 	// Save current directory.

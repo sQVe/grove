@@ -16,16 +16,28 @@ func NewInitCmd() *cobra.Command {
 		Short: "Initialize or clone a Git repository optimized for worktrees",
 		Long: `Initialize a new bare Git repository or clone an existing one with worktree-optimized structure.
 
-Two modes:
+Three modes:
   grove init                    # Initialize new bare repository in current directory
   grove init <directory>        # Initialize new bare repository in specified directory  
   grove init <remote-url>       # Clone existing repository with worktree setup
+  grove init --convert          # Convert existing traditional repo to Grove structure
 
 The repository structure uses a .bare/ subdirectory for git objects and a .git file
 pointing to it, allowing the main directory to function as a working directory.`,
-		Args: cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			convert, _ := cmd.Flags().GetBool("convert")
+			if convert && len(args) > 0 {
+				return fmt.Errorf("cannot specify arguments when using --convert flag")
+			}
+			if !convert && len(args) > 1 {
+				return fmt.Errorf("too many arguments")
+			}
+			return nil
+		},
 		RunE: runInit,
 	}
+
+	cmd.Flags().Bool("convert", false, "Convert existing traditional Git repository to Grove structure")
 
 	return cmd
 }
@@ -33,6 +45,11 @@ pointing to it, allowing the main directory to function as a working directory.`
 func runInit(cmd *cobra.Command, args []string) error {
 	if !utils.IsGitAvailable() {
 		return fmt.Errorf("git is not available in PATH")
+	}
+
+	convert, _ := cmd.Flags().GetBool("convert")
+	if convert {
+		return runInitConvert()
 	}
 
 	var targetArg string
@@ -63,7 +80,7 @@ func runInitLocal(targetDir string) error {
 		return fmt.Errorf("failed to resolve absolute path: %w", err)
 	}
 
-	if err := os.MkdirAll(absPath, 0750); err != nil {
+	if err := os.MkdirAll(absPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", absPath, err)
 	}
 
@@ -187,4 +204,42 @@ func printSuccessMessage(targetDir, bareDir string) {
 	fmt.Println("\nNext steps:")
 	fmt.Println("  grove create <branch-name>  # Create a worktree for a branch")
 	fmt.Println("  grove list                  # List all worktrees")
+}
+
+func runInitConvert() error {
+	return runInitConvertWithExecutor(git.DefaultExecutor)
+}
+
+func runInitConvertWithExecutor(executor git.GitExecutor) error {
+	// Get current working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Check if this is a traditional Git repository
+	if !git.IsTraditionalRepo(currentDir) {
+		if git.IsGroveRepo(currentDir) {
+			return fmt.Errorf("directory %s is already a Grove repository", currentDir)
+		}
+		return fmt.Errorf("directory %s does not contain a traditional Git repository (.git directory not found)", currentDir)
+	}
+
+	fmt.Printf("Converting traditional Git repository to Grove structure...\n")
+	fmt.Printf("Repository: %s\n", currentDir)
+
+	// Perform the conversion
+	if err := git.ConvertToGroveStructureWithExecutor(executor, currentDir); err != nil {
+		return fmt.Errorf("failed to convert repository: %w", err)
+	}
+
+	// Print success message
+	bareDir := filepath.Join(currentDir, ".bare")
+	fmt.Printf("Successfully converted repository to Grove structure in %s\n", currentDir)
+	fmt.Printf("Git objects moved to: %s\n", bareDir)
+	fmt.Println("\nNext steps:")
+	fmt.Println("  grove create <branch-name>  # Create a worktree for a branch")
+	fmt.Println("  grove list                  # List all worktrees")
+
+	return nil
 }
