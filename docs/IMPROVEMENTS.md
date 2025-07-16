@@ -14,6 +14,7 @@ This document tracks the systematic implementation of code quality improvements 
 | 6 | Add Progress Indicators | ⏳ Pending | High | 4 hours |
 | 7 | Add Retry Mechanisms | ✅ Complete | High | 3 hours |
 | 8 | Increase Test Coverage | ⏳ Pending | High | 1 day |
+| 9 | Implement Filesystem-Safe Worktree Directory Naming | ⏳ Pending | Medium | 2-3 hours |
 
 ## Implementation Details
 
@@ -220,6 +221,44 @@ func WithRetry(fn func() error, maxRetries int) error {
 **Target**: 90%+ test coverage across all packages
 
 **Testing**: Comprehensive coverage of all code paths
+
+---
+
+### 9. Implement Filesystem-Safe Worktree Directory Naming 📁
+
+**Issue**: Current worktree creation with `git worktree add fix/123` creates branch `123` instead of `fix/123`, and directory structure doesn't follow filesystem-safe naming conventions
+
+**Solution**: Implement automatic branch name to directory name conversion that ensures filesystem-safe directory names while preserving intended branch names
+
+**Files to create/modify**:
+- `internal/git/worktree.go` - Add directory name transformation logic
+- `internal/git/naming.go` - Branch name to filesystem-safe directory conversion
+- `internal/commands/create.go` - Use filesystem-safe naming in worktree creation
+- `internal/commands/init.go` - Apply naming conventions during initialization
+
+**Implementation**:
+```go
+// Convert branch names like "fix/123" to filesystem-safe directory names like "fix-123"
+func BranchToDirectoryName(branchName string) string {
+    // Replace filesystem-unsafe characters with safe alternatives
+    return strings.ReplaceAll(branchName, "/", "-")
+}
+
+// Create worktree with proper branch and directory naming
+func CreateWorktreeWithSafeNaming(branchName string, basePath string) error {
+    dirName := BranchToDirectoryName(branchName)
+    dirPath := filepath.Join(basePath, dirName)
+    
+    // Use -b flag to ensure correct branch name
+    return exec.Command("git", "worktree", "add", "-b", branchName, dirPath).Run()
+}
+```
+
+**Testing**: 
+- Verify branch names with slashes create correct directory names
+- Test edge cases like multiple slashes, dots, and other special characters
+- Ensure proper branch creation with intended branch names
+- Validate directory structure follows filesystem conventions
 
 ---
 
