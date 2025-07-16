@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"context"
 	"fmt"
 	"strings"
 )
@@ -26,6 +27,23 @@ func NewMockGitExecutor() *MockGitExecutor {
 
 // Execute implements the GitExecutor interface by returning pre-configured responses.
 func (m *MockGitExecutor) Execute(args ...string) (string, error) {
+	return m.executeInternal(args)
+}
+
+// ExecuteWithContext implements the GitExecutor interface with context support.
+func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	// Check if context is cancelled before execution
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	return m.executeInternal(args)
+}
+
+// executeInternal contains the common execution logic for both Execute methods.
+func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
 	cmdKey := strings.Join(args, " ")
 
 	// First check for exact match
@@ -93,6 +111,19 @@ func (m *MockGitExecutor) SetUnsafeRepositoryState() {
 		"for-each-ref --format=%(refname:short) %(upstream) refs/heads",
 		"main origin/main\nexperiment\ntemp\n",
 	)
+}
+
+// SetConversionState configures the mock to support repository conversion operations.
+func (m *MockGitExecutor) SetConversionState() {
+	// Set up responses for conversion process
+	m.SetSafeRepositoryState()
+	// Add responses for conversion-specific commands
+	m.SetSuccessResponse("rev-parse --is-bare-repository", "false")
+	m.SetSuccessResponse("config --get core.bare", "false")
+	m.SetSuccessResponse("symbolic-ref HEAD", "refs/heads/main")
+	m.SetSuccessResponse("rev-parse --abbrev-ref HEAD", "main")
+	m.SetSuccessResponse("branch --show-current", "main")
+	m.SetSuccessResponse("worktree add", "")
 }
 
 // Reset clears all configured responses.
