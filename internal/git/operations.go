@@ -905,8 +905,9 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 	// Use the detected default branch as the worktree branch
 	currentBranch := defaultBranch
 
-	// Create worktree directory path
-	worktreePath := filepath.Join(dir, currentBranch)
+	// Create worktree directory path using filesystem-safe naming
+	dirName := BranchToDirectoryName(currentBranch)
+	worktreePath := filepath.Join(dir, dirName)
 
 	// Check if worktree directory already exists
 	if _, err := os.Stat(worktreePath); err == nil {
@@ -960,7 +961,7 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 		}
 
 		// Create the worktree - this will populate it with the files from the branch
-		_, err = executor.Execute("worktree", "add", worktreePath, currentBranch)
+		_, err = CreateWorktreeFromExistingBranch(executor, currentBranch, dir)
 		if err != nil {
 			return fmt.Errorf("failed to create worktree for branch %s: %w", currentBranch, err)
 		}
