@@ -26,7 +26,7 @@ grove init https://github.com/user/repo # Clone remote with worktree structure
 
 ## Documentation
 
-- **[FEATURES.md](FEATURES.md)** - Complete features and roadmap
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development and architecture
+- **[FEATURES.md](docs/FEATURES.md)** - Complete features and roadmap
+- **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development and architecture
 
 MIT License
