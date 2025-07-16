@@ -1,9 +1,11 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +19,10 @@ type MockGitExecutor struct {
 	Responses map[string]MockResponse
 	// CallCount tracks how many times Execute was called
 	CallCount int
+	// For simpler test setup
+	responses map[string]string
+	errors    map[string]error
+	delays    map[string]time.Duration
 }
 
 // MockResponse defines a mock git command response.
@@ -31,18 +37,51 @@ func NewMockGitExecutor() *MockGitExecutor {
 		Commands:  [][]string{},
 		Responses: make(map[string]MockResponse),
 		CallCount: 0,
+		responses: make(map[string]string),
+		errors:    make(map[string]error),
+		delays:    make(map[string]time.Duration),
 	}
 }
 
 // Execute simulates git command execution.
 func (m *MockGitExecutor) Execute(args ...string) (string, error) {
+	return m.executeInternal(args)
+}
+
+// ExecuteWithContext simulates git command execution with context support.
+func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	// Check if context is cancelled before execution
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	return m.executeInternal(args)
+}
+
+// executeInternal contains the common execution logic for both Execute methods.
+func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
 	m.CallCount++
 	m.Commands = append(m.Commands, args)
 
 	// Create a command key for lookup
 	cmdKey := strings.Join(args, " ")
 
-	// Check for exact match first
+	// Handle delay if configured
+	if delay, exists := m.delays[cmdKey]; exists {
+		time.Sleep(delay)
+	}
+
+	// Check simple responses first
+	if response, exists := m.responses[cmdKey]; exists {
+		if err, hasError := m.errors[cmdKey]; hasError {
+			return "", err
+		}
+		return response, nil
+	}
+
+	// Check for exact match in old format
 	if response, exists := m.Responses[cmdKey]; exists {
 		return response.Output, response.Error
 	}
@@ -52,6 +91,11 @@ func (m *MockGitExecutor) Execute(args ...string) (string, error) {
 		if strings.HasPrefix(cmdKey, pattern) {
 			return response.Output, response.Error
 		}
+	}
+
+	// Check for errors without responses
+	if err, exists := m.errors[cmdKey]; exists {
+		return "", err
 	}
 
 	// Default response for unmatched commands
@@ -81,6 +125,9 @@ func (m *MockGitExecutor) Reset() {
 	m.Commands = [][]string{}
 	m.CallCount = 0
 	m.Responses = make(map[string]MockResponse)
+	m.responses = make(map[string]string)
+	m.errors = make(map[string]error)
+	m.delays = make(map[string]time.Duration)
 }
 
 // LastCommand returns the last executed command.
@@ -224,7 +271,7 @@ func TestConfigureRemoteTrackingWithExecutor(t *testing.T) {
 			mock.SetResponse("config", "", tt.configError)
 			mock.SetResponse("fetch", "", tt.fetchError)
 
-			err := ConfigureRemoteTrackingWithExecutor(mock)
+			err := ConfigureRemoteTrackingWithExecutor(mock, "origin")
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -310,7 +357,7 @@ func runSetupUpstreamTest(t *testing.T, tt setupUpstreamTestCase) {
 		mock.SetResponse(pattern, "", err)
 	}
 
-	err := SetupUpstreamBranchesWithExecutor(mock)
+	err := SetupUpstreamBranchesWithExecutor(mock, "origin")
 
 	if tt.expectError {
 		require.Error(t, err)

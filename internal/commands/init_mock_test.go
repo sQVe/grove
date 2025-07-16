@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +32,11 @@ func NewMockGitExecutor() *MockGitExecutor {
 }
 
 func (m *MockGitExecutor) Execute(args ...string) (string, error) {
+	return m.ExecuteWithContext(context.Background(), args...)
+}
+
+// ExecuteWithContext implements the GitExecutor interface with context support.
+func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
 	m.CallCount++
 	m.Commands = append(m.Commands, args)
 
@@ -78,6 +84,11 @@ func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "main\nfeature", nil)
 	mock.SetResponse("branch", "", nil)
+	// Add default branch detection responses
+	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+	// Add worktree creation responses
+	mock.SetResponse("config --bool core.bare true", "", nil)
+	mock.SetResponse("worktree add", "", nil)
 
 	// Test successful remote init.
 	err = runInitRemoteWithExecutor(mock, "https://github.com/user/repo.git")
@@ -198,6 +209,11 @@ func TestRunInitFromRemoteWithExecutor_UpstreamWarning(t *testing.T) {
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "", fmt.Errorf("no refs found"))
+	// Add default branch detection responses
+	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+	// Add worktree creation responses
+	mock.SetResponse("config --bool core.bare true", "", nil)
+	mock.SetResponse("worktree add", "", nil)
 
 	// Test upstream failure (should succeed with warning).
 	err = runInitRemoteWithExecutor(mock, "https://github.com/user/repo.git")
@@ -262,6 +278,11 @@ func TestRunInitFromRemoteWithExecutor_HiddenFilesAllowed(t *testing.T) {
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "", nil)
+	// Add default branch detection responses
+	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+	// Add worktree creation responses
+	mock.SetResponse("config --bool core.bare true", "", nil)
+	mock.SetResponse("worktree add", "", nil)
 
 	// Test with hidden files (should succeed).
 	err = runInitRemoteWithExecutor(mock, "https://github.com/user/repo.git")

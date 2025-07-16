@@ -1,17 +1,22 @@
 package git
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/sqve/grove/internal/logger"
 )
 
 // GitExecutor defines the interface for executing git commands.
 type GitExecutor interface {
 	Execute(args ...string) (string, error)
+	ExecuteWithContext(ctx context.Context, args ...string) (string, error)
 }
 
 // DefaultGitExecutor implements GitExecutor using real git commands.
@@ -20,6 +25,11 @@ type DefaultGitExecutor struct{}
 // Execute runs a real git command.
 func (e *DefaultGitExecutor) Execute(args ...string) (string, error) {
 	return ExecuteGit(args...)
+}
+
+// ExecuteWithContext runs a real git command with context support for cancellation.
+func (e *DefaultGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	return ExecuteGitWithContext(ctx, args...)
 }
 
 // DefaultExecutor is the default git command executor.
@@ -70,9 +80,15 @@ func (e *GitError) Error() string {
 // ExecuteGit runs a git command with the given arguments and returns stdout.
 // If the command fails, it returns a GitError with stderr and exit code.
 func ExecuteGit(args ...string) (string, error) {
+	log := logger.WithComponent("git_executor")
+	start := time.Now()
+
+	log.GitCommand("git", args)
 	cmd := exec.Command("git", args...)
 
 	stdout, err := cmd.Output()
+	duration := time.Since(start)
+
 	if err != nil {
 		var stderr string
 		var exitErr *exec.ExitError
@@ -80,15 +96,55 @@ func ExecuteGit(args ...string) (string, error) {
 			stderr = string(exitErr.Stderr)
 		}
 
-		return "", &GitError{
+		gitErr := &GitError{
 			Command:  "git",
 			Args:     args,
 			Stderr:   stderr,
 			ExitCode: cmd.ProcessState.ExitCode(),
 		}
+
+		log.GitResult("git", false, stderr, "duration", duration)
+		return "", gitErr
 	}
 
-	return strings.TrimSpace(string(stdout)), nil
+	output := strings.TrimSpace(string(stdout))
+	log.GitResult("git", true, output, "duration", duration)
+	return output, nil
+}
+
+// ExecuteGitWithContext runs a git command with context support for cancellation.
+// If the command fails, it returns a GitError with stderr and exit code.
+func ExecuteGitWithContext(ctx context.Context, args ...string) (string, error) {
+	log := logger.WithComponent("git_executor")
+	start := time.Now()
+
+	log.GitCommand("git", args, "with_context", true)
+	cmd := exec.CommandContext(ctx, "git", args...)
+
+	stdout, err := cmd.Output()
+	duration := time.Since(start)
+
+	if err != nil {
+		var stderr string
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr = string(exitErr.Stderr)
+		}
+
+		gitErr := &GitError{
+			Command:  "git",
+			Args:     args,
+			Stderr:   stderr,
+			ExitCode: cmd.ProcessState.ExitCode(),
+		}
+
+		log.GitResult("git", false, stderr, "duration", duration, "with_context", true)
+		return "", gitErr
+	}
+
+	output := strings.TrimSpace(string(stdout))
+	log.GitResult("git", true, output, "duration", duration, "with_context", true)
+	return output, nil
 }
 
 // CloneBare runs git clone --bare for the given repository URL.
@@ -98,14 +154,28 @@ func CloneBare(repoURL, targetDir string) error {
 
 // CloneBareWithExecutor runs git clone --bare using the specified executor.
 func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) error {
+	log := logger.WithComponent("git_clone")
+	start := time.Now()
+
+	log.InfoOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
 	_, err := executor.Execute("clone", "--bare", repoURL, targetDir)
-	return err
+	if err != nil {
+		log.ErrorOperation("clone bare failed", err, "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
+		return err
+	}
+
+	log.InfoOperation("clone bare completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
+	return nil
 }
 
 // CreateGitFile writes a .git file with gitdir pointing to the bare repository.
 func CreateGitFile(mainDir, bareDir string) error {
+	log := logger.WithComponent("git_file")
+	log.DebugOperation("creating .git file", "main_dir", mainDir, "bare_dir", bareDir)
+
 	// Validate input paths for security
 	if err := validatePaths(mainDir, bareDir); err != nil {
+		log.ErrorOperation("path validation failed", err, "main_dir", mainDir, "bare_dir", bareDir)
 		return fmt.Errorf("invalid paths: %w", err)
 	}
 
@@ -114,44 +184,72 @@ func CreateGitFile(mainDir, bareDir string) error {
 	// Make bareDir relative to mainDir if possible, otherwise use absolute path
 	relPath, err := filepath.Rel(mainDir, bareDir)
 	if err != nil {
+		log.Debug("using absolute path for bare directory", "bare_dir", bareDir, "error", err)
 		relPath = bareDir
 	}
 
 	// Validate that the relative path doesn't try to escape multiple directory levels
 	// Allow single level traversal (../something) but reject deep traversal (../../something)
 	if strings.HasPrefix(relPath, "../../") || strings.Contains(relPath, "/../..") {
-		return fmt.Errorf("relative path contains directory traversal: %s", relPath)
+		err := fmt.Errorf("relative path contains directory traversal: %s", relPath)
+		log.ErrorOperation("path traversal validation failed", err, "rel_path", relPath)
+		return err
 	}
 
 	content := fmt.Sprintf("gitdir: %s\n", relPath)
-	return os.WriteFile(gitFilePath, []byte(content), 0o600)
+	log.Debug("writing .git file", "path", gitFilePath, "content", content)
+
+	if err := os.WriteFile(gitFilePath, []byte(content), 0o600); err != nil {
+		log.ErrorOperation("writing .git file failed", err, "path", gitFilePath)
+		return err
+	}
+
+	log.InfoOperation(".git file created successfully", "path", gitFilePath, "gitdir", relPath)
+	return nil
 }
 
 // ConfigureRemoteTracking sets up fetch refspec and fetches all remote branches.
 func ConfigureRemoteTracking() error {
-	return ConfigureRemoteTrackingWithExecutor(DefaultExecutor)
+	return ConfigureRemoteTrackingWithExecutor(DefaultExecutor, "origin")
 }
 
 // ConfigureRemoteTrackingWithExecutor sets up fetch refspec using the specified executor.
-func ConfigureRemoteTrackingWithExecutor(executor GitExecutor) error {
+func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string) error {
+	log := logger.WithComponent("remote_tracking")
+	start := time.Now()
+
+	log.InfoOperation("configuring remote tracking", "remote", remoteName)
+
 	// Set up fetch refspec to get all remote branches
-	_, err := executor.Execute("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")
+	fetchRefspec := fmt.Sprintf("remote.%s.fetch", remoteName)
+	refspecValue := fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", remoteName)
+
+	log.Debug("setting fetch refspec", "refspec", fetchRefspec, "value", refspecValue)
+	_, err := executor.Execute("config", fetchRefspec, refspecValue)
 	if err != nil {
+		log.ErrorOperation("config fetch refspec failed", err, "remote", remoteName, "refspec", refspecValue)
 		return err
 	}
 
 	// Fetch all remote branches
+	log.Debug("fetching all remote branches", "remote", remoteName)
 	_, err = executor.Execute("fetch")
-	return err
+	if err != nil {
+		log.ErrorOperation("fetch remote branches failed", err, "remote", remoteName, "duration", time.Since(start))
+		return err
+	}
+
+	log.InfoOperation("remote tracking configured successfully", "remote", remoteName, "duration", time.Since(start))
+	return nil
 }
 
 // SetupUpstreamBranches configures branch.*.remote for existing local branches.
 func SetupUpstreamBranches() error {
-	return SetupUpstreamBranchesWithExecutor(DefaultExecutor)
+	return SetupUpstreamBranchesWithExecutor(DefaultExecutor, "origin")
 }
 
 // SetupUpstreamBranchesWithExecutor configures upstream tracking using the specified executor.
-func SetupUpstreamBranchesWithExecutor(executor GitExecutor) error {
+func SetupUpstreamBranchesWithExecutor(executor GitExecutor, remoteName string) error {
 	// Get all local branches
 	output, err := executor.Execute("for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if err != nil {
@@ -165,7 +263,8 @@ func SetupUpstreamBranchesWithExecutor(executor GitExecutor) error {
 		}
 
 		// Set upstream tracking for each branch
-		_, err := executor.Execute("branch", "--set-upstream-to=origin/"+branch, branch)
+		upstreamBranch := fmt.Sprintf("%s/%s", remoteName, branch)
+		_, err := executor.Execute("branch", "--set-upstream-to="+upstreamBranch, branch)
 		if err != nil {
 			// Continue if this branch doesn't exist on remote
 			continue
@@ -221,15 +320,31 @@ func ConvertToGroveStructure(dir string) error {
 
 // ConvertToGroveStructureWithExecutor converts using the specified executor.
 func ConvertToGroveStructureWithExecutor(executor GitExecutor, dir string) error {
+	log := logger.WithComponent("conversion")
+	start := time.Now()
+
+	log.InfoOperation("starting Grove structure conversion", "directory", dir)
+
+	log.Debug("validating conversion preconditions", "directory", dir)
 	if err := validateConversionPreconditions(dir); err != nil {
+		log.ErrorOperation("conversion precondition validation failed", err, "directory", dir)
 		return err
 	}
 
+	log.Debug("checking repository cleanliness", "directory", dir)
 	if err := checkRepositoryClean(executor, dir); err != nil {
+		log.ErrorOperation("repository cleanliness check failed", err, "directory", dir)
 		return err
 	}
 
-	return performConversion(dir)
+	log.Debug("performing conversion", "directory", dir)
+	if err := performConversion(dir); err != nil {
+		log.ErrorOperation("conversion failed", err, "directory", dir, "duration", time.Since(start))
+		return err
+	}
+
+	log.InfoOperation("Grove structure conversion completed successfully", "directory", dir, "duration", time.Since(start))
+	return nil
 }
 
 // validateConversionPreconditions checks that the directory is ready for conversion.
@@ -269,12 +384,19 @@ func checkRepositoryClean(executor GitExecutor, dir string) error {
 
 // checkRepositorySafetyForConversion performs comprehensive safety checks before conversion.
 func checkRepositorySafetyForConversion(executor GitExecutor, dir string) ([]SafetyIssue, error) {
+	log := logger.WithComponent("safety_checks")
+	start := time.Now()
+
+	log.InfoOperation("starting repository safety checks", "directory", dir)
+
 	originalDir, err := os.Getwd()
 	if err != nil {
+		log.ErrorOperation("failed to get current directory", err, "directory", dir)
 		return nil, fmt.Errorf("failed to get current directory: %w", err)
 	}
 
 	if err := os.Chdir(dir); err != nil {
+		log.ErrorOperation("failed to change directory", err, "directory", dir)
 		return nil, fmt.Errorf("failed to change to directory %s: %w", dir, err)
 	}
 
@@ -293,14 +415,18 @@ func checkRepositorySafetyForConversion(executor GitExecutor, dir string) ([]Saf
 	var allIssues []SafetyIssue
 
 	// Run all safety checks
-	for _, check := range safetyChecks {
+	for i, check := range safetyChecks {
+		log.Debug("running safety check", "check_index", i+1, "total_checks", len(safetyChecks))
 		issues, err := check(executor)
 		if err != nil {
+			log.ErrorOperation("safety check failed", err, "check_index", i+1, "directory", dir)
 			return nil, err
 		}
 		allIssues = append(allIssues, issues...)
+		log.Debug("safety check completed", "check_index", i+1, "issues_found", len(issues))
 	}
 
+	log.InfoOperation("repository safety checks completed", "directory", dir, "total_issues", len(allIssues), "duration", time.Since(start))
 	return allIssues, nil
 }
 
@@ -711,16 +837,14 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	// Get the current branch name
-	currentBranch, err := executor.Execute("branch", "--show-current")
+	// Detect the default branch for the repository
+	defaultBranch, err := DetectDefaultBranch(executor, "origin")
 	if err != nil {
-		return fmt.Errorf("failed to get current branch: %w", err)
+		return fmt.Errorf("failed to detect default branch: %w", err)
 	}
 
-	currentBranch = strings.TrimSpace(currentBranch)
-	if currentBranch == "" {
-		currentBranch = "main" // fallback
-	}
+	// Use the detected default branch as the worktree branch
+	currentBranch := defaultBranch
 
 	// Create worktree directory path
 	worktreePath := filepath.Join(dir, currentBranch)
@@ -845,54 +969,76 @@ func ValidateGroveStructure(dir string) error {
 
 // ValidateGroveStructureWithExecutor validates using the specified executor.
 func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error {
+	log := logger.WithComponent("validation")
+	start := time.Now()
+
+	log.InfoOperation("validating Grove structure", "directory", dir)
+
 	// Check that .git file exists and is not a directory
 	gitPath := filepath.Join(dir, ".git")
+	log.Debug("checking .git file", "path", gitPath)
 	gitInfo, err := os.Stat(gitPath)
 	if err != nil {
+		log.ErrorOperation(".git file validation failed", err, "path", gitPath)
 		return fmt.Errorf(".git file does not exist: %w", err)
 	}
 	if gitInfo.IsDir() {
-		return fmt.Errorf(".git should be a file, not a directory")
+		err := fmt.Errorf(".git should be a file, not a directory")
+		log.ErrorOperation(".git file type validation failed", err, "path", gitPath)
+		return err
 	}
 
 	// Check that .bare directory exists
 	bareDir := filepath.Join(dir, ".bare")
+	log.Debug("checking .bare directory", "path", bareDir)
 	bareInfo, err := os.Stat(bareDir)
 	if err != nil {
+		log.ErrorOperation(".bare directory validation failed", err, "path", bareDir)
 		return fmt.Errorf(".bare directory does not exist: %w", err)
 	}
 	if !bareInfo.IsDir() {
-		return fmt.Errorf(".bare should be a directory")
+		err := fmt.Errorf(".bare should be a directory")
+		log.ErrorOperation(".bare directory type validation failed", err, "path", bareDir)
+		return err
 	}
 
 	// Validate .git file content
+	log.Debug("validating .git file content", "path", gitPath)
 	gitContent, err := os.ReadFile(gitPath)
 	if err != nil {
+		log.ErrorOperation(".git file content read failed", err, "path", gitPath)
 		return fmt.Errorf("failed to read .git file: %w", err)
 	}
 
 	expectedContent := fmt.Sprintf("gitdir: %s\n", ".bare")
 	if string(gitContent) != expectedContent {
-		return fmt.Errorf(".git file content is invalid, expected 'gitdir: .bare\\n', got '%s'", string(gitContent))
+		err := fmt.Errorf(".git file content is invalid, expected 'gitdir: .bare\\n', got '%s'", string(gitContent))
+		log.ErrorOperation(".git file content validation failed", err, "expected", expectedContent, "actual", string(gitContent))
+		return err
 	}
 
 	// Test that git operations work
 	originalDir, err := os.Getwd()
 	if err != nil {
+		log.ErrorOperation("failed to get current directory", err)
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
 	if err := os.Chdir(dir); err != nil {
+		log.ErrorOperation("failed to change directory", err, "directory", dir)
 		return fmt.Errorf("failed to change to directory %s: %w", dir, err)
 	}
 	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Test basic git operation
+	log.Debug("testing git operations in converted repository", "directory", dir)
 	_, err = executor.Execute("status")
 	if err != nil {
+		log.ErrorOperation("git status test failed", err, "directory", dir)
 		return fmt.Errorf("git status failed in converted repository: %w", err)
 	}
 
+	log.InfoOperation("Grove structure validation completed successfully", "directory", dir, "duration", time.Since(start))
 	return nil
 }
 
