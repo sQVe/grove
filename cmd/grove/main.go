@@ -20,7 +20,6 @@ Manage multiple working directories effortlessly with smart cleanup and seamless
 }
 
 func init() {
-	// Add subcommands
 	rootCmd.AddCommand(commands.NewInitCmd())
 }
 
