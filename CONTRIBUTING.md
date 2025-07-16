@@ -17,7 +17,7 @@
 # macOS
 brew install golangci-lint
 
-# Linux/Windows  
+# Linux/Windows
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
@@ -28,10 +28,11 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ### Before committing
 
 ```bash
-go fmt ./...                                    # Format
-golangci-lint run                               # Lint
-go test -race -coverprofile=coverage.out ./... # Test
-go build ./cmd/grove                            # Build
+go fmt ./...                                   # Format
+golangci-lint run                              # Lint
+go test -race -coverprofile=coverage.out ./... # Unit tests
+go test -tags=integration ./...                # Integration tests
+go build ./cmd/grove                           # Build
 ```
 
 ### Git workflow
@@ -51,8 +52,15 @@ go build ./cmd/grove                            # Build
 ### Testing
 
 - **Coverage**: Aim for 90%+ (currently 85.6% overall: 94.3% utils, 86.4% commands, 85.0% git)
-- **Types**: Unit tests, integration tests, mock infrastructure
-- **Co-locate**: `file.go` → `file_test.go`
+- **Types**: Unit tests (mocked), integration tests (real git operations)
+- **Structure**: 
+  - `file_test.go` - Unit tests with mocked dependencies
+  - `file_integration_test.go` - Integration tests with real git operations
+- **Build tags**: Integration tests use `//go:build integration` tag
+- **Running tests**:
+  - Unit tests: `go test ./...`
+  - Integration tests: `go test -tags=integration ./...`
+  - All tests: `go test -tags=integration ./...`
 
 ## Architecture
 

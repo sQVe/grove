@@ -59,7 +59,7 @@ func (m *MockGitExecutor) Execute(args ...string) (string, error) {
 }
 
 // SetResponse configures a response for a specific command pattern.
-func (m *MockGitExecutor) SetResponse(pattern string, output string, err error) {
+func (m *MockGitExecutor) SetResponse(pattern, output string, err error) {
 	m.Responses[pattern] = MockResponse{
 		Output: output,
 		Error:  err,
@@ -67,12 +67,12 @@ func (m *MockGitExecutor) SetResponse(pattern string, output string, err error) 
 }
 
 // SetSuccessResponse configures a successful response.
-func (m *MockGitExecutor) SetSuccessResponse(pattern string, output string) {
+func (m *MockGitExecutor) SetSuccessResponse(pattern, output string) {
 	m.SetResponse(pattern, output, nil)
 }
 
 // SetErrorResponse configures an error response.
-func (m *MockGitExecutor) SetErrorResponse(pattern string, errMsg string) {
+func (m *MockGitExecutor) SetErrorResponse(pattern, errMsg string) {
 	m.SetResponse(pattern, "", fmt.Errorf("%s", errMsg))
 }
 

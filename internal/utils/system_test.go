@@ -36,11 +36,11 @@ func TestIsGitAvailableWithModifiedPATH(t *testing.T) {
 		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		gitPath := filepath.Join(tempDir, "git")
-		err = os.WriteFile(gitPath, []byte("#!/bin/sh\necho 'mock git'\n"), 0600)
+		err = os.WriteFile(gitPath, []byte("#!/bin/sh\necho 'mock git'\n"), 0o600)
 		require.NoError(t, err)
 
 		// Make the script executable (owner and group only)
-		err = os.Chmod(gitPath, 0700)
+		err = os.Chmod(gitPath, 0o700)
 		require.NoError(t, err)
 
 		// Set PATH to our temp directory
