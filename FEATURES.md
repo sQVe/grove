@@ -1,97 +1,87 @@
-# Features
+# Features & Roadmap
 
-Current and planned capabilities for Grove Git worktree management.
+## Current ✅
 
-## Current capabilities
-
-### Core CLI commands
+### Repository Setup
 
 ```bash
-grove                        # List all worktrees
-grove init [path]            # Initialize bare repository  
-grove create <branch> [path] # Create worktree from branch
-grove switch <worktree>      # Switch to worktree
-grove list                   # Enhanced listing with status
+grove init                   # Initialize bare repo in current directory
+grove init <directory>       # Initialize in specified directory
+grove init <remote-url>      # Clone remote with worktree structure
 ```
 
-### Enhanced worktree listing
+**Features**: Worktree-optimized structure, remote cloning, directory validation, cross-platform paths
 
-- **Color-coded status**: Clean (green), dirty (yellow), ahead/behind (blue/red)
-- **Structured output**: Name, branch, status, and path columns
-- **Active worktree highlighting**: Shows current location
-- **JSON output**: `--format=json` for scripting
-- **Locked worktree detection**: Shows locked status
+### Infrastructure
 
-### Git integration
+- Robust git command execution with error handling
+- Repository validation and URL detection
+- 85.6% test coverage with mock infrastructure
+- Cross-platform compatibility (Windows/macOS/Linux)
 
-- **Repository validation**: Ensures valid git repository
-- **Branch validation**: Checks branch existence before creation
-- **Cross-platform execution**: Windows, macOS, Linux support
-- **Error handling**: Clear messages with suggested solutions
+## Planned 📅
 
-## Planned features
+### Core Commands
 
-### GitHub integration
+| Command                        | Description                    |
+| ------------------------------ | ------------------------------ |
+| `grove list`                   | List all worktrees with status |
+| `grove create <branch> [path]` | Create worktree from branch    |
+| `grove switch <worktree>`      | Switch to worktree directory   |
+| `grove remove <worktree>`      | Remove worktree safely         |
 
-```bash
-grove pr 123 # Create worktree from PR
-grove pr https://github.com/org/repo/pull/123
-```
+### Configuration
 
-- Fetch PRs from origin and forks automatically
-- Smart branch naming: `pr-123-feature-name`
-- Display PR metadata (author, status, CI checks)
+- TOML configuration files
+- Environment variable overrides
+- Cross-platform config directories
 
-### Linear integration
+### Integrations
 
-```bash
-grove linear PROJ-456 # Create worktree from issue
-grove linear https://linear.app/team/issue/PROJ-456
-```
+| Feature     | Commands                       | Description                |
+| ----------- | ------------------------------ | -------------------------- |
+| **GitHub**  | `grove pr 123`                 | Create worktree from PR    |
+| **Linear**  | `grove linear PROJ-456`        | Create worktree from issue |
+| **Cleanup** | `grove clean --merged/--stale` | Smart worktree cleanup     |
 
-- Auto-generate branch names from issue titles
-- Display issue metadata (assignee, status, priority)
-- Update issue status on worktree operations
+### Enhanced Status
 
-### Smart cleanup
+- Worktree age and activity indicators
+- Disk usage per worktree
+- Configurable stale detection (30 days default)
 
-```bash
-grove clean --merged      # Remove merged worktrees
-grove clean --stale       # Remove unused worktrees
-grove clean --interactive # Interactive cleanup
-```
-
-- Safe deletion with confirmation prompts
-- Preserve worktrees with uncommitted changes
-- Configurable stale detection (default: 30 days)
-
-### Enhanced status
+### TUI Interface
 
 ```bash
-grove list --stale      # Show age indicators
-grove list --disk-usage # Include disk space
-grove list --all        # Show merged/stale status
-```
-
-- Worktree age and last activity timestamps
-- Disk space usage per worktree  
-- Activity scoring based on recent commits
-
-### Interactive TUI
-
-```bash
-grove tui # Launch interactive interface
-grove     # Default to TUI if configured
+grove tui  # Interactive interface with vim-like navigation
 ```
 
 - Multi-panel layout with real-time git status
-- Vim-like navigation (`j/k`, `gg/G`, `enter`, `c`, `d`, `/`, `?`, `q`)
-- Fuzzy search with status filters (dirty, clean, ahead, behind)
-- Visual git state display with rich metadata
+- Fuzzy search and status filters
+- Visual git state display
 
-## Authentication
+### Authentication
 
-- Secure credential storage using system keychain
-- GitHub OAuth and Linear OAuth
+- System keychain credential storage
+- GitHub/Linear OAuth with multi-account support
 - Environment variable fallbacks
-- Multi-account support for organizations
+
+## Roadmap
+
+| Version    | Status         | Features                                           |
+| ---------- | -------------- | -------------------------------------------------- |
+| **v0.1.0** | ⏳ In Progress | Core foundation, init command, testing             |
+| **v0.2.0** | 📅 Planned     | Worktree management, cleanup, enhanced status      |
+| **v0.3.0** | 🔮 Future      | GitHub/Linear integration, authentication          |
+| **v1.0.0** | 🔮 Future      | Complete CLI with TUI, cross-platform distribution |
+
+### Current Phase: Core Foundation
+
+- [x] Project structure and CLI architecture
+- [x] Git operations infrastructure
+- [x] `grove init` command
+- [x] Comprehensive testing (85.6% coverage)
+- [x] golangci-lint setup
+- [ ] Mage build system
+- [ ] Core worktree commands
+- [ ] Configuration system

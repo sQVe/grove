@@ -1,136 +1,108 @@
-# Contributing to Grove
+# Contributing
 
-Quick guide for contributing to Grove Git worktree management CLI.
+## Setup
 
-## Getting started
+| Step        | Command                                                      |
+| ----------- | ------------------------------------------------------------ |
+| **Clone**   | `git clone https://github.com/sqve/grove.git && cd grove`    |
+| **Install** | `go mod download`                                            |
+| **Verify**  | `go test ./... && golangci-lint run && go build ./cmd/grove` |
 
 ### Prerequisites
-- Go 1.21 or later
-- Git 2.5 or later (for worktree support)
 
-### Setup
+- Go 1.21+, Git 2.5+, golangci-lint v2.0+
 
-1. **Clone and setup**:
-   ```bash
-   git clone https://github.com/sqve/grove.git
-   cd grove
-   go mod download
-   ```
+**Install golangci-lint**: 
+```bash
+# macOS
+brew install golangci-lint
 
-2. **Verify setup**:
-   ```bash
-   go test ./...
-   go build -o grove ./cmd/grove
-   ./grove --help
-   ```
+# Linux/Windows  
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
 
-3. **Set up pre-commit hooks** (optional but recommended):
-   ```bash
-   pip install pre-commit
-   pre-commit install
-   ```
+**Configuration**: Project uses `.golangci.yml` with recommended v2 format and essential linters for Go CLI development.
 
-## Development workflow
+## Workflow
 
 ### Before committing
-Always run these commands after making changes:
 
 ```bash
-go fmt ./...                                    # Format code
-golangci-lint run                               # Run linter
-go test -race -coverprofile=coverage.out ./... # Run tests
-go build ./cmd/grove                            # Verify compilation
+go fmt ./...                                    # Format
+golangci-lint run                               # Lint
+go test -race -coverprofile=coverage.out ./... # Test
+go build ./cmd/grove                            # Build
 ```
 
 ### Git workflow
 
-**Commit format**: Use [Conventional Commits](https://www.conventionalcommits.org/)
-```
-type: description
+- **Commits**: [Conventional format](https://conventionalcommits.org) (`feat:`, `fix:`, `docs:`)
+- **Branches**: `feature/name`, `fix/name`, `docs/name`
+- **PRs**: Clear description, link issues, focused scope
 
-Examples:
-feat: add GitHub PR integration
-fix: handle detached HEAD state
-docs: update installation instructions
-```
-
-**Branch naming**:
-```
-feature/github-pr-integration
-fix/worktree-cleanup-error
-docs/contributing-guide
-```
-
-**Allowed commit types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `revert`
-
-## Code standards
+## Code Standards
 
 ### Go conventions
-- Follow [Effective Go](https://golang.org/doc/effective_go.html) guidelines
-- Use `gofmt` for formatting
-- Write meaningful variable and function names
-- Handle errors explicitly with context
+
+- Follow [Effective Go](https://golang.org/doc/effective_go.html)
+- Use `gofmt`, meaningful names, explicit error handling
 - Add godoc comments for public functions
 
-### Project structure
-```go
-// Package organization
-package git
+### Testing
 
-import (
-    // Standard library first
-    "fmt"
-    "os"
-    
-    // Third-party packages
-    "github.com/pkg/errors"
-    
-    // Local packages
-    "github.com/sqve/grove/internal/config"
-)
+- **Coverage**: Aim for 90%+ (currently 85.6% overall: 94.3% utils, 86.4% commands, 85.0% git)
+- **Types**: Unit tests, integration tests, mock infrastructure
+- **Co-locate**: `file.go` → `file_test.go`
+
+## Architecture
+
+### Structure
+
+```
+grove/
+├── cmd/grove/           # CLI entry point
+├── internal/
+│   ├── commands/        # Command implementations (init.go)
+│   ├── git/            # Git operations (operations.go)
+│   └── utils/          # Cross-platform utilities
+│       ├── files.go     # File system operations
+│       ├── git.go       # Git URL validation & repo checks
+│       └── system.go    # System utilities
+└── go.mod
 ```
 
-### Testing
-- **Unit tests**: Test individual functions in isolation
-- **Integration tests**: Test complete workflows with real git repositories
-- **Table-driven tests**: Use for testing multiple scenarios
-- **Co-locate tests**: `file.go` → `file_test.go`
+### Principles
 
-## Pull requests
+- **Direct git execution**: Use `os/exec`, parse output manually
+- **Dependency injection**: `GitExecutor` interface for testable operations
+- **Cross-platform**: Handle Windows/macOS/Linux with Go stdlib
+- **Error handling**: Custom `GitError` with context and exit codes
 
-### Before submitting
-- [ ] Tests pass locally
-- [ ] Code follows style guidelines
-- [ ] Documentation updated if needed
-- [ ] Commit messages follow conventional format
+### Git Operations
 
-### PR checklist
-- **Clear description**: Explain what and why, not just how
-- **Focused scope**: One feature or fix per PR
-- **Link issues**: Reference related issues with `fixes #123`
-- **Update docs**: Include relevant documentation changes
+| Command            | Purpose                                     |
+| ------------------ | ------------------------------------------- |
+| `git init --bare`  | Initialize repositories in `.bare/` subdirs |
+| `git clone --bare` | Clone with worktree structure               |
+| `git config`       | Configure remotes and fetch specs           |
+| `git rev-parse`    | Repository validation                       |
 
-## Key implementation notes
+### Build System: Mage
 
-- **Direct git execution**: Use `os/exec` to run git commands, parse output manually
-- **Cross-platform support**: Handle Windows/macOS/Linux differences
-- **Error handling**: Provide clear, actionable error messages
-- **Configuration**: Use TOML format with validation
-- **Testing**: Focus on git operations and CLI functionality
+**Why**: Cross-platform, Go-native, modern best practice
+**Tasks**: Build, Test, TestCoverage, Lint, Fmt, Clean, Install
 
-## Getting help
+## Current Priorities
 
-- **Documentation**: Check [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
-- **Issues**: Search existing issues before creating new ones
-- **Questions**: Use GitHub Discussions for general questions
-- **Review**: Tag maintainers if your PR needs attention
+1. **Core operations**: Implement worktree management
+2. **Cross-platform**: Ensure Windows/macOS/Linux compatibility
+3. **Configuration**: TOML-based config with validation
+4. **Code quality**: Address remaining linting issues (3 current)
 
-## Project goals
+## Help
 
-Grove aims to make Git worktrees accessible to all developers, not just power users. Keep this in mind when:
-- Designing new features
-- Writing error messages
-- Creating documentation
-- Reviewing code
+- **Features**: [FEATURES.md](FEATURES.md) for complete documentation
+- **Issues**: Search existing before creating new
+- **Questions**: Use GitHub Discussions
 
-Thank you for contributing to Grove!
+Grove aims to make Git worktrees accessible to all developers. Keep this in mind for features, errors, docs, and reviews.
