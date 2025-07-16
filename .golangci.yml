@@ -1,0 +1,198 @@
+version: "2"
+
+issues:
+  max-same-issues: 50
+  exclude-dirs:
+    - vendor
+  exclude-files: []
+  exclude-patterns: []
+  exclude-rules:
+    # Allow longer functions in tests
+    - path: ".*_test.go"
+      linters: [funlen, lll]
+    # Allow misspellings in comments asking for explanation
+    - text: "explaination"
+      linters: [misspell]
+    # Allow file reading in test files (test files construct safe paths)
+    - path: ".*_test.go"
+      text: "G304.*ReadFile"
+      linters: [gosec]
+    # Allow executable permissions in test files (needed for mock executables)
+    - path: ".*_test.go" 
+      text: "G302.*Chmod"
+      linters: [gosec]
+
+linters:
+  default: none
+  enable:
+    # Default essential linters
+    - errcheck      # Check for unchecked errors
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffective assignments
+    - staticcheck   # Static analysis checks
+    - unused        # Check for unused code
+
+    # Bug prevention linters
+    - bodyclose     # Check HTTP response body is closed
+    - contextcheck  # Check context usage
+    - copyloopvar   # Check loop variable copying (Go 1.22+)
+    - errorlint     # Find code issues with error wrapping
+    - nilerr        # Find returning nil even when error not nil
+    - rowserrcheck  # Check sql.Rows.Err is checked
+    - sqlclosecheck # Check sql.Rows/Stmt are closed
+
+    # Code quality linters
+    - goconst       # Find repeated strings for constants
+    - gocritic      # Comprehensive diagnostics
+    - cyclop        # Check cyclomatic complexity
+    - gocognit      # Check cognitive complexity
+    - funlen        # Check function length
+    - nestif        # Report deeply nested if statements
+
+    # Style and formatting
+    - whitespace    # Check for unnecessary newlines
+    - misspell      # Find misspelled English words
+    - godot         # Check comments end in period
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - lll           # Reports long lines
+    - varnamelen    # Checks that the length of a variable's name matches its scope
+    - tagliatelle   # Checks the struct tags
+    - tagalign      # Check that struct tags are well aligned
+    - errname       # Checks that sentinel errors are prefixed with Err and error types are suffixed with Error
+    - goprintffuncname # Checks that printf-like functions are named with f at the end
+    - grouper       # An analyzer to analyze expression groups
+    - nlreturn      # Requires a new line before return statements
+    - wsl           # Whitespace Linter - Forces you to use empty lines
+    - decorder      # Check declaration order and count of types, constants, variables and functions
+
+    # Security (gosec disabled due to false positives with Git file operations)
+    # - gosec         # Inspect code for security problems
+
+    # Testing
+    - testifylint   # Check testify usage
+    - thelper       # Check test helpers start with t.Helper()
+
+    # Performance
+    - prealloc      # Find slice declarations for preallocation
+    - unconvert     # Remove unnecessary type conversions
+
+    # Strict/opinionated linters (use cautiously)
+    - exhaustruct   # Checks if all structure fields are initialized
+    - gochecknoglobals # Check that no global variables exist
+    - gochecknoinits # Checks that no init functions are present
+    - forcetypeassert # Finds forced type assertions
+    - ireturn       # Accept interfaces, return concrete types
+    - nonamedreturns # Reports all named returns
+    - nakedret      # Finds naked returns in functions greater than a specified function length
+    - depguard      # Go linter that checks if package imports are in a list of acceptable packages
+    - importas      # Enforces consistent import aliases
+
+formatters:
+  enable:
+    - gofumpt       # Stricter gofmt
+
+linters-configuration:
+  cyclop:
+    max-complexity: 10
+    package-average: 10.0
+    
+  gocognit:
+    min-complexity: 20
+    
+  funlen:
+    lines: 80
+    statements: 40
+    
+  nestif:
+    min-complexity: 5
+  
+  lll:
+    line-length: 120
+  
+  varnamelen:
+    min-name-length: 2
+    ignore-type-assert-ok: true
+    ignore-map-index-ok: true
+    ignore-chan-recv-ok: true
+    ignore-names:
+      - err
+      - ok
+      - id
+      - ip
+      - db
+  
+  tagliatelle:
+    case:
+      use-field-name: true
+      rules:
+        json: snake
+        yaml: snake
+        xml: camel
+        bson: snake
+        avro: snake
+        mapstructure: kebab
+  
+  errname:
+    rules:
+      - name: CamelCase
+        disabled: false
+  
+  revive:
+    rules:
+      - name: exported
+        arguments: [true]
+      - name: unexported-return
+      - name: time-naming
+      - name: var-naming
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: empty-block
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+  
+  nakedret:
+    max-func-lines: 30
+  
+  exhaustruct:
+    exclude:
+      - "^net/http.Client$"
+      - "^net/url.URL$"
+      - "^os/exec.Cmd$"
+  
+  gocritic:
+    enabled-checks:
+    - appendAssign
+    - badCond
+    - boolExprSimplify
+    - builtinShadow
+    - captLocal
+    - caseOrder
+    - defaultCaseOrder
+    - dupArg
+    - dupBranchBody
+    - dupCase
+    - elseif
+    - emptyFallthrough
+    - flagDeref
+    - ifElseChain
+    - regexpMust
+    - singleCaseSwitch
+    - sloppyLen
+    - switchTrue
+    - typeSwitchVar
+    - underef
+    - unlabelStmt
+    - unslice
+    - valSwap
+    - wrapperFunc
+    
+  misspell:
+    locale: US
+    
+  gosec:
+    excludes:
+      - G204  # Allow subprocess execution (needed for git commands)
+      - G301  # Allow directory permissions 0755 (standard for directories)
+      - G304  # Allow file path from variable (needed for git file operations)
+      - G306  # Allow file permissions 0644 and 0755 (standard for files and scripts)
