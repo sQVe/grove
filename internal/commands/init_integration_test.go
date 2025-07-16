@@ -6,6 +6,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/git"
@@ -180,11 +181,6 @@ func TestInitCommandConvertSuccess(t *testing.T) {
 	_, err = git.ExecuteGit("init", tempDir)
 	require.NoError(t, err)
 
-	// Create a dummy file and commit it to have a clean status
-	dummyFile := filepath.Join(tempDir, "README.md")
-	err = os.WriteFile(dummyFile, []byte("# Test\n"), 0o644)
-	require.NoError(t, err)
-
 	// Save current directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
@@ -194,25 +190,192 @@ func TestInitCommandConvertSuccess(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Commit the file
+	// Create multiple tracked files with different content types
+	files := map[string]string{
+		"README.md":    "# Test Repository\n",
+		"main.js":      "console.log('Hello World');\n",
+		"package.json": `{"name": "test", "version": "1.0.0"}`,
+		"src/app.js":   "// Main application code\n",
+	}
+
+	// Create directories and files
+	for filePath, content := range files {
+		dir := filepath.Dir(filePath)
+		if dir != "." {
+			err = os.MkdirAll(filepath.Join(tempDir, dir), 0o755)
+			require.NoError(t, err)
+		}
+		err = os.WriteFile(filepath.Join(tempDir, filePath), []byte(content), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Create .gitignore file
+	gitignoreContent := "*.log\n.env\nnode_modules/\n.DS_Store\n"
+	err = os.WriteFile(filepath.Join(tempDir, ".gitignore"), []byte(gitignoreContent), 0o644)
+	require.NoError(t, err)
+
+	// Create some gitignored files that should be preserved
+	gitignoredFiles := map[string]string{
+		".env":             "DATABASE_URL=localhost\nSECRET_KEY=secret\n",
+		"debug.log":        "Debug log content\n",
+		".DS_Store":        "Mac OS metadata\n",
+		"node_modules/pkg": "Package content\n",
+	}
+
+	for filePath, content := range gitignoredFiles {
+		dir := filepath.Dir(filePath)
+		if dir != "." {
+			err = os.MkdirAll(filepath.Join(tempDir, dir), 0o755)
+			require.NoError(t, err)
+		}
+		err = os.WriteFile(filepath.Join(tempDir, filePath), []byte(content), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Commit the tracked files
 	_, err = git.ExecuteGit("add", ".")
 	require.NoError(t, err)
 
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
 	require.NoError(t, err)
 
+	// Set up fake remote to pass safety checks
+	fakeRemoteDir := filepath.Join(tempDir, "..", "fake-remote.git")
+	_, err = git.ExecuteGit("init", "--bare", fakeRemoteDir)
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(fakeRemoteDir) }()
+
+	_, err = git.ExecuteGit("remote", "add", "origin", fakeRemoteDir)
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("push", "-u", "origin", "main")
+	require.NoError(t, err)
+
 	// Verify it's a traditional repo before conversion
 	assert.True(t, git.IsTraditionalRepo(tempDir))
 	assert.False(t, git.IsGroveRepo(tempDir))
 
-	// The test with safety checks will show real validation.
-	// Let's test the error case first to verify safety is working
+	// Get list of all files before conversion
+	beforeFiles := make(map[string]string)
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(tempDir, path)
+		if err != nil {
+			return err
+		}
+		// Skip .git directory contents
+		if strings.HasPrefix(relPath, ".git/") {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		beforeFiles[relPath] = string(content)
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Execute successful conversion
 	cmd := NewInitCmd()
 	cmd.SetArgs([]string{"--convert"})
 
 	err = cmd.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Local-only branch")
+	require.NoError(t, err)
+
+	// Verify conversion was successful
+	assert.False(t, git.IsTraditionalRepo(tempDir))
+	assert.True(t, git.IsGroveRepo(tempDir))
+
+	// Verify Grove structure exists
+	bareDir := filepath.Join(tempDir, ".bare")
+	assert.DirExists(t, bareDir)
+
+	gitFile := filepath.Join(tempDir, ".git")
+	assert.FileExists(t, gitFile)
+
+	// Verify .git file content
+	gitContent, err := os.ReadFile(gitFile)
+	require.NoError(t, err)
+	assert.Equal(t, "gitdir: .bare\n", string(gitContent))
+
+	// Verify worktree was created
+	worktreeDir := filepath.Join(tempDir, "main")
+	assert.DirExists(t, worktreeDir)
+
+	// Verify worktree .git file
+	worktreeGitFile := filepath.Join(worktreeDir, ".git")
+	assert.FileExists(t, worktreeGitFile)
+
+	worktreeGitContent, err := os.ReadFile(worktreeGitFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(worktreeGitContent), "gitdir:")
+	assert.Contains(t, string(worktreeGitContent), ".bare/worktrees/main")
+
+	// Test git operations work in worktree
+	worktreeOriginalDir, err := os.Getwd()
+	require.NoError(t, err)
+
+	err = os.Chdir(worktreeDir)
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("status")
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("log", "--oneline")
+	require.NoError(t, err)
+
+	// Verify all tracked files are present in worktree
+	for filePath, expectedContent := range files {
+		if filePath == "src/app.js" {
+			assert.DirExists(t, filepath.Join(worktreeDir, "src"))
+		}
+		actualContent, err := os.ReadFile(filepath.Join(worktreeDir, filePath))
+		require.NoError(t, err, "File %s should exist in worktree", filePath)
+		assert.Equal(t, expectedContent, string(actualContent), "File %s content should match", filePath)
+	}
+
+	// Verify .gitignore is present
+	gitignoreActual, err := os.ReadFile(filepath.Join(worktreeDir, ".gitignore"))
+	require.NoError(t, err)
+	assert.Equal(t, gitignoreContent, string(gitignoreActual))
+
+	// Test creating new files and committing
+	testFile := filepath.Join(worktreeDir, "test.txt")
+	err = os.WriteFile(testFile, []byte("Test content"), 0o644)
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("add", "test.txt")
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("commit", "-m", "Add test file")
+	require.NoError(t, err)
+
+	// Verify the commit was successful
+	output, err := git.ExecuteGit("log", "--oneline")
+	require.NoError(t, err)
+	assert.Contains(t, output, "Add test file")
+
+	// Return to original directory
+	err = os.Chdir(worktreeOriginalDir)
+	require.NoError(t, err)
+
+	// CRITICAL: Verify gitignored files are preserved
+	// This tests the file handling during conversion
+	for filePath, expectedContent := range gitignoredFiles {
+		// Check if file exists in worktree (it should)
+		actualContent, err := os.ReadFile(filepath.Join(worktreeDir, filePath))
+		if err != nil {
+			t.Errorf("Gitignored file %s should be preserved during conversion but was not found", filePath)
+			continue
+		}
+		assert.Equal(t, expectedContent, string(actualContent), "Gitignored file %s content should be preserved", filePath)
+	}
 }
 
 func TestInitCommandConvertFailures(t *testing.T) {

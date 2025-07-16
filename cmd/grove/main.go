@@ -20,6 +20,9 @@ Manage multiple working directories effortlessly with smart cleanup and seamless
 }
 
 func init() {
+	// Disable automatic error printing to avoid duplicate error messages
+	rootCmd.SilenceErrors = true
+
 	rootCmd.AddCommand(commands.NewInitCmd())
 }
 
