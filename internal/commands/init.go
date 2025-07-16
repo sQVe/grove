@@ -530,8 +530,11 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 			continue
 		}
 
+		// Generate filesystem-safe directory path for the worktree
+		dirName := git.BranchToDirectoryName(branch)
+		worktreePath := filepath.Join(targetDir, dirName)
+
 		// Check if worktree already exists (e.g., if this was the default branch)
-		worktreePath := filepath.Join(targetDir, branch)
 		if _, err := os.Stat(worktreePath); err == nil {
 			log.Debug("worktree already exists", "branch", branch, "path", worktreePath)
 			continue
@@ -540,7 +543,8 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 		fmt.Printf("Creating worktree for branch '%s'...\n", branch)
 		log.Debug("creating worktree", "branch", branch, "path", worktreePath)
 
-		_, err := executor.Execute("worktree", "add", worktreePath, branch)
+		// Create worktree with filesystem-safe directory naming
+		_, err := git.CreateWorktreeFromExistingBranch(executor, branch, targetDir)
 		if err != nil {
 			log.Warn("failed to create worktree", "branch", branch, "error", err)
 			fmt.Printf("Warning: failed to create worktree for branch '%s': %v\n", branch, err)
