@@ -7,7 +7,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/commands"
+	"github.com/sqve/grove/internal/completion"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 )
 
@@ -36,6 +38,12 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(commands.NewInitCmd())
+
+	// Add completion commands
+	completion.CreateCompletionCommands(rootCmd)
+
+	// Register completion functions
+	completion.RegisterCompletionFunctions(rootCmd, git.DefaultExecutor)
 }
 
 // initConfig reads in config file and ENV variables if set.

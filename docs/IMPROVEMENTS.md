@@ -355,6 +355,77 @@ func RegisterCompletion(rootCmd *cobra.Command) {
 
 ---
 
+### 10. Implement CLI Completion Support 🔧
+
+**Issue**: No shell completion support for commands, flags, and dynamic values like branch names
+
+**Solution**: Add comprehensive shell completion support for bash, zsh, fish, and PowerShell using Cobra's built-in completion features
+
+**Files to create/modify**:
+- `internal/completion/completion.go` - Completion logic and custom completers
+- `internal/completion/branch.go` - Branch name completion
+- `internal/completion/path.go` - Path completion for worktree directories
+- `cmd/grove/main.go` - Register completion commands and custom completers
+- `scripts/install-completion.sh` - Installation script for completion
+- `docs/COMPLETION.md` - User documentation for completion setup
+
+**Implementation**:
+```go
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+// Custom completion for branch names
+func BranchCompletion(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	branches, err := git.ListBranches()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	var suggestions []string
+	for _, branch := range branches {
+		if strings.HasPrefix(branch, toComplete) {
+			suggestions = append(suggestions, branch)
+		}
+	}
+
+	return suggestions, cobra.ShellCompDirectiveDefault
+}
+
+// Register completion for commands
+func RegisterCompletion(rootCmd *cobra.Command) {
+	// Command completion
+	rootCmd.RegisterFlagCompletionFunc("branch", BranchCompletion)
+
+	// Add completion subcommands
+	rootCmd.AddCommand(genBashCompletionCmd)
+	rootCmd.AddCommand(genZshCompletionCmd)
+	rootCmd.AddCommand(genFishCompletionCmd)
+	rootCmd.AddCommand(genPowerShellCompletionCmd)
+}
+```
+
+**Features**:
+- Command and subcommand completion
+- Flag completion with validation
+- Dynamic branch name completion from git repositories
+- Worktree directory path completion
+- Remote repository URL completion
+- Configuration key completion
+- Context-aware suggestions based on current repository state
+
+**Testing**:
+- Unit tests for completion functions
+- Integration tests for shell completion scripts
+- Manual testing across different shells (bash, zsh, fish, PowerShell)
+- Test completion in various repository states (clean, dirty, detached HEAD)
+- Verify completion works with remote repositories
+- Test performance with large numbers of branches
+
+---
+
 ## Implementation Order
 
 ### Phase 1: Quick Wins (Day 1)
