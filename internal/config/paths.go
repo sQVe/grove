@@ -6,6 +6,11 @@ import (
 	"runtime"
 )
 
+const (
+	osWindows = "windows"
+	osDarwin  = "darwin"
+)
+
 // GetConfigPaths returns a list of paths where Grove looks for config files
 // The order is important - first paths have higher precedence
 func GetConfigPaths() []string {
@@ -37,9 +42,9 @@ func GetConfigPaths() []string {
 // getUserConfigDir returns the user's config directory based on platform
 func getUserConfigDir() string {
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		return getWindowsConfigDir()
-	case "darwin":
+	case osDarwin:
 		return getMacOSConfigDir()
 	default:
 		return getLinuxConfigDir()
@@ -104,7 +109,7 @@ func EnsureConfigDir() error {
 		return nil // No config directory available
 	}
 
-	return os.MkdirAll(configDir, 0755)
+	return os.MkdirAll(configDir, 0o755)
 }
 
 // GetConfigFilePath returns the path to a specific config file
@@ -122,7 +127,7 @@ func GetConfigFilePath(filename string) string {
 }
 
 // ConfigExists checks if a config file exists in any of the search paths
-func ConfigExists() (bool, string) {
+func ConfigExists() (exists bool, configPath string) {
 	paths := GetConfigPaths()
 	filenames := []string{"config.toml", "config.yaml", "config.yml", "config.json"}
 
@@ -165,7 +170,7 @@ type ConfigPathInfo struct {
 }
 
 // checkConfigExistsInPath checks if a config file exists in a specific path
-func checkConfigExistsInPath(path string) (bool, string) {
+func checkConfigExistsInPath(path string) (exists bool, configPath string) {
 	filenames := []string{"config.toml", "config.yaml", "config.yml", "config.json"}
 
 	for _, filename := range filenames {

@@ -86,7 +86,8 @@ func validateGeneral(config *struct {
 	Editor       string `mapstructure:"editor"`
 	Pager        string `mapstructure:"pager"`
 	OutputFormat string `mapstructure:"output_format"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	// Validate editor
@@ -125,7 +126,8 @@ func validateGit(config *struct {
 	DefaultRemote string        `mapstructure:"default_remote"`
 	FetchTimeout  time.Duration `mapstructure:"fetch_timeout"`
 	MaxRetries    int           `mapstructure:"max_retries"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	// Validate default remote
@@ -180,7 +182,8 @@ func validateRetry(config *struct {
 	BaseDelay   time.Duration `mapstructure:"base_delay"`
 	MaxDelay    time.Duration `mapstructure:"max_delay"`
 	Jitter      bool          `mapstructure:"jitter_enabled"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	// Validate max attempts
@@ -234,7 +237,8 @@ func validateRetry(config *struct {
 func validateLogging(config *struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	// Validate log level
@@ -264,7 +268,8 @@ func validateLogging(config *struct {
 func validateWorktree(config *struct {
 	NamingPattern    string        `mapstructure:"naming_pattern"`
 	CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	// Validate naming pattern
