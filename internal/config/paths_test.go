@@ -20,23 +20,43 @@ func TestGetConfigPaths(t *testing.T) {
 
 	defer func() {
 		// Restore original environment
-		os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		if originalGROVE_CONFIG != "" {
+			_ = os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
+		} else {
+			_ = os.Unsetenv("GROVE_CONFIG")
+		}
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
 	}()
 
 	// Test with GROVE_CONFIG environment variable
 	testConfigPath := "/tmp/test-config"
-	os.Setenv("GROVE_CONFIG", filepath.Join(testConfigPath, "config.toml"))
+	require.NoError(t, os.Setenv("GROVE_CONFIG", filepath.Join(testConfigPath, "config.toml")))
 
 	paths := GetConfigPaths()
 	assert.NotEmpty(t, paths)
 	assert.Equal(t, testConfigPath, paths[0])
 
 	// Test without GROVE_CONFIG
-	os.Unsetenv("GROVE_CONFIG")
+	require.NoError(t, os.Unsetenv("GROVE_CONFIG"))
 	paths = GetConfigPaths()
 	assert.NotEmpty(t, paths)
 
@@ -54,53 +74,69 @@ func TestGetUserConfigDir(t *testing.T) {
 
 	defer func() {
 		// Restore original environment
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
 	}()
 
 	switch runtime.GOOS {
-	case "windows":
+	case osWindows:
 		// Test Windows path
-		os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`)
-		os.Unsetenv("HOME")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
+		require.NoError(t, os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 		configDir := getUserConfigDir()
 		assert.Equal(t, `C:\Users\test\AppData\Roaming\grove`, configDir)
 
 		// Test fallback to USERPROFILE
-		os.Unsetenv("APPDATA")
-		os.Setenv("USERPROFILE", `C:\Users\test`)
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Setenv("USERPROFILE", `C:\Users\test`))
 
 		configDir = getUserConfigDir()
 		assert.Equal(t, `C:\Users\test\AppData\Roaming\grove`, configDir)
 
-	case "darwin":
+	case osDarwin:
 		// Test macOS path
-		os.Setenv("HOME", "/Users/test")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
+		require.NoError(t, os.Setenv("HOME", "/Users/test"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 		configDir := getUserConfigDir()
 		assert.Equal(t, "/Users/test/Library/Application Support/grove", configDir)
 
 	default:
 		// Test Linux path with XDG_CONFIG_HOME
-		os.Setenv("XDG_CONFIG_HOME", "/home/test/.config")
-		os.Unsetenv("HOME")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
+		require.NoError(t, os.Setenv("XDG_CONFIG_HOME", "/home/test/.config"))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 		configDir := getUserConfigDir()
 		assert.Equal(t, "/home/test/.config/grove", configDir)
 
 		// Test Linux path with HOME fallback
-		os.Unsetenv("XDG_CONFIG_HOME")
-		os.Setenv("HOME", "/home/test")
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
+		require.NoError(t, os.Setenv("HOME", "/home/test"))
 
 		configDir = getUserConfigDir()
 		assert.Equal(t, "/home/test/.config/grove", configDir)
@@ -108,7 +144,7 @@ func TestGetUserConfigDir(t *testing.T) {
 }
 
 func TestGetWindowsConfigDir(t *testing.T) {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		t.Skip("Windows-specific test")
 	}
 
@@ -117,34 +153,42 @@ func TestGetWindowsConfigDir(t *testing.T) {
 	originalUSERPROFILE := os.Getenv("USERPROFILE")
 
 	defer func() {
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
 	}()
 
 	// Test with APPDATA
-	os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`)
-	os.Unsetenv("USERPROFILE")
+	require.NoError(t, os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 	configDir := getWindowsConfigDir()
 	assert.Equal(t, `C:\Users\test\AppData\Roaming\grove`, configDir)
 
 	// Test with USERPROFILE fallback
-	os.Unsetenv("APPDATA")
-	os.Setenv("USERPROFILE", `C:\Users\test`)
+	require.NoError(t, os.Unsetenv("APPDATA"))
+	require.NoError(t, os.Setenv("USERPROFILE", `C:\Users\test`))
 
 	configDir = getWindowsConfigDir()
 	assert.Equal(t, `C:\Users\test\AppData\Roaming\grove`, configDir)
 
 	// Test with no environment variables
-	os.Unsetenv("APPDATA")
-	os.Unsetenv("USERPROFILE")
+	require.NoError(t, os.Unsetenv("APPDATA"))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 	configDir = getWindowsConfigDir()
 	assert.Equal(t, "", configDir)
 }
 
 func TestGetMacOSConfigDir(t *testing.T) {
-	if runtime.GOOS != "darwin" {
+	if runtime.GOOS != osDarwin {
 		t.Skip("macOS-specific test")
 	}
 
@@ -152,24 +196,28 @@ func TestGetMacOSConfigDir(t *testing.T) {
 	originalHOME := os.Getenv("HOME")
 
 	defer func() {
-		os.Setenv("HOME", originalHOME)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
 	}()
 
 	// Test with HOME
-	os.Setenv("HOME", "/Users/test")
+	require.NoError(t, os.Setenv("HOME", "/Users/test"))
 
 	configDir := getMacOSConfigDir()
 	assert.Equal(t, "/Users/test/Library/Application Support/grove", configDir)
 
 	// Test with no HOME
-	os.Unsetenv("HOME")
+	require.NoError(t, os.Unsetenv("HOME"))
 
 	configDir = getMacOSConfigDir()
 	assert.Equal(t, "", configDir)
 }
 
 func TestGetLinuxConfigDir(t *testing.T) {
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+	if runtime.GOOS == osWindows || runtime.GOOS == osDarwin {
 		t.Skip("Linux-specific test")
 	}
 
@@ -178,27 +226,35 @@ func TestGetLinuxConfigDir(t *testing.T) {
 	originalHOME := os.Getenv("HOME")
 
 	defer func() {
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
-		os.Setenv("HOME", originalHOME)
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
 	}()
 
 	// Test with XDG_CONFIG_HOME
-	os.Setenv("XDG_CONFIG_HOME", "/home/test/.config")
-	os.Unsetenv("HOME")
+	require.NoError(t, os.Setenv("XDG_CONFIG_HOME", "/home/test/.config"))
+	require.NoError(t, os.Unsetenv("HOME"))
 
 	configDir := getLinuxConfigDir()
 	assert.Equal(t, "/home/test/.config/grove", configDir)
 
 	// Test with HOME fallback
-	os.Unsetenv("XDG_CONFIG_HOME")
-	os.Setenv("HOME", "/home/test")
+	require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
+	require.NoError(t, os.Setenv("HOME", "/home/test"))
 
 	configDir = getLinuxConfigDir()
 	assert.Equal(t, "/home/test/.config/grove", configDir)
 
 	// Test with no environment variables
-	os.Unsetenv("XDG_CONFIG_HOME")
-	os.Unsetenv("HOME")
+	require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
+	require.NoError(t, os.Unsetenv("HOME"))
 
 	configDir = getLinuxConfigDir()
 	assert.Equal(t, "", configDir)
@@ -210,27 +266,35 @@ func TestGetHomeDir(t *testing.T) {
 	originalUSERPROFILE := os.Getenv("USERPROFILE")
 
 	defer func() {
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
 	}()
 
 	// Test with HOME
-	os.Setenv("HOME", "/home/test")
-	os.Unsetenv("USERPROFILE")
+	require.NoError(t, os.Setenv("HOME", "/home/test"))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 	homeDir := getHomeDir()
 	assert.Equal(t, "/home/test", homeDir)
 
 	// Test with USERPROFILE fallback
-	os.Unsetenv("HOME")
-	os.Setenv("USERPROFILE", "/Users/test")
+	require.NoError(t, os.Unsetenv("HOME"))
+	require.NoError(t, os.Setenv("USERPROFILE", "/Users/test"))
 
 	homeDir = getHomeDir()
 	assert.Equal(t, "/Users/test", homeDir)
 
 	// Test with no environment variables
-	os.Unsetenv("HOME")
-	os.Unsetenv("USERPROFILE")
+	require.NoError(t, os.Unsetenv("HOME"))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 	homeDir = getHomeDir()
 	assert.Equal(t, "", homeDir)
@@ -244,44 +308,61 @@ func TestGetDefaultConfigPath(t *testing.T) {
 	originalXDG_CONFIG_HOME := os.Getenv("XDG_CONFIG_HOME")
 
 	defer func() {
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
 	}()
 
 	// Test with valid home directory
-	if runtime.GOOS == "windows" {
-		os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`)
-		os.Unsetenv("HOME")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
+	switch runtime.GOOS {
+	case osWindows:
+		require.NoError(t, os.Setenv("APPDATA", `C:\Users\test\AppData\Roaming`))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 		configPath := GetDefaultConfigPath()
 		assert.Equal(t, `C:\Users\test\AppData\Roaming\grove\config.toml`, configPath)
-	} else if runtime.GOOS == "darwin" {
-		os.Setenv("HOME", "/Users/test")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
+	case osDarwin:
+		require.NoError(t, os.Setenv("HOME", "/Users/test"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 		configPath := GetDefaultConfigPath()
 		assert.Equal(t, "/Users/test/Library/Application Support/grove/config.toml", configPath)
-	} else {
-		os.Setenv("XDG_CONFIG_HOME", "/home/test/.config")
-		os.Unsetenv("HOME")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
+	default:
+		require.NoError(t, os.Setenv("XDG_CONFIG_HOME", "/home/test/.config"))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 		configPath := GetDefaultConfigPath()
 		assert.Equal(t, "/home/test/.config/grove/config.toml", configPath)
 	}
 
 	// Test with no config directory
-	os.Unsetenv("HOME")
-	os.Unsetenv("USERPROFILE")
-	os.Unsetenv("APPDATA")
-	os.Unsetenv("XDG_CONFIG_HOME")
+	require.NoError(t, os.Unsetenv("HOME"))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
+	require.NoError(t, os.Unsetenv("APPDATA"))
+	require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 	configPath := GetDefaultConfigPath()
 	assert.Equal(t, "", configPath)
@@ -291,7 +372,7 @@ func TestEnsureConfigDir(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Save original environment
 	originalHOME := os.Getenv("HOME")
@@ -300,30 +381,47 @@ func TestEnsureConfigDir(t *testing.T) {
 	originalXDG_CONFIG_HOME := os.Getenv("XDG_CONFIG_HOME")
 
 	defer func() {
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
 	}()
 
 	// Set up test environment
 	testConfigDir := filepath.Join(tmpDir, "grove")
-	if runtime.GOOS == "windows" {
-		os.Setenv("APPDATA", tmpDir)
-		os.Unsetenv("HOME")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
-	} else if runtime.GOOS == "darwin" {
-		os.Setenv("HOME", tmpDir)
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
-		os.Unsetenv("XDG_CONFIG_HOME")
+	switch runtime.GOOS {
+	case osWindows:
+		require.NoError(t, os.Setenv("APPDATA", tmpDir))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
+	case osDarwin:
+		require.NoError(t, os.Setenv("HOME", tmpDir))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
+		require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 		testConfigDir = filepath.Join(tmpDir, "Library", "Application Support", "grove")
-	} else {
-		os.Setenv("XDG_CONFIG_HOME", tmpDir)
-		os.Unsetenv("HOME")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
+	default:
+		require.NoError(t, os.Setenv("XDG_CONFIG_HOME", tmpDir))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
 	}
 
 	// Test creating config directory
@@ -346,18 +444,34 @@ func TestGetConfigFilePath(t *testing.T) {
 	originalXDG_CONFIG_HOME := os.Getenv("XDG_CONFIG_HOME")
 
 	defer func() {
-		os.Setenv("HOME", originalHOME)
-		os.Setenv("USERPROFILE", originalUSERPROFILE)
-		os.Setenv("APPDATA", originalAPPDATA)
-		os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		if originalHOME != "" {
+			_ = os.Setenv("HOME", originalHOME)
+		} else {
+			_ = os.Unsetenv("HOME")
+		}
+		if originalUSERPROFILE != "" {
+			_ = os.Setenv("USERPROFILE", originalUSERPROFILE)
+		} else {
+			_ = os.Unsetenv("USERPROFILE")
+		}
+		if originalAPPDATA != "" {
+			_ = os.Setenv("APPDATA", originalAPPDATA)
+		} else {
+			_ = os.Unsetenv("APPDATA")
+		}
+		if originalXDG_CONFIG_HOME != "" {
+			_ = os.Setenv("XDG_CONFIG_HOME", originalXDG_CONFIG_HOME)
+		} else {
+			_ = os.Unsetenv("XDG_CONFIG_HOME")
+		}
 	}()
 
 	// Test with specific filename
 	if runtime.GOOS == "linux" {
-		os.Setenv("XDG_CONFIG_HOME", "/home/test/.config")
-		os.Unsetenv("HOME")
-		os.Unsetenv("APPDATA")
-		os.Unsetenv("USERPROFILE")
+		require.NoError(t, os.Setenv("XDG_CONFIG_HOME", "/home/test/.config"))
+		require.NoError(t, os.Unsetenv("HOME"))
+		require.NoError(t, os.Unsetenv("APPDATA"))
+		require.NoError(t, os.Unsetenv("USERPROFILE"))
 
 		configPath := GetConfigFilePath("custom.toml")
 		assert.Equal(t, "/home/test/.config/grove/custom.toml", configPath)
@@ -370,10 +484,10 @@ func TestGetConfigFilePath(t *testing.T) {
 	}
 
 	// Test with no config directory
-	os.Unsetenv("HOME")
-	os.Unsetenv("USERPROFILE")
-	os.Unsetenv("APPDATA")
-	os.Unsetenv("XDG_CONFIG_HOME")
+	require.NoError(t, os.Unsetenv("HOME"))
+	require.NoError(t, os.Unsetenv("USERPROFILE"))
+	require.NoError(t, os.Unsetenv("APPDATA"))
+	require.NoError(t, os.Unsetenv("XDG_CONFIG_HOME"))
 
 	configPath = GetConfigFilePath("test.toml")
 	assert.Equal(t, "test.toml", configPath)
@@ -383,17 +497,21 @@ func TestConfigExists(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Save original environment
 	originalGROVE_CONFIG := os.Getenv("GROVE_CONFIG")
 
 	defer func() {
-		os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
+		if originalGROVE_CONFIG != "" {
+			_ = os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
+		} else {
+			_ = os.Unsetenv("GROVE_CONFIG")
+		}
 	}()
 
 	// Set up test environment
-	os.Setenv("GROVE_CONFIG", filepath.Join(tmpDir, "config.toml"))
+	require.NoError(t, os.Setenv("GROVE_CONFIG", filepath.Join(tmpDir, "config.toml")))
 
 	// Test when config doesn't exist
 	exists, path := ConfigExists()
@@ -402,7 +520,7 @@ func TestConfigExists(t *testing.T) {
 
 	// Create a config file
 	configPath := filepath.Join(tmpDir, "config.toml")
-	err = os.WriteFile(configPath, []byte("test"), 0644)
+	err = os.WriteFile(configPath, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	// Test when config exists
@@ -411,9 +529,9 @@ func TestConfigExists(t *testing.T) {
 	assert.Equal(t, configPath, path)
 
 	// Test with JSON config
-	os.Remove(configPath)
+	_ = os.Remove(configPath)
 	jsonConfigPath := filepath.Join(tmpDir, "config.json")
-	err = os.WriteFile(jsonConfigPath, []byte("{}"), 0644)
+	err = os.WriteFile(jsonConfigPath, []byte("{}"), 0o644)
 	require.NoError(t, err)
 
 	exists, path = ConfigExists()
@@ -425,21 +543,25 @@ func TestListConfigPaths(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Save original environment
 	originalGROVE_CONFIG := os.Getenv("GROVE_CONFIG")
 
 	defer func() {
-		os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
+		if originalGROVE_CONFIG != "" {
+			_ = os.Setenv("GROVE_CONFIG", originalGROVE_CONFIG)
+		} else {
+			_ = os.Unsetenv("GROVE_CONFIG")
+		}
 	}()
 
 	// Set up test environment
-	os.Setenv("GROVE_CONFIG", filepath.Join(tmpDir, "config.toml"))
+	require.NoError(t, os.Setenv("GROVE_CONFIG", filepath.Join(tmpDir, "config.toml")))
 
 	// Create a config file
 	configPath := filepath.Join(tmpDir, "config.toml")
-	err = os.WriteFile(configPath, []byte("test"), 0644)
+	err = os.WriteFile(configPath, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	// Test listing config paths
@@ -462,7 +584,7 @@ func TestCheckConfigExistsInPath(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Test when no config exists
 	exists, path := checkConfigExistsInPath(tmpDir)
@@ -471,7 +593,7 @@ func TestCheckConfigExistsInPath(t *testing.T) {
 
 	// Create a TOML config file
 	configPath := filepath.Join(tmpDir, "config.toml")
-	err = os.WriteFile(configPath, []byte("test"), 0644)
+	err = os.WriteFile(configPath, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	// Test when config exists
@@ -481,7 +603,7 @@ func TestCheckConfigExistsInPath(t *testing.T) {
 
 	// Test priority order (TOML should be found first)
 	yamlPath := filepath.Join(tmpDir, "config.yaml")
-	err = os.WriteFile(yamlPath, []byte("test"), 0644)
+	err = os.WriteFile(yamlPath, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	exists, path = checkConfigExistsInPath(tmpDir)

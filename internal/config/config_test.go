@@ -15,7 +15,7 @@ func TestInitialize(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create a test config file
 	configPath := filepath.Join(tmpDir, "config.toml")
@@ -44,7 +44,7 @@ format = "json"
 naming_pattern = "slug"
 cleanup_threshold = "7d"
 `
-	err = os.WriteFile(configPath, []byte(configContent), 0644)
+	err = os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Set up environment to use the test config
@@ -78,7 +78,7 @@ func TestInitializeWithoutConfigFile(t *testing.T) {
 	// Create a temporary directory without config file
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Reset viper for clean test
 	originalViper := viper.GetViper()
@@ -131,13 +131,13 @@ func TestEnvironmentVariables(t *testing.T) {
 	viper.Reset()
 
 	// Set environment variables
-	os.Setenv("GROVE_LOGGING_LEVEL", "debug")
-	os.Setenv("GROVE_GIT_DEFAULT_REMOTE", "upstream")
-	os.Setenv("GROVE_RETRY_MAX_ATTEMPTS", "5")
+	require.NoError(t, os.Setenv("GROVE_LOGGING_LEVEL", "debug"))
+	require.NoError(t, os.Setenv("GROVE_GIT_DEFAULT_REMOTE", "upstream"))
+	require.NoError(t, os.Setenv("GROVE_RETRY_MAX_ATTEMPTS", "5"))
 	defer func() {
-		os.Unsetenv("GROVE_LOGGING_LEVEL")
-		os.Unsetenv("GROVE_GIT_DEFAULT_REMOTE")
-		os.Unsetenv("GROVE_RETRY_MAX_ATTEMPTS")
+		_ = os.Unsetenv("GROVE_LOGGING_LEVEL")
+		_ = os.Unsetenv("GROVE_GIT_DEFAULT_REMOTE")
+		_ = os.Unsetenv("GROVE_RETRY_MAX_ATTEMPTS")
 	}()
 
 	// Initialize configuration
@@ -211,27 +211,35 @@ func TestGetDefaultEditor(t *testing.T) {
 	originalEditor := os.Getenv("EDITOR")
 	originalVisual := os.Getenv("VISUAL")
 	defer func() {
-		os.Setenv("EDITOR", originalEditor)
-		os.Setenv("VISUAL", originalVisual)
+		if originalEditor != "" {
+			_ = os.Setenv("EDITOR", originalEditor)
+		} else {
+			_ = os.Unsetenv("EDITOR")
+		}
+		if originalVisual != "" {
+			_ = os.Setenv("VISUAL", originalVisual)
+		} else {
+			_ = os.Unsetenv("VISUAL")
+		}
 	}()
 
 	// Test with EDITOR environment variable
-	os.Unsetenv("VISUAL")
-	os.Setenv("EDITOR", "nano")
+	_ = os.Unsetenv("VISUAL")
+	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor := getDefaultEditor()
 	assert.Equal(t, "nano", editor)
 
 	// Test with VISUAL environment variable (should take precedence)
-	os.Setenv("VISUAL", "emacs")
-	os.Setenv("EDITOR", "nano")
+	require.NoError(t, os.Setenv("VISUAL", "emacs"))
+	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor = getDefaultEditor()
 	assert.Equal(t, "emacs", editor) // VISUAL has precedence over EDITOR
 
 	// Test fallback to vi when neither is set
-	os.Unsetenv("EDITOR")
-	os.Unsetenv("VISUAL")
+	_ = os.Unsetenv("EDITOR")
+	_ = os.Unsetenv("VISUAL")
 
 	editor = getDefaultEditor()
 	assert.Equal(t, "vi", editor)
@@ -241,7 +249,7 @@ func TestConfigFileOperations(t *testing.T) {
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Reset viper for clean test
 	viper.Reset()
@@ -297,13 +305,13 @@ func TestConfigFileUsed(t *testing.T) {
 	// Create a temporary directory with config file
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configPath := filepath.Join(tmpDir, "config.toml")
 	err = os.WriteFile(configPath, []byte(`
 [logging]
 level = "debug"
-`), 0644)
+`), 0o644)
 	require.NoError(t, err)
 
 	// Reset viper and initialize
@@ -322,7 +330,7 @@ func TestConfigWithJSONFormat(t *testing.T) {
 	// Create a temporary directory with JSON config
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configPath := filepath.Join(tmpDir, "config.json")
 	jsonContent := `{
@@ -335,7 +343,7 @@ func TestConfigWithJSONFormat(t *testing.T) {
 			"format": "json"
 		}
 	}`
-	err = os.WriteFile(configPath, []byte(jsonContent), 0644)
+	err = os.WriteFile(configPath, []byte(jsonContent), 0o644)
 	require.NoError(t, err)
 
 	// Reset viper and initialize
@@ -356,7 +364,7 @@ func TestConfigWithYAMLFormat(t *testing.T) {
 	// Create a temporary directory with YAML config
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	yamlContent := `
@@ -370,7 +378,7 @@ git:
   default_remote: origin
   fetch_timeout: 45s
 `
-	err = os.WriteFile(configPath, []byte(yamlContent), 0644)
+	err = os.WriteFile(configPath, []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	// Reset viper and initialize
