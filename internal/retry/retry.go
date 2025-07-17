@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/logger"
 )
@@ -29,6 +30,27 @@ func DefaultConfig() RetryConfig {
 		BaseDelay:     1 * time.Second,
 		MaxDelay:      10 * time.Second,
 		JitterEnabled: true,
+	}
+}
+
+// GetConfig returns the retry configuration from Viper settings.
+// Falls back to default values if configuration is not properly initialized.
+func GetConfig() RetryConfig {
+	maxAttempts := config.GetInt("retry.max_attempts")
+	baseDelay := config.GetDuration("retry.base_delay")
+	maxDelay := config.GetDuration("retry.max_delay")
+	jitterEnabled := config.GetBool("retry.jitter_enabled")
+
+	// If configuration is not initialized (all values are zero), use defaults
+	if maxAttempts == 0 && baseDelay == 0 && maxDelay == 0 {
+		return DefaultConfig()
+	}
+
+	return RetryConfig{
+		MaxAttempts:   maxAttempts,
+		BaseDelay:     baseDelay,
+		MaxDelay:      maxDelay,
+		JitterEnabled: jitterEnabled,
 	}
 }
 
@@ -151,4 +173,9 @@ func calculateDelay(attempt int, config RetryConfig) time.Duration {
 // WithRetry is a convenience function that uses the default retry configuration.
 func WithRetry(ctx context.Context, operation func() error) error {
 	return ExecuteWithRetry(ctx, DefaultConfig(), operation)
+}
+
+// WithConfiguredRetry is a convenience function that uses the configured retry settings.
+func WithConfiguredRetry(ctx context.Context, operation func() error) error {
+	return ExecuteWithRetry(ctx, GetConfig(), operation)
 }

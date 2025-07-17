@@ -5,7 +5,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/commands"
+	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/logger"
 )
 
@@ -38,24 +40,33 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// Get flag values
-	logLevel, _ := rootCmd.PersistentFlags().GetString("log-level")
-	logFormat, _ := rootCmd.PersistentFlags().GetString("log-format")
-	debug, _ := rootCmd.PersistentFlags().GetBool("debug")
-
-	// If debug flag is set, override log level
-	if debug {
-		logLevel = "debug"
+	// Initialize Viper configuration
+	if err := config.Initialize(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing config: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Configure the global logger
-	config := logger.Config{
-		Level:  logLevel,
-		Format: logFormat,
+	// Bind command line flags to Viper
+	if err := viper.BindPFlag("logging.level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to bind log-level flag: %v\n", err)
+	}
+	if err := viper.BindPFlag("logging.format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to bind log-format flag: %v\n", err)
+	}
+
+	// Handle debug flag override
+	if debug, _ := rootCmd.PersistentFlags().GetBool("debug"); debug {
+		viper.Set("logging.level", "debug")
+	}
+
+	// Configure the global logger using Viper values
+	loggerConfig := logger.Config{
+		Level:  config.GetString("logging.level"),
+		Format: config.GetString("logging.format"),
 		Output: os.Stderr,
 	}
 
-	logger.Configure(config)
+	logger.Configure(loggerConfig)
 }
 
 func main() {
