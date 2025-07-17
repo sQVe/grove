@@ -191,9 +191,9 @@ func RegisterCompletionFunctions(rootCmd *cobra.Command, executor git.GitExecuto
 
 // registerInitCompletions registers completion functions for the init command
 func registerInitCompletions(cmd *cobra.Command, ctx *CompletionContext) {
-	// Register completion for --branches flag
+	// Register completion for --branches flag (handles comma-separated values)
 	_ = cmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return BranchCompletion(ctx, cmd, args, toComplete)
+		return BranchListCompletion(ctx, cmd, args, toComplete)
 	})
 
 	// Register completion for positional arguments (URLs and directories)
@@ -205,6 +205,49 @@ func registerInitCompletions(cmd *cobra.Command, ctx *CompletionContext) {
 		// No completion for additional arguments
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
+}
+
+// BranchListCompletion provides completion for comma-separated branch lists
+func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	log := logger.WithComponent("branch_list_completion")
+
+	// Check if we're in a repository
+	if !ctx.IsInGroveRepo() {
+		log.Debug("not in grove repository, skipping branch list completion")
+		return nil, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Parse the current input to find what we're completing
+	var currentInput, lastBranch string
+
+	// Split on comma to find the last part being completed
+	if lastCommaIndex := strings.LastIndex(toComplete, ","); lastCommaIndex != -1 {
+		// Everything up to and including the last comma (no spaces)
+		currentInput = toComplete[:lastCommaIndex+1]
+		// The part being completed (trimmed)
+		lastBranch = strings.TrimSpace(toComplete[lastCommaIndex+1:])
+	} else {
+		currentInput = ""
+		lastBranch = toComplete
+	}
+
+	// Get completions for the current branch list
+	completions, err := ctx.WithTimeout(func() ([]string, error) {
+		return CompleteBranchList(ctx, toComplete, lastBranch)
+	})
+	if err != nil {
+		log.Debug("failed to get branch list completions", "error", err)
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	// Prepend the current input to each completion (no spaces around commas)
+	var result []string
+	for _, completion := range completions {
+		result = append(result, currentInput+completion)
+	}
+
+	log.Debug("branch list completion results", "total", len(result), "input", toComplete, "current_input", currentInput, "last_branch", lastBranch)
+	return result, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
 }
 
 // SafeExecuteWithFallback executes a completion function with error handling

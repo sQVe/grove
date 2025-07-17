@@ -2,6 +2,7 @@ package completion
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -350,5 +351,93 @@ func TestCompletionContext_NetworkAwareness(t *testing.T) {
 	allowedOp := ctx.IsNetworkOperationAllowed()
 	if allowedOp != isOnline1 {
 		t.Errorf("network operation allowance should match online state, got allowance=%v, online=%v", allowedOp, isOnline1)
+	}
+}
+
+func TestBranchListCompletion(t *testing.T) {
+	// Clear cache before test
+	GlobalCache.Clear()
+
+	tests := []struct {
+		name         string
+		toComplete   string
+		mockBranches []string
+		expected     []string
+		inRepo       bool
+	}{
+		{
+			name:         "single branch completion",
+			toComplete:   "mai",
+			mockBranches: []string{"main", "master", "develop"},
+			expected:     []string{"main"},
+			inRepo:       true,
+		},
+		{
+			name:         "comma-separated completion",
+			toComplete:   "main,dev",
+			mockBranches: []string{"main", "develop", "feature/test"},
+			expected:     []string{"main,develop"},
+			inRepo:       true,
+		},
+		{
+			name:         "comma-separated with spaces",
+			toComplete:   "main, fea",
+			mockBranches: []string{"main", "develop", "feature/test"},
+			expected:     []string{"main,feature/test"},
+			inRepo:       true,
+		},
+		{
+			name:         "not in repository",
+			toComplete:   "main",
+			mockBranches: []string{"main", "develop"},
+			expected:     []string{},
+			inRepo:       false,
+		},
+		{
+			name:         "empty completion",
+			toComplete:   "",
+			mockBranches: []string{"main", "develop"},
+			expected:     []string{"main", "develop"},
+			inRepo:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear cache before each test
+			GlobalCache.Clear()
+
+			// Setup mock executor
+			mock := testutils.NewMockGitExecutor()
+
+			// Mock repository check
+			if tt.inRepo {
+				mock.SetResponse("rev-parse --git-dir", "", nil)
+				// Mock branch commands
+				mock.SetResponse("branch --format=%(refname:short)", strings.Join(tt.mockBranches, "\n"), nil)
+				mock.SetResponse("branch -r --format=%(refname:short)", "", nil) // No remote branches for simplicity
+			} else {
+				mock.SetResponse("rev-parse --git-dir", "", errors.New("exit 128"))
+			}
+
+			ctx := &CompletionContext{
+				Executor: mock,
+				Timeout:  100 * time.Millisecond,
+			}
+
+			// Test the completion function
+			result, directive := BranchListCompletion(ctx, nil, []string{}, tt.toComplete)
+
+			// Check directive
+			expectedDirective := cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
+			if directive != expectedDirective {
+				t.Errorf("expected directive %v, got %v", expectedDirective, directive)
+			}
+
+			// Check results
+			if !equalSlices(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
 	}
 }
