@@ -38,6 +38,10 @@ func TestMockGitExecutor(t *testing.T) {
 }
 
 func TestCloneBareWithExecutor(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow test in short mode")
+	}
+
 	tests := []struct {
 		name        string
 		repoURL     string
@@ -84,6 +88,10 @@ func TestCloneBareWithExecutor(t *testing.T) {
 }
 
 func TestConfigureRemoteTrackingWithExecutor(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow test in short mode")
+	}
+
 	tests := []struct {
 		name         string
 		configError  error
