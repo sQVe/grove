@@ -515,7 +515,9 @@ func TestInitCommandConvertNonMainBranch(t *testing.T) {
 	assert.Equal(t, "gitdir: .bare\n", string(gitContent))
 
 	// CRITICAL: Verify worktree was created with feature branch name, not "main"
-	worktreeDir := filepath.Join(tempDir, branchName)
+	// Git converts slashes to hyphens for directory names
+	sanitizedBranchName := strings.ReplaceAll(branchName, "/", "-")
+	worktreeDir := filepath.Join(tempDir, sanitizedBranchName)
 	assert.DirExists(t, worktreeDir, "Worktree should be created with feature branch name")
 
 	// Verify no main worktree was created
@@ -531,12 +533,8 @@ func TestInitCommandConvertNonMainBranch(t *testing.T) {
 	assert.Contains(t, string(worktreeGitContent), "gitdir:")
 
 	// Git worktree names sanitize branch names by replacing slashes with dashes
-	// "feat/user-auth" becomes "user-auth" in the worktree directory name
+	// "feat/user-auth" becomes "feat-user-auth" in the worktree directory name
 	expectedWorktreeName := strings.ReplaceAll(branchName, "/", "-")
-	// Remove "feat-" prefix if present since git may further sanitize
-	if strings.HasPrefix(expectedWorktreeName, "feat-") {
-		expectedWorktreeName = expectedWorktreeName[5:] // Remove "feat-" prefix
-	}
 	assert.Contains(t, string(worktreeGitContent), fmt.Sprintf(".bare/worktrees/%s", expectedWorktreeName))
 
 	// Verify all tracked files are preserved in feature branch worktree
