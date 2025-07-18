@@ -309,7 +309,6 @@ func SetupUpstreamBranches() error {
 
 // SetupUpstreamBranchesWithExecutor configures upstream tracking using the specified executor.
 func SetupUpstreamBranchesWithExecutor(executor GitExecutor, remoteName string) error {
-	// Get all local branches
 	output, err := executor.Execute("for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if err != nil {
 		return err
@@ -856,18 +855,15 @@ func performConversion(dir string) error {
 	bareDir := filepath.Join(dir, ".bare")
 	backupDir := filepath.Join(dir, ".git.backup")
 
-	// Create backup of original .git directory
 	if err := os.Rename(gitDir, backupDir); err != nil {
 		return fmt.Errorf("failed to create backup of .git directory: %w", err)
 	}
 
-	// Move .git directory to .bare
 	if err := os.Rename(backupDir, bareDir); err != nil {
 		_ = os.Rename(backupDir, gitDir)
 		return fmt.Errorf("failed to move .git to .bare: %w", err)
 	}
 
-	// Create .git file pointing to .bare
 	if err := CreateGitFile(dir, bareDir); err != nil {
 		_ = os.Rename(bareDir, gitDir)
 		return fmt.Errorf("failed to create .git file: %w", err)

@@ -11,6 +11,24 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
+// Git URL pattern constants for validation
+const (
+	// Standard Git URL with .git suffix
+	patternGitURL = `^https?://.*\.git$`
+
+	// GitHub repository URL patterns
+	patternGitHubHTTPS = `^https?://github\.com/[\w\-\.]+/[\w\-\.]+/?$`
+
+	// GitLab repository URL patterns
+	patternGitLabHTTPS = `^https?://gitlab\.com/[\w\-\.]+/[\w\-\.]+/?$`
+
+	// SSH Git URL patterns
+	patternGitSSH = `^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`
+
+	// SSH URL with full ssh:// prefix
+	patternSSHFull = `^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`
+)
+
 // GitExecutor defines interface for git command execution.
 type GitExecutor interface {
 	Execute(args ...string) (string, error)
@@ -123,11 +141,11 @@ func IsGitURL(str string) bool {
 
 	// Check for common git URL patterns
 	patterns := []string{
-		`^https?://.*\.git$`,                            // https://github.com/user/repo.git
-		`^https?://github\.com/[\w\-\.]+/[\w\-\.]+/?$`,  // https://github.com/user/repo
-		`^https?://gitlab\.com/[\w\-\.]+/[\w\-\.]+/?$`,  // https://gitlab.com/user/repo
-		`^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`,       // git@github.com:user/repo.git
-		`^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`, // SSH format: ssh://git@github.com/user/repo.git
+		patternGitURL,      // Standard Git URLs with .git suffix
+		patternGitHubHTTPS, // GitHub HTTPS URLs
+		patternGitLabHTTPS, // GitLab HTTPS URLs
+		patternGitSSH,      // SSH Git URLs (git@host:repo.git format)
+		patternSSHFull,     // Full SSH URLs (ssh://git@host/repo.git format)
 	}
 
 	log.Debug("checking against git URL patterns", "pattern_count", len(patterns))

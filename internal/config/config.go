@@ -137,7 +137,7 @@ func AllSettings() map[string]interface{} {
 	return viper.AllSettings()
 }
 
-// getDefaultEditor returns the default editor based on environment
+// getDefaultEditor returns the default editor based on environment variables.
 func getDefaultEditor() string {
 	if editor := os.Getenv("VISUAL"); editor != "" {
 		return editor

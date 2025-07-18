@@ -46,13 +46,27 @@ const (
 	ErrCodeAuthenticationFailed = "AUTHENTICATION_FAILED"
 )
 
-// GroveError represents a standardized error with code and context
+// GroveError represents a standardized error with code and context.
+//
+// GroveError provides structured error handling for Grove operations with:
+//   - Code: standardized error code for programmatic handling
+//   - Message: human-readable error description
+//   - Cause: underlying error that caused this error (optional)
+//   - Context: additional contextual information as key-value pairs
+//   - Operation: the operation that failed (optional)
+//
+// Example usage:
+//
+//	err := ErrGitNotFound(nil).WithContext("path", "/usr/bin")
+//	if IsGroveError(err, ErrCodeGitNotFound) {
+//	  // Handle git not found error
+//	}
 type GroveError struct {
-	Code      string
-	Message   string
-	Cause     error
-	Context   map[string]interface{}
-	Operation string
+	Code      string                 // Standardized error code (see ErrCode* constants)
+	Message   string                 // Human-readable error message
+	Cause     error                  // Underlying error that caused this error
+	Context   map[string]interface{} // Additional contextual information
+	Operation string                 // The operation that failed
 }
 
 // Error implements the error interface

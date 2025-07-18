@@ -307,7 +307,7 @@ func validateAndPrepareDirectory() (string, error) {
 }
 
 func cloneAndSetupRepository(executor git.GitExecutor, repoURL, targetDir, bareDir string) error {
-	// Clone as bare repository into .bare subdirectory.
+	// Clone repository into .bare subdirectory for worktree setup.
 	fmt.Printf("Cloning %s...\n", repoURL)
 	if err := git.CloneBareWithExecutor(executor, repoURL, bareDir); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)
@@ -420,7 +420,7 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	return nil
 }
 
-// ParseBranches parses a comma-separated string of branch names and returns a slice
+// ParseBranches parses a comma-separated string of branch names and returns a slice.
 func ParseBranches(branchesStr string) []string {
 	if branchesStr == "" {
 		return nil
@@ -481,7 +481,7 @@ func isValidBranchName(name string) bool {
 	return true
 }
 
-// CreateAdditionalWorktrees creates worktrees for the specified branches
+// CreateAdditionalWorktrees creates worktrees for the specified branches.
 func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branches []string) error {
 	if len(branches) == 0 {
 		return nil
