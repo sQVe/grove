@@ -6,21 +6,19 @@
 | ----------- | ------------------------------------------------------------ |
 | **Clone**   | `git clone https://github.com/sqve/grove.git && cd grove`    |
 | **Install** | `go mod download`                                            |
-| **Verify**  | `go test ./... && golangci-lint run && go build ./cmd/grove` |
+| **Verify**  | `mage test:unit && mage lint:all && mage build:all`         |
 
 ### Prerequisites
 
 - Go 1.21+, Git 2.5+, golangci-lint v2.0+
+- Mage build system (installed automatically via `go run github.com/magefile/mage@latest`)
+- `entr` for watch mode functionality (optional)
 
-**Install golangci-lint**:
+**Install golangci-lint**: Required for code linting and maintaining code quality standards. See [golangci-lint installation guide](https://golangci-lint.run/usage/install/) for platform-specific instructions.
 
-```bash
-# macOS
-brew install golangci-lint
+**Install Mage**: Grove's build system for cross-platform development tasks. See [Mage installation guide](https://magefile.org/) for setup instructions, or use `go run github.com/magefile/mage@latest` to run without installation.
 
-# Linux/Windows
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-```
+**Install entr**: Optional dependency for watch mode functionality during development. See [entr documentation](http://eradman.com/entrproject/) for installation instructions.
 
 **Configuration**: Project uses `.golangci.yml` with recommended v2 format and essential linters for Go CLI development.
 
@@ -29,11 +27,28 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ### Before committing
 
 ```bash
-go fmt ./...                                   # Format
-golangci-lint run                              # Lint
-go test -race -coverprofile=coverage.out ./... # Unit tests
-go test -tags=integration ./...                # Integration tests
-go build ./cmd/grove                           # Build
+# Fast development workflow
+mage test:unit                                 # Fast unit tests (~2s)
+mage lint                                      # Run golangci-lint (with --fix)
+mage build:all                                 # Build
+
+# Full validation (CI-like)
+mage ci                                        # Complete pipeline
+```
+
+### Testing workflow
+
+```bash
+# Development (fast feedback)
+mage test:unit                                 # Unit tests (~2s)
+mage test:coverage                             # Unit tests with coverage report
+
+# Full validation
+mage test:integration                          # Integration tests (~35s)
+mage test:all                                  # All tests
+
+# Debugging
+mage test:watch                                # Watch for changes and run unit tests
 ```
 
 ### Git workflow
@@ -59,9 +74,9 @@ go build ./cmd/grove                           # Build
     - `file_integration_test.go` - Integration tests with real git operations
 - **Build tags**: Integration tests use `//go:build integration` tag
 - **Running tests**:
-    - Unit tests: `go test ./...`
-    - Integration tests: `go test -tags=integration ./...`
-    - All tests: `go test -tags=integration ./...`
+    - Unit tests: `mage test:unit`
+    - Integration tests: `mage test:integration`
+    - All tests: `mage test:all`
 
 ## Architecture
 
@@ -99,7 +114,22 @@ grove/
 ### Build System: Mage
 
 **Why**: Cross-platform, Go-native, modern best practice
-**Tasks**: Build, Test, TestCoverage, Lint, Fmt, Clean, Install
+
+**Available targets**:
+- **Test targets**: `unit`, `integration`, `all`, `coverage`, `watch`, `clean`
+- **Build targets**: `all`, `release`, `clean`
+- **Lint targets**: `lint`
+- **Other targets**: `ci`, `dev`, `clean`, `info`, `help`
+
+**Usage**: `mage <namespace>:<target>` (e.g., `mage test:unit`, `mage build:release`)
+
+### Configuration
+
+**Watch mode features**:
+- Simple file discovery using `find` command
+- Real-time test execution on file changes
+- Requires `entr` tool for file watching
+- Works across platforms with shell compatibility
 
 ## Current Priorities
 
