@@ -199,10 +199,33 @@ Key attributes: `component` (source), `duration` (timing), `error` (details), `g
 
 ### Style Guidelines
 
-- **Component naming**: snake_case (`git_utils`, `init_command`)
+#### Automated Checks
+- **Format**: `gofmt` and `goimports` for consistent formatting
+- **Lint**: `golangci-lint` with enabled checks including comment punctuation
+- **Tests**: Unit and integration tests with good coverage
+
+#### Manual Style Standards
+- **Comments**: End with periods for top-level declarations (enforced by `godot` linter)
+- **Error messages**: No periods at end (following Go convention)
+- **Naming**: Clear, descriptive names that don't require comments to understand
+- **Code clarity**: No "clever tricks" - prioritize obvious, maintainable code
+- **Redundant comments**: Avoid comments that just restate what the code does
+
+#### Grove-Specific Guidelines
+- **Component naming**: snake_case for logging components (`git_utils`, `init_command`)
 - **Log messages**: Sentence case without periods (`"checking git availability"`)
 - **Structured attributes**: Consistent naming (`duration`, `component`, `error`)
 - **Log levels**: Debug (detailed flow), Info (major operations), Warn (fallbacks), Error (failures)
+- **Documentation**: Public types and functions need comprehensive godoc comments
+
+#### Manual Validation Checklist
+Before submitting changes, review for:
+- [ ] Comments on public declarations end with periods
+- [ ] Error messages don't end with periods
+- [ ] No redundant comments (explaining what the code obviously does)
+- [ ] Complex patterns extracted to named constants with explanatory comments
+- [ ] Function/variable names are self-explanatory
+- [ ] Public APIs have complete godoc documentation
 
 ## Help
 

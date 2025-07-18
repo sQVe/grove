@@ -33,6 +33,7 @@ linters:
     # Code quality
     - goconst # Find repeated strings for constants
     - gocritic # Comprehensive diagnostics
+    - godot # Check comment punctuation
 
   settings:
     gocritic:
@@ -43,3 +44,16 @@ linters:
       disabled-checks:
         - dupImport
         - whyNoLint
+    
+    godot:
+      # Check comment punctuation - start with warnings only
+      scope: toplevel # Only check top-level comments (function/type declarations)
+      exclude:
+        # Allow todo comments without periods
+        - "^\\s*//\\s*TODO"
+        - "^\\s*//\\s*FIXME"
+        - "^\\s*//\\s*NOTE"
+        - "^\\s*//\\s*Test"  # Test function comments
+        - "^\\s*//\\s*Helper" # Helper function comments
+      capital: false # Don't require capital letters
+      period: true # Require periods at end of comments
