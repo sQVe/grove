@@ -15,7 +15,7 @@ import (
 // - Helper methods for verification
 // - Delay simulation capability
 // - Special command handling
-// - Multiple response formats for flexibility
+// - Multiple response formats for flexibility.
 type MockGitExecutor struct {
 	// Commands stores the executed commands for verification
 	Commands [][]string
@@ -31,7 +31,7 @@ type MockGitExecutor struct {
 	regexPatterns []RegexPattern
 }
 
-// RegexPattern represents a regex pattern and its associated response
+// RegexPattern represents a regex pattern and its associated response.
 type RegexPattern struct {
 	Pattern  *regexp.Regexp
 	Response MockResponse

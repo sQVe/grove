@@ -141,7 +141,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 // - Cannot be single character @
 // - Cannot contain backslash \
 // - Cannot begin with a dash - (branch-specific rule)
-// - Should not be empty or contain only whitespace
+// - Should not be empty or contain only whitespace.
 func isValidBranchName(log *logger.Logger, name string) bool {
 	if name == "" {
 		log.Debug("branch name validation failed: empty name")

@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// SetDefaults sets all default configuration values
+// SetDefaults sets all default configuration values.
 func SetDefaults() {
 	// General defaults
 	viper.SetDefault("general.editor", getDefaultEditor())
@@ -33,7 +33,7 @@ func SetDefaults() {
 	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days
 }
 
-// getDefaultPager returns the default pager based on environment
+// getDefaultPager returns the default pager based on environment.
 func getDefaultPager() string {
 	if pager := viper.GetString("PAGER"); pager != "" {
 		return pager
@@ -41,7 +41,7 @@ func getDefaultPager() string {
 	return "less"
 }
 
-// DefaultConfig returns a Config struct with all default values
+// DefaultConfig returns a Config struct with all default values.
 func DefaultConfig() *Config {
 	// Create a temporary viper instance to get defaults
 	v := viper.New()
@@ -118,22 +118,22 @@ func DefaultConfig() *Config {
 	return &config
 }
 
-// ValidLogLevels returns the valid log levels
+// ValidLogLevels returns the valid log levels.
 func ValidLogLevels() []string {
 	return []string{"debug", "info", "warn", "error"}
 }
 
-// ValidOutputFormats returns the valid output formats
+// ValidOutputFormats returns the valid output formats.
 func ValidOutputFormats() []string {
 	return []string{"text", "json"}
 }
 
-// ValidLogFormats returns the valid log formats
+// ValidLogFormats returns the valid log formats.
 func ValidLogFormats() []string {
 	return []string{"text", "json"}
 }
 
-// ValidNamingPatterns returns the valid worktree naming patterns
+// ValidNamingPatterns returns the valid worktree naming patterns.
 func ValidNamingPatterns() []string {
 	return []string{"branch", "slug", "timestamp"}
 }

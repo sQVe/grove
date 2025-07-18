@@ -7,22 +7,22 @@ import (
 	"time"
 )
 
-// ValidationError represents a configuration validation error
+// ValidationError represents a configuration validation error.
 type ValidationError struct {
 	Field   string
 	Value   interface{}
 	Message string
 }
 
-// Error implements the error interface
+// Error implements the error interface.
 func (e ValidationError) Error() string {
 	return fmt.Sprintf("config validation error for field '%s': %s (value: %v)", e.Field, e.Message, e.Value)
 }
 
-// ValidationErrors represents multiple validation errors
+// ValidationErrors represents multiple validation errors.
 type ValidationErrors []ValidationError
 
-// Error implements the error interface
+// Error implements the error interface.
 func (e ValidationErrors) Error() string {
 	if len(e) == 0 {
 		return "no validation errors"
@@ -35,7 +35,7 @@ func (e ValidationErrors) Error() string {
 	return fmt.Sprintf("configuration validation failed:\n%s", strings.Join(messages, "\n"))
 }
 
-// Validate validates the current configuration
+// Validate validates the current configuration.
 func Validate() error {
 	config, err := Get()
 	if err != nil {
@@ -45,7 +45,7 @@ func Validate() error {
 	return ValidateConfig(config)
 }
 
-// ValidateConfig validates a configuration struct
+// ValidateConfig validates a configuration struct.
 func ValidateConfig(config *Config) error {
 	var errors ValidationErrors
 
@@ -81,7 +81,7 @@ func ValidateConfig(config *Config) error {
 	return nil
 }
 
-// validateGeneral validates general configuration
+// validateGeneral validates general configuration.
 func validateGeneral(config *struct {
 	Editor       string `mapstructure:"editor"`
 	Pager        string `mapstructure:"pager"`
@@ -121,7 +121,7 @@ func validateGeneral(config *struct {
 	return errors
 }
 
-// validateGit validates git configuration
+// validateGit validates git configuration.
 func validateGit(config *struct {
 	DefaultRemote string        `mapstructure:"default_remote"`
 	FetchTimeout  time.Duration `mapstructure:"fetch_timeout"`
@@ -176,7 +176,7 @@ func validateGit(config *struct {
 	return errors
 }
 
-// validateRetry validates retry configuration
+// validateRetry validates retry configuration.
 func validateRetry(config *struct {
 	MaxAttempts int           `mapstructure:"max_attempts"`
 	BaseDelay   time.Duration `mapstructure:"base_delay"`
@@ -233,7 +233,7 @@ func validateRetry(config *struct {
 	return errors
 }
 
-// validateLogging validates logging configuration
+// validateLogging validates logging configuration.
 func validateLogging(config *struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
@@ -264,7 +264,7 @@ func validateLogging(config *struct {
 	return errors
 }
 
-// validateWorktree validates worktree configuration
+// validateWorktree validates worktree configuration.
 func validateWorktree(config *struct {
 	NamingPattern    string        `mapstructure:"naming_pattern"`
 	CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
@@ -303,7 +303,7 @@ func validateWorktree(config *struct {
 	return errors
 }
 
-// ValidateKey validates a specific configuration key
+// ValidateKey validates a specific configuration key.
 func ValidateKey(key string, value interface{}) error {
 	// Get current config to validate against
 	config, err := Get()
@@ -320,7 +320,7 @@ func ValidateKey(key string, value interface{}) error {
 	return ValidateConfig(config)
 }
 
-// IsValidKey checks if a configuration key is valid
+// IsValidKey checks if a configuration key is valid.
 func IsValidKey(key string) bool {
 	validKeys := []string{
 		"general.editor",
@@ -342,7 +342,7 @@ func IsValidKey(key string) bool {
 	return slices.Contains(validKeys, key)
 }
 
-// GetValidKeys returns all valid configuration keys
+// GetValidKeys returns all valid configuration keys.
 func GetValidKeys() []string {
 	return []string{
 		"general.editor",

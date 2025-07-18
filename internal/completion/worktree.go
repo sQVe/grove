@@ -8,7 +8,7 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// WorktreeCompletion provides completion for worktree directory names
+// WorktreeCompletion provides completion for worktree directory names.
 func WorktreeCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("worktree_completion")
 
@@ -34,7 +34,7 @@ func WorktreeCompletion(ctx *CompletionContext, cmd *cobra.Command, args []strin
 	return filtered, cobra.ShellCompDirectiveNoFileComp
 }
 
-// getWorktreeNames retrieves worktree directory names
+// getWorktreeNames retrieves worktree directory names.
 func getWorktreeNames(ctx *CompletionContext) ([]string, error) {
 	log := logger.WithComponent("worktree_completion")
 
@@ -78,7 +78,7 @@ func getWorktreeNames(ctx *CompletionContext) ([]string, error) {
 	return worktrees, nil
 }
 
-// WorktreePathCompletion provides completion for worktree paths
+// WorktreePathCompletion provides completion for worktree paths.
 func WorktreePathCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("worktree_path_completion")
 
@@ -104,7 +104,7 @@ func WorktreePathCompletion(ctx *CompletionContext, cmd *cobra.Command, args []s
 	return filtered, cobra.ShellCompDirectiveDefault
 }
 
-// getWorktreePaths retrieves worktree full paths
+// getWorktreePaths retrieves worktree full paths.
 func getWorktreePaths(ctx *CompletionContext) ([]string, error) {
 	log := logger.WithComponent("worktree_path_completion")
 
@@ -135,7 +135,7 @@ func getWorktreePaths(ctx *CompletionContext) ([]string, error) {
 	return paths, nil
 }
 
-// BranchToWorktreeName converts a branch name to a filesystem-safe worktree directory name
+// BranchToWorktreeName converts a branch name to a filesystem-safe worktree directory name.
 func BranchToWorktreeName(branchName string) string {
 	// Replace characters that are problematic in directory names
 	name := strings.ReplaceAll(branchName, "/", "-")
@@ -156,14 +156,14 @@ func BranchToWorktreeName(branchName string) string {
 	return name
 }
 
-// WorktreeNameToBranch converts a worktree directory name back to a branch name
+// WorktreeNameToBranch converts a worktree directory name back to a branch name.
 func WorktreeNameToBranch(worktreeName string) string {
 	// This is a best-effort conversion since the transformation is not always reversible
 	// In practice, Grove should store the mapping between worktree names and branches
 	return strings.ReplaceAll(worktreeName, "-", "/")
 }
 
-// SuggestWorktreeNamesForBranch suggests worktree directory names for a branch
+// SuggestWorktreeNamesForBranch suggests worktree directory names for a branch.
 func SuggestWorktreeNamesForBranch(branchName string) []string {
 	var suggestions []string
 
@@ -185,7 +185,7 @@ func SuggestWorktreeNamesForBranch(branchName string) []string {
 	return suggestions
 }
 
-// GetWorktreeInfo retrieves information about existing worktrees
+// GetWorktreeInfo retrieves information about existing worktrees.
 func GetWorktreeInfo(ctx *CompletionContext) ([]WorktreeInfo, error) {
 	log := logger.WithComponent("worktree_info")
 
@@ -237,7 +237,7 @@ func GetWorktreeInfo(ctx *CompletionContext) ([]WorktreeInfo, error) {
 	return worktrees, nil
 }
 
-// WorktreeInfo represents information about a worktree
+// WorktreeInfo represents information about a worktree.
 type WorktreeInfo struct {
 	Path       string
 	Head       string
@@ -246,12 +246,12 @@ type WorktreeInfo struct {
 	IsDetached bool
 }
 
-// Name returns the directory name of the worktree
+// Name returns the directory name of the worktree.
 func (w WorktreeInfo) Name() string {
 	return filepath.Base(w.Path)
 }
 
-// IsMainWorktree checks if this is the main worktree
+// IsMainWorktree checks if this is the main worktree.
 func (w WorktreeInfo) IsMainWorktree() bool {
 	return w.IsBare || w.Name() == "."
 }

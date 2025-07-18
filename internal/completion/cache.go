@@ -7,38 +7,38 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// Cache value constants
+// Cache value constants.
 const (
 	CacheValueTrue  = "true"
 	CacheValueFalse = "false"
 )
 
-// CacheEntry represents a cached completion result
+// CacheEntry represents a cached completion result.
 type CacheEntry struct {
 	Value     []string
 	Timestamp time.Time
 	TTL       time.Duration
 }
 
-// IsExpired checks if the cache entry has expired
+// IsExpired checks if the cache entry has expired.
 func (c *CacheEntry) IsExpired() bool {
 	return time.Since(c.Timestamp) > c.TTL
 }
 
-// CompletionCache provides caching for completion results
+// CompletionCache provides caching for completion results.
 type CompletionCache struct {
 	cache map[string]*CacheEntry
 	mutex sync.RWMutex
 }
 
-// NewCompletionCache creates a new completion cache
+// NewCompletionCache creates a new completion cache.
 func NewCompletionCache() *CompletionCache {
 	return &CompletionCache{
 		cache: make(map[string]*CacheEntry),
 	}
 }
 
-// Get retrieves a cached completion result
+// Get retrieves a cached completion result.
 func (c *CompletionCache) Get(key string) ([]string, bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -57,7 +57,7 @@ func (c *CompletionCache) Get(key string) ([]string, bool) {
 	return entry.Value, true
 }
 
-// Set stores a completion result in the cache
+// Set stores a completion result in the cache.
 func (c *CompletionCache) Set(key string, value []string, ttl time.Duration) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -69,7 +69,7 @@ func (c *CompletionCache) Set(key string, value []string, ttl time.Duration) {
 	}
 }
 
-// Delete removes a cache entry
+// Delete removes a cache entry.
 func (c *CompletionCache) Delete(key string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -77,7 +77,7 @@ func (c *CompletionCache) Delete(key string) {
 	delete(c.cache, key)
 }
 
-// Clear removes all cache entries
+// Clear removes all cache entries.
 func (c *CompletionCache) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -85,7 +85,7 @@ func (c *CompletionCache) Clear() {
 	c.cache = make(map[string]*CacheEntry)
 }
 
-// Size returns the number of cached entries
+// Size returns the number of cached entries.
 func (c *CompletionCache) Size() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -93,7 +93,7 @@ func (c *CompletionCache) Size() int {
 	return len(c.cache)
 }
 
-// CleanupExpired removes expired cache entries
+// CleanupExpired removes expired cache entries.
 func (c *CompletionCache) CleanupExpired() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -113,28 +113,28 @@ func (c *CompletionCache) CleanupExpired() {
 	}
 }
 
-// GlobalCache is the global completion cache instance
+// GlobalCache is the global completion cache instance.
 var GlobalCache = NewCompletionCache()
 
-// CacheKeyBuilder helps build consistent cache keys
+// CacheKeyBuilder helps build consistent cache keys.
 type CacheKeyBuilder struct {
 	parts []string
 }
 
-// NewCacheKeyBuilder creates a new cache key builder
+// NewCacheKeyBuilder creates a new cache key builder.
 func NewCacheKeyBuilder() *CacheKeyBuilder {
 	return &CacheKeyBuilder{
 		parts: make([]string, 0),
 	}
 }
 
-// Add adds a part to the cache key
+// Add adds a part to the cache key.
 func (b *CacheKeyBuilder) Add(part string) *CacheKeyBuilder {
 	b.parts = append(b.parts, part)
 	return b
 }
 
-// Build builds the final cache key
+// Build builds the final cache key.
 func (b *CacheKeyBuilder) Build() string {
 	if len(b.parts) == 0 {
 		return ""
@@ -148,7 +148,7 @@ func (b *CacheKeyBuilder) Build() string {
 	return result
 }
 
-// Common cache TTL values
+// Common cache TTL values.
 const (
 	BranchCacheTTL     = 30 * time.Second
 	WorktreeCacheTTL   = 10 * time.Second
@@ -157,31 +157,31 @@ const (
 	NetworkCacheTTL    = 30 * time.Second
 )
 
-// GetCachedBranches retrieves cached branch list
+// GetCachedBranches retrieves cached branch list.
 func GetCachedBranches(ctx *CompletionContext) ([]string, bool) {
 	key := NewCacheKeyBuilder().Add("branches").Build()
 	return GlobalCache.Get(key)
 }
 
-// SetCachedBranches stores branch list in cache
+// SetCachedBranches stores branch list in cache.
 func SetCachedBranches(ctx *CompletionContext, branches []string) {
 	key := NewCacheKeyBuilder().Add("branches").Build()
 	GlobalCache.Set(key, branches, BranchCacheTTL)
 }
 
-// GetCachedWorktrees retrieves cached worktree list
+// GetCachedWorktrees retrieves cached worktree list.
 func GetCachedWorktrees(ctx *CompletionContext) ([]string, bool) {
 	key := NewCacheKeyBuilder().Add("worktrees").Build()
 	return GlobalCache.Get(key)
 }
 
-// SetCachedWorktrees stores worktree list in cache
+// SetCachedWorktrees stores worktree list in cache.
 func SetCachedWorktrees(ctx *CompletionContext, worktrees []string) {
 	key := NewCacheKeyBuilder().Add("worktrees").Build()
 	GlobalCache.Set(key, worktrees, WorktreeCacheTTL)
 }
 
-// GetCachedRepositoryState retrieves cached repository state
+// GetCachedRepositoryState retrieves cached repository state.
 func GetCachedRepositoryState() (isGroveRepo, exists bool) {
 	key := NewCacheKeyBuilder().Add("repo_state").Build()
 	if value, exists := GlobalCache.Get(key); exists && len(value) > 0 {
@@ -190,7 +190,7 @@ func GetCachedRepositoryState() (isGroveRepo, exists bool) {
 	return false, false
 }
 
-// SetCachedRepositoryState stores repository state in cache
+// SetCachedRepositoryState stores repository state in cache.
 func SetCachedRepositoryState(isGroveRepo bool) {
 	key := NewCacheKeyBuilder().Add("repo_state").Build()
 	value := CacheValueFalse
@@ -200,7 +200,7 @@ func SetCachedRepositoryState(isGroveRepo bool) {
 	GlobalCache.Set(key, []string{value}, RepositoryCacheTTL)
 }
 
-// GetCachedNetworkState retrieves cached network connectivity state
+// GetCachedNetworkState retrieves cached network connectivity state.
 func GetCachedNetworkState() (isOnline, exists bool) {
 	key := NewCacheKeyBuilder().Add("network_state").Build()
 	if value, exists := GlobalCache.Get(key); exists && len(value) > 0 {
@@ -209,7 +209,7 @@ func GetCachedNetworkState() (isOnline, exists bool) {
 	return false, false
 }
 
-// SetCachedNetworkState stores network connectivity state in cache
+// SetCachedNetworkState stores network connectivity state in cache.
 func SetCachedNetworkState(isOnline bool) {
 	key := NewCacheKeyBuilder().Add("network_state").Build()
 	value := CacheValueFalse
@@ -220,7 +220,7 @@ func SetCachedNetworkState(isOnline bool) {
 }
 
 // StartCacheCleanup starts a goroutine to periodically clean up expired cache entries
-// Uses adaptive cleanup intervals based on cache size for better performance
+// Uses adaptive cleanup intervals based on cache size for better performance.
 func StartCacheCleanup() {
 	go func() {
 		for {
@@ -235,7 +235,7 @@ func StartCacheCleanup() {
 	}()
 }
 
-// calculateCleanupInterval returns appropriate cleanup interval based on cache size
+// calculateCleanupInterval returns appropriate cleanup interval based on cache size.
 func calculateCleanupInterval() time.Duration {
 	size := GlobalCache.Size()
 

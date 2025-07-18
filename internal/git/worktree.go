@@ -148,7 +148,7 @@ func ListWorktrees(executor GitExecutor) ([]string, error) {
 	return worktrees, nil
 }
 
-// splitLines splits a string into lines, handling different line endings
+// splitLines splits a string into lines, handling different line endings.
 func splitLines(s string) []string {
 	if s == "" {
 		return nil

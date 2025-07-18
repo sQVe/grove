@@ -11,21 +11,21 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// Git URL pattern constants for validation
+// Git URL pattern constants for validation.
 const (
-	// Standard Git URL with .git suffix
+	// Standard Git URL with .git suffix.
 	patternGitURL = `^https?://.*\.git$`
 
-	// GitHub repository URL patterns
+	// GitHub repository URL patterns.
 	patternGitHubHTTPS = `^https?://github\.com/[\w\-\.]+/[\w\-\.]+/?$`
 
-	// GitLab repository URL patterns
+	// GitLab repository URL patterns.
 	patternGitLabHTTPS = `^https?://gitlab\.com/[\w\-\.]+/[\w\-\.]+/?$`
 
-	// SSH Git URL patterns
+	// SSH Git URL patterns.
 	patternGitSSH = `^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`
 
-	// SSH URL with full ssh:// prefix
+	// SSH URL with full ssh:// prefix.
 	patternSSHFull = `^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`
 )
 
@@ -174,7 +174,7 @@ func IsGitURL(str string) bool {
 	return false
 }
 
-// GitURLInfo contains parsed information from a Git hosting platform URL
+// GitURLInfo contains parsed information from a Git hosting platform URL.
 type GitURLInfo struct {
 	RepoURL    string // The actual Git repository URL
 	BranchName string // Extracted branch name (if any)
@@ -239,7 +239,7 @@ func ParseGitPlatformURL(inputURL string) (*GitURLInfo, error) {
 	return nil, fmt.Errorf("URL format not recognized: %s", inputURL)
 }
 
-// parseGitHubURL parses GitHub URLs
+// parseGitHubURL parses GitHub URLs.
 func parseGitHubURL(inputURL string) *GitURLInfo {
 	// GitHub PR: https://github.com/owner/repo/pull/123
 	if match := regexp.MustCompile(`^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
@@ -271,7 +271,7 @@ func parseGitHubURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// parseGitLabURL parses GitLab URLs
+// parseGitLabURL parses GitLab URLs.
 func parseGitLabURL(inputURL string) *GitURLInfo {
 	// GitLab MR: https://gitlab.com/owner/repo/-/merge_requests/123
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/-/merge_requests/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
@@ -305,7 +305,7 @@ func parseGitLabURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// parseBitbucketURL parses Bitbucket URLs
+// parseBitbucketURL parses Bitbucket URLs.
 func parseBitbucketURL(inputURL string) *GitURLInfo {
 	// Bitbucket PR: https://bitbucket.org/owner/repo/pull-requests/123
 	if match := regexp.MustCompile(`^https://bitbucket\.org/([^/]+)/([^/]+)/pull-requests/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
@@ -336,7 +336,7 @@ func parseBitbucketURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// parseAzureDevOpsURL parses Azure DevOps URLs
+// parseAzureDevOpsURL parses Azure DevOps URLs.
 func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
 	// Azure DevOps PR: https://dev.azure.com/org/project/_git/repo/pullrequest/123
 	if match := regexp.MustCompile(`^https://dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/]+)/pullrequest/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
@@ -367,7 +367,7 @@ func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// parseGiteaURL parses Gitea and Codeberg URLs
+// parseGiteaURL parses Gitea and Codeberg URLs.
 func parseGiteaURL(inputURL string) *GitURLInfo {
 	// Gitea/Codeberg PR: https://gitea.instance/owner/repo/pulls/123 or https://codeberg.org/owner/repo/pulls/123
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/pulls/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
@@ -401,7 +401,7 @@ func parseGiteaURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// determineGiteaPlatform determines the specific platform name for Gitea-based services
+// determineGiteaPlatform determines the specific platform name for Gitea-based services.
 func determineGiteaPlatform(host string) string {
 	if host == "codeberg.org" {
 		return "codeberg"
@@ -409,7 +409,7 @@ func determineGiteaPlatform(host string) string {
 	return "gitea"
 }
 
-// isKnownGiteaInstance checks if the host is a known Gitea instance
+// isKnownGiteaInstance checks if the host is a known Gitea instance.
 func isKnownGiteaInstance(host string) bool {
 	knownInstances := []string{
 		"codeberg.org",

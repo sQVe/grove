@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// MockGitExecutor for testing worktree operations
+// MockGitExecutor for testing worktree operations.
 type MockGitExecutor struct {
 	commands [][]string
 	outputs  map[string]string
@@ -440,7 +440,7 @@ func TestSplitLines(t *testing.T) {
 	}
 }
 
-// Helper functions
+// Helper functions.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || (len(s) > len(substr) &&
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||

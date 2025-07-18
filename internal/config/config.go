@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config represents the complete configuration structure for Grove
+// Config represents the complete configuration structure for Grove.
 type Config struct {
 	General struct {
 		Editor       string `mapstructure:"editor"`
@@ -41,7 +41,7 @@ type Config struct {
 	} `mapstructure:"worktree"`
 }
 
-// Initialize sets up Viper configuration with proper defaults and file paths
+// Initialize sets up Viper configuration with proper defaults and file paths.
 func Initialize() error {
 	// Set config file name (type will be auto-detected from extension)
 	viper.SetConfigName("config")
@@ -73,7 +73,7 @@ func Initialize() error {
 	return nil
 }
 
-// Get returns the current configuration as a Config struct
+// Get returns the current configuration as a Config struct.
 func Get() (*Config, error) {
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
@@ -82,57 +82,57 @@ func Get() (*Config, error) {
 	return &config, nil
 }
 
-// GetString returns a string configuration value
+// GetString returns a string configuration value.
 func GetString(key string) string {
 	return viper.GetString(key)
 }
 
-// GetInt returns an integer configuration value
+// GetInt returns an integer configuration value.
 func GetInt(key string) int {
 	return viper.GetInt(key)
 }
 
-// GetBool returns a boolean configuration value
+// GetBool returns a boolean configuration value.
 func GetBool(key string) bool {
 	return viper.GetBool(key)
 }
 
-// GetDuration returns a duration configuration value
+// GetDuration returns a duration configuration value.
 func GetDuration(key string) time.Duration {
 	return viper.GetDuration(key)
 }
 
-// Set sets a configuration value
+// Set sets a configuration value.
 func Set(key string, value interface{}) {
 	viper.Set(key, value)
 }
 
-// IsSet checks if a configuration key is set
+// IsSet checks if a configuration key is set.
 func IsSet(key string) bool {
 	return viper.IsSet(key)
 }
 
-// ConfigFileUsed returns the path to the config file being used
+// ConfigFileUsed returns the path to the config file being used.
 func ConfigFileUsed() string {
 	return viper.ConfigFileUsed()
 }
 
-// WriteConfig writes the current configuration to file
+// WriteConfig writes the current configuration to file.
 func WriteConfig() error {
 	return viper.WriteConfig()
 }
 
-// SafeWriteConfig writes the current configuration to file if it doesn't exist
+// SafeWriteConfig writes the current configuration to file if it doesn't exist.
 func SafeWriteConfig() error {
 	return viper.SafeWriteConfig()
 }
 
-// WriteConfigAs writes the current configuration to a specific file
+// WriteConfigAs writes the current configuration to a specific file.
 func WriteConfigAs(filename string) error {
 	return viper.WriteConfigAs(filename)
 }
 
-// AllSettings returns all configuration settings as a map
+// AllSettings returns all configuration settings as a map.
 func AllSettings() map[string]interface{} {
 	return viper.AllSettings()
 }

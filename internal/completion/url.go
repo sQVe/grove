@@ -8,20 +8,20 @@ import (
 	"github.com/sqve/grove/internal/utils"
 )
 
-// URLSuggestion represents a URL completion suggestion with description
+// URLSuggestion represents a URL completion suggestion with description.
 type URLSuggestion struct {
 	URL         string
 	Description string
 }
 
-// PlatformInfo holds information about Git hosting platforms
+// PlatformInfo holds information about Git hosting platforms.
 type PlatformInfo struct {
 	HTTPSPrefix string
 	SSHPrefix   string
 	Description string
 }
 
-// URLCompletion provides completion for Git URLs
+// URLCompletion provides completion for Git URLs.
 func URLCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("url_completion")
 
@@ -38,7 +38,7 @@ func URLCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, to
 	return urls, cobra.ShellCompDirectiveNoFileComp
 }
 
-// URLAndDirectoryCompletion provides completion for URLs and directories
+// URLAndDirectoryCompletion provides completion for URLs and directories.
 func URLAndDirectoryCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("url_directory_completion")
 
@@ -52,7 +52,7 @@ func URLAndDirectoryCompletion(ctx *CompletionContext, cmd *cobra.Command, args 
 	return nil, cobra.ShellCompDirectiveDefault
 }
 
-// getURLSuggestions generates URL completion suggestions
+// getURLSuggestions generates URL completion suggestions.
 func getURLSuggestions(toComplete string) ([]string, error) {
 	var suggestions []string
 
@@ -67,7 +67,7 @@ func getURLSuggestions(toComplete string) ([]string, error) {
 	return suggestions, nil
 }
 
-// getPlatformURLSuggestions provides HTTPS URL suggestions for various platforms
+// getPlatformURLSuggestions provides HTTPS URL suggestions for various platforms.
 func getPlatformURLSuggestions(toComplete string) []URLSuggestion {
 	var suggestions []URLSuggestion
 
@@ -104,12 +104,12 @@ func getPlatformURLSuggestions(toComplete string) []URLSuggestion {
 	return suggestions
 }
 
-// GetURLSuggestionsWithDescriptions returns URL suggestions with descriptions for enhanced user experience
+// GetURLSuggestionsWithDescriptions returns URL suggestions with descriptions for enhanced user experience.
 func GetURLSuggestionsWithDescriptions(toComplete string) []URLSuggestion {
 	return getPlatformURLSuggestions(toComplete)
 }
 
-// looksLikeURL determines if the input looks like a URL
+// looksLikeURL determines if the input looks like a URL.
 func looksLikeURL(input string) bool {
 	return strings.HasPrefix(input, "https://") ||
 		strings.HasPrefix(input, "http://") ||
@@ -118,7 +118,7 @@ func looksLikeURL(input string) bool {
 		utils.IsGitURL(input)
 }
 
-// CompleteGitURL provides intelligent completion for Git URLs
+// CompleteGitURL provides intelligent completion for Git URLs.
 func CompleteGitURL(toComplete string) []string {
 	log := logger.WithComponent("git_url_completion")
 
@@ -140,7 +140,7 @@ func CompleteGitURL(toComplete string) []string {
 	return suggestions
 }
 
-// CompleteGitURLWithDescriptions provides intelligent completion for Git URLs with descriptions
+// CompleteGitURLWithDescriptions provides intelligent completion for Git URLs with descriptions.
 func CompleteGitURLWithDescriptions(toComplete string) []URLSuggestion {
 	log := logger.WithComponent("git_url_completion")
 
@@ -162,13 +162,13 @@ func CompleteGitURLWithDescriptions(toComplete string) []URLSuggestion {
 	return suggestions
 }
 
-// ValidateURLCompletion validates that a URL completion is appropriate
+// ValidateURLCompletion validates that a URL completion is appropriate.
 func ValidateURLCompletion(url string) bool {
 	// Basic validation - check if it looks like a valid repository URL
 	return utils.IsGitURL(url) || looksLikeURL(url)
 }
 
-// GetPlatformFromURL extracts the platform name from a URL
+// GetPlatformFromURL extracts the platform name from a URL.
 func GetPlatformFromURL(url string) string {
 	if info, err := utils.ParseGitPlatformURL(url); err == nil {
 		return info.Platform
@@ -176,7 +176,7 @@ func GetPlatformFromURL(url string) string {
 	return "git"
 }
 
-// SuggestBranchesForURL suggests branch names based on URL context
+// SuggestBranchesForURL suggests branch names based on URL context.
 func SuggestBranchesForURL(url string) []string {
 	// Extract branch information from URL if available
 	if info, err := utils.ParseGitPlatformURL(url); err == nil && info.BranchName != "" {

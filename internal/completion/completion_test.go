@@ -258,7 +258,7 @@ func TestNewCompletionContext(t *testing.T) {
 	}
 }
 
-// Helper functions
+// Helper functions.
 
 func equalSlices(a, b []string) bool {
 	if len(a) != len(b) {

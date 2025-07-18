@@ -36,7 +36,7 @@ func (e *DefaultGitExecutor) ExecuteWithContext(ctx context.Context, args ...str
 // DefaultExecutor is the default git command executor.
 var DefaultExecutor GitExecutor = &DefaultGitExecutor{}
 
-// isNetworkError checks if an error is likely a network-related issue
+// isNetworkError checks if an error is likely a network-related issue.
 func isNetworkError(err error) bool {
 	if err == nil {
 		return false
@@ -50,7 +50,7 @@ func isNetworkError(err error) bool {
 		strings.Contains(errStr, "unreachable")
 }
 
-// isAuthError checks if an error is likely an authentication issue
+// isAuthError checks if an error is likely an authentication issue.
 func isAuthError(err error) bool {
 	if err == nil {
 		return false

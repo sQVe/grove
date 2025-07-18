@@ -125,7 +125,7 @@ func TestPrintSuccessMessage(t *testing.T) {
 	assert.Contains(t, output, "grove create <branch-name>")
 }
 
-// Test runInitLocal function
+// Test runInitLocal function.
 func TestRunInitLocal(t *testing.T) {
 	// Test with empty target directory (should use current directory)
 	originalDir, err := os.Getwd()
@@ -188,7 +188,7 @@ func TestRunInitLocalWithTargetDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Test runInitConvertWithExecutor function - error cases
+// Test runInitConvertWithExecutor function - error cases.
 func TestRunInitConvertWithExecutor(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-test-*")
@@ -242,7 +242,7 @@ func TestRunInitConvertAlreadyGrove(t *testing.T) {
 	assert.Contains(t, err.Error(), "is already a Grove repository")
 }
 
-// Test that runInit properly routes to the right sub-function
+// Test that runInit properly routes to the right sub-function.
 func TestRunInitRouting(t *testing.T) {
 	// Create a mock command to test argument validation
 	cmd := NewInitCmd()

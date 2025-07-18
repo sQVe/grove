@@ -436,7 +436,7 @@ func ParseBranches(branchesStr string) []string {
 	return branches
 }
 
-// isValidBranchName validates that a branch name follows Git naming conventions
+// isValidBranchName validates that a branch name follows Git naming conventions.
 func isValidBranchName(name string) bool {
 	if name == "" {
 		return false

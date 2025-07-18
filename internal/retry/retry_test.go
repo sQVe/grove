@@ -327,7 +327,7 @@ func TestWithRetry_ConvenienceFunction(t *testing.T) {
 	}
 }
 
-// TestRetryableErrorInterface tests that our GroveError properly implements RetryableError
+// TestRetryableErrorInterface tests that our GroveError properly implements RetryableError.
 func TestRetryableErrorInterface(t *testing.T) {
 	retryableErr := groveErrors.ErrNetworkTimeout("test", errors.New("timeout"))
 	nonRetryableErr := groveErrors.ErrAuthenticationFailed("test", errors.New("auth failed"))

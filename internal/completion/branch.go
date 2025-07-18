@@ -7,7 +7,7 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// BranchCompletion provides completion for branch names
+// BranchCompletion provides completion for branch names.
 func BranchCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("branch_completion")
 
@@ -33,7 +33,7 @@ func BranchCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string,
 	return filtered, cobra.ShellCompDirectiveNoFileComp
 }
 
-// getBranchNames retrieves available branch names from the repository
+// getBranchNames retrieves available branch names from the repository.
 func getBranchNames(ctx *CompletionContext) ([]string, error) {
 	log := logger.WithComponent("branch_completion")
 
@@ -101,7 +101,7 @@ func getBranchNames(ctx *CompletionContext) ([]string, error) {
 	return prioritizedBranches, nil
 }
 
-// getLocalBranches retrieves local branch names
+// getLocalBranches retrieves local branch names.
 func getLocalBranches(ctx *CompletionContext) ([]string, error) {
 	output, err := ctx.Executor.Execute("branch", "--format=%(refname:short)")
 	if err != nil {
@@ -121,7 +121,7 @@ func getLocalBranches(ctx *CompletionContext) ([]string, error) {
 	return branches, nil
 }
 
-// getRemoteBranches retrieves remote branch names
+// getRemoteBranches retrieves remote branch names.
 func getRemoteBranches(ctx *CompletionContext) ([]string, error) {
 	output, err := ctx.Executor.Execute("branch", "-r", "--format=%(refname:short)")
 	if err != nil {
@@ -145,7 +145,7 @@ func getRemoteBranches(ctx *CompletionContext) ([]string, error) {
 	return branches, nil
 }
 
-// ParseBranchList parses a comma-separated list of branch names for completion
+// ParseBranchList parses a comma-separated list of branch names for completion.
 func ParseBranchList(branchStr string) []string {
 	if branchStr == "" {
 		return nil
@@ -165,7 +165,7 @@ func ParseBranchList(branchStr string) []string {
 }
 
 // GetLastBranchInList returns the last branch in a comma-separated list
-// This is useful for completing the current branch being typed
+// This is useful for completing the current branch being typed.
 func GetLastBranchInList(branchStr string) string {
 	branches := ParseBranchList(branchStr)
 	if len(branches) == 0 {
@@ -174,7 +174,7 @@ func GetLastBranchInList(branchStr string) string {
 	return branches[len(branches)-1]
 }
 
-// CompleteBranchList provides completion for comma-separated branch lists
+// CompleteBranchList provides completion for comma-separated branch lists.
 func CompleteBranchList(ctx *CompletionContext, currentInput, toComplete string) ([]string, error) {
 	log := logger.WithComponent("branch_list_completion")
 
@@ -205,7 +205,7 @@ func CompleteBranchList(ctx *CompletionContext, currentInput, toComplete string)
 	return FilterCompletions(availableBranches, toComplete), nil
 }
 
-// prioritizeBranches orders branches with main/master/develop first, then alphabetically
+// prioritizeBranches orders branches with main/master/develop first, then alphabetically.
 func prioritizeBranches(branches []string) []string {
 	if len(branches) == 0 {
 		return branches

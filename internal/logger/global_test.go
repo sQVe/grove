@@ -154,7 +154,7 @@ func TestGlobalLoggerConcurrentLogging(t *testing.T) {
 	SetGlobalLogger(original)
 }
 
-// Test a few key global functions work (smoke tests)
+// Test a few key global functions work (smoke tests).
 func TestGlobalFunctionsSmoke(t *testing.T) {
 	// Save original logger
 	original := GetGlobalLogger()

@@ -5,13 +5,13 @@ import (
 )
 
 var (
-	// globalLogger is the global logger instance
+	// globalLogger is the global logger instance.
 	globalLogger *Logger
-	// mu protects globalLogger
+	// mu protects globalLogger.
 	mu sync.RWMutex
 )
 
-// init initializes the global logger with default configuration
+// init initializes the global logger with default configuration.
 func init() {
 	globalLogger = New(DefaultConfig())
 }
@@ -35,7 +35,7 @@ func Configure(config Config) {
 	SetGlobalLogger(New(config))
 }
 
-// Global logger convenience functions
+// Global logger convenience functions.
 
 // Debug logs a debug message using the global logger.
 func Debug(msg string, attrs ...any) {
