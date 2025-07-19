@@ -1073,7 +1073,6 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 		return err
 	}
 
-	// Test that git operations work
 	originalDir, err := os.Getwd()
 	if err != nil {
 		log.ErrorOperation("failed to get current directory", err)
@@ -1085,8 +1084,6 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 		return fmt.Errorf("failed to change to directory %s: %w", dir, err)
 	}
 	defer func() { _ = os.Chdir(originalDir) }()
-
-	// Test basic git operation
 	log.Debug("testing git operations in converted repository", "directory", dir)
 	_, err = executor.Execute("status")
 	if err != nil {
