@@ -20,6 +20,26 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 - Repository conversion from traditional Git structure
 - Cross-platform compatibility and robust error handling
 
+### Configuration System
+
+```bash
+grove config list                     # Show all configuration
+grove config get general.editor      # Get a specific value
+grove config set git.max_retries 5   # Set a configuration value
+grove config validate                # Validate current configuration
+grove config path                    # Show config file paths
+grove config init                    # Create default config file
+grove config reset [key]             # Reset to defaults
+```
+
+**Features**:
+
+- TOML configuration files with YAML/JSON support
+- Environment variable overrides (`GROVE_*`)
+- Cross-platform config directories
+- Built-in validation and helpful error messages
+- Configuration sections: general, git, retry, logging, worktree
+
 ### Infrastructure
 
 - Robust git command execution with error handling
@@ -38,11 +58,6 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 | `grove switch <worktree>`      | Switch to worktree directory   |
 | `grove remove <worktree>`      | Remove worktree safely         |
 
-### Configuration
-
-- TOML configuration files
-- Environment variable overrides
-- Cross-platform config directories
 
 ### Integrations
 
@@ -88,8 +103,8 @@ grove tui  # Interactive interface with vim-like navigation
 - [x] Project structure and CLI architecture
 - [x] Git operations infrastructure
 - [x] `grove init` command
-- [x] Comprehensive testing (85.6% coverage)
+- [x] Configuration system with CLI commands
+- [x] Comprehensive testing (96.4% coverage)
 - [x] golangci-lint setup
 - [ ] Mage build system
 - [ ] Core worktree commands
-- [ ] Configuration system

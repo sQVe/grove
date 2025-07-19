@@ -38,6 +38,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(commands.NewInitCmd())
+	rootCmd.AddCommand(commands.NewConfigCmd())
 
 	// Add completion commands
 	completion.CreateCompletionCommands(rootCmd)
