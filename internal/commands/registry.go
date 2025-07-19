@@ -3,13 +3,16 @@ package commands
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/config"
 )
 
 // Registry manages the registration and discovery of Grove commands.
 type Registry struct {
 	commands map[string]Command
+	mu       sync.RWMutex // Protects commands map from concurrent access
 }
 
 // NewRegistry creates a new command registry.
@@ -26,6 +29,9 @@ func (r *Registry) Register(cmd Command) error {
 		return fmt.Errorf("command name cannot be empty")
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if _, exists := r.commands[name]; exists {
 		return fmt.Errorf("command %s is already registered", name)
 	}
@@ -36,12 +42,18 @@ func (r *Registry) Register(cmd Command) error {
 
 // Get retrieves a command by name.
 func (r *Registry) Get(name string) (Command, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
 	cmd, exists := r.commands[name]
 	return cmd, exists
 }
 
 // List returns all registered command names in alphabetical order.
 func (r *Registry) List() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
 	names := make([]string, 0, len(r.commands))
 	for name := range r.commands {
 		names = append(names, name)
@@ -52,6 +64,9 @@ func (r *Registry) List() []string {
 
 // Commands returns all registered commands.
 func (r *Registry) Commands() map[string]Command {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
 	// Return a copy to prevent external modification
 	result := make(map[string]Command, len(r.commands))
 	for name, cmd := range r.commands {
@@ -61,16 +76,48 @@ func (r *Registry) Commands() map[string]Command {
 }
 
 // AttachToRoot attaches all registered commands to the provided root command.
+// It validates that commands requiring config have access to initialized configuration.
 func (r *Registry) AttachToRoot(rootCmd *cobra.Command) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	
+	// First pass: validate all commands
 	for name, cmd := range r.commands {
 		cobraCmd := cmd.Command()
 		if cobraCmd == nil {
 			return fmt.Errorf("command %s returned nil cobra.Command", name)
 		}
 		
-		rootCmd.AddCommand(cobraCmd)
+		// Validate config requirements
+		if cmd.RequiresConfig() {
+			if err := r.validateConfigAvailable(name); err != nil {
+				return err
+			}
+		}
+	}
+	
+	// Second pass: attach commands (only if all validations pass)
+	for _, cmd := range r.commands {
+		rootCmd.AddCommand(cmd.Command())
 	}
 	return nil
+}
+
+// validateConfigAvailable checks if configuration is properly initialized.
+func (r *Registry) validateConfigAvailable(commandName string) error {
+	// Try to get config to verify it's accessible
+	if _, err := config.Get(); err != nil {
+		return fmt.Errorf("command %s requires configuration but config is not available: %w", commandName, err)
+	}
+	return nil
+}
+
+// Reset clears all registered commands. Primarily used for testing.
+func (r *Registry) Reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	
+	r.commands = make(map[string]Command)
 }
 
 // DefaultRegistry is the global command registry instance.
@@ -94,6 +141,11 @@ func List() []string {
 // AttachToRoot attaches all commands from the default registry to the root command.
 func AttachToRoot(rootCmd *cobra.Command) error {
 	return DefaultRegistry.AttachToRoot(rootCmd)
+}
+
+// Reset clears all commands from the default registry. Primarily used for testing.
+func Reset() {
+	DefaultRegistry.Reset()
 }
 
 // InitCommand wraps the init command for registry integration.

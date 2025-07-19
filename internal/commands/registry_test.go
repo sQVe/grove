@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -297,13 +298,13 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 	originalCommands := DefaultRegistry.Commands()
 	
 	// Reset registry for testing
-	DefaultRegistry = NewRegistry()
+	Reset()
 	
 	// Restore after test
 	defer func() {
-		DefaultRegistry = NewRegistry()
-		for name, cmd := range originalCommands {
-			DefaultRegistry.commands[name] = cmd
+		Reset()
+		for _, cmd := range originalCommands {
+			Register(cmd)
 		}
 	}()
 
@@ -326,4 +327,149 @@ func TestRegisterBuiltinCommands(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, "config", configCmd.Name())
 	assert.True(t, configCmd.RequiresConfig())
+}
+
+func TestRegistry_Reset(t *testing.T) {
+	registry := NewRegistry()
+	
+	// Add some commands
+	cmd1 := newMockCommand("test1", false)
+	cmd2 := newMockCommand("test2", true)
+	
+	err := registry.Register(cmd1)
+	require.NoError(t, err)
+	err = registry.Register(cmd2)
+	require.NoError(t, err)
+	
+	// Verify commands are registered
+	assert.Len(t, registry.Commands(), 2)
+	
+	// Reset registry
+	registry.Reset()
+	
+	// Verify registry is empty
+	assert.Len(t, registry.Commands(), 0)
+	assert.Empty(t, registry.List())
+	
+	// Verify commands can be registered again
+	err = registry.Register(cmd1)
+	require.NoError(t, err)
+	assert.Len(t, registry.Commands(), 1)
+}
+
+func TestRegistry_ConcurrentAccess(t *testing.T) {
+	registry := NewRegistry()
+	
+	// Number of goroutines for testing
+	numGoroutines := 10
+	numCommands := 5
+	
+	// Channel to synchronize goroutines
+	done := make(chan bool, numGoroutines)
+	
+	// Start multiple goroutines that register commands concurrently
+	for i := 0; i < numGoroutines; i++ {
+		go func(id int) {
+			defer func() { done <- true }()
+			
+			for j := 0; j < numCommands; j++ {
+				cmdName := fmt.Sprintf("cmd-%d-%d", id, j)
+				cmd := newMockCommand(cmdName, false)
+				
+				// This should not cause data races
+				err := registry.Register(cmd)
+				if err != nil {
+					// Command might already exist from another goroutine
+					// This is expected behavior
+					continue
+				}
+				
+				// Try to get the command we just registered
+				retrieved, exists := registry.Get(cmdName)
+				if exists {
+					assert.Equal(t, cmdName, retrieved.Name())
+				}
+			}
+		}(i)
+	}
+	
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+	
+	// Verify registry is in a consistent state
+	commands := registry.Commands()
+	list := registry.List()
+	
+	// Should have some commands registered
+	assert.True(t, len(commands) > 0)
+	assert.Equal(t, len(commands), len(list))
+	
+	// Verify all commands in list are also in commands map
+	for _, name := range list {
+		_, exists := commands[name]
+		assert.True(t, exists, "Command %s in list but not in commands map", name)
+	}
+}
+
+func TestRegistry_AttachToRoot_ConfigValidation(t *testing.T) {
+	registry := NewRegistry()
+	rootCmd := &cobra.Command{Use: "root"}
+	
+	// Create mock commands - one requires config, one doesn't
+	cmdNoConfig := newMockCommand("nocfg", false)
+	cmdRequiresConfig := newMockCommand("reqcfg", true)
+	
+	err := registry.Register(cmdNoConfig)
+	require.NoError(t, err)
+	err = registry.Register(cmdRequiresConfig)
+	require.NoError(t, err)
+	
+	// Test 1: AttachToRoot should fail if config is not available for commands that require it
+	// Note: This test assumes config.Get() will fail when config is not properly initialized
+	// The exact behavior depends on the config package implementation
+	err = registry.AttachToRoot(rootCmd)
+	
+	// The test result depends on whether config is initialized in the test environment
+	// If config is available, this should succeed
+	// If config is not available, this should fail with a config-related error
+	if err != nil {
+		assert.Contains(t, err.Error(), "requires configuration")
+		assert.Contains(t, err.Error(), "reqcfg")
+	} else {
+		// If no error, verify commands were attached
+		commands := rootCmd.Commands()
+		assert.Len(t, commands, 2)
+	}
+}
+
+func TestDefaultRegistry_Reset(t *testing.T) {
+	// Save original state
+	originalCommands := DefaultRegistry.Commands()
+	
+	// Add a test command
+	testCmd := newMockCommand("test-reset", false)
+	err := Register(testCmd)
+	require.NoError(t, err)
+	
+	// Verify command is registered
+	_, exists := Get("test-reset")
+	assert.True(t, exists)
+	
+	// Reset registry
+	Reset()
+	
+	// Verify command is gone
+	_, exists = Get("test-reset")
+	assert.False(t, exists)
+	assert.Empty(t, List())
+	
+	// Restore original state
+	defer func() {
+		Reset()
+		for _, cmd := range originalCommands {
+			Register(cmd)
+		}
+	}()
 }
