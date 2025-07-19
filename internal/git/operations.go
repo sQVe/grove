@@ -71,7 +71,6 @@ func validatePaths(mainDir, bareDir string) error {
 		return errors.ErrPathTraversal("paths contain directory traversal sequences")
 	}
 
-	// Convert to absolute paths for validation
 	absMainDir, err := filepath.Abs(mainDir)
 	if err != nil {
 		return errors.ErrFileSystem("get absolute path for main directory", err)
@@ -1073,7 +1072,6 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 		return err
 	}
 
-	// Test that git operations work
 	originalDir, err := os.Getwd()
 	if err != nil {
 		log.ErrorOperation("failed to get current directory", err)
@@ -1085,8 +1083,6 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 		return fmt.Errorf("failed to change to directory %s: %w", dir, err)
 	}
 	defer func() { _ = os.Chdir(originalDir) }()
-
-	// Test basic git operation
 	log.Debug("testing git operations in converted repository", "directory", dir)
 	_, err = executor.Execute("status")
 	if err != nil {

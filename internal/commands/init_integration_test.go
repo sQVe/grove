@@ -17,17 +17,14 @@ import (
 )
 
 func TestInitCommandLocal(t *testing.T) {
-	// Create temporary directory.
 	tempDir, err := os.MkdirTemp("", "grove-init-local-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Save current directory.
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	// Test init in temp directory.
 	testDir := filepath.Join(tempDir, "test-repo")
 	cmd := NewInitCmd()
 	cmd.SetArgs([]string{testDir})
@@ -35,7 +32,6 @@ func TestInitCommandLocal(t *testing.T) {
 	err = cmd.Execute()
 	require.NoError(t, err)
 
-	// Verify directory structure.
 	assert.DirExists(t, testDir)
 
 	bareDir := filepath.Join(testDir, ".bare")
@@ -49,7 +45,6 @@ func TestInitCommandLocal(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "gitdir: .bare\n", string(content))
 
-	// Change to test directory to verify it works as a git repo.
 	err = os.Chdir(testDir)
 	require.NoError(t, err)
 
@@ -67,17 +62,14 @@ func TestInitCommandLocal(t *testing.T) {
 }
 
 func TestInitCommandCurrentDirectory(t *testing.T) {
-	// Create temporary directory.
 	tempDir, err := os.MkdirTemp("", "grove-init-current-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Save current directory.
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	// Change to temp directory.
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
@@ -107,7 +99,6 @@ func TestInitCommandExistingGitFile(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Create a .git file.
 	gitFile := filepath.Join(tempDir, ".git")
 	err = os.WriteFile(gitFile, []byte("existing"), 0o600)
 	require.NoError(t, err)
@@ -126,7 +117,6 @@ func TestInitCommandExistingBareDir(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Create a .bare directory.
 	bareDir := filepath.Join(tempDir, ".bare")
 	err = os.MkdirAll(bareDir, 0o750)
 	require.NoError(t, err)
@@ -149,21 +139,17 @@ func TestInitFromRemoteNonEmptyDirectory(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Create a non-hidden file.
 	testFile := filepath.Join(tempDir, "existing.txt")
 	err = os.WriteFile(testFile, []byte("content"), 0o600)
 	require.NoError(t, err)
 
-	// Save current directory.
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	// Change to temp directory.
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Try to init from fake remote URL (should fail due to non-empty directory).
 	cmd := NewInitCmd()
 	cmd.SetArgs([]string{"https://github.com/user/repo.git"})
 
@@ -173,7 +159,6 @@ func TestInitFromRemoteNonEmptyDirectory(t *testing.T) {
 }
 
 func TestInitCommandConvertSuccess(t *testing.T) {
-	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-success-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -380,7 +365,6 @@ func TestInitCommandConvertSuccess(t *testing.T) {
 }
 
 func TestInitCommandConvertNonMainBranch(t *testing.T) {
-	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-nonmain-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()

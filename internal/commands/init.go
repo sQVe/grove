@@ -101,7 +101,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		targetArg = args[0]
 	}
 
-	// Determine if argument is a URL or directory path.
 	if targetArg != "" {
 		// First check if it's a URL (either smart platform URL or standard Git URL)
 		urlInfo, err := utils.ParseGitPlatformURL(targetArg)
@@ -162,7 +161,6 @@ func runInitLocal(targetDir string) error {
 
 	log.DebugOperation("starting local repository initialization", "target_dir", targetDir)
 
-	// Determine target directory
 	if targetDir == "" {
 		var err error
 		targetDir, err = os.Getwd()
@@ -202,14 +200,12 @@ func runInitLocal(targetDir string) error {
 		return err
 	}
 
-	// Initialize bare repository in .bare subdirectory.
 	log.Debug("initializing bare repository", "bare_dir", bareDir)
 	if err := git.InitBare(bareDir); err != nil {
 		log.ErrorOperation("failed to initialize bare repository", err, "bare_dir", bareDir)
 		return fmt.Errorf("failed to initialize bare repository: %w", err)
 	}
 
-	// Create .git file pointing to .bare directory.
 	log.Debug("creating .git file", "target_dir", absPath, "bare_dir", bareDir)
 	if err := git.CreateGitFile(absPath, bareDir); err != nil {
 		log.ErrorOperation("failed to create .git file", err, "target_dir", absPath, "bare_dir", bareDir)
@@ -307,7 +303,6 @@ func validateAndPrepareDirectory() (string, error) {
 }
 
 func cloneAndSetupRepository(executor git.GitExecutor, repoURL, targetDir, bareDir string) error {
-	// Clone repository into .bare subdirectory for worktree setup.
 	fmt.Printf("Cloning %s...\n", repoURL)
 	if err := git.CloneBareWithExecutor(executor, repoURL, bareDir); err != nil {
 		return fmt.Errorf("failed to clone repository: %w", err)

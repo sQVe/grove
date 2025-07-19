@@ -12,11 +12,9 @@ import (
 )
 
 func TestInitCommandConvertWithMockExecutor(t *testing.T) {
-	// Test that the mock executor is properly called for safety checks
 	mockExecutor := testutils.NewMockGitExecutor()
 	mockExecutor.SetSafeRepositoryState()
 
-	// Test that the mock executor responds to safety check commands
 	output, err := mockExecutor.Execute("status", "--porcelain=v1")
 	require.NoError(t, err)
 	assert.Empty(t, output)
@@ -25,7 +23,6 @@ func TestInitCommandConvertWithMockExecutor(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, output)
 
-	// Test unhandled command returns error
 	_, err = mockExecutor.Execute("unhandled", "command")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mock: unhandled git command")
@@ -55,7 +52,6 @@ func TestInitCommandUsage(t *testing.T) {
 	assert.Equal(t, "Initialize or clone a Git repository optimized for worktrees", cmd.Short)
 	assert.NotEmpty(t, cmd.Long)
 
-	// Test that the command has the convert flag
 	convertFlag := cmd.Flags().Lookup("convert")
 	require.NotNil(t, convertFlag)
 	assert.Equal(t, "false", convertFlag.DefValue)
@@ -63,12 +59,10 @@ func TestInitCommandUsage(t *testing.T) {
 }
 
 func TestValidateAndPrepareDirectory(t *testing.T) {
-	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "grove-test-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Change to the temporary directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(originalDir) }()
@@ -101,7 +95,6 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 }
 
 func TestPrintSuccessMessage(t *testing.T) {
-	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
@@ -125,13 +118,10 @@ func TestPrintSuccessMessage(t *testing.T) {
 	assert.Contains(t, output, "grove create <branch-name>")
 }
 
-// Test runInitLocal function.
 func TestRunInitLocal(t *testing.T) {
-	// Test with empty target directory (should use current directory)
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-local-test-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -141,7 +131,6 @@ func TestRunInitLocal(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Chdir(originalDir) }()
 
-	// Test successful local initialization
 	err = runInitLocal("")
 	require.NoError(t, err)
 
@@ -162,14 +151,12 @@ func TestRunInitLocal(t *testing.T) {
 }
 
 func TestRunInitLocalWithTargetDir(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-local-target-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	targetDir := filepath.Join(tempDir, "new-repo")
 
-	// Test successful local initialization with target directory
 	err = runInitLocal(targetDir)
 	require.NoError(t, err)
 
@@ -188,9 +175,7 @@ func TestRunInitLocalWithTargetDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Test runInitConvertWithExecutor function - error cases.
 func TestRunInitConvertWithExecutor(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-test-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -212,7 +197,6 @@ func TestRunInitConvertWithExecutor(t *testing.T) {
 }
 
 func TestRunInitConvertAlreadyGrove(t *testing.T) {
-	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "grove-init-convert-grove-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -242,9 +226,7 @@ func TestRunInitConvertAlreadyGrove(t *testing.T) {
 	assert.Contains(t, err.Error(), "is already a Grove repository")
 }
 
-// Test that runInit properly routes to the right sub-function.
 func TestRunInitRouting(t *testing.T) {
-	// Create a mock command to test argument validation
 	cmd := NewInitCmd()
 
 	// Test convert flag validation
