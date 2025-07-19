@@ -13,9 +13,9 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 
 **Features**:
 
-- Worktree-optimized structure with .bare/ subdirectory
+- Worktree-optimized structure with `.bare/` subdirectory
 - Smart URL parsing for GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, Codeberg
-- Multi-branch worktree creation with --branches flag
+- Multi-branch worktree creation with `--branches` flag
 - Automatic branch detection from URLs (e.g., github.com/repo/tree/branch)
 - Repository conversion from traditional Git structure
 - Cross-platform compatibility and robust error handling
