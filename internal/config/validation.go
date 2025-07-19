@@ -320,44 +320,30 @@ func ValidateKey(key string, value interface{}) error {
 	return ValidateConfig(config)
 }
 
+// ValidConfigKeys contains all valid configuration keys.
+var ValidConfigKeys = []string{
+	"general.editor",
+	"general.pager",
+	"general.output_format",
+	"git.default_remote",
+	"git.fetch_timeout",
+	"git.max_retries",
+	"retry.max_attempts",
+	"retry.base_delay",
+	"retry.max_delay",
+	"retry.jitter_enabled",
+	"logging.level",
+	"logging.format",
+	"worktree.naming_pattern",
+	"worktree.cleanup_threshold",
+}
+
 // IsValidKey checks if a configuration key is valid.
 func IsValidKey(key string) bool {
-	validKeys := []string{
-		"general.editor",
-		"general.pager",
-		"general.output_format",
-		"git.default_remote",
-		"git.fetch_timeout",
-		"git.max_retries",
-		"retry.max_attempts",
-		"retry.base_delay",
-		"retry.max_delay",
-		"retry.jitter_enabled",
-		"logging.level",
-		"logging.format",
-		"worktree.naming_pattern",
-		"worktree.cleanup_threshold",
-	}
-
-	return slices.Contains(validKeys, key)
+	return slices.Contains(ValidConfigKeys, key)
 }
 
 // GetValidKeys returns all valid configuration keys.
 func GetValidKeys() []string {
-	return []string{
-		"general.editor",
-		"general.pager",
-		"general.output_format",
-		"git.default_remote",
-		"git.fetch_timeout",
-		"git.max_retries",
-		"retry.max_attempts",
-		"retry.base_delay",
-		"retry.max_delay",
-		"retry.jitter_enabled",
-		"logging.level",
-		"logging.format",
-		"worktree.naming_pattern",
-		"worktree.cleanup_threshold",
-	}
+	return ValidConfigKeys
 }
