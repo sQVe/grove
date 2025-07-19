@@ -12,12 +12,10 @@ import (
 )
 
 func TestInitialize(t *testing.T) {
-	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Create a test config file
 	configPath := filepath.Join(tmpDir, "config.toml")
 	configContent := `
 [general]
@@ -47,7 +45,6 @@ cleanup_threshold = "7d"
 	err = os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
-	// Set up environment to use the test config
 	originalViper := viper.GetViper()
 	defer func() {
 		viper.Reset()

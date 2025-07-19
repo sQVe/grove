@@ -12,42 +12,39 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-// Test contains test-related targets
+// Test contains test-related targets.
 type Test mg.Namespace
 
-// Unit runs fast unit tests (excluding integration tests)
+// Unit runs fast unit tests (excluding integration tests).
 func (Test) Unit() error {
 	fmt.Println("Running unit tests...")
 	return sh.RunV("go", "test", "-tags=!integration", "-short", "./...")
 }
 
-// Integration runs slow integration tests only
+// Integration runs slow integration tests only.
 func (Test) Integration() error {
 	fmt.Println("Running integration tests...")
 	return sh.RunV("go", "test", "-tags=integration", "./...")
 }
 
-// All runs both unit and integration tests
+// All runs both unit and integration tests.
 func (Test) All() error {
 	fmt.Println("Running all tests...")
 	return sh.RunV("go", "test", "./...")
 }
 
-// Coverage runs unit tests with coverage reporting
+// Coverage runs unit tests with coverage reporting.
 func (Test) Coverage() error {
 	fmt.Println("Running unit tests with coverage...")
 
-	// Create coverage directory if it doesn't exist
 	if err := os.MkdirAll("coverage", 0755); err != nil {
 		return err
 	}
 
-	// Run tests with coverage
 	if err := sh.RunV("go", "test", "-tags=!integration", "-short", "-coverprofile=coverage/coverage.out", "./..."); err != nil {
 		return err
 	}
 
-	// Generate HTML coverage report
 	if err := sh.RunV("go", "tool", "cover", "-html=coverage/coverage.out", "-o=coverage/coverage.html"); err != nil {
 		return err
 	}
@@ -56,7 +53,7 @@ func (Test) Coverage() error {
 	return nil
 }
 
-// Watch runs unit tests in watch mode (requires entr)
+// Watch runs unit tests in watch mode (requires entr).
 func (Test) Watch() error {
 	fmt.Println("Running unit tests in watch mode...")
 	fmt.Println("Press Ctrl+C to stop watching...")
@@ -70,7 +67,7 @@ func (Test) Watch() error {
 	return sh.RunV("sh", "-c", "find . -name '*.go' | entr -c -n mage test:unit")
 }
 
-// Clean removes test artifacts
+// Clean removes test artifacts.
 func (Test) Clean() error {
 	fmt.Println("Cleaning test artifacts...")
 
@@ -83,21 +80,21 @@ func (Test) Clean() error {
 	return sh.RunV("go", "clean", "-testcache")
 }
 
-// Default test target runs unit tests
+// Default test target runs unit tests.
 func (Test) Default() error {
 	return Test{}.Unit()
 }
 
-// Build contains build-related targets
+// Build contains build-related targets.
 type Build mg.Namespace
 
-// All builds the application for the current platform
+// All builds the application for the current platform.
 func (Build) All() error {
 	fmt.Println("Building Grove...")
 	return sh.RunV("go", "build", "-o", "bin/grove", "./cmd/grove")
 }
 
-// Release builds release binaries for common platforms
+// Release builds release binaries for common platforms.
 func (Build) Release() error {
 	fmt.Println("Building release binaries...")
 
@@ -134,26 +131,26 @@ func (Build) Release() error {
 	return nil
 }
 
-// Clean removes build artifacts from bin directory
+// Clean removes build artifacts from bin directory.
 func (Build) Clean() error {
 	fmt.Println("Cleaning build artifacts...")
 	return os.RemoveAll("bin")
 }
 
-// Lint runs golangci-lint (with --fix unless in CI)
+// Lint runs golangci-lint (with --fix unless in CI).
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
-	
+
 	// Check if we're in CI environment
 	if os.Getenv("CI") != "" {
 		return sh.RunV("golangci-lint", "run")
 	}
-	
+
 	// Run with --fix in local development
 	return sh.RunV("golangci-lint", "run", "--fix")
 }
 
-// CI runs the full CI pipeline
+// CI runs the full CI pipeline.
 func CI() error {
 	fmt.Println("Running CI pipeline...")
 
@@ -187,7 +184,7 @@ func CI() error {
 	return nil
 }
 
-// Dev runs a development environment setup
+// Dev runs a development environment setup.
 func Dev() error {
 	fmt.Println("Setting up development environment...")
 
@@ -207,7 +204,7 @@ func Dev() error {
 	return nil
 }
 
-// Clean removes all generated artifacts
+// Clean removes all generated artifacts.
 func Clean() error {
 	fmt.Println("Cleaning all artifacts...")
 
@@ -219,7 +216,7 @@ func Clean() error {
 	return nil
 }
 
-// Info displays environment information
+// Info displays environment information.
 func Info() error {
 	fmt.Printf("Go version: %s\n", runtime.Version())
 	fmt.Printf("Go OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
@@ -241,7 +238,7 @@ func Info() error {
 	return nil
 }
 
-// Help displays available targets
+// Help displays available targets.
 func Help() error {
 	fmt.Println("Available targets:")
 	fmt.Println("")
@@ -272,15 +269,13 @@ func Help() error {
 	return nil
 }
 
-
-
-// Default target runs unit tests
+// Default target runs unit tests.
 func Default() error {
 	test := Test{}
 	return test.Unit()
 }
 
-// Ensure bin directory exists
+// Ensure bin directory exists.
 func init() {
 	if err := os.MkdirAll("bin", 0755); err != nil {
 		fmt.Printf("Warning: failed to create bin directory: %v\n", err)

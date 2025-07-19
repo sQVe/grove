@@ -43,16 +43,13 @@ type Config struct {
 
 // Initialize sets up Viper configuration with proper defaults and file paths.
 func Initialize() error {
-	// Set config file name (type will be auto-detected from extension)
 	viper.SetConfigName("config")
 
-	// Add config paths
 	configPaths := GetConfigPaths()
 	for _, path := range configPaths {
 		viper.AddConfigPath(path)
 	}
 
-	// Set environment variables configuration
 	viper.SetEnvPrefix("GROVE")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -60,7 +57,6 @@ func Initialize() error {
 	// Set all defaults
 	SetDefaults()
 
-	// Try to read config file
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// Config file not found; using defaults

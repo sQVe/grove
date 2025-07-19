@@ -35,8 +35,6 @@ func Configure(config Config) {
 	SetGlobalLogger(New(config))
 }
 
-// Global logger convenience functions.
-
 // Debug logs a debug message using the global logger.
 func Debug(msg string, attrs ...any) {
 	GetGlobalLogger().Debug(msg, attrs...)

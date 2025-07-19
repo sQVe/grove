@@ -62,7 +62,6 @@ func (c *CompletionContext) WithTimeout(fn func() ([]string, error)) ([]string, 
 func (c *CompletionContext) IsInGroveRepo() bool {
 	log := logger.WithComponent("completion")
 
-	// Check cache first
 	if isGroveRepo, exists := GetCachedRepositoryState(); exists {
 		log.Debug("using cached repository state", "is_grove_repo", isGroveRepo)
 		return isGroveRepo

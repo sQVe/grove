@@ -71,7 +71,6 @@ func validatePaths(mainDir, bareDir string) error {
 		return errors.ErrPathTraversal("paths contain directory traversal sequences")
 	}
 
-	// Convert to absolute paths for validation
 	absMainDir, err := filepath.Abs(mainDir)
 	if err != nil {
 		return errors.ErrFileSystem("get absolute path for main directory", err)
