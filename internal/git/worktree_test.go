@@ -1,56 +1,11 @@
 package git
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"testing"
+
+	"github.com/sqve/grove/internal/testutils"
 )
-
-// MockGitExecutor for testing worktree operations.
-type MockGitExecutor struct {
-	commands [][]string
-	outputs  map[string]string
-	errors   map[string]error
-}
-
-func NewMockGitExecutor() *MockGitExecutor {
-	return &MockGitExecutor{
-		commands: make([][]string, 0),
-		outputs:  make(map[string]string),
-		errors:   make(map[string]error),
-	}
-}
-
-func (m *MockGitExecutor) Execute(args ...string) (string, error) {
-	m.commands = append(m.commands, args)
-	key := fmt.Sprintf("%v", args)
-	if err, exists := m.errors[key]; exists {
-		return "", err
-	}
-	if output, exists := m.outputs[key]; exists {
-		return output, nil
-	}
-	return "", nil
-}
-
-func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
-	return m.Execute(args...)
-}
-
-func (m *MockGitExecutor) SetOutput(args []string, output string) {
-	key := fmt.Sprintf("%v", args)
-	m.outputs[key] = output
-}
-
-func (m *MockGitExecutor) SetError(args []string, err error) {
-	key := fmt.Sprintf("%v", args)
-	m.errors[key] = err
-}
-
-func (m *MockGitExecutor) GetCommands() [][]string {
-	return m.commands
-}
 
 func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 	tests := []struct {
@@ -108,11 +63,14 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewMockGitExecutor()
+			executor := testutils.NewMockGitExecutor()
 
 			if tt.simulateError {
 				expectedPath := "/repo/worktrees/main"
-				executor.SetError([]string{"worktree", "add", "-b", tt.branchName, expectedPath}, errors.New("git error"))
+				executor.SetResponseSlice([]string{"worktree", "add", "-b", tt.branchName, expectedPath}, "", errors.New("git error"))
+			} else if tt.expectedError == "" {
+				// Set up successful response for valid test cases
+				executor.SetResponseSlice([]string{"worktree", "add", "-b", tt.branchName, tt.expectedPath}, "", nil)
 			}
 
 			path, err := CreateWorktreeWithSafeNaming(executor, tt.branchName, tt.basePath)
@@ -139,7 +97,7 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 
 			// Verify the correct git command was executed
 			if !tt.simulateError && tt.expectedError == "" {
-				commands := executor.GetCommands()
+				commands := executor.Commands
 				if len(commands) != 1 {
 					t.Errorf("Expected 1 git command, got %d", len(commands))
 					return
@@ -198,11 +156,14 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewMockGitExecutor()
+			executor := testutils.NewMockGitExecutor()
 
 			if tt.simulateError {
 				expectedPath := "/repo/worktrees/main"
-				executor.SetError([]string{"worktree", "add", expectedPath, tt.branchName}, errors.New("git error"))
+				executor.SetResponseSlice([]string{"worktree", "add", expectedPath, tt.branchName}, "", errors.New("git error"))
+			} else if tt.expectedError == "" {
+				// Set up successful response for valid test cases
+				executor.SetResponseSlice([]string{"worktree", "add", tt.expectedPath, tt.branchName}, "", nil)
 			}
 
 			path, err := CreateWorktreeFromExistingBranch(executor, tt.branchName, tt.basePath)
@@ -229,7 +190,7 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 
 			// Verify the correct git command was executed
 			if !tt.simulateError && tt.expectedError == "" {
-				commands := executor.GetCommands()
+				commands := executor.Commands
 				if len(commands) != 1 {
 					t.Errorf("Expected 1 git command, got %d", len(commands))
 					return
@@ -270,10 +231,13 @@ func TestRemoveWorktree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewMockGitExecutor()
+			executor := testutils.NewMockGitExecutor()
 
 			if tt.simulateError {
-				executor.SetError([]string{"worktree", "remove", tt.worktreePath}, errors.New("git error"))
+				executor.SetResponseSlice([]string{"worktree", "remove", tt.worktreePath}, "", errors.New("git error"))
+			} else if tt.expectedError == "" {
+				// Set up successful response for valid test cases
+				executor.SetResponseSlice([]string{"worktree", "remove", tt.worktreePath}, "", nil)
 			}
 
 			err := RemoveWorktree(executor, tt.worktreePath)
@@ -296,7 +260,7 @@ func TestRemoveWorktree(t *testing.T) {
 
 			// Verify the correct git command was executed
 			if !tt.simulateError {
-				commands := executor.GetCommands()
+				commands := executor.Commands
 				if len(commands) != 1 {
 					t.Errorf("Expected 1 git command, got %d", len(commands))
 					return
@@ -346,12 +310,12 @@ worktree /repo/worktrees/fix-123
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			executor := NewMockGitExecutor()
+			executor := testutils.NewMockGitExecutor()
 
 			if tt.simulateError {
-				executor.SetError([]string{"worktree", "list", "--porcelain"}, errors.New("git error"))
+				executor.SetResponseSlice([]string{"worktree", "list", "--porcelain"}, "", errors.New("git error"))
 			} else {
-				executor.SetOutput([]string{"worktree", "list", "--porcelain"}, tt.gitOutput)
+				executor.SetResponseSlice([]string{"worktree", "list", "--porcelain"}, tt.gitOutput, nil)
 			}
 
 			paths, err := ListWorktrees(executor)
