@@ -63,7 +63,7 @@ grove config reset [key]           # Reset to defaults
 
 **Immediate Next Steps** (Priority Order):
 
-1. **Complete Mock Consolidation** - Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go`
+1. ✅ **Complete Mock Consolidation** - Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go`
 2. **Command Registration Framework** - Systematic command handling and discovery
 3. **Core Worktree Commands** - List, create, switch, remove functionality
 4. **Progress Indicators** - User feedback for long-running operations
@@ -86,7 +86,7 @@ grove config reset [key]           # Reset to defaults
 
 **Technical Improvements**
 
-- **Mock Consolidation Cleanup**: Remove remaining duplicate mocks
+- ✅ **Mock Consolidation Cleanup**: Remove remaining duplicate mocks
 - **Enhanced Error Messages**: Context-aware error reporting with actionable suggestions
 - **Command Auto-completion**: Basic shell completion for commands and flags
 
@@ -95,7 +95,7 @@ grove config reset [key]           # Reset to defaults
 - [ ] All core worktree commands implemented and tested
 - [ ] Progress indicators working for long operations
 - [ ] Command registration framework in place
-- [ ] Mock consolidation complete
+- [x] Mock consolidation complete
 - [ ] User can manage worktrees through complete CLI workflow
 - [ ] 90%+ test coverage maintained
 
@@ -204,9 +204,9 @@ grove tui # Interactive interface with vim-like navigation
 
 ### Immediate Action Items
 
-1. **Complete Mock Consolidation** (30 minutes)
-    - Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go` lines 10-49
-    - Update tests to use centralized mock from `/internal/testutils/mocks.go`
+1. ✅ **Complete Mock Consolidation** (30 minutes) - **COMPLETED**
+    - ✅ Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go` lines 10-49
+    - ✅ Update tests to use centralized mock from `/internal/testutils/mocks.go`
 
 2. **Implement Command Registration Framework** (4 hours)
     - Create `/internal/commands/registry.go` for systematic command handling
