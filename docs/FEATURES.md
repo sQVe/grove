@@ -15,7 +15,7 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 
 - Worktree-optimized structure with `.bare/` subdirectory
 - Smart URL parsing for GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, Codeberg
-- Multi-branch worktree creation with `--branches` flag
+- Multi-branch worktree creation with the `--branches` flag
 - Automatic branch detection from URLs (e.g., github.com/repo/tree/branch)
 - Repository conversion from traditional Git structure
 - Cross-platform compatibility and robust error handling
@@ -23,19 +23,19 @@ grove init <remote-url> --branches=main,develop,feature/auth  # Multi-branch set
 ### Configuration System
 
 ```bash
-grove config list                     # Show all configuration
-grove config get general.editor      # Get a specific value
-grove config set git.max_retries 5   # Set a configuration value
-grove config validate                # Validate current configuration
-grove config path                    # Show config file paths
-grove config init                    # Create default config file
-grove config reset [key]             # Reset to defaults
+grove config list                  # Show all configuration
+grove config get general.editor    # Get a specific value
+grove config set git.max_retries 5 # Set a configuration value
+grove config validate              # Validate current configuration
+grove config path                  # Show config file paths
+grove config init                  # Create default config file
+grove config reset [key]           # Reset to defaults
 ```
 
 **Features**:
 
 - TOML configuration files with YAML/JSON support
-- Environment variable overrides (`GROVE_*`)
+- Environment variable overrides (using `GROVE_*` prefix)
 - Cross-platform config directories
 - Built-in validation and helpful error messages
 - Configuration sections: general, git, retry, logging, worktree
@@ -58,7 +58,6 @@ grove config reset [key]             # Reset to defaults
 | `grove switch <worktree>`      | Switch to worktree directory   |
 | `grove remove <worktree>`      | Remove worktree safely         |
 
-
 ### Integrations
 
 | Feature     | Commands                       | Description                |
@@ -76,7 +75,7 @@ grove config reset [key]             # Reset to defaults
 ### TUI Interface
 
 ```bash
-grove tui  # Interactive interface with vim-like navigation
+grove tui # Interactive interface with vim-like navigation
 ```
 
 - Multi-panel layout with real-time git status
@@ -106,5 +105,5 @@ grove tui  # Interactive interface with vim-like navigation
 - [x] Configuration system with CLI commands
 - [x] Comprehensive testing (96.4% coverage)
 - [x] golangci-lint setup
-- [ ] Mage build system
+- [x] Mage build system
 - [ ] Core worktree commands
