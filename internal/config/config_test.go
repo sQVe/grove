@@ -392,3 +392,178 @@ git:
 	assert.Equal(t, "origin", GetString("git.default_remote"))
 	assert.Equal(t, 45*time.Second, GetDuration("git.fetch_timeout"))
 }
+
+func TestWriteConfigSecurity(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir, err := os.MkdirTemp("", "grove-security-test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Test WriteConfig with secure permissions
+	t.Run("WriteConfig sets secure permissions", func(t *testing.T) {
+		configPath := filepath.Join(tmpDir, "test-write-config.toml")
+
+		// Reset viper and set test config
+		viper.Reset()
+		SetDefaults()
+		Set("general.editor", "test-editor")
+		viper.SetConfigFile(configPath)
+
+		// Write config
+		err := WriteConfig()
+		require.NoError(t, err)
+
+		// Check file exists and has correct permissions
+		stat, err := os.Stat(configPath)
+		require.NoError(t, err)
+
+		// Check permissions (0o600 = -rw-------)
+		expectedPerm := os.FileMode(0o600)
+		actualPerm := stat.Mode().Perm()
+		assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
+	})
+
+	// Test SafeWriteConfig with secure permissions
+	t.Run("SafeWriteConfig sets secure permissions", func(t *testing.T) {
+		// Reset viper and set test config
+		viper.Reset()
+		SetDefaults()
+		Set("general.editor", "test-editor")
+
+		// Get the expected config path and clean up any existing file
+		configPaths := GetConfigPaths()
+		require.NotEmpty(t, configPaths)
+		expectedPath := filepath.Join(configPaths[0], "config.toml")
+
+		// Clean up any existing config file
+		_ = os.Remove(expectedPath)
+		defer func() { _ = os.Remove(expectedPath) }() // Clean up after test
+
+		// Safe write config
+		err := SafeWriteConfig()
+		require.NoError(t, err)
+
+		// Check file exists and has correct permissions
+		stat, err := os.Stat(expectedPath)
+		require.NoError(t, err)
+
+		// Check permissions
+		expectedPerm := os.FileMode(0o600)
+		actualPerm := stat.Mode().Perm()
+		assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
+	})
+}
+
+func TestWriteConfigAsPathValidation(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir, err := os.MkdirTemp("", "grove-path-validation-test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Setup viper with test config
+	viper.Reset()
+	SetDefaults()
+	Set("general.editor", "test-editor")
+
+	tests := []struct {
+		name        string
+		path        string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid absolute path",
+			path:        filepath.Join(tmpDir, "valid-config.toml"),
+			expectError: false,
+		},
+		{
+			name:        "valid relative path",
+			path:        "valid-relative-config.toml",
+			expectError: false,
+		},
+		{
+			name:        "path traversal with double dots",
+			path:        "../../../etc/passwd.toml",
+			expectError: true,
+			errorMsg:    "path traversal detected",
+		},
+		{
+			name:        "path traversal in absolute path",
+			path:        "/tmp/../../../etc/passwd.toml",
+			expectError: true,
+			errorMsg:    "path traversal detected",
+		},
+		{
+			name:        "nested path traversal",
+			path:        "config/../../../sensitive-file.toml",
+			expectError: true,
+			errorMsg:    "path traversal detected",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := WriteConfigAs(tt.path)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				// For valid paths, check file was created with correct permissions
+				cleanPath := filepath.Clean(tt.path)
+				if !filepath.IsAbs(cleanPath) {
+					cleanPath, _ = filepath.Abs(cleanPath)
+				}
+
+				stat, err := os.Stat(cleanPath)
+				require.NoError(t, err)
+
+				expectedPerm := os.FileMode(0o600)
+				actualPerm := stat.Mode().Perm()
+				assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
+
+				// Cleanup
+				_ = os.Remove(cleanPath)
+			}
+		})
+	}
+}
+
+func TestWriteConfigAsDirectoryCreation(t *testing.T) {
+	// Create a temporary directory for testing
+	tmpDir, err := os.MkdirTemp("", "grove-dir-creation-test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Setup viper with test config
+	viper.Reset()
+	SetDefaults()
+	Set("general.editor", "test-editor")
+
+	// Test creating config in nested directory
+	nestedPath := filepath.Join(tmpDir, "nested", "deep", "config.toml")
+
+	err = WriteConfigAs(nestedPath)
+	require.NoError(t, err)
+
+	// Check directory was created with correct permissions
+	nestedDir := filepath.Join(tmpDir, "nested", "deep")
+	stat, err := os.Stat(nestedDir)
+	require.NoError(t, err)
+	assert.True(t, stat.IsDir())
+
+	// Check directory permissions (0o700 = drwx------)
+	expectedDirPerm := os.FileMode(0o700)
+	actualDirPerm := stat.Mode().Perm()
+	assert.Equal(t, expectedDirPerm, actualDirPerm, "Config directory should have 0700 permissions")
+
+	// Check file was created with correct permissions
+	fileStat, err := os.Stat(nestedPath)
+	require.NoError(t, err)
+
+	expectedFilePerm := os.FileMode(0o600)
+	actualFilePerm := fileStat.Mode().Perm()
+	assert.Equal(t, expectedFilePerm, actualFilePerm, "Config file should have 0600 permissions")
+}
