@@ -11,10 +11,10 @@ import (
 
 // MockGitExecutor is a unified mock implementation of the GitExecutor interface
 // for use across all test packages. It combines features from all mock implementations:
-// - Command tracking and call counting
-// - Helper methods for verification
-// - Delay simulation capability
-// - Special command handling
+// - Command tracking and call counting.
+// - Helper methods for verification.
+// - Delay simulation capability.
+// - Special command handling.
 // - Multiple response formats for flexibility.
 type MockGitExecutor struct {
 	// Commands stores the executed commands for verification
@@ -57,6 +57,12 @@ func NewMockGitExecutor() *MockGitExecutor {
 
 // Execute implements the GitExecutor interface by returning pre-configured responses.
 func (m *MockGitExecutor) Execute(args ...string) (string, error) {
+	return m.executeInternal(args)
+}
+
+// ExecuteQuiet implements the GitExecutor interface for quiet execution.
+// Behaves identically to Execute for testing purposes.
+func (m *MockGitExecutor) ExecuteQuiet(args ...string) (string, error) {
 	return m.executeInternal(args)
 }
 
