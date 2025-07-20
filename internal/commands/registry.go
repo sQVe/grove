@@ -44,7 +44,7 @@ func (r *Registry) Register(cmd Command) error {
 func (r *Registry) Get(name string) (Command, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	cmd, exists := r.commands[name]
 	return cmd, exists
 }
@@ -53,7 +53,7 @@ func (r *Registry) Get(name string) (Command, bool) {
 func (r *Registry) List() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	names := make([]string, 0, len(r.commands))
 	for name := range r.commands {
 		names = append(names, name)
@@ -66,7 +66,7 @@ func (r *Registry) List() []string {
 func (r *Registry) Commands() map[string]Command {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Return a copy to prevent external modification
 	result := make(map[string]Command, len(r.commands))
 	for name, cmd := range r.commands {
@@ -80,14 +80,14 @@ func (r *Registry) Commands() map[string]Command {
 func (r *Registry) AttachToRoot(rootCmd *cobra.Command) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// First pass: validate all commands
 	for name, cmd := range r.commands {
 		cobraCmd := cmd.Command()
 		if cobraCmd == nil {
 			return fmt.Errorf("command %s returned nil cobra.Command", name)
 		}
-		
+
 		// Validate config requirements
 		if cmd.RequiresConfig() {
 			if err := r.validateConfigAvailable(name); err != nil {
@@ -95,7 +95,7 @@ func (r *Registry) AttachToRoot(rootCmd *cobra.Command) error {
 			}
 		}
 	}
-	
+
 	// Second pass: attach commands (only if all validations pass)
 	for _, cmd := range r.commands {
 		rootCmd.AddCommand(cmd.Command())
@@ -116,7 +116,7 @@ func (r *Registry) validateConfigAvailable(commandName string) error {
 func (r *Registry) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	r.commands = make(map[string]Command)
 }
 
@@ -172,11 +172,24 @@ func NewConfigCommand() Command {
 	return &ConfigCommand{BaseCommand: base}
 }
 
+// ListCommand wraps the list command for registry integration.
+type ListCommand struct {
+	*BaseCommand
+}
+
+// NewListCommand creates a new ListCommand instance.
+func NewListCommand() Command {
+	cmd := NewListCmd()
+	base := NewBaseCommand("list", cmd, false)
+	return &ListCommand{BaseCommand: base}
+}
+
 // RegisterBuiltinCommands registers all built-in Grove commands with the default registry.
 func RegisterBuiltinCommands() error {
 	commands := []Command{
 		NewInitCommand(),
 		NewConfigCommand(),
+		NewListCommand(),
 	}
 
 	for _, cmd := range commands {
