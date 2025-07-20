@@ -54,7 +54,7 @@ func URLAndDirectoryCompletion(ctx *CompletionContext, cmd *cobra.Command, args 
 
 // getURLSuggestions generates URL completion suggestions.
 func getURLSuggestions(toComplete string) ([]string, error) {
-	var suggestions []string
+	suggestions := make([]string, 0)
 
 	// Get platform suggestions with descriptions
 	platformSuggestions := getPlatformURLSuggestions(toComplete)
@@ -69,33 +69,48 @@ func getURLSuggestions(toComplete string) ([]string, error) {
 
 // getPlatformURLSuggestions provides HTTPS URL suggestions for various platforms.
 func getPlatformURLSuggestions(toComplete string) []URLSuggestion {
-	var suggestions []URLSuggestion
+	suggestions := make([]URLSuggestion, 0)
 
-	platforms := []PlatformInfo{
-		{HTTPSPrefix: "https://github.com/", SSHPrefix: "git@github.com:", Description: "GitHub - The world's largest code hosting platform"},
-		{HTTPSPrefix: "https://gitlab.com/", SSHPrefix: "git@gitlab.com:", Description: "GitLab - DevOps platform with Git repository management"},
-		{HTTPSPrefix: "https://bitbucket.org/", SSHPrefix: "git@bitbucket.org:", Description: "Bitbucket - Git repository hosting by Atlassian"},
-		{HTTPSPrefix: "https://dev.azure.com/", SSHPrefix: "", Description: "Azure DevOps - Microsoft's DevOps platform"},
-		{HTTPSPrefix: "https://codeberg.org/", SSHPrefix: "git@codeberg.org:", Description: "Codeberg - Free and open source Git hosting"},
+	// Only provide suggestions for URL-like inputs, not plain text
+	if !looksLikeURL(toComplete) && !strings.Contains(toComplete, ".") {
+		return suggestions
 	}
 
-	for _, platform := range platforms {
-		// Check HTTPS URLs
-		if toComplete == "" || strings.HasPrefix(toComplete, "https://") {
-			if toComplete == "" || strings.HasPrefix(platform.HTTPSPrefix, toComplete) {
+	platforms := map[string]PlatformInfo{
+		"github": {
+			HTTPSPrefix: "https://github.com/",
+			SSHPrefix:   "git@github.com:",
+			Description: "GitHub repository",
+		},
+		"gitlab": {
+			HTTPSPrefix: "https://gitlab.com/",
+			SSHPrefix:   "git@gitlab.com:",
+			Description: "GitLab repository",
+		},
+		"bitbucket": {
+			HTTPSPrefix: "https://bitbucket.org/",
+			SSHPrefix:   "git@bitbucket.org:",
+			Description: "Bitbucket repository",
+		},
+	}
+
+	// Provide HTTPS suggestions for partial URL inputs
+	for name, platform := range platforms {
+		if strings.HasPrefix(toComplete, "https://"+name) || 
+		   strings.HasPrefix(toComplete, platform.HTTPSPrefix) ||
+		   strings.Contains(toComplete, name+".com") {
+			
+			// If input already has the platform prefix, suggest completion
+			if strings.HasPrefix(toComplete, platform.HTTPSPrefix) {
+				suggestions = append(suggestions, URLSuggestion{
+					URL:         toComplete,
+					Description: platform.Description,
+				})
+			} else if strings.HasPrefix(toComplete, "https://") {
+				// Complete the platform URL
 				suggestions = append(suggestions, URLSuggestion{
 					URL:         platform.HTTPSPrefix,
 					Description: platform.Description,
-				})
-			}
-		}
-
-		// Check SSH URLs
-		if platform.SSHPrefix != "" && (toComplete == "" || strings.HasPrefix(toComplete, "git@")) {
-			if toComplete == "" || strings.HasPrefix(platform.SSHPrefix, toComplete) {
-				suggestions = append(suggestions, URLSuggestion{
-					URL:         platform.SSHPrefix,
-					Description: platform.Description + " (SSH)",
 				})
 			}
 		}
@@ -173,7 +188,7 @@ func GetPlatformFromURL(url string) string {
 	if info, err := utils.ParseGitPlatformURL(url); err == nil {
 		return info.Platform
 	}
-	return "git"
+	return "unknown"
 }
 
 // SuggestBranchesForURL suggests branch names based on URL context.

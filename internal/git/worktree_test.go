@@ -284,15 +284,28 @@ func TestListWorktrees(t *testing.T) {
 		simulateError bool
 	}{
 		{
-			name:          "single worktree",
-			gitOutput:     "worktree /repo\n",
+			name: "single worktree",
+			gitOutput: `worktree /repo
+HEAD abc123
+branch refs/heads/main
+
+`,
 			expectedPaths: []string{"/repo"},
 		},
 		{
 			name: "multiple worktrees",
 			gitOutput: `worktree /repo
+HEAD abc123
+branch refs/heads/main
+
 worktree /repo/worktrees/feature-branch
+HEAD def456
+branch refs/heads/feature-branch
+
 worktree /repo/worktrees/fix-123
+HEAD ghi789
+branch refs/heads/fix-123
+
 `,
 			expectedPaths: []string{"/repo", "/repo/worktrees/feature-branch", "/repo/worktrees/fix-123"},
 		},
@@ -318,7 +331,7 @@ worktree /repo/worktrees/fix-123
 				executor.SetResponseSlice([]string{"worktree", "list", "--porcelain"}, tt.gitOutput, nil)
 			}
 
-			paths, err := ListWorktrees(executor)
+			paths, err := ListWorktreesPaths(executor)
 
 			if tt.expectedError != "" {
 				if err == nil {
@@ -379,7 +392,7 @@ func TestSplitLines(t *testing.T) {
 		{
 			name:     "single newline",
 			input:    "\n",
-			expected: nil,
+			expected: []string{""},
 		},
 		{
 			name:     "trailing newline",
