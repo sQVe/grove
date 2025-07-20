@@ -209,10 +209,10 @@ grove tui # Interactive interface with vim-like navigation
     - ✅ Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go` lines 10-49
     - ✅ Update tests to use centralized mock from `/internal/testutils/mocks.go`
 
-2. **Implement Command Registration Framework** (4 hours)
-    - Create `/internal/commands/registry.go` for systematic command handling
-    - Create `/internal/commands/base.go` with common command interface
-    - Update `cmd/grove/main.go` to use registry-based command discovery
+2. ✅ **Command Registration Framework** (4 hours) - **COMPLETED**
+    - ✅ Created `/internal/commands/registry.go` for systematic command handling
+    - ✅ Created `/internal/commands/base.go` with common command interface
+    - ✅ Updated `cmd/grove/main.go` to use registry-based command discovery
 
 3. **Build Core Worktree Commands** (2-3 days) - **NEXT PRIORITY**
     - `grove list` - Display worktrees with status, branch, and path information
