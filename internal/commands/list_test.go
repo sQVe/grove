@@ -134,7 +134,8 @@ func TestApplyFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filtered := applyFilters(worktrees, tt.options)
+			service := &ListService{}
+			filtered := service.applyFilters(worktrees, tt.options)
 			assert.Len(t, filtered, tt.expected)
 		})
 	}
@@ -171,7 +172,8 @@ func TestSortWorktrees(t *testing.T) {
 		sorted := make([]git.WorktreeInfo, len(worktrees))
 		copy(sorted, worktrees)
 
-		sortWorktrees(sorted, SortByActivity)
+		service := &ListService{}
+		service.sortWorktrees(sorted, SortByActivity)
 
 		// Sort by most recent activity (alpha is 1 day ago, main is 3 days ago, zebra is 5 days ago)
 		assert.Equal(t, "/repo/alpha", sorted[0].Path)
@@ -183,7 +185,8 @@ func TestSortWorktrees(t *testing.T) {
 		sorted := make([]git.WorktreeInfo, len(worktrees))
 		copy(sorted, worktrees)
 
-		sortWorktrees(sorted, SortByName)
+		service := &ListService{}
+		service.sortWorktrees(sorted, SortByName)
 
 		// Sort alphabetically by path
 		assert.Equal(t, "/repo/alpha", sorted[0].Path)
@@ -195,7 +198,8 @@ func TestSortWorktrees(t *testing.T) {
 		sorted := make([]git.WorktreeInfo, len(worktrees))
 		copy(sorted, worktrees)
 
-		sortWorktrees(sorted, SortByStatus)
+		service := &ListService{}
+		service.sortWorktrees(sorted, SortByStatus)
 
 		// Sort by status (dirty first, then clean), then by activity within same status
 		assert.Equal(t, "/repo/alpha", sorted[0].Path) // dirty, most recent
@@ -204,149 +208,57 @@ func TestSortWorktrees(t *testing.T) {
 	})
 }
 
-func TestGetWorktreeName(t *testing.T) {
+func TestValidateListOptions(t *testing.T) {
 	tests := []struct {
-		path     string
-		expected string
+		name        string
+		options     *ListOptions
+		expectError bool
 	}{
-		{"/repo/worktrees/feature-123", "feature-123"},
-		{"/repo/.bare", ".bare"},
-		{"/repo", "repo"},
-		{"/", "main"},
-		{".", "main"},
-		{"/repo/worktrees/fix-bug", "fix-bug"},
+		{
+			name: "valid options",
+			options: &ListOptions{
+				Sort: SortByActivity,
+			},
+			expectError: false,
+		},
+		{
+			name: "multiple filters",
+			options: &ListOptions{
+				Sort:      SortByActivity,
+				DirtyOnly: true,
+				CleanOnly: true,
+			},
+			expectError: true,
+		},
+		{
+			name: "invalid sort option",
+			options: &ListOptions{
+				Sort: "invalid",
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			name := getWorktreeName(tt.path)
-			assert.Equal(t, tt.expected, name)
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateListOptions(tt.options)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
 
 func TestFormatStatus(t *testing.T) {
-	tests := []struct {
-		name     string
-		status   git.WorktreeStatus
-		remote   git.RemoteStatus
-		expected string
-	}{
-		{
-			name:     "clean with no remote",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{},
-			expected: "✓",
-		},
-		{
-			name:     "clean with up-to-date remote",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{HasRemote: true},
-			expected: "✓",
-		},
-		{
-			name:     "clean with ahead commits",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{HasRemote: true, Ahead: 3},
-			expected: "✓ ↑3",
-		},
-		{
-			name:     "clean with behind commits",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{HasRemote: true, Behind: 2},
-			expected: "✓ ↓2",
-		},
-		{
-			name:     "clean with diverged commits",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{HasRemote: true, Ahead: 1, Behind: 2},
-			expected: "✓ ↑1 ↓2",
-		},
-		{
-			name:     "clean and merged",
-			status:   git.WorktreeStatus{IsClean: true},
-			remote:   git.RemoteStatus{IsMerged: true},
-			expected: "✓ merged",
-		},
-		{
-			name:     "dirty with modified files",
-			status:   git.WorktreeStatus{Modified: 3, IsClean: false},
-			remote:   git.RemoteStatus{},
-			expected: "⚠ 3M",
-		},
-		{
-			name:     "dirty with all types",
-			status:   git.WorktreeStatus{Modified: 2, Staged: 1, Untracked: 3, IsClean: false},
-			remote:   git.RemoteStatus{},
-			expected: "⚠ 2M, 1S, 3U",
-		},
-		{
-			name:     "dirty with remote status",
-			status:   git.WorktreeStatus{Modified: 1, IsClean: false},
-			remote:   git.RemoteStatus{HasRemote: true, Ahead: 2},
-			expected: "⚠ 1M ↑2",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatStatus(tt.status, tt.remote)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	// This functionality is now in WorktreeFormatter and tested in worktree_formatter_test.go
+	t.Skip("Test moved to worktree_formatter_test.go")
 }
 
 func TestFormatActivity(t *testing.T) {
-	now := time.Now()
-
-	tests := []struct {
-		name     string
-		activity time.Time
-		expected string
-	}{
-		{
-			name:     "zero time",
-			activity: time.Time{},
-			expected: "unknown",
-		},
-		{
-			name:     "just now",
-			activity: now.Add(-30 * time.Second),
-			expected: "just now",
-		},
-		{
-			name:     "minutes ago",
-			activity: now.Add(-15 * time.Minute),
-			expected: "15m ago",
-		},
-		{
-			name:     "hours ago",
-			activity: now.Add(-3 * time.Hour),
-			expected: "3h ago",
-		},
-		{
-			name:     "days ago",
-			activity: now.Add(-2 * 24 * time.Hour),
-			expected: "2d ago",
-		},
-		{
-			name:     "weeks ago",
-			activity: now.Add(-2 * 7 * 24 * time.Hour),
-			expected: "2w ago",
-		},
-		{
-			name:     "months ago",
-			activity: now.Add(-2 * 30 * 24 * time.Hour),
-			expected: "2mo ago",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatActivity(tt.activity)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	// This functionality is now in WorktreeFormatter and tested in worktree_formatter_test.go
+	t.Skip("Test moved to worktree_formatter_test.go")
 }
 
 func TestRunListCommand_ValidationErrors(t *testing.T) {
@@ -423,7 +335,8 @@ func TestDisplayPorcelainOutput(t *testing.T) {
 	}
 
 	// Capture output (in a real test environment, you might use a buffer)
-	err := displayPorcelainOutput(worktrees)
+	presenter := NewListPresenter()
+	err := presenter.DisplayPorcelain(worktrees)
 	assert.NoError(t, err)
 
 	// For a more thorough test, you could capture stdout and verify the exact output format
@@ -591,7 +504,8 @@ func TestDisplayHumanOutput(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := displayHumanOutput(tt.worktrees, tt.verbose)
+			presenter := NewListPresenter()
+			err := presenter.DisplayHuman(tt.worktrees, tt.verbose)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -622,20 +536,22 @@ func TestDisplayHumanOutput_ColumnWidthCalculation(t *testing.T) {
 	}
 
 	// This test mainly verifies that the function handles extreme column widths without errors
-	err := displayHumanOutput(worktrees, false)
+	presenter := NewListPresenter()
+	err := presenter.DisplayHuman(worktrees, false)
 	assert.NoError(t, err)
 
 	// Test verbose mode as well
-	err = displayHumanOutput(worktrees, true)
+	err = presenter.DisplayHuman(worktrees, true)
 	assert.NoError(t, err)
 }
 
 func TestDisplayHumanOutput_EmptyWorktreesMessage(t *testing.T) {
 	// Test that empty worktrees shows appropriate message
-	err := displayHumanOutput([]git.WorktreeInfo{}, false)
+	presenter := NewListPresenter()
+	err := presenter.DisplayHuman([]git.WorktreeInfo{}, false)
 	assert.NoError(t, err)
 
-	err = displayHumanOutput([]git.WorktreeInfo{}, true)
+	err = presenter.DisplayHuman([]git.WorktreeInfo{}, true)
 	assert.NoError(t, err)
 }
 
@@ -786,7 +702,8 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 			worktrees := make([]git.WorktreeInfo, len(tt.worktrees))
 			copy(worktrees, tt.worktrees)
 
-			sortWorktrees(worktrees, tt.sortBy)
+			service := &ListService{}
+			service.sortWorktrees(worktrees, tt.sortBy)
 
 			result := make([]string, len(worktrees))
 			for i, wt := range worktrees {
