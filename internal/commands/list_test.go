@@ -12,15 +12,15 @@ import (
 
 // mockGitExecutor sets up a mock git executor and returns a cleanup function.
 // This encapsulates the common pattern of saving/restoring git.DefaultExecutor.
-func mockGitExecutor() (*testutils.MockGitExecutor, func()) {
+func mockGitExecutor() (mockExecutor *testutils.MockGitExecutor, cleanup func()) {
 	originalExecutor := git.DefaultExecutor
-	mockExecutor := testutils.NewMockGitExecutor()
+	mockExecutor = testutils.NewMockGitExecutor()
 	git.DefaultExecutor = mockExecutor
-	
-	cleanup := func() {
+
+	cleanup = func() {
 		git.DefaultExecutor = originalExecutor
 	}
-	
+
 	return mockExecutor, cleanup
 }
 

@@ -62,14 +62,15 @@ func (s *ListService) applyFilters(worktrees []git.WorktreeInfo, options *ListOp
 	var filtered []git.WorktreeInfo
 	staleThreshold := time.Now().AddDate(0, 0, -options.StaleDays)
 
-	for _, wt := range worktrees {
+	for i := range worktrees {
+		wt := &worktrees[i]
 		switch {
 		case options.DirtyOnly && !wt.Status.IsClean:
-			filtered = append(filtered, wt)
+			filtered = append(filtered, *wt)
 		case options.StaleOnly && !wt.LastActivity.IsZero() && wt.LastActivity.Before(staleThreshold):
-			filtered = append(filtered, wt)
+			filtered = append(filtered, *wt)
 		case options.CleanOnly && wt.Status.IsClean:
-			filtered = append(filtered, wt)
+			filtered = append(filtered, *wt)
 		}
 	}
 

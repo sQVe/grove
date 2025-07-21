@@ -12,9 +12,9 @@ import (
 
 // Time duration constants for activity formatting.
 const (
-	hoursPerDay   = 24
-	daysPerWeek   = 7
-	daysPerMonth  = 30
+	hoursPerDay  = 24
+	daysPerWeek  = 7
+	daysPerMonth = 30
 )
 
 // WorktreeFormatter provides shared utilities for formatting worktree information.
@@ -74,14 +74,14 @@ func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 // This consolidates the duplicate logic that was in both displayHumanOutput and formatStatus.
 func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.RemoteStatus) StatusInfo {
 	info := StatusInfo{
-		IsClean:     status.IsClean,
-		Modified:    status.Modified,
-		Staged:      status.Staged,
-		Untracked:   status.Untracked,
-		HasRemote:   remote.HasRemote,
-		Ahead:       remote.Ahead,
-		Behind:      remote.Behind,
-		IsMerged:    remote.IsMerged,
+		IsClean:   status.IsClean,
+		Modified:  status.Modified,
+		Staged:    status.Staged,
+		Untracked: status.Untracked,
+		HasRemote: remote.HasRemote,
+		Ahead:     remote.Ahead,
+		Behind:    remote.Behind,
+		IsMerged:  remote.IsMerged,
 	}
 
 	if status.IsClean {

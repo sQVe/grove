@@ -157,7 +157,7 @@ func TestGetCurrentWorktreePath(t *testing.T) {
 			cwd, err := os.Getwd()
 			require.NoError(t, err)
 			expectedCmd := fmt.Sprintf("-C %s rev-parse --show-toplevel", cwd)
-			
+
 			if tt.mockError != nil {
 				mockExecutor.SetErrorResponse(expectedCmd, tt.mockError)
 			} else {

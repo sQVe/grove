@@ -17,7 +17,7 @@ func TestListService_ListWorktrees(t *testing.T) {
 
 func TestListService_ApplyFilters(t *testing.T) {
 	service := &ListService{}
-	
+
 	now := time.Now()
 	staleTime := now.AddDate(0, 0, -31) // 31 days ago
 	recentTime := now.AddDate(0, 0, -1) // 1 day ago
@@ -56,7 +56,7 @@ func TestListService_ApplyFilters(t *testing.T) {
 			expected: 1,
 		},
 		{
-			name:     "Clean only", 
+			name:     "Clean only",
 			options:  &ListOptions{CleanOnly: true, StaleDays: 30},
 			expected: 2,
 		},
@@ -77,10 +77,10 @@ func TestListService_ApplyFilters(t *testing.T) {
 
 func TestListService_SortWorktrees(t *testing.T) {
 	service := &ListService{}
-	
+
 	now := time.Now()
 	older := now.Add(-1 * time.Hour)
-	
+
 	worktrees := []git.WorktreeInfo{
 		{
 			Path:         "/repo/zebra",
@@ -121,7 +121,7 @@ func TestListService_SortWorktrees(t *testing.T) {
 			// Make a copy to avoid modifying the original
 			testWorktrees := make([]git.WorktreeInfo, len(worktrees))
 			copy(testWorktrees, worktrees)
-			
+
 			service.sortWorktrees(testWorktrees, tt.sortBy)
 			assert.Equal(t, tt.expected, testWorktrees[0].Path)
 		})
@@ -130,11 +130,11 @@ func TestListService_SortWorktrees(t *testing.T) {
 
 func TestListService_FindGroveRepository(t *testing.T) {
 	service := &ListService{}
-	
+
 	// This test is environment-dependent, so we test the error case
 	// In a real implementation, we'd use dependency injection for the file system
 	result, err := service.findGroveRepository()
-	
+
 	// Should return error if no .bare directory found
 	if err != nil {
 		assert.Error(t, err)

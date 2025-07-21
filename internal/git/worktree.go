@@ -356,8 +356,8 @@ func getCurrentWorktreePath(executor GitExecutor) (string, error) {
 	output, err := executor.Execute("-C", cwd, "rev-parse", "--show-toplevel")
 	if err != nil {
 		log := logger.WithComponent("worktree")
-		log.Debug("git rev-parse failed, assuming not in git repository", 
-			"error", err, 
+		log.Debug("git rev-parse failed, assuming not in git repository",
+			"error", err,
 			"directory", cwd,
 			"reason", "graceful fallback for non-git directories")
 		return "", nil

@@ -33,7 +33,7 @@ func TestWorktreeCompletion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear cache before each test
 			GlobalCache.Clear()
-			
+
 			mockExecutor := testutils.NewMockGitExecutor()
 			mockExecutor.SetResponse("worktree list --porcelain", tt.mockOutput, nil)
 
@@ -87,7 +87,7 @@ func TestGetWorktreeNames(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear cache before each test
 			GlobalCache.Clear()
-			
+
 			mockExecutor := testutils.NewMockGitExecutor()
 			if tt.mockError != nil {
 				mockExecutor.SetErrorResponse("worktree list --porcelain", tt.mockError)
@@ -134,7 +134,7 @@ func TestWorktreePathCompletion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear cache before each test
 			GlobalCache.Clear()
-			
+
 			mockExecutor := testutils.NewMockGitExecutor()
 			mockExecutor.SetResponse("worktree list --porcelain", tt.mockOutput, nil)
 

@@ -96,10 +96,10 @@ func getPlatformURLSuggestions(toComplete string) []URLSuggestion {
 
 	// Provide HTTPS suggestions for partial URL inputs
 	for name, platform := range platforms {
-		if strings.HasPrefix(toComplete, "https://"+name) || 
-		   strings.HasPrefix(toComplete, platform.HTTPSPrefix) ||
-		   strings.Contains(toComplete, name+".com") {
-			
+		if strings.HasPrefix(toComplete, "https://"+name) ||
+			strings.HasPrefix(toComplete, platform.HTTPSPrefix) ||
+			strings.Contains(toComplete, name+".com") {
+
 			// If input already has the platform prefix, suggest completion
 			if strings.HasPrefix(toComplete, platform.HTTPSPrefix) {
 				suggestions = append(suggestions, URLSuggestion{

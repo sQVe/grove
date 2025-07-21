@@ -644,7 +644,7 @@ func checkOngoingGitOperations(executor GitExecutor) ([]SafetyIssue, error) {
 	statusOutput, err := executor.Execute("status")
 	if err != nil {
 		log := logger.WithComponent("git_operations")
-		log.Debug("git status failed during operation check", 
+		log.Debug("git status failed during operation check",
 			"error", err,
 			"reason", "continuing without detailed status - git repository might be corrupted or inaccessible")
 		return issues, nil // Continue without detailed status if this fails
@@ -771,7 +771,7 @@ func checkExistingWorktrees(executor GitExecutor) ([]SafetyIssue, error) {
 	output, err := executor.Execute("worktree", "list")
 	if err != nil {
 		log := logger.WithComponent("git_operations")
-		log.Debug("git worktree list failed during safety check", 
+		log.Debug("git worktree list failed during safety check",
 			"error", err,
 			"reason", "assuming no worktrees exist - git version might not support worktrees or repository is corrupted")
 		return issues, nil // If worktree command fails, assume no worktrees

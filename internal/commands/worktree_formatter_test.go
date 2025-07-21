@@ -100,10 +100,10 @@ func TestWorktreeFormatter_FormatStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := formatter.FormatStatus(tt.status, tt.remote)
-			
+
 			assert.Equal(t, tt.expectedSymbol, result.Symbol)
 			assert.Equal(t, tt.expectedClean, result.IsClean)
-			
+
 			// Verify plain text contains expected elements
 			if tt.expectedClean {
 				assert.Contains(t, result.PlainText, "✓")
@@ -125,7 +125,7 @@ func TestWorktreeFormatter_FormatStatusWithRemote(t *testing.T) {
 	}
 
 	result := formatter.FormatStatus(status, remote)
-	
+
 	assert.Equal(t, "✓", result.Symbol)
 	assert.Equal(t, "↑2 ↓1", result.RemoteText)
 	assert.Contains(t, result.FullPlainText, "✓")
@@ -144,7 +144,7 @@ func TestWorktreeFormatter_FormatStatusDirtyWithCounts(t *testing.T) {
 	remote := git.RemoteStatus{}
 
 	result := formatter.FormatStatus(status, remote)
-	
+
 	assert.Equal(t, "⚠", result.Symbol)
 	assert.Equal(t, "3M, 2S, 1U", result.CountsText)
 	assert.Equal(t, "⚠ 3M, 2S, 1U", result.PlainText)
