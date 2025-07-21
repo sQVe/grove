@@ -10,6 +10,13 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
+// Time duration constants for activity formatting.
+const (
+	hoursPerDay   = 24
+	daysPerWeek   = 7
+	daysPerMonth  = 30
+)
+
 // WorktreeFormatter provides shared utilities for formatting worktree information.
 type WorktreeFormatter struct{}
 
@@ -44,22 +51,22 @@ func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 		return fmt.Sprintf("%dm ago", minutes)
 	}
 
-	if duration < 24*time.Hour {
+	if duration < hoursPerDay*time.Hour {
 		hours := int(duration.Hours())
 		return fmt.Sprintf("%dh ago", hours)
 	}
 
-	if duration < 7*24*time.Hour {
-		days := int(duration.Hours() / 24)
+	if duration < daysPerWeek*hoursPerDay*time.Hour {
+		days := int(duration.Hours() / hoursPerDay)
 		return fmt.Sprintf("%dd ago", days)
 	}
 
-	if duration < 30*24*time.Hour {
-		weeks := int(duration.Hours() / (7 * 24))
+	if duration < daysPerMonth*hoursPerDay*time.Hour {
+		weeks := int(duration.Hours() / (daysPerWeek * hoursPerDay))
 		return fmt.Sprintf("%dw ago", weeks)
 	}
 
-	months := int(duration.Hours() / (30 * 24))
+	months := int(duration.Hours() / (daysPerMonth * hoursPerDay))
 	return fmt.Sprintf("%dmo ago", months)
 }
 
