@@ -67,7 +67,7 @@ func (p *ListPresenter) DisplayPorcelain(worktrees []git.WorktreeInfo) error {
 		}
 
 		fmt.Printf("worktree %s\n", wt.Path)
-		fmt.Printf("branch %s\n", wt.Branch)
+		fmt.Printf("branch %s\n", git.CleanBranchName(wt.Branch))
 		fmt.Printf("head %s\n", wt.Head)
 		fmt.Printf("current %s\n", current)
 
@@ -103,7 +103,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool) []stri
 	}
 
 	// Branch name
-	branch := wt.Branch
+	branch := git.CleanBranchName(wt.Branch)
 	if wt.IsCurrent {
 		branch = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(branch)
 	}
