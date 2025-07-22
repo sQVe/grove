@@ -4,11 +4,11 @@
 
 | Step        | Command                                                   |
 | ----------- | --------------------------------------------------------- |
-| **Clone**   | `git clone https://github.com/sqve/grove.git && cd grove` |
+| **Clone**   | `git clone https://github.com/sqve/grove && cd grove` |
 | **Install** | `go mod download`                                         |
 | **Verify**  | `mage test:unit && mage lint && mage build:all`           |
 
-### Prerequisites
+## Prerequisites
 
 - Go 1.21+, Git 2.5+, golangci-lint 1.50+
 - Mage build system (installed automatically via `go run github.com/magefile/mage@latest`)
