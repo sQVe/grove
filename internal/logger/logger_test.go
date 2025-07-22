@@ -313,18 +313,21 @@ func TestGitResult(t *testing.T) {
 	tests := []struct {
 		name            string
 		success         bool
+		output          string
 		expectedMessage string
 		expectedLevel   string
 	}{
 		{
 			name:            "successful git command",
 			success:         true,
+			output:          "command output",
 			expectedMessage: "git command completed",
 			expectedLevel:   "DEBUG",
 		},
 		{
 			name:            "failed git command",
 			success:         false,
+			output:          "command failed",
 			expectedMessage: "git command failed",
 			expectedLevel:   "ERROR",
 		},
@@ -340,7 +343,7 @@ func TestGitResult(t *testing.T) {
 			}
 
 			logger := New(config)
-			logger.GitResult("git", tt.success, "command output", "duration", "100ms")
+			logger.GitResult("git", tt.success, tt.output, "duration", "100ms")
 
 			output := buf.String()
 			assert.Contains(t, output, `"msg":"`+tt.expectedMessage+`"`)
@@ -350,7 +353,7 @@ func TestGitResult(t *testing.T) {
 			} else {
 				assert.Contains(t, output, `"success":false`)
 			}
-			assert.Contains(t, output, `"output":"command output"`)
+			assert.Contains(t, output, `"output":"`+tt.output+`"`)
 			assert.Contains(t, output, `"duration":"100ms"`)
 			assert.Contains(t, output, `"level":"`+tt.expectedLevel+`"`)
 		})

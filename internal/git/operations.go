@@ -17,6 +17,7 @@ import (
 // GitExecutor defines the interface for executing git commands.
 type GitExecutor interface {
 	Execute(args ...string) (string, error)
+	ExecuteQuiet(args ...string) (string, error)
 	ExecuteWithContext(ctx context.Context, args ...string) (string, error)
 }
 
@@ -26,6 +27,12 @@ type DefaultGitExecutor struct{}
 // Execute runs a real git command.
 func (e *DefaultGitExecutor) Execute(args ...string) (string, error) {
 	return ExecuteGit(args...)
+}
+
+// ExecuteQuiet runs a real git command without logging failures.
+// Use this for operations where failures are expected and should not be logged as errors.
+func (e *DefaultGitExecutor) ExecuteQuiet(args ...string) (string, error) {
+	return ExecuteGitQuiet(args...)
 }
 
 // ExecuteWithContext runs a real git command with context support for cancellation.
@@ -172,6 +179,43 @@ func ExecuteGitWithContext(ctx context.Context, args ...string) (string, error) 
 
 	output := strings.TrimSpace(string(stdout))
 	log.GitResult("git", true, output, "duration", duration, "with_context", true)
+	return output, nil
+}
+
+// ExecuteGitQuiet runs a git command without logging failures.
+// This is useful for operations where failures are expected and should not be logged as errors.
+// Successful operations are still logged at debug level.
+func ExecuteGitQuiet(args ...string) (string, error) {
+	log := logger.WithComponent("git_executor")
+	start := time.Now()
+
+	log.GitCommand("git", args)
+	cmd := exec.Command("git", args...)
+
+	stdout, err := cmd.Output()
+	duration := time.Since(start)
+
+	if err != nil {
+		var stderr string
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			stderr = string(exitErr.Stderr)
+		}
+
+		gitErr := &GitError{
+			Command:  "git",
+			Args:     args,
+			Stderr:   stderr,
+			ExitCode: cmd.ProcessState.ExitCode(),
+		}
+
+		// Note: We don't log failures for quiet execution
+		// The caller expects failures and will handle them appropriately
+		return "", gitErr
+	}
+
+	output := strings.TrimSpace(string(stdout))
+	log.GitResult("git", true, output, "duration", duration)
 	return output, nil
 }
 
@@ -599,6 +643,10 @@ func checkOngoingGitOperations(executor GitExecutor) ([]SafetyIssue, error) {
 
 	statusOutput, err := executor.Execute("status")
 	if err != nil {
+		log := logger.WithComponent("git_operations")
+		log.Debug("git status failed during operation check",
+			"error", err,
+			"reason", "continuing without detailed status - git repository might be corrupted or inaccessible")
 		return issues, nil // Continue without detailed status if this fails
 	}
 
@@ -722,6 +770,10 @@ func checkExistingWorktrees(executor GitExecutor) ([]SafetyIssue, error) {
 
 	output, err := executor.Execute("worktree", "list")
 	if err != nil {
+		log := logger.WithComponent("git_operations")
+		log.Debug("git worktree list failed during safety check",
+			"error", err,
+			"reason", "assuming no worktrees exist - git version might not support worktrees or repository is corrupted")
 		return issues, nil // If worktree command fails, assume no worktrees
 	}
 

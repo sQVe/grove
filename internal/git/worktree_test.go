@@ -284,15 +284,28 @@ func TestListWorktrees(t *testing.T) {
 		simulateError bool
 	}{
 		{
-			name:          "single worktree",
-			gitOutput:     "worktree /repo\n",
+			name: "single worktree",
+			gitOutput: `worktree /repo
+HEAD abc123
+branch refs/heads/main
+
+`,
 			expectedPaths: []string{"/repo"},
 		},
 		{
 			name: "multiple worktrees",
 			gitOutput: `worktree /repo
+HEAD abc123
+branch refs/heads/main
+
 worktree /repo/worktrees/feature-branch
+HEAD def456
+branch refs/heads/feature-branch
+
 worktree /repo/worktrees/fix-123
+HEAD ghi789
+branch refs/heads/fix-123
+
 `,
 			expectedPaths: []string{"/repo", "/repo/worktrees/feature-branch", "/repo/worktrees/fix-123"},
 		},
@@ -318,7 +331,7 @@ worktree /repo/worktrees/fix-123
 				executor.SetResponseSlice([]string{"worktree", "list", "--porcelain"}, tt.gitOutput, nil)
 			}
 
-			paths, err := ListWorktrees(executor)
+			paths, err := ListWorktreesPaths(executor)
 
 			if tt.expectedError != "" {
 				if err == nil {
@@ -379,7 +392,7 @@ func TestSplitLines(t *testing.T) {
 		{
 			name:     "single newline",
 			input:    "\n",
-			expected: nil,
+			expected: []string{""},
 		},
 		{
 			name:     "trailing newline",
@@ -399,6 +412,94 @@ func TestSplitLines(t *testing.T) {
 				if line != tt.expected[i] {
 					t.Errorf("splitLines(%q) line[%d] = %q, want %q", tt.input, i, line, tt.expected[i])
 				}
+			}
+		})
+	}
+}
+
+func TestCleanBranchName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "refs/heads/ prefix",
+			input:    "refs/heads/main",
+			expected: "main",
+		},
+		{
+			name:     "refs/heads/ prefix with feature branch",
+			input:    "refs/heads/feature/user-auth",
+			expected: "feature/user-auth",
+		},
+		{
+			name:     "refs/remotes/origin/ prefix",
+			input:    "refs/remotes/origin/main",
+			expected: "main",
+		},
+		{
+			name:     "refs/remotes/origin/ prefix with feature branch",
+			input:    "refs/remotes/origin/feature/fix-bug",
+			expected: "feature/fix-bug",
+		},
+		{
+			name:     "refs/remotes/upstream/ prefix",
+			input:    "refs/remotes/upstream/develop",
+			expected: "develop",
+		},
+		{
+			name:     "refs/remotes/custom-remote/ prefix",
+			input:    "refs/remotes/custom-remote/feature/test",
+			expected: "feature/test",
+		},
+		{
+			name:     "regular branch name unchanged",
+			input:    "main",
+			expected: "main",
+		},
+		{
+			name:     "feature branch name unchanged",
+			input:    "feature/user-login",
+			expected: "feature/user-login",
+		},
+		{
+			name:     "bugfix branch name unchanged",
+			input:    "bugfix/issue-123",
+			expected: "bugfix/issue-123",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "refs/heads/ only (edge case)",
+			input:    "refs/heads/",
+			expected: "",
+		},
+		{
+			name:     "refs/remotes/origin/ only (edge case)",
+			input:    "refs/remotes/origin/",
+			expected: "",
+		},
+		{
+			name:     "incomplete ref path",
+			input:    "refs/heads",
+			expected: "refs/heads",
+		},
+		{
+			name:     "malformed ref with only refs/remotes/",
+			input:    "refs/remotes/",
+			expected: "refs/remotes/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CleanBranchName(tt.input)
+			if result != tt.expected {
+				t.Errorf("CleanBranchName(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
