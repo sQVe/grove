@@ -514,6 +514,55 @@ func getRemoteStatus(executor GitExecutor, worktreePath, branchRef string) (Remo
 	return remote, nil
 }
 
+// Git reference prefixes used for branch name cleaning.
+const (
+	refsHeadsPrefix         = "refs/heads/"
+	refsRemotesOriginPrefix = "refs/remotes/origin/"
+	refsRemotesPrefix       = "refs/remotes/"
+)
+
+// CleanBranchName removes common git reference prefixes to provide a clean branch name for display.
+// This function handles common git reference patterns and returns clean branch names suitable for user display.
+//
+// Supported patterns:
+//   - refs/heads/branch-name -> branch-name (local branches)
+//   - refs/remotes/origin/branch-name -> branch-name (origin remote branches)
+//   - refs/remotes/upstream/branch-name -> branch-name (other remote branches)
+//   - regular branch names remain unchanged
+//
+// Examples:
+//
+//	CleanBranchName("refs/heads/main") // returns "main"
+//	CleanBranchName("refs/remotes/origin/feature/auth") // returns "feature/auth"
+//	CleanBranchName("main") // returns "main" (unchanged)
+//	CleanBranchName("") // returns ""
+func CleanBranchName(branchRef string) string {
+	if branchRef == "" {
+		return ""
+	}
+
+	// Remove refs/heads/ prefix (local branches)
+	if strings.HasPrefix(branchRef, refsHeadsPrefix) {
+		return branchRef[len(refsHeadsPrefix):]
+	}
+
+	// Remove refs/remotes/origin/ prefix (remote tracking branches)
+	if strings.HasPrefix(branchRef, refsRemotesOriginPrefix) {
+		return branchRef[len(refsRemotesOriginPrefix):]
+	}
+
+	// Remove refs/remotes/<remote>/ prefix (general remote tracking branches)
+	if strings.HasPrefix(branchRef, refsRemotesPrefix) {
+		parts := strings.SplitN(branchRef[len(refsRemotesPrefix):], "/", 2)
+		if len(parts) == 2 {
+			return parts[1]
+		}
+	}
+
+	// Return the original name if no known prefixes match
+	return branchRef
+}
+
 // splitLines splits a string into lines, handling different line endings.
 func splitLines(s string) []string {
 	if s == "" {

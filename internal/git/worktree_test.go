@@ -417,6 +417,94 @@ func TestSplitLines(t *testing.T) {
 	}
 }
 
+func TestCleanBranchName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "refs/heads/ prefix",
+			input:    "refs/heads/main",
+			expected: "main",
+		},
+		{
+			name:     "refs/heads/ prefix with feature branch",
+			input:    "refs/heads/feature/user-auth",
+			expected: "feature/user-auth",
+		},
+		{
+			name:     "refs/remotes/origin/ prefix",
+			input:    "refs/remotes/origin/main",
+			expected: "main",
+		},
+		{
+			name:     "refs/remotes/origin/ prefix with feature branch",
+			input:    "refs/remotes/origin/feature/fix-bug",
+			expected: "feature/fix-bug",
+		},
+		{
+			name:     "refs/remotes/upstream/ prefix",
+			input:    "refs/remotes/upstream/develop",
+			expected: "develop",
+		},
+		{
+			name:     "refs/remotes/custom-remote/ prefix",
+			input:    "refs/remotes/custom-remote/feature/test",
+			expected: "feature/test",
+		},
+		{
+			name:     "regular branch name unchanged",
+			input:    "main",
+			expected: "main",
+		},
+		{
+			name:     "feature branch name unchanged",
+			input:    "feature/user-login",
+			expected: "feature/user-login",
+		},
+		{
+			name:     "bugfix branch name unchanged",
+			input:    "bugfix/issue-123",
+			expected: "bugfix/issue-123",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "refs/heads/ only (edge case)",
+			input:    "refs/heads/",
+			expected: "",
+		},
+		{
+			name:     "refs/remotes/origin/ only (edge case)",
+			input:    "refs/remotes/origin/",
+			expected: "",
+		},
+		{
+			name:     "incomplete ref path",
+			input:    "refs/heads",
+			expected: "refs/heads",
+		},
+		{
+			name:     "malformed ref with only refs/remotes/",
+			input:    "refs/remotes/",
+			expected: "refs/remotes/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CleanBranchName(tt.input)
+			if result != tt.expected {
+				t.Errorf("CleanBranchName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 // Helper functions.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || (len(s) > len(substr) &&
