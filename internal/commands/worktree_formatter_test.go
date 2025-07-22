@@ -149,3 +149,195 @@ func TestWorktreeFormatter_FormatStatusDirtyWithCounts(t *testing.T) {
 	assert.Equal(t, "3M, 2S, 1U", result.CountsText)
 	assert.Equal(t, "⚠ 3M, 2S, 1U", result.PlainText)
 }
+
+func TestWorktreeFormatter_TruncateText(t *testing.T) {
+	formatter := NewWorktreeFormatter()
+
+	tests := []struct {
+		name     string
+		text     string
+		maxWidth int
+		expected string
+	}{
+		{
+			name:     "text shorter than max width",
+			text:     "short",
+			maxWidth: 10,
+			expected: "short",
+		},
+		{
+			name:     "text equal to max width",
+			text:     "exact",
+			maxWidth: 5,
+			expected: "exact",
+		},
+		{
+			name:     "text longer than max width",
+			text:     "this-is-a-very-long-text",
+			maxWidth: 15,
+			expected: "this-is-a-ve...",
+		},
+		{
+			name:     "max width zero",
+			text:     "test",
+			maxWidth: 0,
+			expected: "",
+		},
+		{
+			name:     "max width negative",
+			text:     "test",
+			maxWidth: -1,
+			expected: "",
+		},
+		{
+			name:     "max width very small",
+			text:     "test",
+			maxWidth: 2,
+			expected: "te",
+		},
+		{
+			name:     "max width just enough for ellipsis",
+			text:     "testing",
+			maxWidth: 4,
+			expected: "t...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatter.TruncateText(tt.text, tt.maxWidth)
+			assert.Equal(t, tt.expected, result)
+
+			// Ensure result doesn't exceed maxWidth
+			if tt.maxWidth > 0 {
+				assert.LessOrEqual(t, len(result), tt.maxWidth)
+			}
+		})
+	}
+}
+
+func TestWorktreeFormatter_TruncateTextMiddle(t *testing.T) {
+	formatter := NewWorktreeFormatter()
+
+	tests := []struct {
+		name     string
+		text     string
+		maxWidth int
+		expected string
+	}{
+		{
+			name:     "text shorter than max width",
+			text:     "short",
+			maxWidth: 10,
+			expected: "short",
+		},
+		{
+			name:     "text longer with middle truncation",
+			text:     "this-is-a-very-long-filename.txt",
+			maxWidth: 20,
+			expected: "this-is-a...name.txt",
+		},
+		{
+			name:     "max width too small for middle truncation",
+			text:     "testing",
+			maxWidth: 5,
+			expected: "te...",
+		},
+		{
+			name:     "minimum width for middle truncation",
+			text:     "test-file",
+			maxWidth: 7,
+			expected: "te...le",
+		},
+		{
+			name:     "max width zero",
+			text:     "test",
+			maxWidth: 0,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatter.TruncateTextMiddle(tt.text, tt.maxWidth)
+			assert.Equal(t, tt.expected, result)
+
+			// Ensure result doesn't exceed maxWidth
+			if tt.maxWidth > 0 {
+				assert.LessOrEqual(t, len(result), tt.maxWidth)
+			}
+		})
+	}
+}
+
+func TestWorktreeFormatter_TruncateBranchName(t *testing.T) {
+	formatter := NewWorktreeFormatter()
+
+	tests := []struct {
+		name     string
+		branch   string
+		maxWidth int
+		expected string
+	}{
+		{
+			name:     "branch shorter than max width",
+			branch:   "main",
+			maxWidth: 10,
+			expected: "main",
+		},
+		{
+			name:     "feature branch with namespace preservation",
+			branch:   "feature/very-long-description-here",
+			maxWidth: 20,
+			expected: "feature/very-long...",
+		},
+		{
+			name:     "bugfix branch with namespace preservation",
+			branch:   "bugfix/fix-issue-123-with-authentication",
+			maxWidth: 25,
+			expected: "bugfix/fix-issue-123-w...",
+		},
+		{
+			name:     "long branch without slash - middle truncation",
+			branch:   "very-long-branch-name-without-slashes",
+			maxWidth: 20,
+			expected: "very-long...-slashes",
+		},
+		{
+			name:     "max width too small",
+			branch:   "feature/test",
+			maxWidth: 5,
+			expected: "fe...",
+		},
+		{
+			name:     "max width zero",
+			branch:   "test",
+			maxWidth: 0,
+			expected: "",
+		},
+		{
+			name:     "nested namespace preservation",
+			branch:   "team/backend/feature/new-api-endpoint",
+			maxWidth: 25,
+			expected: "team/backend/feature/n...",
+		},
+		{
+			name:     "short namespace, can't preserve",
+			branch:   "a/very-long-description-that-cannot-fit",
+			maxWidth: 8,
+			expected: "a/ver...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatter.TruncateBranchName(tt.branch, tt.maxWidth)
+			assert.Equal(t, tt.expected, result)
+
+			// Ensure result doesn't exceed maxWidth
+			if tt.maxWidth > 0 {
+				assert.LessOrEqual(t, len(result), tt.maxWidth)
+			}
+		})
+	}
+}
