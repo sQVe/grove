@@ -174,6 +174,206 @@ func TestWrapFunctions(t *testing.T) {
 	})
 }
 
+func TestIsRetryable(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{"Network timeout - retryable", ErrCodeNetworkTimeout, true},
+		{"Network unavailable - retryable", ErrCodeNetworkUnavailable, true},
+		{"Git operation - retryable", ErrCodeGitOperation, true},
+		{"Authentication failed - not retryable", ErrCodeAuthenticationFailed, false},
+		{"Invalid URL - not retryable", ErrCodeInvalidURL, false},
+		{"Git clone - not retryable", ErrCodeGitClone, false},
+		{"Permission - not retryable", ErrCodePermission, false},
+		{"Security violation - not retryable", ErrCodeSecurityViolation, false},
+		{"Unknown error - not retryable", "UNKNOWN_ERROR", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := NewGroveError(tt.code, "test error", nil)
+			assert.Equal(t, tt.expected, err.IsRetryable())
+		})
+	}
+}
+
+func TestMissingErrorFactoryFunctions(t *testing.T) {
+	t.Run("ErrDirectoryAccess", func(t *testing.T) {
+		path := "/test/directory"
+		cause := fmt.Errorf("permission denied")
+		err := ErrDirectoryAccess(path, cause)
+
+		assert.Equal(t, ErrCodeDirectoryAccess, err.Code)
+		assert.Contains(t, err.Message, "failed to access directory")
+		assert.Contains(t, err.Message, path)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, path, err.Context["path"])
+	})
+
+	t.Run("ErrFileSystem", func(t *testing.T) {
+		operation := "mkdir"
+		cause := fmt.Errorf("disk full")
+		err := ErrFileSystem(operation, cause)
+
+		assert.Equal(t, ErrCodeFileSystem, err.Code)
+		assert.Contains(t, err.Message, "file system operation failed")
+		assert.Contains(t, err.Message, operation)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+
+	t.Run("ErrRepoNotFound", func(t *testing.T) {
+		path := "/test/repo"
+		err := ErrRepoNotFound(path)
+
+		assert.Equal(t, ErrCodeRepoNotFound, err.Code)
+		assert.Contains(t, err.Message, "repository not found")
+		assert.Contains(t, err.Message, path)
+		assert.Equal(t, path, err.Context["path"])
+	})
+
+	t.Run("ErrRepoInvalid", func(t *testing.T) {
+		path := "/test/repo"
+		reason := "corrupted git database"
+		err := ErrRepoInvalid(path, reason)
+
+		assert.Equal(t, ErrCodeRepoInvalid, err.Code)
+		assert.Contains(t, err.Message, "invalid repository")
+		assert.Contains(t, err.Message, path)
+		assert.Contains(t, err.Message, reason)
+		assert.Equal(t, path, err.Context["path"])
+		assert.Equal(t, reason, err.Context["reason"])
+	})
+
+	t.Run("ErrRepoConversion", func(t *testing.T) {
+		path := "/test/repo"
+		cause := fmt.Errorf("conversion failed")
+		err := ErrRepoConversion(path, cause)
+
+		assert.Equal(t, ErrCodeRepoConversion, err.Code)
+		assert.Contains(t, err.Message, "failed to convert repository")
+		assert.Contains(t, err.Message, path)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, path, err.Context["path"])
+	})
+
+	t.Run("ErrGitOperation", func(t *testing.T) {
+		operation := "push"
+		cause := fmt.Errorf("remote rejected")
+		err := ErrGitOperation(operation, cause)
+
+		assert.Equal(t, ErrCodeGitOperation, err.Code)
+		assert.Contains(t, err.Message, "git push failed")
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+
+	t.Run("ErrGitClone", func(t *testing.T) {
+		url := "https://github.com/user/repo.git"
+		cause := fmt.Errorf("network timeout")
+		err := ErrGitClone(url, cause)
+
+		assert.Equal(t, ErrCodeGitClone, err.Code)
+		assert.Contains(t, err.Message, "failed to clone repository")
+		assert.Contains(t, err.Message, url)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, url, err.Context["url"])
+	})
+
+	t.Run("ErrGitInit", func(t *testing.T) {
+		path := "/test/repo"
+		cause := fmt.Errorf("permission denied")
+		err := ErrGitInit(path, cause)
+
+		assert.Equal(t, ErrCodeGitInit, err.Code)
+		assert.Contains(t, err.Message, "failed to initialize repository")
+		assert.Contains(t, err.Message, path)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, path, err.Context["path"])
+	})
+
+	t.Run("ErrGitWorktree", func(t *testing.T) {
+		operation := "add"
+		cause := fmt.Errorf("branch exists")
+		err := ErrGitWorktree(operation, cause)
+
+		assert.Equal(t, ErrCodeGitWorktree, err.Code)
+		assert.Contains(t, err.Message, "worktree add failed")
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+
+	t.Run("ErrURLParsing", func(t *testing.T) {
+		url := "invalid-url"
+		cause := fmt.Errorf("parse error")
+		err := ErrURLParsing(url, cause)
+
+		assert.Equal(t, ErrCodeURLParsing, err.Code)
+		assert.Contains(t, err.Message, "failed to parse URL")
+		assert.Contains(t, err.Message, url)
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, url, err.Context["url"])
+	})
+
+	t.Run("ErrUnsupportedURL", func(t *testing.T) {
+		url := "ftp://example.com/repo.git"
+		err := ErrUnsupportedURL(url)
+
+		assert.Equal(t, ErrCodeUnsupportedURL, err.Code)
+		assert.Contains(t, err.Message, "unsupported URL format")
+		assert.Contains(t, err.Message, url)
+		assert.Equal(t, url, err.Context["url"])
+	})
+
+	t.Run("ErrSecurityViolation", func(t *testing.T) {
+		operation := "file access"
+		reason := "path traversal detected"
+		err := ErrSecurityViolation(operation, reason)
+
+		assert.Equal(t, ErrCodeSecurityViolation, err.Code)
+		assert.Contains(t, err.Message, "security violation")
+		assert.Contains(t, err.Message, operation)
+		assert.Contains(t, err.Message, reason)
+		assert.Equal(t, operation, err.Context["operation"])
+		assert.Equal(t, reason, err.Context["reason"])
+	})
+
+	t.Run("ErrNetworkTimeout", func(t *testing.T) {
+		operation := "git fetch"
+		cause := fmt.Errorf("timeout")
+		err := ErrNetworkTimeout(operation, cause)
+
+		assert.Equal(t, ErrCodeNetworkTimeout, err.Code)
+		assert.Contains(t, err.Message, "network timeout during git fetch")
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+
+	t.Run("ErrNetworkUnavailable", func(t *testing.T) {
+		operation := "git push"
+		cause := fmt.Errorf("no network")
+		err := ErrNetworkUnavailable(operation, cause)
+
+		assert.Equal(t, ErrCodeNetworkUnavailable, err.Code)
+		assert.Contains(t, err.Message, "network unavailable during git push")
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+
+	t.Run("ErrAuthenticationFailed", func(t *testing.T) {
+		operation := "git push"
+		cause := fmt.Errorf("invalid credentials")
+		err := ErrAuthenticationFailed(operation, cause)
+
+		assert.Equal(t, ErrCodeAuthenticationFailed, err.Code)
+		assert.Contains(t, err.Message, "authentication failed during git push")
+		assert.Equal(t, cause, err.Cause)
+		assert.Equal(t, operation, err.Context["operation"])
+	})
+}
+
 func TestNilErrorHandling(t *testing.T) {
 	t.Run("Wrap with nil error", func(t *testing.T) {
 		result := Wrap(nil, "context")
