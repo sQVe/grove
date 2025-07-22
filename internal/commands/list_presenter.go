@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/utils"
 )
 
 // Color theme for table styling.
@@ -16,6 +17,15 @@ var (
 	mutedColor   = lipgloss.Color("#9CA3AF")
 	headerColor  = lipgloss.Color("#6B7280")
 )
+
+// ColumnWidths contains the calculated maximum widths for table columns.
+type ColumnWidths struct {
+	Worktree int
+	Branch   int
+	Status   int
+	Activity int
+	Path     int // Only used in verbose mode
+}
 
 // ListPresenter handles the display formatting and styling for worktree listings.
 type ListPresenter struct {
@@ -37,6 +47,9 @@ func (p *ListPresenter) DisplayHuman(worktrees []git.WorktreeInfo, verbose bool)
 		return nil
 	}
 
+	// Calculate responsive column widths
+	colWidths := p.calculateColumnWidths(worktrees, verbose)
+
 	// Build table data
 	var rows [][]string
 
@@ -48,7 +61,7 @@ func (p *ListPresenter) DisplayHuman(worktrees []git.WorktreeInfo, verbose bool)
 
 	for i := range worktrees {
 		wt := &worktrees[i]
-		row := p.buildTableRow(wt, verbose)
+		row := p.buildTableRow(wt, verbose, colWidths)
 		rows = append(rows, row)
 	}
 
@@ -89,21 +102,27 @@ func (p *ListPresenter) DisplayPorcelain(worktrees []git.WorktreeInfo) error {
 }
 
 // buildTableRow creates a styled table row for the given worktree.
-func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool) []string {
+func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWidths ColumnWidths) []string {
 	// Marker
 	marker := " "
 	if wt.IsCurrent {
 		marker = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("*")
 	}
 
-	// Worktree name
+	// Worktree name - apply truncation if needed
 	name := p.formatter.GetWorktreeName(wt.Path)
+	if colWidths.Worktree > 0 {
+		name = p.formatter.TruncateText(name, colWidths.Worktree)
+	}
 	if wt.IsCurrent {
 		name = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(name)
 	}
 
-	// Branch name
+	// Branch name - apply smart truncation if needed
 	branch := git.CleanBranchName(wt.Branch)
+	if colWidths.Branch > 0 {
+		branch = p.formatter.TruncateBranchName(branch, colWidths.Branch)
+	}
 	if wt.IsCurrent {
 		branch = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(branch)
 	}
@@ -117,7 +136,11 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool) []stri
 	// Build row
 	row := []string{marker, name, branch, status, activity}
 	if verbose {
-		row = append(row, wt.Path)
+		path := wt.Path
+		if colWidths.Path > 0 {
+			path = p.formatter.TruncateTextMiddle(path, colWidths.Path)
+		}
+		row = append(row, path)
 	}
 
 	return row
@@ -142,6 +165,98 @@ func (p *ListPresenter) buildStyledStatus(status git.WorktreeStatus, remote git.
 	}
 
 	return result
+}
+
+// calculateColumnWidths determines optimal column widths based on content and terminal size.
+func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verbose bool) ColumnWidths {
+	terminalWidth := utils.GetTerminalWidth()
+
+	// Reserve space for table borders and padding
+	// Marker(1) + borders(6) + padding(5*2) = 17 characters minimum
+	minTableWidth := 17
+	if verbose {
+		minTableWidth += 12 // Extra border + padding for PATH column
+	}
+
+	availableWidth := terminalWidth - minTableWidth
+	if availableWidth < 20 {
+		// Terminal too narrow for responsive sizing
+		return ColumnWidths{}
+	}
+
+	// Calculate natural content widths
+	maxWorktreeWidth := len(" WORKTREE")
+	maxBranchWidth := len(" BRANCH")
+	maxPathWidth := 0
+
+	for i := range worktrees {
+		wt := &worktrees[i]
+
+		worktreeName := p.formatter.GetWorktreeName(wt.Path)
+		if len(worktreeName) > maxWorktreeWidth {
+			maxWorktreeWidth = len(worktreeName)
+		}
+
+		branchName := git.CleanBranchName(wt.Branch)
+		if len(branchName) > maxBranchWidth {
+			maxBranchWidth = len(branchName)
+		}
+
+		if verbose && len(wt.Path) > maxPathWidth {
+			maxPathWidth = len(wt.Path)
+		}
+	}
+
+	// Fixed widths for status and activity columns
+	statusWidth := 20   // STATUS column needs space for symbols and counts
+	activityWidth := 10 // ACTIVITY column ("2d ago", etc)
+	reservedWidth := statusWidth + activityWidth
+
+	if verbose {
+		reservedWidth += maxPathWidth
+	}
+
+	flexibleWidth := availableWidth - reservedWidth
+	if flexibleWidth < 10 {
+		// Not enough space for flexible columns
+		return ColumnWidths{}
+	}
+
+	// Distribute flexible width between worktree and branch columns
+	worktreeRatio := 0.4 // 40% for worktree names
+	branchRatio := 0.6   // 60% for branch names (often longer)
+
+	worktreeWidth := int(float64(flexibleWidth) * worktreeRatio)
+	branchWidth := int(float64(flexibleWidth) * branchRatio)
+
+	// Apply minimum and maximum constraints
+	if worktreeWidth < 8 {
+		worktreeWidth = 8
+	}
+	if branchWidth < 10 {
+		branchWidth = 10
+	}
+
+	// Don't truncate if natural width is reasonable
+	if maxWorktreeWidth <= worktreeWidth+5 {
+		worktreeWidth = 0 // No truncation needed
+	}
+	if maxBranchWidth <= branchWidth+5 {
+		branchWidth = 0 // No truncation needed
+	}
+
+	pathWidth := 0
+	if verbose && maxPathWidth > 40 {
+		pathWidth = 40 // Reasonable default for paths
+	}
+
+	return ColumnWidths{
+		Worktree: worktreeWidth,
+		Branch:   branchWidth,
+		Status:   0, // Status column doesn't need truncation
+		Activity: 0, // Activity column is naturally short
+		Path:     pathWidth,
+	}
 }
 
 // displayTable creates and prints the lipgloss table.
