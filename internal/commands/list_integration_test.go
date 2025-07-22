@@ -54,9 +54,9 @@ func TestListCommandWithRealGitRepo(t *testing.T) {
 	err = git.CreateGitFile(tempDir, bareDir)
 	require.NoError(t, err)
 
-	// Create main worktree
+	// Create main worktree with a new branch name to avoid conflicts
 	mainWorktreeDir := filepath.Join(tempDir, "main")
-	_, err = git.ExecuteGit("worktree", "add", "-b", "main", mainWorktreeDir)
+	_, err = git.ExecuteGit("worktree", "add", "-b", "main-worktree", mainWorktreeDir)
 	require.NoError(t, err)
 
 	// Test that list command works with single worktree
@@ -104,9 +104,9 @@ func TestListCommandWithMultipleWorktrees(t *testing.T) {
 	err = git.CreateGitFile(tempDir, bareDir)
 	require.NoError(t, err)
 
-	// Create main worktree
+	// Create main worktree with a new branch name to avoid conflicts
 	mainWorktreeDir := filepath.Join(tempDir, "main")
-	_, err = git.ExecuteGit("worktree", "add", "-b", "main", mainWorktreeDir)
+	_, err = git.ExecuteGit("worktree", "add", "-b", "main-worktree", mainWorktreeDir)
 	require.NoError(t, err)
 
 	// Create feature worktree with some files
@@ -235,13 +235,8 @@ func TestListCommandWithComplexBranchNames(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Create bare repository
-	bareDir := filepath.Join(tempDir, ".bare")
-	err = git.InitBare(bareDir)
-	require.NoError(t, err)
-
-	// Create .git file pointing to bare repo
-	err = git.CreateGitFile(tempDir, bareDir)
+	// Create a normal git repository first, then convert to Grove structure
+	_, err = git.ExecuteGit("init")
 	require.NoError(t, err)
 
 	// Create initial commit
@@ -253,6 +248,15 @@ func TestListCommandWithComplexBranchNames(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
+	require.NoError(t, err)
+
+	// Now convert to Grove structure by moving .git to .bare
+	err = os.Rename(filepath.Join(tempDir, ".git"), filepath.Join(tempDir, ".bare"))
+	require.NoError(t, err)
+
+	// Create .git file pointing to bare repo
+	bareDir := filepath.Join(tempDir, ".bare")
+	err = git.CreateGitFile(tempDir, bareDir)
 	require.NoError(t, err)
 
 	// Test various complex branch name scenarios
@@ -323,13 +327,8 @@ func TestListCommandWithRemoteTracking(t *testing.T) {
 	err = os.Chdir(workDir)
 	require.NoError(t, err)
 
-	// Create bare repository
-	bareDir := filepath.Join(workDir, ".bare")
-	err = git.InitBare(bareDir)
-	require.NoError(t, err)
-
-	// Create .git file pointing to bare repo
-	err = git.CreateGitFile(workDir, bareDir)
+	// Create a normal git repository first, then convert to Grove structure
+	_, err = git.ExecuteGit("init")
 	require.NoError(t, err)
 
 	// Create initial commit
@@ -351,9 +350,18 @@ func TestListCommandWithRemoteTracking(t *testing.T) {
 	_, err = git.ExecuteGit("push", "-u", "origin", "main")
 	require.NoError(t, err)
 
-	// Create main worktree
+	// Now convert to Grove structure by moving .git to .bare
+	err = os.Rename(filepath.Join(workDir, ".git"), filepath.Join(workDir, ".bare"))
+	require.NoError(t, err)
+
+	// Create .git file pointing to bare repo
+	bareDir := filepath.Join(workDir, ".bare")
+	err = git.CreateGitFile(workDir, bareDir)
+	require.NoError(t, err)
+
+	// Create main worktree with a new branch name to avoid conflicts
 	mainWorktreeDir := filepath.Join(workDir, "main")
-	_, err = git.ExecuteGit("worktree", "add", "-b", "main", mainWorktreeDir)
+	_, err = git.ExecuteGit("worktree", "add", "-b", "main-worktree", mainWorktreeDir)
 	require.NoError(t, err)
 
 	// Set up remote tracking for the main worktree
@@ -401,13 +409,8 @@ func TestListCommandCurrentWorktreeDetection(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Create bare repository
-	bareDir := filepath.Join(tempDir, ".bare")
-	err = git.InitBare(bareDir)
-	require.NoError(t, err)
-
-	// Create .git file pointing to bare repo
-	err = git.CreateGitFile(tempDir, bareDir)
+	// Create a normal git repository first, then convert to Grove structure
+	_, err = git.ExecuteGit("init")
 	require.NoError(t, err)
 
 	// Create initial commit
@@ -421,9 +424,18 @@ func TestListCommandCurrentWorktreeDetection(t *testing.T) {
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
 	require.NoError(t, err)
 
+	// Now convert to Grove structure by moving .git to .bare
+	err = os.Rename(filepath.Join(tempDir, ".git"), filepath.Join(tempDir, ".bare"))
+	require.NoError(t, err)
+
+	// Create .git file pointing to bare repo
+	bareDir := filepath.Join(tempDir, ".bare")
+	err = git.CreateGitFile(tempDir, bareDir)
+	require.NoError(t, err)
+
 	// Create multiple worktrees
 	mainWorktreeDir := filepath.Join(tempDir, "main")
-	_, err = git.ExecuteGit("worktree", "add", "-b", "main", mainWorktreeDir)
+	_, err = git.ExecuteGit("worktree", "add", "-b", "main-worktree", mainWorktreeDir)
 	require.NoError(t, err)
 
 	featureWorktreeDir := filepath.Join(tempDir, "feature")
@@ -506,13 +518,8 @@ func TestListCommandValidationErrors(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Create bare repository
-	bareDir := filepath.Join(tempDir, ".bare")
-	err = git.InitBare(bareDir)
-	require.NoError(t, err)
-
-	// Create .git file pointing to bare repo
-	err = git.CreateGitFile(tempDir, bareDir)
+	// Create a normal git repository first, then convert to Grove structure
+	_, err = git.ExecuteGit("init")
 	require.NoError(t, err)
 
 	// Create initial commit
@@ -524,6 +531,15 @@ func TestListCommandValidationErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
+	require.NoError(t, err)
+
+	// Now convert to Grove structure by moving .git to .bare
+	err = os.Rename(filepath.Join(tempDir, ".git"), filepath.Join(tempDir, ".bare"))
+	require.NoError(t, err)
+
+	// Create .git file pointing to bare repo
+	bareDir := filepath.Join(tempDir, ".bare")
+	err = git.CreateGitFile(tempDir, bareDir)
 	require.NoError(t, err)
 
 	t.Run("multiple filter options", func(t *testing.T) {
@@ -562,13 +578,8 @@ func TestListCommandCornerCases(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Create bare repository
-	bareDir := filepath.Join(tempDir, ".bare")
-	err = git.InitBare(bareDir)
-	require.NoError(t, err)
-
-	// Create .git file pointing to bare repo
-	err = git.CreateGitFile(tempDir, bareDir)
+	// Create a normal git repository first, then convert to Grove structure
+	_, err = git.ExecuteGit("init")
 	require.NoError(t, err)
 
 	// Create initial commit
@@ -580,6 +591,15 @@ func TestListCommandCornerCases(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
+	require.NoError(t, err)
+
+	// Now convert to Grove structure by moving .git to .bare
+	err = os.Rename(filepath.Join(tempDir, ".git"), filepath.Join(tempDir, ".bare"))
+	require.NoError(t, err)
+
+	// Create .git file pointing to bare repo
+	bareDir := filepath.Join(tempDir, ".bare")
+	err = git.CreateGitFile(tempDir, bareDir)
 	require.NoError(t, err)
 
 	// Create a worktree with detached HEAD
