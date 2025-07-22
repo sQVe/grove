@@ -99,6 +99,12 @@ func (e *GroveError) WithContext(key string, value interface{}) *GroveError {
 	return e
 }
 
+// WithOperation sets the operation that failed.
+func (e *GroveError) WithOperation(operation string) *GroveError {
+	e.Operation = operation
+	return e
+}
+
 // IsRetryable determines if this error represents a retryable condition.
 func (e *GroveError) IsRetryable() bool {
 	switch e.Code {

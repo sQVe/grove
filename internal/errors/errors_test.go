@@ -1,3 +1,6 @@
+//go:build !integration
+// +build !integration
+
 package errors
 
 import (
@@ -7,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testRepoPath = "/test/repo"
 
 func TestGroveError(t *testing.T) {
 	t.Run("basic error creation", func(t *testing.T) {
@@ -67,7 +72,7 @@ func TestErrorFactoryFunctions(t *testing.T) {
 	})
 
 	t.Run("ErrRepoExists", func(t *testing.T) {
-		path := "/test/repo"
+		path := testRepoPath
 		err := ErrRepoExists(path)
 
 		assert.Equal(t, ErrCodeRepoExists, err.Code)
@@ -164,6 +169,37 @@ func TestWrapFunctions(t *testing.T) {
 		assert.Equal(t, "clone", result.Operation)
 	})
 
+	t.Run("WithOperation method on GroveError", func(t *testing.T) {
+		groveErr := ErrGitOperation("fetch", nil).WithOperation("fetch-retry")
+
+		assert.Equal(t, "fetch-retry", groveErr.Operation)
+		assert.Equal(t, ErrCodeGitOperation, groveErr.Code)
+	})
+
+	t.Run("WithOperation method chaining", func(t *testing.T) {
+		groveErr := ErrGitClone("clone", fmt.Errorf("network timeout")).
+			WithContext("url", "https://github.com/user/repo.git").
+			WithOperation("clone-retry")
+
+		assert.Equal(t, "clone-retry", groveErr.Operation)
+		assert.Equal(t, "https://github.com/user/repo.git", groveErr.Context["url"])
+		assert.Equal(t, ErrCodeGitClone, groveErr.Code)
+	})
+
+	t.Run("WithOperation overwrites previous operation", func(t *testing.T) {
+		groveErr := ErrGitOperation("test", nil).
+			WithOperation("initial").
+			WithOperation("final")
+
+		assert.Equal(t, "final", groveErr.Operation)
+	})
+
+	t.Run("WithOperation with empty string", func(t *testing.T) {
+		groveErr := ErrGitOperation("test", nil).WithOperation("")
+
+		assert.Equal(t, "", groveErr.Operation)
+	})
+
 	t.Run("WithContext on standard error", func(t *testing.T) {
 		standardErr := fmt.Errorf("standard error")
 		withContext := WithContext(standardErr, "key", "value")
@@ -225,7 +261,7 @@ func TestMissingErrorFactoryFunctions(t *testing.T) {
 	})
 
 	t.Run("ErrRepoNotFound", func(t *testing.T) {
-		path := "/test/repo"
+		path := testRepoPath
 		err := ErrRepoNotFound(path)
 
 		assert.Equal(t, ErrCodeRepoNotFound, err.Code)
@@ -235,7 +271,7 @@ func TestMissingErrorFactoryFunctions(t *testing.T) {
 	})
 
 	t.Run("ErrRepoInvalid", func(t *testing.T) {
-		path := "/test/repo"
+		path := testRepoPath
 		reason := "corrupted git database"
 		err := ErrRepoInvalid(path, reason)
 
@@ -248,7 +284,7 @@ func TestMissingErrorFactoryFunctions(t *testing.T) {
 	})
 
 	t.Run("ErrRepoConversion", func(t *testing.T) {
-		path := "/test/repo"
+		path := testRepoPath
 		cause := fmt.Errorf("conversion failed")
 		err := ErrRepoConversion(path, cause)
 
@@ -283,7 +319,7 @@ func TestMissingErrorFactoryFunctions(t *testing.T) {
 	})
 
 	t.Run("ErrGitInit", func(t *testing.T) {
-		path := "/test/repo"
+		path := testRepoPath
 		cause := fmt.Errorf("permission denied")
 		err := ErrGitInit(path, cause)
 
