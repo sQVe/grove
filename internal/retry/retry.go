@@ -62,11 +62,27 @@ type RetryableError interface {
 // ExecuteWithRetry executes the given function with exponential backoff retry.
 // It only retries if the error implements RetryableError and returns true for IsRetryable().
 func ExecuteWithRetry(ctx context.Context, retryConfig RetryConfig, operation func() error) error {
+	return ExecuteWithRetryContext(ctx, retryConfig, func(ctx context.Context) error {
+		return operation()
+	})
+}
+
+// ExecuteWithRetryContext executes the given context-aware function with exponential backoff retry.
+// The operation function receives the context and should respect cancellation.
+// It only retries if the error implements RetryableError and returns true for IsRetryable().
+func ExecuteWithRetryContext(ctx context.Context, retryConfig RetryConfig, operation func(context.Context) error) error {
 	var lastErr error
 
 	for attempt := 1; attempt <= retryConfig.MaxAttempts; attempt++ {
-		// Execute the operation
-		err := operation()
+		// Check context cancellation before each attempt
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("retry operation cancelled before attempt %d: %w", attempt, ctx.Err())
+		default:
+		}
+
+		// Execute the operation with context
+		err := operation(ctx)
 		if err == nil {
 			// Success - log if this was a retry
 			if attempt > 1 {
