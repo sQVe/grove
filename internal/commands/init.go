@@ -50,19 +50,15 @@ pointing to it, allowing the main directory to function as a working directory.`
 			branches, _ := cmd.Flags().GetString("branches")
 
 			if convert && len(args) > 0 {
-				_ = cmd.Usage()
 				return fmt.Errorf("cannot specify arguments when using --convert flag")
 			}
 			if convert && branches != "" {
-				_ = cmd.Usage()
 				return fmt.Errorf("cannot use --branches flag with --convert")
 			}
 			if branches != "" && len(args) == 0 {
-				_ = cmd.Usage()
 				return fmt.Errorf("--branches flag requires a remote URL")
 			}
 			if !convert && len(args) > 1 {
-				_ = cmd.Usage()
 				return fmt.Errorf("too many arguments")
 			}
 			return nil
