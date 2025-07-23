@@ -346,30 +346,27 @@ func TestDisplayPorcelainOutput(t *testing.T) {
 }
 
 func TestNewListCommand(t *testing.T) {
-	cmd := NewListCommand()
+	cmd := NewListCmd()
 
 	assert.NotNil(t, cmd)
-	assert.Equal(t, "list", cmd.Name())
-	assert.False(t, cmd.RequiresConfig())
-	assert.NotNil(t, cmd.Command())
+	assert.Equal(t, "list", cmd.Use)
 }
 
 func TestListCommand_Integration(t *testing.T) {
-	// Test the command integration with the registry
-	cmd := NewListCommand()
+	// Test the command integration
+	cmd := NewListCmd()
 
 	// Verify the command can be created and has the right properties
-	assert.Equal(t, "list", cmd.Name())
-	assert.NotNil(t, cmd.Command())
+	assert.Equal(t, "list", cmd.Use)
+	assert.NotNil(t, cmd)
 
 	// Verify the cobra command has the expected structure
-	cobraCmd := cmd.Command()
-	assert.Equal(t, "list", cobraCmd.Use)
-	assert.NotEmpty(t, cobraCmd.Short)
-	assert.NotEmpty(t, cobraCmd.Long)
+	assert.Equal(t, "list", cmd.Use)
+	assert.NotEmpty(t, cmd.Short)
+	assert.NotEmpty(t, cmd.Long)
 
 	// Test that flags are properly configured
-	flags := cobraCmd.Flags()
+	flags := cmd.Flags()
 	assert.NotNil(t, flags.Lookup("sort"))
 	assert.NotNil(t, flags.Lookup("verbose"))
 	assert.NotNil(t, flags.Lookup("porcelain"))
@@ -623,9 +620,8 @@ func TestRunListCommand_EdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockExecutor := testutils.NewMockGitExecutor()
 			setupWorktreeListMock(mockExecutor, tt.gitResponse, tt.gitError)
-			git.DefaultExecutor = mockExecutor
 
-			err := runListCommand(tt.options)
+			err := runListCommandWithExecutor(mockExecutor, tt.options)
 
 			if tt.wantErr {
 				assert.Error(t, err)
