@@ -10,12 +10,7 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
-// Time duration constants for activity formatting.
-const (
-	hoursPerDay  = 24
-	daysPerWeek  = 7
-	daysPerMonth = 30
-)
+// Time duration constants are now in list_constants.go
 
 // WorktreeFormatter provides shared utilities for formatting worktree information.
 type WorktreeFormatter struct{}
@@ -37,7 +32,7 @@ func (f *WorktreeFormatter) GetWorktreeName(path string) string {
 // FormatActivity formats the last activity timestamp for display.
 func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 	if lastActivity.IsZero() {
-		return "unknown"
+		return ActivityUnknown
 	}
 
 	now := time.Now()
@@ -46,27 +41,27 @@ func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 	if duration < time.Hour {
 		minutes := int(duration.Minutes())
 		if minutes < 1 {
-			return "just now"
+			return ActivityJustNow
 		}
 		return fmt.Sprintf("%dm ago", minutes)
 	}
 
-	if duration < hoursPerDay*time.Hour {
+	if duration < HoursPerDay*time.Hour {
 		hours := int(duration.Hours())
 		return fmt.Sprintf("%dh ago", hours)
 	}
 
-	if duration < daysPerWeek*hoursPerDay*time.Hour {
-		days := int(duration.Hours() / hoursPerDay)
+	if duration < DaysPerWeek*HoursPerDay*time.Hour {
+		days := int(duration.Hours() / HoursPerDay)
 		return fmt.Sprintf("%dd ago", days)
 	}
 
-	if duration < daysPerMonth*hoursPerDay*time.Hour {
-		weeks := int(duration.Hours() / (daysPerWeek * hoursPerDay))
+	if duration < DaysPerMonth*HoursPerDay*time.Hour {
+		weeks := int(duration.Hours() / (DaysPerWeek * HoursPerDay))
 		return fmt.Sprintf("%dw ago", weeks)
 	}
 
-	months := int(duration.Hours() / (daysPerMonth * hoursPerDay))
+	months := int(duration.Hours() / (DaysPerMonth * HoursPerDay))
 	return fmt.Sprintf("%dmo ago", months)
 }
 
@@ -85,34 +80,34 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 	}
 
 	if status.IsClean {
-		info.Symbol = "✓"
-		info.PlainText = "✓"
+		info.Symbol = CleanStatusSymbol
+		info.PlainText = CleanStatusSymbol
 	} else {
 		// Format dirty status with counts
 		var parts []string
 		if status.Modified > 0 {
-			parts = append(parts, strconv.Itoa(status.Modified)+"M")
+			parts = append(parts, strconv.Itoa(status.Modified)+ModifiedIndicator)
 		}
 		if status.Staged > 0 {
-			parts = append(parts, strconv.Itoa(status.Staged)+"S")
+			parts = append(parts, strconv.Itoa(status.Staged)+StagedIndicator)
 		}
 		if status.Untracked > 0 {
-			parts = append(parts, strconv.Itoa(status.Untracked)+"U")
+			parts = append(parts, strconv.Itoa(status.Untracked)+UntrackedIndicator)
 		}
-		info.Symbol = "⚠"
+		info.Symbol = DirtyStatusSymbol
 		info.CountsText = strings.Join(parts, ", ")
-		info.PlainText = "⚠ " + info.CountsText
+		info.PlainText = DirtyStatusSymbol + " " + info.CountsText
 	}
 
 	// Add remote status if available
 	if remote.HasRemote {
 		switch {
 		case remote.Ahead > 0 && remote.Behind > 0:
-			info.RemoteText = fmt.Sprintf("↑%d ↓%d", remote.Ahead, remote.Behind)
+			info.RemoteText = fmt.Sprintf("%s%d %s%d", AheadIndicator, remote.Ahead, BehindIndicator, remote.Behind)
 		case remote.Ahead > 0:
-			info.RemoteText = fmt.Sprintf("↑%d", remote.Ahead)
+			info.RemoteText = fmt.Sprintf("%s%d", AheadIndicator, remote.Ahead)
 		case remote.Behind > 0:
-			info.RemoteText = fmt.Sprintf("↓%d", remote.Behind)
+			info.RemoteText = fmt.Sprintf("%s%d", BehindIndicator, remote.Behind)
 		}
 	}
 
@@ -122,7 +117,7 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 		parts = append(parts, info.RemoteText)
 	}
 	if remote.IsMerged {
-		parts = append(parts, "merged")
+		parts = append(parts, MergedIndicator)
 	}
 	info.FullPlainText = strings.Join(parts, " ")
 
@@ -142,7 +137,7 @@ func (f *WorktreeFormatter) TruncateText(text string, maxWidth int) string {
 	}
 
 	// Need at least 4 characters for "..." + 1 character of content
-	if maxWidth < 4 {
+	if maxWidth < MinTruncationWidth {
 		return text[:maxWidth]
 	}
 
@@ -161,7 +156,7 @@ func (f *WorktreeFormatter) TruncateTextMiddle(text string, maxWidth int) string
 	}
 
 	// Need at least 7 characters for start + "..." + end (minimum 2 chars each side)
-	if maxWidth < 7 {
+	if maxWidth < MinMiddleTruncationWidth {
 		return f.TruncateText(text, maxWidth)
 	}
 
@@ -187,7 +182,7 @@ func (f *WorktreeFormatter) TruncateBranchName(branchName string, maxWidth int) 
 	}
 
 	// For very short widths, just truncate normally
-	if maxWidth < 10 {
+	if maxWidth < MinBranchTruncationWidth {
 		return f.TruncateText(branchName, maxWidth)
 	}
 

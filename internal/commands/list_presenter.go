@@ -9,14 +9,7 @@ import (
 	"github.com/sqve/grove/internal/utils"
 )
 
-// Color theme for table styling.
-var (
-	primaryColor = lipgloss.Color("#8B5CF6")
-	successColor = lipgloss.Color("#059669")
-	warningColor = lipgloss.Color("#D97706")
-	mutedColor   = lipgloss.Color("#9CA3AF")
-	headerColor  = lipgloss.Color("#6B7280")
-)
+// Color theme for table styling (using constants from list_constants.go).
 
 // ColumnWidths contains the calculated maximum widths for table columns.
 type ColumnWidths struct {
@@ -42,7 +35,7 @@ func NewListPresenter() *ListPresenter {
 // DisplayHuman displays worktrees using lipgloss table component with rich styling.
 func (p *ListPresenter) DisplayHuman(worktrees []git.WorktreeInfo, verbose bool) error {
 	if len(worktrees) == 0 {
-		emptyStyle := lipgloss.NewStyle().Foreground(mutedColor).Italic(true)
+		emptyStyle := lipgloss.NewStyle().Foreground(MutedColor).Italic(true)
 		fmt.Println(emptyStyle.Render("No worktrees match the specified criteria"))
 		return nil
 	}
@@ -106,7 +99,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWid
 	// Marker
 	marker := " "
 	if wt.IsCurrent {
-		marker = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render("*")
+		marker = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(CurrentMarker)
 	}
 
 	// Worktree name - apply truncation if needed
@@ -115,7 +108,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWid
 		name = p.formatter.TruncateText(name, colWidths.Worktree)
 	}
 	if wt.IsCurrent {
-		name = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(name)
+		name = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(name)
 	}
 
 	// Branch name - apply smart truncation if needed
@@ -124,7 +117,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWid
 		branch = p.formatter.TruncateBranchName(branch, colWidths.Branch)
 	}
 	if wt.IsCurrent {
-		branch = lipgloss.NewStyle().Foreground(primaryColor).Bold(true).Render(branch)
+		branch = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(branch)
 	}
 
 	// Status with colors and symbols
@@ -152,15 +145,15 @@ func (p *ListPresenter) buildStyledStatus(status git.WorktreeStatus, remote git.
 
 	var result string
 	if statusInfo.IsClean {
-		result = lipgloss.NewStyle().Foreground(successColor).Bold(true).Render(statusInfo.Symbol)
+		result = lipgloss.NewStyle().Foreground(SuccessColor).Bold(true).Render(statusInfo.Symbol)
 	} else {
-		warning := lipgloss.NewStyle().Foreground(warningColor).Bold(true).Render(statusInfo.Symbol)
+		warning := lipgloss.NewStyle().Foreground(WarningColor).Bold(true).Render(statusInfo.Symbol)
 		result = warning + " " + statusInfo.CountsText
 	}
 
 	// Add remote status if available
 	if statusInfo.RemoteText != "" {
-		remoteStyled := lipgloss.NewStyle().Foreground(mutedColor).Render(" " + statusInfo.RemoteText)
+		remoteStyled := lipgloss.NewStyle().Foreground(MutedColor).Render(" " + statusInfo.RemoteText)
 		result += remoteStyled
 	}
 
@@ -173,13 +166,13 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 
 	// Reserve space for table borders and padding
 	// Marker(1) + borders(6) + padding(5*2) = 17 characters minimum
-	minTableWidth := 17
+	minTableWidth := MinTableWidth
 	if verbose {
-		minTableWidth += 12 // Extra border + padding for PATH column
+		minTableWidth = MinTableWidthVerbose // Extra border + padding for PATH column
 	}
 
 	availableWidth := terminalWidth - minTableWidth
-	if availableWidth < 20 {
+	if availableWidth < MinAvailableWidth {
 		// Terminal too narrow for responsive sizing
 		return ColumnWidths{}
 	}
@@ -208,8 +201,8 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	// Fixed widths for status and activity columns
-	statusWidth := 20   // STATUS column needs space for symbols and counts
-	activityWidth := 10 // ACTIVITY column ("2d ago", etc)
+	statusWidth := StatusColumnWidth   // STATUS column needs space for symbols and counts
+	activityWidth := ActivityColumnWidth // ACTIVITY column ("2d ago", etc)
 	reservedWidth := statusWidth + activityWidth
 
 	if verbose {
@@ -217,37 +210,37 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	flexibleWidth := availableWidth - reservedWidth
-	if flexibleWidth < 10 {
+	if flexibleWidth < MinFlexibleWidth {
 		// Not enough space for flexible columns
 		return ColumnWidths{}
 	}
 
 	// Distribute flexible width between worktree and branch columns
-	worktreeRatio := 0.4 // 40% for worktree names
-	branchRatio := 0.6   // 60% for branch names (often longer)
+	worktreeRatio := WorktreeColumnRatio // 40% for worktree names
+	branchRatio := BranchColumnRatio     // 60% for branch names (often longer)
 
 	worktreeWidth := int(float64(flexibleWidth) * worktreeRatio)
 	branchWidth := int(float64(flexibleWidth) * branchRatio)
 
 	// Apply minimum and maximum constraints
-	if worktreeWidth < 8 {
-		worktreeWidth = 8
+	if worktreeWidth < MinWorktreeWidth {
+		worktreeWidth = MinWorktreeWidth
 	}
-	if branchWidth < 10 {
-		branchWidth = 10
+	if branchWidth < MinBranchWidth {
+		branchWidth = MinBranchWidth
 	}
 
 	// Don't truncate if natural width is reasonable
-	if maxWorktreeWidth <= worktreeWidth+5 {
+	if maxWorktreeWidth <= worktreeWidth+TruncationTolerance {
 		worktreeWidth = 0 // No truncation needed
 	}
-	if maxBranchWidth <= branchWidth+5 {
+	if maxBranchWidth <= branchWidth+TruncationTolerance {
 		branchWidth = 0 // No truncation needed
 	}
 
 	pathWidth := 0
-	if verbose && maxPathWidth > 40 {
-		pathWidth = 40 // Reasonable default for paths
+	if verbose && maxPathWidth > DefaultPathColumnWidth {
+		pathWidth = DefaultPathColumnWidth // Reasonable default for paths
 	}
 
 	return ColumnWidths{
@@ -261,11 +254,11 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 
 // displayTable creates and prints the lipgloss table.
 func (p *ListPresenter) displayTable(headers []string, rows [][]string) {
-	headerStyle := lipgloss.NewStyle().Foreground(headerColor).Bold(false)
+	headerStyle := lipgloss.NewStyle().Foreground(HeaderColor).Bold(false)
 
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(lipgloss.NewStyle().Foreground(mutedColor)).
+		BorderStyle(lipgloss.NewStyle().Foreground(MutedColor)).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
 				return headerStyle
