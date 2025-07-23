@@ -189,7 +189,7 @@ func (s *ListService) applyFiltersOptimized(worktrees []git.WorktreeInfo, option
 		wt := &worktrees[i]
 
 		// Apply filters in order of computational cost (cheapest first)
-		
+
 		// 1. Stale filter (requires time comparison - cheapest)
 		if options.StaleOnly {
 			if wt.LastActivity.IsZero() || !wt.LastActivity.Before(staleThreshold) {

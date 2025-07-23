@@ -201,7 +201,7 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	// Fixed widths for status and activity columns
-	statusWidth := StatusColumnWidth   // STATUS column needs space for symbols and counts
+	statusWidth := StatusColumnWidth     // STATUS column needs space for symbols and counts
 	activityWidth := ActivityColumnWidth // ACTIVITY column ("2d ago", etc)
 	reservedWidth := statusWidth + activityWidth
 

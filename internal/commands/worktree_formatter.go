@@ -10,7 +10,7 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
-// Time duration constants are now in list_constants.go
+// Time duration constants are now in list_constants.go.
 
 // WorktreeFormatter provides shared utilities for formatting worktree information.
 type WorktreeFormatter struct{}

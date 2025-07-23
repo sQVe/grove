@@ -6,8 +6,8 @@ import "github.com/charmbracelet/lipgloss"
 
 // Default values for list command options.
 const (
-	DefaultStaleDays    = 30              // Default number of days to consider a worktree stale
-	DefaultSortOption   = SortByActivity  // Default sorting option
+	DefaultStaleDays  = 30             // Default number of days to consider a worktree stale
+	DefaultSortOption = SortByActivity // Default sorting option
 )
 
 // Time duration constants for activity formatting.
@@ -76,7 +76,7 @@ const (
 
 // File count indicators for dirty status.
 const (
-	ModifiedIndicator = "M"
-	StagedIndicator   = "S"
+	ModifiedIndicator  = "M"
+	StagedIndicator    = "S"
 	UntrackedIndicator = "U"
 )

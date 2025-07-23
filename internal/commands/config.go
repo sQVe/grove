@@ -184,7 +184,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 
 	// Validate key
 	if !config.IsValidKey(key) {
-		return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+		return errors.NewGroveError(errors.ErrCodeConfigInvalid,
 			fmt.Sprintf("invalid configuration key: %s", key), nil).
 			WithContext("key", key)
 	}
@@ -223,7 +223,7 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 
 	// Validate key
 	if !config.IsValidKey(key) {
-		return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+		return errors.NewGroveError(errors.ErrCodeConfigInvalid,
 			fmt.Sprintf("invalid configuration key: %s", key), nil).
 			WithContext("key", key)
 	}
@@ -351,7 +351,7 @@ func runConfigReset(cmd *cobra.Command, args []string) error {
 		log.Debug("resetting configuration key", "key", key)
 
 		if !config.IsValidKey(key) {
-			return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+			return errors.NewGroveError(errors.ErrCodeConfigInvalid,
 				fmt.Sprintf("invalid configuration key: %s", key), nil).
 				WithContext("key", key)
 		}
