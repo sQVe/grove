@@ -31,8 +31,8 @@ type ListOptions struct {
 // NewListCmd creates the list command.
 func NewListCmd() *cobra.Command {
 	options := &ListOptions{
-		Sort:      SortByActivity,
-		StaleDays: 30,
+		Sort:      DefaultSortOption,
+		StaleDays: DefaultStaleDays,
 	}
 
 	cmd := &cobra.Command{
@@ -70,20 +70,26 @@ Sorting options: activity (default), name, status`,
 	cmd.Flags().BoolVar(&options.DirtyOnly, "dirty", false, "Show only worktrees with uncommitted changes")
 	cmd.Flags().BoolVar(&options.StaleOnly, "stale", false, "Show only stale worktrees (unused for specified days)")
 	cmd.Flags().BoolVar(&options.CleanOnly, "clean", false, "Show only clean worktrees (no uncommitted changes)")
-	cmd.Flags().IntVar(&options.StaleDays, "days", 30, "Number of days to consider a worktree stale (used with --stale)")
+	cmd.Flags().IntVar(&options.StaleDays, "days", DefaultStaleDays, "Number of days to consider a worktree stale (used with --stale)")
 
 	return cmd
 }
 
 // runListCommand executes the list command with the given options.
 func runListCommand(options *ListOptions) error {
+	return runListCommandWithExecutor(DefaultExecutorProvider.GetExecutor(), options)
+}
+
+// runListCommandWithExecutor executes the list command with the given executor and options.
+// This supports dependency injection for better testability.
+func runListCommandWithExecutor(executor git.GitExecutor, options *ListOptions) error {
 	// Validate input
 	if err := validateListOptions(options); err != nil {
 		return err
 	}
 
-	// Create service with dependency injection for better testability
-	service := NewListService(git.DefaultExecutor)
+	// Create service with injected executor
+	service := NewListService(executor)
 	presenter := NewListPresenter()
 
 	// Get worktrees
