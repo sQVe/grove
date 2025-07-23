@@ -37,17 +37,10 @@ func init() {
 	// Configure logger before running any commands
 	cobra.OnInitialize(initConfig)
 
-	// Register built-in commands
-	if err := commands.RegisterBuiltinCommands(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error registering commands: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Attach all registered commands to root
-	if err := commands.AttachToRoot(rootCmd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error attaching commands: %v\n", err)
-		os.Exit(1)
-	}
+	// Direct command registration - eliminates registry pattern
+	rootCmd.AddCommand(commands.NewInitCmd())
+	rootCmd.AddCommand(commands.NewConfigCmd())
+	rootCmd.AddCommand(commands.NewListCmd())
 
 	// Add completion commands
 	completion.CreateCompletionCommands(rootCmd)
