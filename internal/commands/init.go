@@ -50,16 +50,16 @@ pointing to it, allowing the main directory to function as a working directory.`
 			branches, _ := cmd.Flags().GetString("branches")
 
 			if convert && len(args) > 0 {
-				return fmt.Errorf("cannot specify arguments when using --convert flag")
+				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "cannot specify arguments when using --convert flag", nil)
 			}
 			if convert && branches != "" {
-				return fmt.Errorf("cannot use --branches flag with --convert")
+				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "cannot use --branches flag with --convert", nil)
 			}
 			if branches != "" && len(args) == 0 {
-				return fmt.Errorf("--branches flag requires a remote URL")
+				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "--branches flag requires a remote URL", nil)
 			}
 			if !convert && len(args) > 1 {
-				return fmt.Errorf("too many arguments")
+				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "too many arguments", nil)
 			}
 			return nil
 		},
@@ -183,7 +183,8 @@ func runInitLocal(targetDir string) error {
 	gitPath := filepath.Join(absPath, ".git")
 	log.Debug("checking for existing .git", "path", gitPath)
 	if _, err := os.Stat(gitPath); err == nil {
-		err := fmt.Errorf("directory %s already contains a .git file or directory", absPath)
+		err := errors.ErrRepoExists(absPath).
+			WithContext("conflict", ".git file or directory")
 		log.ErrorOperation("existing .git found", err, "path", gitPath)
 		return err
 	}
@@ -191,7 +192,8 @@ func runInitLocal(targetDir string) error {
 	bareDir := filepath.Join(absPath, ".bare")
 	log.Debug("checking for existing .bare", "path", bareDir)
 	if _, err := os.Stat(bareDir); err == nil {
-		err := fmt.Errorf("directory %s already contains a .bare directory", absPath)
+		err := errors.ErrRepoExists(absPath).
+			WithContext("conflict", ".bare directory")
 		log.ErrorOperation("existing .bare found", err, "path", bareDir)
 		return err
 	}
@@ -220,7 +222,7 @@ func runInitLocal(targetDir string) error {
 }
 
 func runInitRemote(repoURL, branches string) error {
-	return RunInitRemoteWithExecutor(git.DefaultExecutor, repoURL, branches)
+	return RunInitRemoteWithExecutor(DefaultExecutorProvider.GetExecutor(), repoURL, branches)
 }
 
 func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches string) error {
@@ -291,7 +293,7 @@ func validateAndPrepareDirectory() (string, error) {
 
 	for _, entry := range entries {
 		if !utils.IsHidden(entry.Name()) {
-			return "", fmt.Errorf("directory %s is not empty", targetDir)
+			return "", errors.ErrRepoInvalid(targetDir, "directory is not empty")
 		}
 	}
 
@@ -348,7 +350,7 @@ func printSuccessMessage(targetDir, bareDir string) {
 }
 
 func runInitConvert() error {
-	return runInitConvertWithExecutor(git.DefaultExecutor)
+	return runInitConvertWithExecutor(DefaultExecutorProvider.GetExecutor())
 }
 
 func runInitConvertWithExecutor(executor git.GitExecutor) error {
@@ -369,11 +371,13 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	log.Debug("checking repository type", "current_dir", currentDir)
 	if !git.IsTraditionalRepo(currentDir) {
 		if git.IsGroveRepo(currentDir) {
-			err := fmt.Errorf("directory %s is already a Grove repository", currentDir)
+			err := errors.ErrRepoExists(currentDir).
+				WithContext("type", "Grove repository")
 			log.ErrorOperation("already a Grove repository", err, "current_dir", currentDir)
 			return err
 		}
-		err := fmt.Errorf("directory %s does not contain a traditional Git repository (.git directory not found)", currentDir)
+		err := errors.ErrRepoNotFound(currentDir).
+			WithContext("expected", "traditional Git repository (.git directory)")
 		log.ErrorOperation("not a traditional Git repository", err, "current_dir", currentDir)
 		return err
 	}

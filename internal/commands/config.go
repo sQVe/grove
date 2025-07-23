@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/logger"
 )
 
@@ -183,7 +184,9 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 
 	// Validate key
 	if !config.IsValidKey(key) {
-		return fmt.Errorf("invalid configuration key: %s", key)
+		return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+			fmt.Sprintf("invalid configuration key: %s", key), nil).
+			WithContext("key", key)
 	}
 
 	showDefault, _ := cmd.Flags().GetBool("default")
@@ -220,7 +223,9 @@ func runConfigSet(cmd *cobra.Command, args []string) error {
 
 	// Validate key
 	if !config.IsValidKey(key) {
-		return fmt.Errorf("invalid configuration key: %s", key)
+		return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+			fmt.Sprintf("invalid configuration key: %s", key), nil).
+			WithContext("key", key)
 	}
 
 	// Initialize config
@@ -346,7 +351,9 @@ func runConfigReset(cmd *cobra.Command, args []string) error {
 		log.Debug("resetting configuration key", "key", key)
 
 		if !config.IsValidKey(key) {
-			return fmt.Errorf("invalid configuration key: %s", key)
+			return errors.NewGroveError(errors.ErrCodeConfigInvalid, 
+				fmt.Sprintf("invalid configuration key: %s", key), nil).
+				WithContext("key", key)
 		}
 
 		// Initialize config
