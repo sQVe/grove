@@ -108,7 +108,7 @@ func TestInitCommandExistingGitFile(t *testing.T) {
 
 	err = cmd.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already contains a .git file")
+	assert.Contains(t, err.Error(), "repository already exists at")
 }
 
 func TestInitCommandExistingBareDir(t *testing.T) {
@@ -126,7 +126,7 @@ func TestInitCommandExistingBareDir(t *testing.T) {
 
 	err = cmd.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already contains a .bare directory")
+	assert.Contains(t, err.Error(), "repository already exists at")
 }
 
 // Note: Testing the remote clone functionality would require actual network access
@@ -596,7 +596,7 @@ func TestInitCommandConvertFailures(t *testing.T) {
 
 		err = cmd.Execute()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not contain a traditional Git repository")
+		assert.Contains(t, err.Error(), "repository not found at")
 	})
 
 	t.Run("already Grove repo", func(t *testing.T) {
@@ -628,7 +628,7 @@ func TestInitCommandConvertFailures(t *testing.T) {
 
 		err = cmd.Execute()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "is already a Grove repository")
+		assert.Contains(t, err.Error(), "repository already exists at")
 	})
 
 	t.Run("repository with safety issues", func(t *testing.T) {

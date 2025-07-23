@@ -43,7 +43,7 @@ func TestRunInitLocal(t *testing.T) {
 	// Test with existing .git (should fail)
 	err = runInitLocal("")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already contains a .git file or directory")
+	assert.Contains(t, err.Error(), "repository already exists at")
 }
 
 // TestRunInitLocalWithTargetDir tests the runInitLocal function with a target directory
@@ -91,7 +91,7 @@ func TestRunInitConvertWithExecutor(t *testing.T) {
 	// Test conversion of non-traditional repo (should fail)
 	err = runInitConvertWithExecutor(mockExecutor)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not contain a traditional Git repository")
+	assert.Contains(t, err.Error(), "repository not found at")
 }
 
 // TestRunInitConvertAlreadyGrove tests conversion attempt on already converted repository
@@ -122,7 +122,7 @@ func TestRunInitConvertAlreadyGrove(t *testing.T) {
 	// Test conversion of already grove repo (should fail)
 	err = runInitConvertWithExecutor(mockExecutor)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is already a Grove repository")
+	assert.Contains(t, err.Error(), "repository already exists at")
 }
 
 // TestRunInitRouting tests the command argument validation logic
