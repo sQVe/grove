@@ -199,7 +199,7 @@ func RemoveWorktree(executor GitExecutor, worktreePath string) error {
 //   - []WorktreeInfo: List of worktree information
 //   - error: Any error encountered during worktree listing
 func ListWorktrees(executor GitExecutor) ([]WorktreeInfo, error) {
-	output, err := executor.Execute("worktree", "list", "--porcelain")
+	output, err := executor.ExecuteQuiet("worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
@@ -225,7 +225,7 @@ func ListWorktrees(executor GitExecutor) ([]WorktreeInfo, error) {
 //   - []WorktreeInfo: List of worktree information
 //   - error: Any error encountered during worktree listing
 func ListWorktreesFromRepo(executor GitExecutor, repoPath string) ([]WorktreeInfo, error) {
-	output, err := executor.Execute("-C", repoPath, "worktree", "list", "--porcelain")
+	output, err := executor.ExecuteQuiet("-C", repoPath, "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
@@ -244,6 +244,10 @@ func parseAndEnhanceWorktrees(executor GitExecutor, output string) ([]WorktreeIn
 	currentPath, err := getCurrentWorktreePath(executor)
 	if err != nil {
 		// Don't fail the entire operation if we can't determine current path
+		log := logger.WithComponent("worktree_current_path")
+		log.Debug("failed to get current worktree path", 
+			"error", err.Error(),
+			"reason", "continuing without current path information")
 		currentPath = ""
 	}
 
@@ -353,7 +357,7 @@ func getCurrentWorktreePath(executor GitExecutor) (string, error) {
 	}
 
 	// Check if the current directory is a git worktree
-	output, err := executor.Execute("-C", cwd, "rev-parse", "--show-toplevel")
+	output, err := executor.ExecuteQuiet("-C", cwd, "rev-parse", "--show-toplevel")
 	if err != nil {
 		log := logger.WithComponent("worktree")
 		log.Debug("git rev-parse failed, assuming not in git repository",
@@ -424,14 +428,22 @@ func getLastActivity(worktreePath string) (time.Time, error) {
 
 // getWorktreeStatus returns detailed status information for a worktree.
 func getWorktreeStatus(executor GitExecutor, worktreePath string) (WorktreeStatus, error) {
-	// Verify the worktree directory exists and is accessible
-	if _, err := os.Stat(worktreePath); err != nil {
-		return WorktreeStatus{}, fmt.Errorf("worktree directory %s is not accessible: %w", worktreePath, err)
-	}
-
-	// Get git status in porcelain format using -C flag to run from worktree directory
-	output, err := executor.Execute("-C", worktreePath, "status", "--porcelain")
+	// First try to get git status normally
+	output, err := executor.ExecuteQuiet("-C", worktreePath, "status", "--porcelain")
 	if err != nil {
+		// Check if this is the specific "must be run in a work tree" error we're trying to fix
+		errStr := err.Error()
+		if strings.Contains(errStr, "must be run in a work tree") {
+			log := logger.WithComponent("worktree_status")
+			log.Debug("git status failed with 'must be run in a work tree' error", 
+				"path", worktreePath, 
+				"error", errStr,
+				"reason", "returning empty status for invalid worktree")
+			// Return empty status for this specific error instead of failing
+			return WorktreeStatus{IsClean: true}, nil
+		}
+		
+		// For all other errors, return the error as expected
 		return WorktreeStatus{}, fmt.Errorf("failed to get status for worktree %s: %w", worktreePath, err)
 	}
 
@@ -479,21 +491,32 @@ func getRemoteStatus(executor GitExecutor, worktreePath, branchRef string) (Remo
 		branchName = branchRef[11:] // Remove "refs/heads/" prefix
 	}
 
-	// Verify the worktree directory exists and is accessible
-	if _, err := os.Stat(worktreePath); err != nil {
-		return RemoteStatus{}, fmt.Errorf("worktree directory %s is not accessible: %w", worktreePath, err)
-	}
-
 	remote := RemoteStatus{}
 
 	// Check if branch has upstream using -C flag to run from worktree directory
 	// Use ExecuteQuiet since branches without upstream are expected and normal
 	upstreamOutput, err := executor.ExecuteQuiet("-C", worktreePath, "rev-parse", "--abbrev-ref", branchName+"@{upstream}")
+	if err != nil {
+		// Check if this is the specific "must be run in a work tree" error we're trying to fix
+		errStr := err.Error()
+		if strings.Contains(errStr, "must be run in a work tree") {
+			log := logger.WithComponent("remote_status")
+			log.Debug("git rev-parse failed with 'must be run in a work tree' error", 
+				"path", worktreePath, 
+				"branch", branchName,
+				"error", errStr,
+				"reason", "returning empty remote status for invalid worktree")
+			// Return empty remote status for this specific error
+			return RemoteStatus{}, nil
+		}
+		// For all other errors (like no upstream), continue with empty remote (normal behavior)
+	}
+	
 	if err == nil && strings.TrimSpace(upstreamOutput) != "" {
 		remote.HasRemote = true
 
 		// Get ahead/behind counts
-		countOutput, err := executor.Execute("-C", worktreePath, "rev-list", "--count", "--left-right", branchName+"..."+strings.TrimSpace(upstreamOutput))
+		countOutput, err := executor.ExecuteQuiet("-C", worktreePath, "rev-list", "--count", "--left-right", branchName+"..."+strings.TrimSpace(upstreamOutput))
 		if err == nil {
 			parts := strings.Fields(strings.TrimSpace(countOutput))
 			if len(parts) == 2 {

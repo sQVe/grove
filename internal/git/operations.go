@@ -768,7 +768,7 @@ func checkUntrackedFiles(executor GitExecutor) ([]SafetyIssue, error) {
 func checkExistingWorktrees(executor GitExecutor) ([]SafetyIssue, error) {
 	var issues []SafetyIssue
 
-	output, err := executor.Execute("worktree", "list")
+	output, err := executor.ExecuteQuiet("worktree", "list")
 	if err != nil {
 		log := logger.WithComponent("git_operations")
 		log.Debug("git worktree list failed during safety check",
@@ -1154,4 +1154,56 @@ func CreateDefaultWorktree(dir string) error {
 // CreateDefaultWorktreeWithExecutor creates a worktree using the specified executor.
 func CreateDefaultWorktreeWithExecutor(executor GitExecutor, dir string) error {
 	return createProperWorktreeStructure(executor, dir)
+}
+
+// IsValidWorktreeDirectory checks if a directory is a valid Git worktree.
+// It performs basic validation to detect common worktree issues without being overly strict.
+// This function is designed to catch the specific case where .git files point to invalid 
+// locations which causes "fatal: this operation must be run in a work tree" errors.
+func IsValidWorktreeDirectory(worktreePath string) error {
+	if worktreePath == "" {
+		return fmt.Errorf("worktree path cannot be empty")
+	}
+
+	// Check if directory exists - this is the most basic check
+	if stat, err := os.Stat(worktreePath); err != nil {
+		return fmt.Errorf("worktree directory %s does not exist: %w", worktreePath, err)
+	} else if !stat.IsDir() {
+		return fmt.Errorf("worktree path %s is not a directory", worktreePath)
+	}
+
+	// Check if .git file exists
+	gitFilePath := filepath.Join(worktreePath, ".git")
+	gitStat, err := os.Stat(gitFilePath)
+	if err != nil {
+		// No .git file/directory means this isn't a git worktree, but don't fail.
+		// This allows for more flexibility in testing and edge cases.
+		return fmt.Errorf("worktree directory %s missing .git file/directory", worktreePath)
+	}
+
+	// If .git is a directory (traditional repo), it's valid
+	if gitStat.IsDir() {
+		return nil
+	}
+
+	// If .git is a file, perform basic validation of its content
+	gitContent, err := os.ReadFile(gitFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read .git file in %s: %w", worktreePath, err)
+	}
+
+	content := strings.TrimSpace(string(gitContent))
+	if !strings.HasPrefix(content, "gitdir: ") {
+		return fmt.Errorf("invalid .git file format in %s: expected 'gitdir: <path>', got '%s'", 
+			worktreePath, content)
+	}
+
+	// Extract the gitdir path but don't validate its existence for now.
+	// This allows for more flexibility while still catching malformed .git files.
+	gitdirRelPath := strings.TrimPrefix(content, "gitdir: ")
+	if gitdirRelPath == "" {
+		return fmt.Errorf("empty gitdir path in .git file at %s", worktreePath)
+	}
+
+	return nil
 }
