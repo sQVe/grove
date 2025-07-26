@@ -2,19 +2,19 @@
 
 > **This is the unified development roadmap for Grove.** All implementation plans, feature development, and technical improvements are tracked here.
 
-## 🎯 Project Vision
+## 🎯 Project vision
 
 Grove is a fast, intuitive Git worktree management CLI that makes worktrees as simple as switching branches. The development follows a phased approach building from foundation to advanced features.
 
 ---
 
-## 📋 Development Phases
+## 📋 Development phases
 
 ### Phase 1: Foundation (v0.1.0) ✅ **COMPLETE**
 
 **Objective**: Establish robust foundation with core infrastructure and basic commands.
 
-#### ✅ Completed Features
+#### ✅ Completed features
 
 **Repository Management**
 
@@ -55,9 +55,11 @@ grove config reset [key]           # Reset to defaults
 
 ---
 
-### Phase 2: Core Commands (v0.2.0) 🚧 **IN PROGRESS**
+### Phase 2: Core commands (v0.2.0) 🚧 **IN PROGRESS**
 
 **Objective**: Implement essential worktree management commands for daily development workflow.
+
+**Note**: Development focus has shifted to workflow automation system implementation while maintaining Phase 2 objectives.
 
 #### 🚧 Current Sprint
 
@@ -68,12 +70,12 @@ grove config reset [key]           # Reset to defaults
 3. **Core Worktree Commands** - List, create, switch, remove functionality
 4. **Progress Indicators** - User feedback for long-running operations
 
-#### 📅 Planned Deliverables
+#### 📅 Planned deliverables
 
 **Core Worktree Commands**
 | Command | Description | Status |
 |---------|-------------|--------|
-| `grove list` | List all worktrees with status | 📅 Planned |
+| `grove list` | List all worktrees with status | ✅ **COMPLETED** |
 | `grove create <branch> [path]` | Create worktree from branch | 📅 Planned |
 | `grove switch <worktree>` | Switch to worktree directory | 📅 Planned |
 | `grove remove <worktree>` | Remove worktree safely | 📅 Planned |
@@ -81,22 +83,23 @@ grove config reset [key]           # Reset to defaults
 **Enhanced User Experience**
 
 - **Progress Indicators**: Visual feedback for clone, worktree creation, and network operations
-- ✅ **Command Registration Framework**: Systematic command handling with auto-discovery - **COMPLETED**
+- **Command Registration Framework**: Systematic command handling with auto-discovery
 - **Basic Cleanup**: Remove merged/stale worktrees with safety checks
 
 **Technical Improvements**
 
 - ✅ **Mock Consolidation Cleanup**: Remove remaining duplicate mocks
-- ✅ **Command Registration Framework**: Centralized command management with thread safety and validation
+- **Command Registration Framework**: Centralized command management with thread safety and validation
 - **Enhanced Error Messages**: Context-aware error reporting with actionable suggestions
 - **Command Auto-completion**: Basic shell completion for commands and flags
 
-#### 🎯 Success Criteria
+#### 🎯 Success criteria
 
 - [ ] All core worktree commands implemented and tested
 - [ ] Progress indicators working for long operations
-- [x] Command registration framework in place
+- [ ] Command registration framework in place
 - [x] Mock consolidation complete
+- [x] Grove list command implemented and tested
 - [ ] User can manage worktrees through complete CLI workflow
 - [ ] 90%+ test coverage maintained
 
@@ -104,11 +107,11 @@ grove config reset [key]           # Reset to defaults
 
 ---
 
-### Phase 3: Enhanced Features (v0.3.0) 📅 **PLANNED**
+### Phase 3: Enhanced features (v0.3.0) 📅 **PLANNED**
 
 **Objective**: Add advanced features for power users and team workflows.
 
-#### 📋 Feature Scope
+#### 📋 Feature scope
 
 **Enhanced Status & Information**
 
@@ -138,7 +141,7 @@ grove clean --interactive # Interactive cleanup with confirmations
 - Memory usage optimization
 - Parallel operations where safe
 
-#### 🎯 Success Criteria
+#### 🎯 Success criteria
 
 - [ ] Advanced status features provide actionable insights
 - [ ] Shell completion works across all major shells
@@ -150,11 +153,11 @@ grove clean --interactive # Interactive cleanup with confirmations
 
 ---
 
-### Phase 4: Integrations & Polish (v1.0.0) 🔮 **FUTURE**
+### Phase 4: Integrations & polish (v1.0.0) 🔮 **FUTURE**
 
 **Objective**: Professional-grade tool with external integrations and polished UX.
 
-#### 🌟 Advanced Integrations
+#### 🌟 Advanced integrations
 
 **Platform Integrations**
 
@@ -189,7 +192,7 @@ grove tui # Interactive interface with vim-like navigation
 - Integration with CI/CD pipelines
 - Advanced logging and monitoring
 
-#### 🎯 Success Criteria
+#### 🎯 Success criteria
 
 - [ ] External platform integrations working reliably
 - [ ] TUI provides efficient alternative to CLI commands
@@ -201,18 +204,72 @@ grove tui # Interactive interface with vim-like navigation
 
 ---
 
-## 🚀 Current Focus: Phase 2 Implementation
+## 🤖 Workflow automation system
 
-### Immediate Action Items
+**Objective**: Comprehensive development workflow automation for consistent feature development and bug management.
+
+### ✅ Implemented features
+
+**Spec-Driven Development Workflow**
+
+```bash
+/spec-create <feature-name>     # Create new feature specification
+/spec-requirements              # Generate requirements document
+/spec-design                    # Generate design document
+/spec-tasks                     # Generate implementation tasks
+/spec-execute <task-id>         # Execute specific task
+/spec-status                    # Show current spec status
+/spec-list                      # List all specifications
+```
+
+**Bug Management Workflow**
+
+```bash
+/bug-create                     # Create new bug report
+/bug-analyze                    # Analyze existing bug
+/bug-fix                        # Implement bug fix
+/bug-verify                     # Verify bug resolution
+/bug-status                     # Show bug status
+```
+
+**Steering Documents System**
+
+- **product.md**: Product vision and user value propositions
+- **tech.md**: Technical standards and architectural guidelines
+- **structure.md**: Project organization and naming conventions
+
+**Command Generation Infrastructure**
+
+- Cross-platform command generation scripts (Windows/macOS/Linux)
+- Automatic task-specific command creation
+- Template-based document generation
+- Configuration management via `spec-config.json`
+
+**Workflow Features**
+
+- ✅ Sequential phase approval (Requirements → Design → Tasks → Implementation)
+- ✅ Requirement traceability throughout development lifecycle
+- ✅ Code reuse analysis and prioritization
+- ✅ Atomic task execution with completion tracking
+- ✅ Integration with existing codebase patterns
+- ✅ Comprehensive template system for consistent documentation
+
+**Success Criteria**: ✅ Complete workflow automation system operational with 23 command files
+
+---
+
+## 🚀 Current focus: Phase 2 implementation
+
+### Immediate action items
 
 1. ✅ **Complete Mock Consolidation** (30 minutes) - **COMPLETED**
     - ✅ Remove duplicate `MockGitExecutor` in `/internal/git/worktree_test.go` lines 10-49
     - ✅ Update tests to use centralized mock from `/internal/testutils/mocks.go`
 
-2. ✅ **Command Registration Framework** (4 hours) - **COMPLETED**
-    - ✅ Created `/internal/commands/registry.go` for systematic command handling
-    - ✅ Created `/internal/commands/base.go` with common command interface
-    - ✅ Updated `cmd/grove/main.go` to use registry-based command discovery
+2. **Command Registration Framework** (4 hours) - **PLANNED**
+    - Create `/internal/commands/registry.go` for systematic command handling
+    - Create `/internal/commands/base.go` with common command interface
+    - Update `cmd/grove/main.go` to use registry-based command discovery
 
 3. **Build Core Worktree Commands** (2-3 days) - **NEXT PRIORITY**
     - `grove list` - Display worktrees with status, branch, and path information
@@ -225,7 +282,7 @@ grove tui # Interactive interface with vim-like navigation
     - Integrate with git operations for clone, fetch, and worktree creation
     - Add configuration options for progress display preferences
 
-### Development Commands
+### Development commands
 
 ```bash
 # Fast development workflow
@@ -239,22 +296,22 @@ mage ci # Complete CI pipeline
 
 ---
 
-## 📊 Project Metrics
+## 📊 Project metrics
 
 | Metric            | Current | Target (v0.2.0) | Target (v1.0.0) |
 | ----------------- | ------- | --------------- | --------------- |
-| **Test Coverage** | 96.4%   | 90%+            | 95%+            |
-| **Commands**      | 2       | 6               | 15+             |
+| **Test Coverage** | 75.8%   | 90%+            | 95%+            |
+| **Commands**      | 3       | 6               | 15+             |
 | **Platforms**     | 3       | 3               | 3               |
 | **Integrations**  | 0       | 0               | 3+              |
 
 ---
 
-## 🔗 Related Documentation
+## 🔗 Related documentation
 
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development setup and workflows
 - **[README.md](../README.md)** - Project overview and quick start
 
 ---
 
-_Last updated: 2025-07-19 - Phase 1 complete, Phase 2 command registry implemented_
+_Last updated: 2025-07-26 - Phase 1 complete, workflow automation system implemented, grove list command completed_
