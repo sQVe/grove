@@ -241,11 +241,11 @@ func parseWorktreePorcelain(output string) ([]WorktreeInfo, error) {
 
 		switch {
 		case strings.HasPrefix(line, "worktree "):
-			current.Path = line[9:] // Remove "worktree " prefix
+			current.Path = line[9:] // Remove "worktree " prefix.
 		case strings.HasPrefix(line, "HEAD "):
-			current.Head = line[5:] // Remove "HEAD " prefix
+			current.Head = line[5:] // Remove "HEAD " prefix.
 		case strings.HasPrefix(line, "branch "):
-			current.Branch = line[7:] // Remove "branch " prefix, keep full reference
+			current.Branch = line[7:] // Remove "branch " prefix, keep full reference.
 		case line == "bare":
 			isBare = true
 		}
@@ -389,7 +389,7 @@ func getRemoteStatus(executor GitExecutor, worktreePath, branchRef string) (Remo
 	// Extract branch name from full reference (e.g., refs/heads/main -> main).
 	branchName := branchRef
 	if strings.HasPrefix(branchRef, "refs/heads/") {
-		branchName = branchRef[11:] // Remove "refs/heads/" prefix
+		branchName = branchRef[11:] // Remove "refs/heads/" prefix.
 	}
 
 	remote := RemoteStatus{}
@@ -444,18 +444,8 @@ const (
 	refsRemotesPrefix       = "refs/remotes/"
 )
 
-// Supported patterns:
-//   - refs/heads/branch-name -> branch-name (local branches).
-//   - refs/remotes/origin/branch-name -> branch-name (origin remote branches).
-//   - refs/remotes/upstream/branch-name -> branch-name (other remote branches).
-//   - regular branch names remain unchanged.
-//
-// Examples:.
-//
-//	CleanBranchName("refs/heads/main") // returns "main".
-//	CleanBranchName("refs/remotes/origin/feature/auth") // returns "feature/auth".
-//	CleanBranchName("main") // returns "main" (unchanged).
-//	CleanBranchName("") // returns "".
+// Cleans Git branch references by removing standard prefixes.
+// Handles local branches, origin remotes, and other remote references.
 func CleanBranchName(branchRef string) string {
 	if branchRef == "" {
 		return ""

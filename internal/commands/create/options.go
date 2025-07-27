@@ -3,19 +3,19 @@ package create
 type CreateOptions struct {
 	BranchName     string
 	WorktreePath   string
-	BaseBranch     string // Base branch when creating new branches
-	CreateBranch   bool   // Skip prompting when creating new branches
+	BaseBranch     string // Base branch when creating new branches.
+	CreateBranch   bool   // Skip prompting when creating new branches.
 	Force          bool
 	CopyFiles      bool
-	CopyPatterns   []string // Overrides default copy configuration
-	CopyEnv        bool     // Shorthand for common environment file patterns
-	SourceWorktree string   // Override automatic source detection
+	CopyPatterns   []string // Overrides default copy configuration.
+	CopyEnv        bool     // Shorthand for common environment file patterns.
+	SourceWorktree string   // Override automatic source detection.
 }
 
 type CreateResult struct {
 	WorktreePath string
 	BranchName   string
-	WasCreated   bool // Whether branch was newly created vs. existing
+	WasCreated   bool // Whether branch was newly created vs. existing.
 	BaseBranch   string
 	CopiedFiles  int
 }
@@ -23,7 +23,7 @@ type CreateResult struct {
 type BranchInfo struct {
 	Name           string
 	Exists         bool
-	IsRemote       bool // Exists only on remote, requires checkout
+	IsRemote       bool // Exists only on remote, requires checkout.
 	TrackingBranch string
 	RemoteName     string
 }
@@ -31,9 +31,9 @@ type BranchInfo struct {
 type URLBranchInfo struct {
 	RepoURL        string
 	BranchName     string
-	PRNumber       string // For PR/MR URLs
+	PRNumber       string // For PR/MR URLs.
 	Platform       string // github, gitlab, bitbucket, etc.
-	RequiresRemote bool   // Remote must be configured before checkout
+	RequiresRemote bool   // Remote must be configured before checkout.
 }
 
 type WorktreeOptions struct {
@@ -43,7 +43,7 @@ type WorktreeOptions struct {
 
 type CopyOptions struct {
 	ConflictStrategy ConflictStrategy
-	DryRun           bool // Preview mode without actual changes
+	DryRun           bool // Preview mode without actual changes.
 }
 
 type ConflictStrategy string
@@ -56,7 +56,7 @@ const (
 )
 
 type FileConflict struct {
-	Path       string // Relative to worktree root
+	Path       string // Relative to worktree root.
 	SourcePath string
 	TargetPath string
 }

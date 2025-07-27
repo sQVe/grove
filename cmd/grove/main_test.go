@@ -116,7 +116,7 @@ func TestLogLevel(t *testing.T) {
 		{
 			name:     "debug flag",
 			args:     []string{"--debug", "--help"},
-			expected: "", // help output, but we're testing the debug flag is processed
+			expected: "", // help output, but we're testing the debug flag is processed.
 		},
 		{
 			name:     "log-level flag",

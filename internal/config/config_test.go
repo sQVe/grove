@@ -211,7 +211,7 @@ func TestGetDefaultEditor(t *testing.T) {
 	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor = getDefaultEditor()
-	assert.Equal(t, "emacs", editor) // VISUAL has precedence over EDITOR
+	assert.Equal(t, "emacs", editor) // VISUAL has precedence over EDITOR.
 
 	// Falls back to vi when no editor variables set.
 	_ = os.Unsetenv("EDITOR")

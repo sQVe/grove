@@ -123,11 +123,11 @@ func IsGitURL(str string) bool {
 	}
 
 	patterns := []string{
-		patternGitURL,      // Standard Git URLs with .git suffix
-		patternGitHubHTTPS, // GitHub HTTPS URLs
-		patternGitLabHTTPS, // GitLab HTTPS URLs
-		patternGitSSH,      // SSH Git URLs (git@host:repo.git format)
-		patternSSHFull,     // Full SSH URLs (ssh://git@host/repo.git format)
+		patternGitURL, patternGitURL, // Standard Git URLs with .git suffix.
+		patternGitHubHTTPS, patternGitHubHTTPS, // GitHub HTTPS URLs.
+		patternGitLabHTTPS, patternGitLabHTTPS, // GitLab HTTPS URLs.
+		patternGitSSH, patternGitSSH, // SSH Git URLs (git@host:repo.git format).
+		patternSSHFull, patternSSHFull, // Full SSH URLs (ssh://git@host/repo.git format).
 	}
 
 	log.Debug("checking against git URL patterns", "pattern_count", len(patterns))
@@ -156,9 +156,9 @@ func IsGitURL(str string) bool {
 }
 
 type GitURLInfo struct {
-	RepoURL    string // The actual Git repository URL
-	BranchName string // Extracted branch name (if any)
-	PRNumber   string // Pull request number (if any)
+	RepoURL    string // The actual Git repository URL.
+	BranchName string // Extracted branch name (if any).
+	PRNumber   string // Pull request number (if any).
 	Platform   string // Platform name (github, gitlab, etc.)
 }
 

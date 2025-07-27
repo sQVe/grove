@@ -153,7 +153,7 @@ func TestValidateConfig(t *testing.T) {
 				}{
 					MaxAttempts: 0,
 					BaseDelay:   5 * time.Second,
-					MaxDelay:    1 * time.Second, // Invalid: base > max
+					MaxDelay:    1 * time.Second, // Invalid: base > max.
 					Jitter:      true,
 				},
 				Logging: struct {
@@ -172,7 +172,7 @@ func TestValidateConfig(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorCount:  2, // Invalid max_attempts and delay relationship
+			errorCount:  2, // Invalid max_attempts and delay relationship.
 		},
 		{
 			name: "multiple validation errors",
@@ -222,7 +222,7 @@ func TestValidateConfig(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorCount:  14, // Errors across all validation sections
+			errorCount:  14, // Errors across all validation sections.
 		},
 	}
 
@@ -599,7 +599,7 @@ func TestValidateWorktree(t *testing.T) {
 				NamingPattern:    "branch",
 				CleanupThreshold: -1 * time.Hour,
 			},
-			expectErrors: 2, // Negative threshold plus data loss warning
+			expectErrors: 2, // Negative threshold plus data loss warning.
 		},
 		{
 			name: "short cleanup threshold (warning)",
@@ -610,7 +610,7 @@ func TestValidateWorktree(t *testing.T) {
 				NamingPattern:    "branch",
 				CleanupThreshold: 1 * time.Hour,
 			},
-			expectErrors: 1, // Data loss warning below 24h threshold
+			expectErrors: 1, // Data loss warning below 24h threshold.
 		},
 	}
 

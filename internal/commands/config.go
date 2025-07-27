@@ -425,6 +425,8 @@ func parseConfigValue(key, valueStr string) (interface{}, error) {
 	}
 }
 
+// Uses reflection to access config fields dynamically.
+// While complex, this enables generic config access without duplicating field mappings.
 func getConfigValueByKey(cfg *config.Config, key string) interface{} {
 	defer func() {
 		if r := recover(); r != nil {
@@ -449,8 +451,6 @@ func getConfigValueByKey(cfg *config.Config, key string) interface{} {
 	if section == "" || field == "" {
 		return nil
 	}
-
-	// Safe reflection with comprehensive checks.
 	v := reflect.ValueOf(cfg)
 	if !v.IsValid() {
 		return nil

@@ -27,7 +27,7 @@ func TestURLCompletion(t *testing.T) {
 		{
 			name:       "github prefix",
 			toComplete: "github",
-			wantLength: 0, // getURLSuggestions returns empty for simple text
+			wantLength: 0, // getURLSuggestions returns empty for simple text.
 			wantError:  false,
 		},
 		{
@@ -76,7 +76,7 @@ func TestURLAndDirectoryCompletion(t *testing.T) {
 		{
 			name:       "directory-like input",
 			toComplete: "./local",
-			wantDir:    cobra.ShellCompDirectiveDefault, // allows file completion
+			wantDir:    cobra.ShellCompDirectiveDefault, // allows file completion.
 		},
 		{
 			name:       "simple path",

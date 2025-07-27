@@ -657,7 +657,7 @@ func TestBranchValidationIntegration(t *testing.T) {
 				mock.SetSuccessResponse("branch -r", "  origin/main\n  origin/invalid@{branch")
 				return mock
 			},
-			expectEmpty: false, // Should find valid 'main' branch
+			expectEmpty: false, // Should find valid 'main' branch.
 			description: "Should find valid main branch and skip invalid one",
 		},
 		{
@@ -667,7 +667,7 @@ func TestBranchValidationIntegration(t *testing.T) {
 				mock.SetSuccessResponse("branch -r", "  origin/-invalid\n  origin/valid-branch")
 				return mock
 			},
-			expectEmpty: false, // Should find valid 'valid-branch' and skip invalid one
+			expectEmpty: false, // Should find valid 'valid-branch' and skip invalid one.
 			description: "Should skip invalid branch and find valid one",
 		},
 	}

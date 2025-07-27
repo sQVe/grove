@@ -234,7 +234,7 @@ func (r *branchResolver) ResolveRemoteBranch(remoteBranch string) (*BranchInfo, 
 }
 
 func (r *branchResolver) branchExistsLocally(branchName string) (bool, error) {
-	// Get all local and remote branches in one call for better performance
+	// Get all local and remote branches in one call for better performance.
 	output, err := r.executor.ExecuteQuiet("branch", "-a", "--list")
 	if err != nil {
 		return false, err
@@ -243,11 +243,11 @@ func (r *branchResolver) branchExistsLocally(branchName string) (bool, error) {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		// Remove current branch marker (*) and whitespace
+		// Remove current branch marker (*) and whitespace.
 		line = strings.TrimPrefix(line, "* ")
 		line = strings.TrimSpace(line)
-		
-		// Check for exact local branch match (not remote)
+
+		// Check for exact local branch match (not remote).
 		if line == branchName && !strings.HasPrefix(line, "remotes/") {
 			return true, nil
 		}
@@ -268,7 +268,7 @@ func (r *branchResolver) checkRemoteBranch(branchName string) (*BranchInfo, erro
 			continue
 		}
 
-		// Parse remote/branch format
+		// Parse remote/branch format.
 		parts := strings.SplitN(line, "/", 2)
 		if len(parts) == 2 && parts[1] == branchName {
 			return &BranchInfo{
@@ -307,7 +307,7 @@ func (r *branchResolver) createNewBranch(branchName, baseBranch string) error {
 }
 
 func (r *branchResolver) requiresRemoteSetup(repoURL string) bool {
-	// Check if we already have a remote pointing to this URL
+	// Check if we already have a remote pointing to this URL.
 	output, err := r.executor.ExecuteQuiet("remote", "-v")
 	if err != nil {
 		return true // Assume we need setup if we can't check.
@@ -345,13 +345,12 @@ func (r *branchResolver) remoteBranchExists(remoteName, branchName string) (bool
 	return strings.TrimSpace(output) != "", nil
 }
 
-// validateBranchName ensures branch name follows Git naming conventions
 func validateBranchName(name string) error {
 	if name == "" {
 		return fmt.Errorf("branch name cannot be empty")
 	}
 
-	// Git branch name restrictions
+	// Git branch name restrictions.
 	if strings.ContainsAny(name, " \t\n\r\f") {
 		return fmt.Errorf("branch name contains whitespace characters")
 	}
@@ -371,14 +370,13 @@ func validateBranchName(name string) error {
 	return nil
 }
 
-// validateURL performs basic URL validation
 func validateURL(url string) error {
 	if url == "" {
 		return fmt.Errorf("URL cannot be empty")
 	}
 
-	// Basic URL pattern validation
-	urlPattern := regexp.MustCompile(`^https?://[\w\.-]+(/.*)?$`)
+	// Basic URL pattern validation.
+	urlPattern := regexp.MustCompile(`^https?://[\w.-]+(/.*)?$`)
 	if !urlPattern.MatchString(url) {
 		return fmt.Errorf("URL must be a valid HTTP/HTTPS URL")
 	}

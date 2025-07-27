@@ -52,7 +52,7 @@ func getBranchNames(ctx *CompletionContext) ([]string, error) {
 		}
 	} else {
 		log.Debug("skipping remote branch fetch due to network unavailability")
-		remoteErr = nil // Treat offline mode as normal, not an error
+		remoteErr = nil // Treat offline mode as normal, not an error.
 	}
 
 	if localErr != nil && remoteErr != nil {

@@ -20,7 +20,7 @@ func TestGetTerminalWidth(t *testing.T) {
 			name:               "no COLUMNS env var",
 			columnsEnv:         "",
 			expectedMinWidth:   DefaultTerminalWidth,
-			expectedMaxWidth:   300, // reasonable upper bound
+			expectedMaxWidth:   300, // reasonable upper bound.
 			expectDefaultWidth: false,
 		},
 		{

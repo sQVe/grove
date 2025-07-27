@@ -14,7 +14,7 @@ type ColumnWidths struct {
 	Branch   int
 	Status   int
 	Activity int
-	Path     int // Only used in verbose mode
+	Path     int // Only used in verbose mode.
 }
 
 type ListPresenter struct {
@@ -177,8 +177,8 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	// Fixed widths for status and activity columns.
-	statusWidth := StatusColumnWidth     // STATUS column needs space for symbols and counts
-	activityWidth := ActivityColumnWidth // ACTIVITY column ("2d ago", etc)
+	statusWidth := StatusColumnWidth     // STATUS column needs space for symbols and counts.
+	activityWidth := ActivityColumnWidth // ACTIVITY column ("2d ago", etc).
 	reservedWidth := statusWidth + activityWidth
 
 	if verbose {
@@ -191,8 +191,8 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	// Distribute flexible width between worktree and branch columns.
-	worktreeRatio := WorktreeColumnRatio // 40% for worktree names
-	branchRatio := BranchColumnRatio     // 60% for branch names (often longer)
+	worktreeRatio := WorktreeColumnRatio // 40% for worktree names.
+	branchRatio := BranchColumnRatio     // 60% for branch names (often longer).
 
 	worktreeWidth := int(float64(flexibleWidth) * worktreeRatio)
 	branchWidth := int(float64(flexibleWidth) * branchRatio)

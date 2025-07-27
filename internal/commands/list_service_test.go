@@ -105,17 +105,17 @@ func TestListService_SortWorktrees(t *testing.T) {
 		{
 			name:     "Sort by activity",
 			sortBy:   SortByActivity,
-			expected: "/repo/alpha", // Most recent first
+			expected: "/repo/alpha", // Most recent first.
 		},
 		{
 			name:     "Sort by name",
 			sortBy:   SortByName,
-			expected: "/repo/alpha", // Alphabetically first
+			expected: "/repo/alpha", // Alphabetically first.
 		},
 		{
 			name:     "Sort by status",
 			sortBy:   SortByStatus,
-			expected: "/repo/zebra", // Dirty first, then by activity
+			expected: "/repo/zebra", // Dirty first, then by activity.
 		},
 	}
 

@@ -198,9 +198,9 @@ func TestSortWorktrees(t *testing.T) {
 		service.sortWorktrees(sorted, SortByStatus)
 
 		// Sort by status (dirty first, then clean), then by activity within same status.
-		assert.Equal(t, "/repo/alpha", sorted[0].Path) // dirty, most recent
-		assert.Equal(t, "/repo/main", sorted[1].Path)  // clean, more recent than zebra
-		assert.Equal(t, "/repo/zebra", sorted[2].Path) // clean, older
+		assert.Equal(t, "/repo/alpha", sorted[0].Path) // dirty, most recent.
+		assert.Equal(t, "/repo/main", sorted[1].Path)  // clean, more recent than zebra.
+		assert.Equal(t, "/repo/zebra", sorted[2].Path) // clean, older.
 	})
 }
 
@@ -412,7 +412,7 @@ func TestDisplayHumanOutput(t *testing.T) {
 					Path:         "/repo/old",
 					Branch:       "old",
 					IsCurrent:    false,
-					LastActivity: now.Add(-30 * 24 * time.Hour), // 30 days ago
+					LastActivity: now.Add(-30 * 24 * time.Hour), // 30 days ago.
 					Status:       git.WorktreeStatus{IsClean: true},
 					Remote:       git.RemoteStatus{IsMerged: true},
 				},
@@ -465,7 +465,7 @@ func TestDisplayHumanOutput(t *testing.T) {
 					Path:         "/repo/unknown",
 					Branch:       "unknown",
 					IsCurrent:    false,
-					LastActivity: time.Time{}, // Zero time
+					LastActivity: time.Time{}, // Zero time.
 					Status:       git.WorktreeStatus{IsClean: true},
 				},
 			},
@@ -548,7 +548,7 @@ func TestRunListCommand_EdgeCases(t *testing.T) {
 			options:     &ListOptions{Sort: SortByActivity},
 			gitResponse: "invalid\noutput\nformat",
 			gitError:    nil,
-			wantErr:     false, // Should handle gracefully
+			wantErr:     false, // Should handle gracefully.
 		},
 		{
 			name: "stale filter with zero days",
@@ -609,7 +609,7 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 		name      string
 		worktrees []git.WorktreeInfo
 		sortBy    ListSortOption
-		expected  []string // Expected order by path
+		expected  []string // Expected order by path.
 	}{
 		{
 			name:      "empty list",
@@ -632,7 +632,7 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 				{Path: "/repo/second", IsCurrent: true, LastActivity: now.Add(-2 * time.Hour)},
 			},
 			sortBy:   SortByActivity,
-			expected: []string{"/repo/first", "/repo/second"}, // Sort by activity (most recent first)
+			expected: []string{"/repo/first", "/repo/second"}, // Sort by activity (most recent first).
 		},
 		{
 			name: "same activity times - unstable sort",
@@ -641,7 +641,7 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 				{Path: "/repo/alpha", IsCurrent: false, LastActivity: now, Branch: "alpha"},
 			},
 			sortBy:   SortByActivity,
-			expected: []string{"/repo/zebra", "/repo/alpha"}, // Go's sort is not stable for equal elements
+			expected: []string{"/repo/zebra", "/repo/alpha"}, // Go's sort is not stable for equal elements.
 		},
 		{
 			name: "same status (all clean) - unstable sort",
@@ -650,7 +650,7 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 				{Path: "/repo/alpha", IsCurrent: false, Status: git.WorktreeStatus{IsClean: true}, Branch: "alpha", LastActivity: now.Add(-2 * time.Hour)},
 			},
 			sortBy:   SortByStatus,
-			expected: []string{"/repo/zebra", "/repo/alpha"}, // Sorts by activity when status is same
+			expected: []string{"/repo/zebra", "/repo/alpha"}, // Sorts by activity when status is same.
 		},
 		{
 			name: "invalid sort option - no sorting applied",
@@ -659,7 +659,7 @@ func TestSortWorktrees_EdgeCases(t *testing.T) {
 				{Path: "/repo/new", IsCurrent: false, LastActivity: now},
 			},
 			sortBy:   ListSortOption("invalid"),
-			expected: []string{"/repo/old", "/repo/new"}, // Original order preserved
+			expected: []string{"/repo/old", "/repo/new"}, // Original order preserved.
 		},
 	}
 

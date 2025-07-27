@@ -399,7 +399,7 @@ func TestBranchListCompletion(t *testing.T) {
 			if tt.inRepo {
 				mock.SetResponse("rev-parse --git-dir", "", nil)
 				mock.SetResponse("branch --format=%(refname:short)", strings.Join(tt.mockBranches, "\n"), nil)
-				mock.SetResponse("branch -r --format=%(refname:short)", "", nil) // No remote branches for simplicity
+				mock.SetResponse("branch -r --format=%(refname:short)", "", nil) // No remote branches for simplicity.
 			} else {
 				mock.SetResponse("rev-parse --git-dir", "", errors.New("exit 128"))
 			}

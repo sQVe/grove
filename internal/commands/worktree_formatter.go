@@ -192,9 +192,9 @@ type StatusInfo struct {
 	Ahead         int
 	Behind        int
 	IsMerged      bool
-	Symbol        string // ✓ or ⚠
-	CountsText    string // "2M, 1S" etc
-	RemoteText    string // "↑2 ↓1" etc
-	PlainText     string // "⚠ 2M, 1S" etc
-	FullPlainText string // Complete plain text with remote info
+	Symbol        string // ✓ or ⚠.
+	CountsText    string // "2M, 1S" etc.
+	RemoteText    string // "↑2 ↓1" etc.
+	PlainText     string // "⚠ 2M, 1S" etc.
+	FullPlainText string // Complete plain text with remote info.
 }

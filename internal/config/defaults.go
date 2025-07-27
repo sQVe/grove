@@ -24,7 +24,7 @@ func SetDefaults() {
 	viper.SetDefault("logging.format", "text")
 
 	viper.SetDefault("worktree.naming_pattern", "branch")
-	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days
+	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days.
 }
 
 func getDefaultPager() string {

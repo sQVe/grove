@@ -265,7 +265,7 @@ func TestWorktreeNameToBranch(t *testing.T) {
 		{
 			name:         "complex name",
 			worktreeName: "bugfix-user-login-fix-validation",
-			expected:     "bugfix/user/login/fix/validation", // All dashes become slashes
+			expected:     "bugfix/user/login/fix/validation", // All dashes become slashes.
 		},
 		{
 			name:         "empty name",

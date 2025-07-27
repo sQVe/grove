@@ -144,7 +144,7 @@ func TestGetCurrentWorktreePath(t *testing.T) {
 		{
 			name:         "git error",
 			mockError:    fmt.Errorf("not a git repository"),
-			expectedPath: "", // Function returns empty string on error, not an error
+			expectedPath: "", // Function returns empty string on error, not an error.
 		},
 		{
 			name:         "response with whitespace",
@@ -206,9 +206,9 @@ A  file2.txt
 ?? untracked.txt
 ?? another_untracked.txt`,
 			expectedStatus: WorktreeStatus{
-				Modified:  2, // file1.txt (modified), file3.txt (deleted)
-				Staged:    1, // file2.txt (added)
-				Untracked: 2, // untracked.txt, another_untracked.txt
+				Modified:  2, // file1.txt (modified), file3.txt (deleted).
+				Staged:    1, // file2.txt (added).
+				Untracked: 2, // untracked.txt, another_untracked.txt.
 				IsClean:   false,
 			},
 			setupDir: true,
@@ -493,7 +493,7 @@ func TestGetLastActivity_MockFileSystem(t *testing.T) {
 	err = os.WriteFile(testFile1, []byte("content1"), 0o644)
 	require.NoError(t, err)
 
-	time.Sleep(10 * time.Millisecond) // Ensure different timestamps
+	time.Sleep(10 * time.Millisecond) // Ensure different timestamps.
 
 	err = os.WriteFile(testFile2, []byte("content2"), 0o644)
 	require.NoError(t, err)

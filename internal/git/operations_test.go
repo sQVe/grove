@@ -619,7 +619,7 @@ func TestCheckOngoingGitOperations(t *testing.T) {
 			}
 
 			issues, err := checkOngoingGitOperations(mock)
-			require.NoError(t, err) // Function should not return errors
+			require.NoError(t, err) // Function should not return errors.
 			assert.Len(t, issues, tt.expectedIssues)
 
 			if tt.expectedIssues > 0 {

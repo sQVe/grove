@@ -126,7 +126,7 @@ func (s *ListService) findGroveRepository() (string, error) {
 
 func (s *ListService) hasPerformanceOptimizableFilters(options *ListOptions) bool {
 	// Early filtering is beneficial when we have specific filters that can
-	// eliminate worktree, saving us from doing expensive status/activity
+	// eliminate worktrees, saving us from doing expensive status/activity
 	// checks.
 	return options.DirtyOnly || options.StaleOnly || options.CleanOnly
 }

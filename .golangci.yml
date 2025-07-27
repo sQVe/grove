@@ -47,7 +47,7 @@ linters:
     
     godot:
       # Check comment punctuation - start with warnings only
-      scope: toplevel # Only check top-level comments (function/type declarations)
+      scope: all # Check all comments throughout the codebase
       exclude:
         # Allow todo comments without periods
         - "^\\s*//\\s*TODO"

@@ -188,7 +188,7 @@ func TestWithDirectoryChange(t *testing.T) {
 
 		tempDir := t.TempDir()
 		restrictedDir := filepath.Join(tempDir, "restricted")
-		err := os.Mkdir(restrictedDir, 0o000) // No permissions
+		err := os.Mkdir(restrictedDir, 0o000) // No permissions.
 		require.NoError(t, err)
 
 		defer func() {

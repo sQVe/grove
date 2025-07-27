@@ -263,9 +263,9 @@ func TestMockGitExecutor_SetConversionState(t *testing.T) {
 func TestMockGitExecutor_MultipleResponseFormats(t *testing.T) {
 	mock := NewMockGitExecutor()
 
-	mock.SetResponse("status", "clean", nil)                            // string-based
-	mock.SetResponseSlice([]string{"rev-parse", "HEAD"}, "abc123", nil) // slice-based
-	mock.SetSuccessResponse("log", "commit history")                    // convenience method
+	mock.SetResponse("status", "clean", nil)                            // string-based.
+	mock.SetResponseSlice([]string{"rev-parse", "HEAD"}, "abc123", nil) // slice-based.
+	mock.SetSuccessResponse("log", "commit history")                    // convenience method.
 
 	output, err := mock.Execute("status")
 	require.NoError(t, err)

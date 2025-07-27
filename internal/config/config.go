@@ -128,8 +128,8 @@ func SafeWriteConfig() error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	configName := "config" // Default config name
-	configType := "toml"   // Default config type
+	configName := "config" // Default config name.
+	configType := "toml"   // Default config type.
 	configFile := filepath.Join(targetDir, configName+"."+configType)
 
 	// Prevent overwriting existing files in safe write mode.

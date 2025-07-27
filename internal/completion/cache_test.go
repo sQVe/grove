@@ -147,9 +147,9 @@ func TestCompletionCache_Clear(t *testing.T) {
 func TestCompletionCache_CleanupExpired(t *testing.T) {
 	cache := NewCompletionCache()
 
-	cache.Set("key1", []string{"value1"}, time.Hour)        // Long TTL
-	cache.Set("key2", []string{"value2"}, time.Millisecond) // Short TTL
-	cache.Set("key3", []string{"value3"}, time.Hour)        // Long TTL
+	cache.Set("key1", []string{"value1"}, time.Hour)        // Long TTL.
+	cache.Set("key2", []string{"value2"}, time.Millisecond) // Short TTL.
+	cache.Set("key3", []string{"value3"}, time.Hour)        // Long TTL.
 
 	time.Sleep(10 * time.Millisecond)
 

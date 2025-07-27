@@ -58,11 +58,11 @@ const (
 //	  // Handle git not found error.
 //	}.
 type GroveError struct {
-	Code      string                 // Standardized error code (see ErrCode* constants)
-	Message   string                 // Human-readable error message
-	Cause     error                  // Underlying error that caused this error
-	Context   map[string]interface{} // Additional contextual information
-	Operation string                 // The operation that failed
+	Code      string                 // Standardized error code (see ErrCode* constants).
+	Message   string                 // Human-readable error message.
+	Cause     error                  // Underlying error that caused this error.
+	Context   map[string]interface{} // Additional contextual information.
+	Operation string                 // The operation that failed.
 }
 
 func (e *GroveError) Error() string {

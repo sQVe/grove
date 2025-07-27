@@ -15,10 +15,10 @@ import (
 var log = logger.WithComponent("retry")
 
 type RetryConfig struct {
-	MaxAttempts   int           // Maximum number of retry attempts (including initial attempt)
-	BaseDelay     time.Duration // Base delay for exponential backoff
-	MaxDelay      time.Duration // Maximum delay between retries
-	JitterEnabled bool          // Whether to add jitter to prevent thundering herd
+	MaxAttempts   int           // Maximum number of retry attempts (including initial attempt).
+	BaseDelay     time.Duration // Base delay for exponential backoff.
+	MaxDelay      time.Duration // Maximum delay between retries.
+	JitterEnabled bool          // Whether to add jitter to prevent thundering herd.
 }
 
 func DefaultConfig() RetryConfig {
@@ -134,7 +134,7 @@ func isRetryableErrorCode(code string) bool {
 	switch code {
 	case errors.ErrCodeNetworkTimeout,
 		errors.ErrCodeNetworkUnavailable,
-		errors.ErrCodeGitOperation: // Some git operations might be retryable
+		errors.ErrCodeGitOperation: // Some git operations might be retryable.
 		return true
 	case errors.ErrCodeGitClone,
 		errors.ErrCodeInvalidURL,
@@ -158,7 +158,7 @@ func calculateDelay(attempt int, retryConfig RetryConfig) time.Duration {
 
 	// Add jitter if enabled (±25% random variation).
 	if retryConfig.JitterEnabled {
-		jitter := float64(delay) * 0.25 * (rand.Float64()*2 - 1) // -25% to +25%
+		jitter := float64(delay) * 0.25 * (rand.Float64()*2 - 1) // Applies random jitter from -25% to +25%.
 		delay = time.Duration(float64(delay) + jitter)
 
 		// Ensure delay is not negative.

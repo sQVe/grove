@@ -13,8 +13,8 @@ type Logger struct {
 }
 
 type Config struct {
-	Level  string // debug, info, warn, error
-	Format string // text, json
+	Level  string // debug, info, warn, error.
+	Format string // text, json.
 	Output io.Writer
 }
 
