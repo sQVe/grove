@@ -12,28 +12,25 @@ import (
 func WithDirectoryChange(targetDir string, fn func() error) error {
 	log := logger.WithComponent("filesystem")
 
-	// Get current directory
 	originalDir, err := os.Getwd()
 	if err != nil {
 		log.ErrorOperation("failed to get current directory", err)
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Change to target directory
 	if err := os.Chdir(targetDir); err != nil {
 		log.ErrorOperation("failed to change directory", err, "target_dir", targetDir)
 		return fmt.Errorf("failed to change to directory %s: %w", targetDir, err)
 	}
 
-	// Ensure we restore the original directory, even if the operation panics
+	// Ensure we restore the original directory, even if the operation panics.
 	defer func() {
 		if restoreErr := os.Chdir(originalDir); restoreErr != nil {
 			log.ErrorOperation("failed to restore original directory", restoreErr,
 				"original_dir", originalDir, "target_dir", targetDir)
-			// Note: We log the error but don't panic here, as the original operation might have succeeded
+			// Note: We log the error but don't panic here, as the original operation might have succeeded.
 		}
 	}()
 
-	// Execute the function
 	return fn()
 }

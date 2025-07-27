@@ -14,17 +14,14 @@ import (
 )
 
 func TestGlobalLoggerInitialization(t *testing.T) {
-	// Test that global logger is initialized with default config
 	logger := GetGlobalLogger()
 	assert.NotNil(t, logger)
 	assert.NotNil(t, logger.Logger)
 }
 
 func TestSetGlobalLogger(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
-	// Create a new logger
 	var buf bytes.Buffer
 	config := Config{
 		Level:  "debug",
@@ -33,27 +30,21 @@ func TestSetGlobalLogger(t *testing.T) {
 	}
 	newLogger := New(config)
 
-	// Set new global logger
 	SetGlobalLogger(newLogger)
 
-	// Test that the global logger was changed
 	current := GetGlobalLogger()
 	assert.Equal(t, newLogger, current)
 
-	// Test that global functions use new logger
 	Info("test message")
 	output := buf.String()
 	assert.Contains(t, output, `"msg":"test message"`)
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
 func TestConfigure(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
-	// Configure with new settings
 	var buf bytes.Buffer
 	config := Config{
 		Level:  "debug",
@@ -62,17 +53,14 @@ func TestConfigure(t *testing.T) {
 	}
 	Configure(config)
 
-	// Test that configuration was applied
 	Info("test message")
 	output := buf.String()
 	assert.Contains(t, output, `"msg":"test message"`)
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
 func TestGlobalLoggerThreadSafety(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
 	var buf bytes.Buffer
@@ -88,13 +76,11 @@ func TestGlobalLoggerThreadSafety(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
-	// Test concurrent set/get operations
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
 
 			for j := 0; j < operationsPerGoroutine; j++ {
-				// Alternate between setting and getting
 				if j%2 == 0 {
 					testLogger := New(config)
 					SetGlobalLogger(testLogger)
@@ -108,12 +94,10 @@ func TestGlobalLoggerThreadSafety(t *testing.T) {
 
 	wg.Wait()
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
 func TestGlobalLoggerConcurrentLogging(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
 	var buf bytes.Buffer
@@ -130,7 +114,6 @@ func TestGlobalLoggerConcurrentLogging(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
-	// Test concurrent logging operations
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
@@ -146,20 +129,16 @@ func TestGlobalLoggerConcurrentLogging(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify that all messages were logged
 	output := buf.String()
 	assert.Contains(t, output, "debug message")
 	assert.Contains(t, output, "info message")
 	assert.Contains(t, output, "warn message")
 	assert.Contains(t, output, "error message")
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
-// Test a few key global functions work (smoke tests).
 func TestGlobalFunctionsSmoke(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
 	var buf bytes.Buffer
@@ -170,19 +149,16 @@ func TestGlobalFunctionsSmoke(t *testing.T) {
 	}
 	Configure(config)
 
-	// Test basic logging functions
 	Debug("debug message")
 	Info("info message")
 	Warn("warn message")
 	Error("error message")
 
-	// Test operation functions
 	DebugOperation("test-op", "key", "value")
 	InfoOperation("test-op", "key", "value")
 	testErr := errors.New("test error")
 	ErrorOperation("test-op", testErr, "key", "value")
 
-	// Test context functions return loggers
 	opLogger := WithOperation("test-operation")
 	assert.NotNil(t, opLogger)
 	compLogger := WithComponent("test-component")
@@ -190,18 +166,15 @@ func TestGlobalFunctionsSmoke(t *testing.T) {
 	errLogger := WithError(testErr)
 	assert.NotNil(t, errLogger)
 
-	// Just verify we got some output
 	output := buf.String()
 	assert.NotEmpty(t, output)
 	assert.Contains(t, output, "debug message")
 	assert.Contains(t, output, "info message")
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
 func BenchmarkGlobalLoggerConcurrency(b *testing.B) {
-	// Save original logger
 	original := GetGlobalLogger()
 
 	var buf bytes.Buffer
@@ -219,15 +192,13 @@ func BenchmarkGlobalLoggerConcurrency(b *testing.B) {
 		}
 	})
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }
 
 func TestGlobalLoggerRaceCondition(t *testing.T) {
-	// Save original logger
 	original := GetGlobalLogger()
 
-	// This test should be run with -race flag
+	// This test should be run with -race flag.
 	const numGoroutines = 10
 	const iterations = 100
 
@@ -239,7 +210,7 @@ func TestGlobalLoggerRaceCondition(t *testing.T) {
 			defer wg.Done()
 
 			for j := 0; j < iterations; j++ {
-				// Mix of operations that could race
+				// Mix of operations that could race.
 				if j%3 == 0 {
 					var buf bytes.Buffer
 					config := Config{
@@ -260,6 +231,5 @@ func TestGlobalLoggerRaceCondition(t *testing.T) {
 
 	wg.Wait()
 
-	// Restore original logger
 	SetGlobalLogger(original)
 }

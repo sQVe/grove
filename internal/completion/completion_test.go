@@ -110,7 +110,6 @@ func TestCompletionContext_IsInGroveRepo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			ctx := &CompletionContext{
@@ -184,14 +183,12 @@ func TestCreateCompletionCommands(t *testing.T) {
 
 	CreateCompletionCommands(rootCmd)
 
-	// Check that completion command was added
 	completionCmd := findCommand(rootCmd, "completion")
 	if completionCmd == nil {
 		t.Error("completion command not found")
 		return
 	}
 
-	// Check that completion command has correct valid args
 	expectedArgs := []string{"bash", "zsh", "fish", "powershell"}
 	if !equalSlices(completionCmd.ValidArgs, expectedArgs) {
 		t.Errorf("expected valid args %v, got %v", expectedArgs, completionCmd.ValidArgs)
@@ -261,8 +258,6 @@ func TestNewCompletionContext(t *testing.T) {
 	}
 }
 
-// Helper functions.
-
 func equalSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -285,7 +280,6 @@ func findCommand(parent *cobra.Command, name string) *cobra.Command {
 }
 
 func TestCompletionContextWithTimeout_Cancel(t *testing.T) {
-	// Test that cancellation works properly
 	ctx := &CompletionContext{
 		Executor: testutils.NewMockGitExecutor(),
 		Timeout:  100 * time.Millisecond,
@@ -293,7 +287,6 @@ func TestCompletionContextWithTimeout_Cancel(t *testing.T) {
 
 	start := time.Now()
 	_, err := ctx.WithTimeout(func() ([]string, error) {
-		// Sleep longer than timeout
 		time.Sleep(200 * time.Millisecond)
 		return []string{"should not reach here"}, nil
 	})
@@ -309,7 +302,6 @@ func TestCompletionContextWithTimeout_Cancel(t *testing.T) {
 }
 
 func TestCompletionContextWithTimeout_Success(t *testing.T) {
-	// Test that successful completion works
 	ctx := &CompletionContext{
 		Executor: testutils.NewMockGitExecutor(),
 		Timeout:  100 * time.Millisecond,
@@ -328,7 +320,6 @@ func TestCompletionContextWithTimeout_Success(t *testing.T) {
 }
 
 func TestCompletionContext_NetworkAwareness(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
 	ctx := &CompletionContext{
@@ -336,21 +327,17 @@ func TestCompletionContext_NetworkAwareness(t *testing.T) {
 		Timeout:  100 * time.Millisecond,
 	}
 
-	// Test network detection (this is hard to test in unit tests reliably)
-	// We'll test the caching mechanism instead
+	// Test network detection (this is hard to test in unit tests reliably).
+	// We'll test the caching mechanism instead.
 
-	// First call should try to detect network
 	isOnline1 := ctx.IsOnline()
 
-	// Second call should use cache
 	isOnline2 := ctx.IsOnline()
 
-	// Results should be consistent
 	if isOnline1 != isOnline2 {
 		t.Errorf("network state should be consistent, got %v then %v", isOnline1, isOnline2)
 	}
 
-	// Test network operation allowance
 	allowedOp := ctx.IsNetworkOperationAllowed()
 	if allowedOp != isOnline1 {
 		t.Errorf("network operation allowance should match online state, got allowance=%v, online=%v", allowedOp, isOnline1)
@@ -358,7 +345,6 @@ func TestCompletionContext_NetworkAwareness(t *testing.T) {
 }
 
 func TestBranchListCompletion(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
 	tests := []struct {
@@ -407,16 +393,12 @@ func TestBranchListCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
-			// Setup mock executor
 			mock := testutils.NewMockGitExecutor()
 
-			// Mock repository check
 			if tt.inRepo {
 				mock.SetResponse("rev-parse --git-dir", "", nil)
-				// Mock branch commands
 				mock.SetResponse("branch --format=%(refname:short)", strings.Join(tt.mockBranches, "\n"), nil)
 				mock.SetResponse("branch -r --format=%(refname:short)", "", nil) // No remote branches for simplicity
 			} else {
@@ -428,16 +410,13 @@ func TestBranchListCompletion(t *testing.T) {
 				Timeout:  100 * time.Millisecond,
 			}
 
-			// Test the completion function
 			result, directive := BranchListCompletion(ctx, nil, []string{}, tt.toComplete)
 
-			// Check directive
 			expectedDirective := cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
 			if directive != expectedDirective {
 				t.Errorf("expected directive %v, got %v", expectedDirective, directive)
 			}
 
-			// Check results
 			if !equalSlices(result, tt.expected) {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}

@@ -10,17 +10,12 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
-// Time duration constants are now in list_constants.go.
-
-// WorktreeFormatter provides shared utilities for formatting worktree information.
 type WorktreeFormatter struct{}
 
-// NewWorktreeFormatter creates a new WorktreeFormatter.
 func NewWorktreeFormatter() *WorktreeFormatter {
 	return &WorktreeFormatter{}
 }
 
-// GetWorktreeName extracts a display name from the worktree path.
 func (f *WorktreeFormatter) GetWorktreeName(path string) string {
 	name := filepath.Base(path)
 	if name == "." || name == "/" {
@@ -29,7 +24,6 @@ func (f *WorktreeFormatter) GetWorktreeName(path string) string {
 	return name
 }
 
-// FormatActivity formats the last activity timestamp for display.
 func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 	if lastActivity.IsZero() {
 		return ActivityUnknown
@@ -65,8 +59,6 @@ func (f *WorktreeFormatter) FormatActivity(lastActivity time.Time) string {
 	return fmt.Sprintf("%dmo ago", months)
 }
 
-// FormatStatus formats the status information for display (plain text).
-// This consolidates the duplicate logic that was in both displayHumanOutput and formatStatus.
 func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.RemoteStatus) StatusInfo {
 	info := StatusInfo{
 		IsClean:   status.IsClean,
@@ -83,7 +75,6 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 		info.Symbol = CleanStatusSymbol
 		info.PlainText = CleanStatusSymbol
 	} else {
-		// Format dirty status with counts
 		var parts []string
 		if status.Modified > 0 {
 			parts = append(parts, strconv.Itoa(status.Modified)+ModifiedIndicator)
@@ -99,7 +90,6 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 		info.PlainText = DirtyStatusSymbol + " " + info.CountsText
 	}
 
-	// Add remote status if available
 	if remote.HasRemote {
 		switch {
 		case remote.Ahead > 0 && remote.Behind > 0:
@@ -111,7 +101,6 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 		}
 	}
 
-	// Build complete plain text representation
 	parts := []string{info.PlainText}
 	if info.RemoteText != "" {
 		parts = append(parts, info.RemoteText)
@@ -124,9 +113,6 @@ func (f *WorktreeFormatter) FormatStatus(status git.WorktreeStatus, remote git.R
 	return info
 }
 
-// TruncateText truncates text to the specified maximum width with an ellipsis.
-// If the text is shorter than maxWidth, it's returned unchanged.
-// For longer text, it truncates and adds "..." while respecting the maxWidth limit.
 func (f *WorktreeFormatter) TruncateText(text string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
@@ -136,7 +122,7 @@ func (f *WorktreeFormatter) TruncateText(text string, maxWidth int) string {
 		return text
 	}
 
-	// Need at least 4 characters for "..." + 1 character of content
+	// Need at least 4 characters for "..." + 1 character of content.
 	if maxWidth < MinTruncationWidth {
 		return text[:maxWidth]
 	}
@@ -144,8 +130,6 @@ func (f *WorktreeFormatter) TruncateText(text string, maxWidth int) string {
 	return text[:maxWidth-3] + "..."
 }
 
-// TruncateTextMiddle truncates text in the middle to preserve both start and end.
-// This is useful for paths and branch names where both the prefix and suffix matter.
 func (f *WorktreeFormatter) TruncateTextMiddle(text string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
@@ -155,7 +139,7 @@ func (f *WorktreeFormatter) TruncateTextMiddle(text string, maxWidth int) string
 		return text
 	}
 
-	// Need at least 7 characters for start + "..." + end (minimum 2 chars each side)
+	// Need at least 7 characters for start + "..." + end (minimum 2 chars each side).
 	if maxWidth < MinMiddleTruncationWidth {
 		return f.TruncateText(text, maxWidth)
 	}
@@ -163,15 +147,13 @@ func (f *WorktreeFormatter) TruncateTextMiddle(text string, maxWidth int) string
 	ellipsis := "..."
 	availableChars := maxWidth - len(ellipsis)
 
-	// Split available characters between start and end, favoring the start slightly
+	// Split available characters between start and end, favoring the start slightly.
 	startChars := (availableChars + 1) / 2
 	endChars := availableChars - startChars
 
 	return text[:startChars] + ellipsis + text[len(text)-endChars:]
 }
 
-// TruncateBranchName intelligently truncates branch names while preserving meaningful parts.
-// It handles common patterns like "feature/description" by preserving the namespace.
 func (f *WorktreeFormatter) TruncateBranchName(branchName string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
@@ -181,29 +163,26 @@ func (f *WorktreeFormatter) TruncateBranchName(branchName string, maxWidth int) 
 		return branchName
 	}
 
-	// For very short widths, just truncate normally
 	if maxWidth < MinBranchTruncationWidth {
 		return f.TruncateText(branchName, maxWidth)
 	}
 
-	// Look for common branch patterns with slashes (e.g., feature/description)
+	// Look for common branch patterns with slashes (e.g., feature/description).
 	if slashIndex := strings.IndexByte(branchName, '/'); slashIndex != -1 && slashIndex < maxWidth-4 {
-		// Try to preserve the prefix (namespace) and truncate the suffix
-		prefix := branchName[:slashIndex+1] // Include the slash
+		// Try to preserve the prefix (namespace) and truncate the suffix.
+		prefix := branchName[:slashIndex+1]
 		suffix := branchName[slashIndex+1:]
 
 		remainingWidth := maxWidth - len(prefix)
-		if remainingWidth >= 4 { // Need space for at least "..."
+		if remainingWidth >= 4 {
 			truncatedSuffix := f.TruncateText(suffix, remainingWidth)
 			return prefix + truncatedSuffix
 		}
 	}
 
-	// Fall back to middle truncation for long names without clear structure
 	return f.TruncateTextMiddle(branchName, maxWidth)
 }
 
-// StatusInfo contains formatted status information that can be styled differently for various outputs.
 type StatusInfo struct {
 	IsClean       bool
 	Modified      int

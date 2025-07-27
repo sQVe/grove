@@ -14,20 +14,18 @@ import (
 
 // DetectDefaultBranch detects the default branch for a repository using a multi-tier fallback strategy.
 //
-// The detection follows this priority order:
-// 1. Local remote HEAD cache (fast, no network)
-// 2. Current branch (for conversion scenarios)
-// 3. Remote symbolic reference (network, fast)
-// 4. Remote show command (network, comprehensive)
-// 5. Common branch pattern matching (heuristic)
-// 6. First remote branch (last resort)
-// 7. Hard-coded "main" (absolute fallback)
+// The detection follows this priority order:.
+// 1. Local remote HEAD cache (fast, no network).
+// 2. Current branch (for conversion scenarios).
+// 3. Remote symbolic reference (network, fast).
+// 4. Remote show command (network, comprehensive).
+// 5. Common branch pattern matching (heuristic).
+// 6. First remote branch (last resort).
+// 7. Hard-coded "main" (absolute fallback).
 //
-// Parameters:
+// Parameters:.
 // - executor: GitExecutor interface for running git commands
-// - remoteName: Name of the remote to query (e.g., "origin", "upstream")
-//
-// Returns the detected default branch name and any error encountered.
+// - remoteName: Name of the remote to query (e.g., "origin", "upstream").
 func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error) {
 	log := logger.WithComponent("default_branch")
 	start := time.Now()
@@ -37,7 +35,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 		"tiers", []string{"local_cache", "current_branch", "remote_symref", "remote_show", "common_patterns", "first_remote", "fallback"},
 	)
 
-	// Tier 1: Fast local detection
+	// Tier 1: Fast local detection.
 	log.Debug("tier 1: checking local remote HEAD cache", "remote", remoteName)
 	if branch := checkLocalRemoteHead(executor, log, remoteName); branch != "" {
 		log.Debug("default branch detected via local remote HEAD",
@@ -61,7 +59,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	}
 	log.Debug("tier 1: current branch check failed")
 
-	// Tier 2: Network-based detection (with timeout)
+	// Tier 2: Network-based detection (with timeout).
 	log.Debug("tier 2: starting network-based detection", "timeout", "5s")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -90,7 +88,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	}
 	log.Debug("tier 2: remote show check failed")
 
-	// Tier 3: Heuristic fallback
+	// Tier 3: Heuristic fallback.
 	log.Debug("tier 3: trying heuristic fallback methods")
 	log.Debug("tier 3: checking common branch patterns", "remote", remoteName)
 	if branch := findCommonBranchPattern(executor, log, remoteName); branch != "" {
@@ -116,7 +114,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	}
 	log.Debug("tier 3: first remote branch check failed")
 
-	// Tier 4: Hard-coded default
+	// Tier 4: Hard-coded default.
 	log.Debug("tier 4: using hard-coded default fallback")
 	log.Warn("default branch detection exhausted all methods, using fallback",
 		"branch", "main",
@@ -127,20 +125,18 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	return "main", nil
 }
 
-// isValidBranchName validates a branch name according to Git's check-ref-format rules.
-// Returns true if the branch name is valid for use as a Git branch name.
 //
-// Git branch name rules:
-// - Cannot contain ASCII control characters (< 0x20 or 0x7F DEL), space, ~, ^, :
-// - Cannot contain ?, *, [
-// - Cannot contain two consecutive dots (..)
-// - Cannot begin or end with /
-// - Cannot contain multiple consecutive slashes
+// Git branch name rules:.
+// - Cannot contain ASCII control characters (< 0x20 or 0x7F DEL), space, ~, ^, :.
+// - Cannot contain ?, *, [.
+// - Cannot contain two consecutive dots (..).
+// - Cannot begin or end with /.
+// - Cannot contain multiple consecutive slashes.
 // - Cannot end with .
-// - Cannot contain sequence @{
-// - Cannot be single character @
+// - Cannot contain sequence @{.
+// - Cannot be single character @.
 // - Cannot contain backslash \
-// - Cannot begin with a dash - (branch-specific rule)
+// - Cannot begin with a dash - (branch-specific rule).
 // - Should not be empty or contain only whitespace.
 func isValidBranchName(log *logger.Logger, name string) bool {
 	if name == "" {
@@ -148,64 +144,55 @@ func isValidBranchName(log *logger.Logger, name string) bool {
 		return false
 	}
 
-	// Trim whitespace and check if empty
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" || trimmed != name {
 		log.Debug("branch name validation failed: contains leading/trailing whitespace", "name", name)
 		return false // Contains leading/trailing whitespace
 	}
 
-	// Cannot be single character @
 	if name == "@" {
 		log.Debug("branch name validation failed: single @ character", "name", name)
 		return false
 	}
 
-	// Cannot begin with dash (branch-specific rule)
 	if strings.HasPrefix(name, "-") {
 		log.Debug("branch name validation failed: begins with dash", "name", name)
 		return false
 	}
 
-	// Cannot begin or end with /
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
 		log.Debug("branch name validation failed: begins or ends with slash", "name", name)
 		return false
 	}
 
-	// Cannot end with .
 	if strings.HasSuffix(name, ".") {
 		log.Debug("branch name validation failed: ends with dot", "name", name)
 		return false
 	}
 
-	// Cannot contain .. (consecutive dots)
 	if strings.Contains(name, "..") {
 		log.Debug("branch name validation failed: contains consecutive dots", "name", name)
 		return false
 	}
 
-	// Cannot contain @{
 	if strings.Contains(name, "@{") {
 		log.Debug("branch name validation failed: contains @{ sequence", "name", name)
 		return false
 	}
 
-	// Cannot contain multiple consecutive slashes
 	if strings.Contains(name, "//") {
 		log.Debug("branch name validation failed: contains consecutive slashes", "name", name)
 		return false
 	}
 
-	// Check for forbidden characters using regex
-	// ASCII control chars (< 0x20), DEL (0x7F), space, ~, ^, :, ?, *, [, \
+	// ASCII control chars (< 0x20), DEL (0x7F), space, ~, ^, :, ?, *, [, \.
 	forbiddenChars := regexp.MustCompile(`[\x00-\x1F\x7F ~^:?*\[\\]`)
 	if forbiddenChars.MatchString(name) {
 		log.Debug("branch name validation failed: contains forbidden characters", "name", name)
 		return false
 	}
 
-	// Additional check: no slash-separated component can begin with . or end with .lock
+	// Additional check: no slash-separated component can begin with . or end with .lock.
 	components := strings.Split(name, "/")
 	for _, component := range components {
 		if component == "" {
@@ -225,7 +212,6 @@ func isValidBranchName(log *logger.Logger, name string) bool {
 	return true
 }
 
-// checkLocalRemoteHead checks if the local remote HEAD is set and returns the branch name.
 func checkLocalRemoteHead(executor GitExecutor, log *logger.Logger, remoteName string) string {
 	refPath := fmt.Sprintf("refs/remotes/%s/HEAD", remoteName)
 	log.Debug("checking local remote HEAD", "ref_path", refPath)
@@ -236,7 +222,7 @@ func checkLocalRemoteHead(executor GitExecutor, log *logger.Logger, remoteName s
 		return ""
 	}
 
-	// Output format: refs/remotes/{remote}/main
+	// Output format: refs/remotes/{remote}/main.
 	trimmed := strings.TrimSpace(output)
 	log.Debug("git symbolic-ref output", "output", trimmed)
 
@@ -257,7 +243,6 @@ func checkLocalRemoteHead(executor GitExecutor, log *logger.Logger, remoteName s
 	return ""
 }
 
-// checkCurrentBranch returns the currently checked out branch.
 // This is useful for conversion scenarios where we want to preserve the user's current context.
 func checkCurrentBranch(executor GitExecutor, log *logger.Logger) string {
 	log.Debug("checking current branch")
@@ -285,9 +270,7 @@ func checkCurrentBranch(executor GitExecutor, log *logger.Logger) string {
 	return ""
 }
 
-// checkRemoteSymref queries the remote for its symbolic reference to HEAD.
 func checkRemoteSymref(executor GitExecutor, log *logger.Logger, ctx context.Context, remoteName string) string {
-	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
 		log.Debug("context already cancelled for remote symref check")
@@ -301,14 +284,14 @@ func checkRemoteSymref(executor GitExecutor, log *logger.Logger, ctx context.Con
 	err := retry.ExecuteWithRetry(ctx, retry.GetConfig(), func() error {
 		result, err := executor.ExecuteWithContext(ctx, "ls-remote", "--symref", remoteName, "HEAD")
 		if err != nil {
-			// Classify error for retry logic
+			// Classify error for retry logic.
 			if isNetworkError(err) {
 				return errors.ErrNetworkTimeout("ls-remote", err)
 			}
 			if isAuthError(err) {
 				return errors.ErrAuthenticationFailed("ls-remote", err)
 			}
-			// Default to git operation error (retryable)
+			// Default to git operation error (retryable).
 			return errors.ErrGitOperation("ls-remote", err)
 		}
 		output = result
@@ -321,12 +304,12 @@ func checkRemoteSymref(executor GitExecutor, log *logger.Logger, ctx context.Con
 
 	log.Debug("git ls-remote --symref output", "output", output)
 
-	// Parse output like: "ref: refs/heads/main	HEAD"
+	// Parse output like: "ref: refs/heads/main	HEAD".
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
 		log.Debug("parsing symref line", "line", line)
 		if strings.HasPrefix(line, "ref: refs/heads/") {
-			// Extract branch name from "ref: refs/heads/main	HEAD"
+			// Extract branch name from "ref: refs/heads/main	HEAD".
 			parts := strings.Fields(line)
 			if len(parts) >= 2 && parts[0] == "ref:" {
 				ref := parts[1]
@@ -349,7 +332,6 @@ func checkRemoteSymref(executor GitExecutor, log *logger.Logger, ctx context.Con
 
 // checkRemoteShow uses git remote show to get comprehensive remote information.
 func checkRemoteShow(executor GitExecutor, log *logger.Logger, ctx context.Context, remoteName string) string {
-	// Check if context is already cancelled
 	select {
 	case <-ctx.Done():
 		log.Debug("context already cancelled for remote show check")
@@ -363,14 +345,14 @@ func checkRemoteShow(executor GitExecutor, log *logger.Logger, ctx context.Conte
 	err := retry.ExecuteWithRetry(ctx, retry.GetConfig(), func() error {
 		result, err := executor.ExecuteWithContext(ctx, "remote", "show", remoteName)
 		if err != nil {
-			// Classify error for retry logic
+			// Classify error for retry logic.
 			if isNetworkError(err) {
 				return errors.ErrNetworkTimeout("remote show", err)
 			}
 			if isAuthError(err) {
 				return errors.ErrAuthenticationFailed("remote show", err)
 			}
-			// Default to git operation error (retryable)
+			// Default to git operation error (retryable).
 			return errors.ErrGitOperation("remote show", err)
 		}
 		output = result
@@ -383,7 +365,7 @@ func checkRemoteShow(executor GitExecutor, log *logger.Logger, ctx context.Conte
 
 	log.Debug("git remote show output", "output", output)
 
-	// Look for "HEAD branch: main" in the output
+	// Look for "HEAD branch: main" in the output.
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -414,14 +396,13 @@ func findCommonBranchPattern(executor GitExecutor, log *logger.Logger, remoteNam
 
 	log.Debug("git branch -r output", "output", output)
 
-	// Common branch names in order of preference
+	// Common branch names in order of preference.
 	commonBranches := []string{"main", "master", "develop", "trunk"}
 	log.Debug("searching for common branch patterns", "patterns", commonBranches)
 
 	lines := strings.Split(output, "\n")
 	branches := make([]string, 0)
 
-	// Extract branch names from remote branches
 	remotePrefix := remoteName + "/"
 	log.Debug("extracting remote branches", "remote_prefix", remotePrefix)
 	for _, line := range lines {
@@ -435,7 +416,6 @@ func findCommonBranchPattern(executor GitExecutor, log *logger.Logger, remoteNam
 
 	log.Debug("all remote branches discovered", "branches", branches, "count", len(branches))
 
-	// Check for common branch names in preference order
 	for _, commonBranch := range commonBranches {
 		log.Debug("checking for common pattern", "pattern", commonBranch)
 		for _, branch := range branches {
@@ -450,7 +430,6 @@ func findCommonBranchPattern(executor GitExecutor, log *logger.Logger, remoteNam
 	return ""
 }
 
-// getFirstRemoteBranch returns the first available remote branch as a last resort.
 func getFirstRemoteBranch(executor GitExecutor, log *logger.Logger, remoteName string) string {
 	log.Debug("running git branch -r for first branch fallback")
 	output, err := executor.Execute("branch", "-r")

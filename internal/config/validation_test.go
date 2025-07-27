@@ -623,15 +623,12 @@ func TestValidateWorktree(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	// Reset viper for clean test
 	viper.Reset()
 	SetDefaults()
 
-	// Test with valid configuration
 	err := Validate()
 	assert.NoError(t, err)
 
-	// Test with invalid configuration
 	Set("logging.level", "invalid")
 	err = Validate()
 	assert.Error(t, err)
@@ -676,7 +673,6 @@ func TestIsValidKey(t *testing.T) {
 func TestGetValidKeys(t *testing.T) {
 	keys := GetValidKeys()
 
-	// Check that all expected keys are present
 	expectedKeys := []string{
 		"general.editor",
 		"general.pager",
@@ -721,7 +717,6 @@ func TestValidationErrors(t *testing.T) {
 	assert.Contains(t, errorMsg, "message1")
 	assert.Contains(t, errorMsg, "message2")
 
-	// Test empty errors
 	emptyErrors := ValidationErrors{}
 	assert.Equal(t, "no validation errors", emptyErrors.Error())
 }

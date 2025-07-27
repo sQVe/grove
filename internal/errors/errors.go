@@ -5,7 +5,6 @@ import (
 	"fmt"
 )
 
-// Error codes for programmatic handling.
 const (
 	// System errors.
 	ErrCodeGitNotFound     = "GIT_NOT_FOUND"
@@ -46,21 +45,18 @@ const (
 	ErrCodeAuthenticationFailed = "AUTHENTICATION_FAILED"
 )
 
-// GroveError represents a standardized error with code and context.
+//   - Code: standardized error code for programmatic handling.
+//   - Message: human-readable error description.
+//   - Cause: underlying error that caused this error (optional).
+//   - Context: additional contextual information as key-value pairs.
+//   - Operation: the operation that failed (optional).
 //
-// GroveError provides structured error handling for Grove operations with:
-//   - Code: standardized error code for programmatic handling
-//   - Message: human-readable error description
-//   - Cause: underlying error that caused this error (optional)
-//   - Context: additional contextual information as key-value pairs
-//   - Operation: the operation that failed (optional)
-//
-// Example usage:
+// Example usage:.
 //
 //	err := ErrGitNotFound(nil).WithContext("path", "/usr/bin")
-//	if IsGroveError(err, ErrCodeGitNotFound) {
-//	  // Handle git not found error
-//	}
+//	if IsGroveError(err, ErrCodeGitNotFound) {.
+//	  // Handle git not found error.
+//	}.
 type GroveError struct {
 	Code      string                 // Standardized error code (see ErrCode* constants)
 	Message   string                 // Human-readable error message
@@ -69,7 +65,6 @@ type GroveError struct {
 	Operation string                 // The operation that failed
 }
 
-// Error implements the error interface.
 func (e *GroveError) Error() string {
 	if e.Cause != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Cause)
@@ -77,12 +72,10 @@ func (e *GroveError) Error() string {
 	return e.Message
 }
 
-// Unwrap returns the underlying error.
 func (e *GroveError) Unwrap() error {
 	return e.Cause
 }
 
-// Is checks if the error matches the target error code.
 func (e *GroveError) Is(target error) bool {
 	if t, ok := target.(*GroveError); ok {
 		return e.Code == t.Code
@@ -90,7 +83,6 @@ func (e *GroveError) Is(target error) bool {
 	return false
 }
 
-// WithContext adds context information to the error.
 func (e *GroveError) WithContext(key string, value interface{}) *GroveError {
 	if e.Context == nil {
 		e.Context = make(map[string]interface{})
@@ -99,13 +91,11 @@ func (e *GroveError) WithContext(key string, value interface{}) *GroveError {
 	return e
 }
 
-// WithOperation sets the operation that failed.
 func (e *GroveError) WithOperation(operation string) *GroveError {
 	e.Operation = operation
 	return e
 }
 
-// IsRetryable determines if this error represents a retryable condition.
 func (e *GroveError) IsRetryable() bool {
 	switch e.Code {
 	case ErrCodeNetworkTimeout,
@@ -118,16 +108,15 @@ func (e *GroveError) IsRetryable() bool {
 		ErrCodeSecurityViolation:
 		return false
 	case ErrCodeGitOperation:
-		// Git operations might be retryable depending on the underlying error
-		// For now, we'll make them retryable and let the retry logic decide
+		// Git operations might be retryable depending on the underlying error.
+		// For now, we'll make them retryable and let the retry logic decide.
 		return true
 	default:
-		// Conservative approach: unknown errors are not retryable
+		// Conservative approach: unknown errors are not retryable.
 		return false
 	}
 }
 
-// NewGroveError creates a new standardized error.
 func NewGroveError(code, message string, cause error) *GroveError {
 	return &GroveError{
 		Code:    code,
@@ -137,7 +126,6 @@ func NewGroveError(code, message string, cause error) *GroveError {
 	}
 }
 
-// NewGroveErrorf creates a new standardized error with formatted message.
 func NewGroveErrorf(code string, cause error, format string, args ...interface{}) *GroveError {
 	return &GroveError{
 		Code:    code,
@@ -147,9 +135,6 @@ func NewGroveErrorf(code string, cause error, format string, args ...interface{}
 	}
 }
 
-// Error factory functions for common error types.
-
-// System errors.
 func ErrGitNotFound(cause error) *GroveError {
 	return NewGroveError(ErrCodeGitNotFound, "git is not available in PATH", cause)
 }
@@ -164,7 +149,6 @@ func ErrFileSystem(operation string, cause error) *GroveError {
 		WithContext("operation", operation)
 }
 
-// Repository errors.
 func ErrRepoExists(path string) *GroveError {
 	return NewGroveErrorf(ErrCodeRepoExists, nil, "repository already exists at: %s", path).
 		WithContext("path", path)
@@ -186,7 +170,6 @@ func ErrRepoConversion(path string, cause error) *GroveError {
 		WithContext("path", path)
 }
 
-// Git operation errors.
 func ErrGitOperation(operation string, cause error) *GroveError {
 	return NewGroveErrorf(ErrCodeGitOperation, cause, "git %s failed", operation).
 		WithContext("operation", operation)
@@ -207,7 +190,6 @@ func ErrGitWorktree(operation string, cause error) *GroveError {
 		WithContext("operation", operation)
 }
 
-// URL and parsing errors.
 func ErrInvalidURL(url, reason string) *GroveError {
 	return NewGroveErrorf(ErrCodeInvalidURL, nil, "invalid URL %s: %s", url, reason).
 		WithContext("url", url).
@@ -224,7 +206,6 @@ func ErrUnsupportedURL(url string) *GroveError {
 		WithContext("url", url)
 }
 
-// Security errors.
 func ErrPathTraversal(path string) *GroveError {
 	return NewGroveErrorf(ErrCodePathTraversal, nil, "path contains directory traversal: %s", path).
 		WithContext("path", path)
@@ -236,7 +217,6 @@ func ErrSecurityViolation(operation, reason string) *GroveError {
 		WithContext("reason", reason)
 }
 
-// Network errors.
 func ErrNetworkTimeout(operation string, cause error) *GroveError {
 	return NewGroveErrorf(ErrCodeNetworkTimeout, cause, "network timeout during %s", operation).
 		WithContext("operation", operation)
@@ -247,13 +227,11 @@ func ErrNetworkUnavailable(operation string, cause error) *GroveError {
 		WithContext("operation", operation)
 }
 
-// Authentication errors.
 func ErrAuthenticationFailed(operation string, cause error) *GroveError {
 	return NewGroveErrorf(ErrCodeAuthenticationFailed, cause, "authentication failed during %s", operation).
 		WithContext("operation", operation)
 }
 
-// Helper function to check if an error is a specific Grove error.
 func IsGroveError(err error, code string) bool {
 	var groveErr *GroveError
 	if errors.As(err, &groveErr) {
@@ -262,7 +240,6 @@ func IsGroveError(err error, code string) bool {
 	return false
 }
 
-// Helper function to get Grove error code from any error.
 func GetErrorCode(err error) string {
 	var groveErr *GroveError
 	if errors.As(err, &groveErr) {
@@ -271,7 +248,6 @@ func GetErrorCode(err error) string {
 	return ""
 }
 
-// Helper function to get error context.
 func GetErrorContext(err error) map[string]interface{} {
 	var groveErr *GroveError
 	if errors.As(err, &groveErr) {

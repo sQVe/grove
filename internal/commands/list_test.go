@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// mockGitExecutor sets up a mock git executor and returns a cleanup function.
 // This encapsulates the common pattern of saving/restoring git.DefaultExecutor.
 func mockGitExecutor() (mockExecutor *testutils.MockGitExecutor, cleanup func()) {
 	originalExecutor := git.DefaultExecutor
@@ -27,16 +26,13 @@ func mockGitExecutor() (mockExecutor *testutils.MockGitExecutor, cleanup func())
 	return mockExecutor, cleanup
 }
 
-// setupWorktreeListMock sets up a regex-based mock for worktree list commands
-// that works regardless of the actual .bare directory path.
+// Sets up a regex-based mock for worktree list commands which works regardless of the actual .bare directory path.
 func setupWorktreeListMock(mockExecutor *testutils.MockGitExecutor, output string, err error) {
-	// Pattern matches: -C <any_path>/.bare worktree list --porcelain
+	// Pattern matches: -C <any_path>/.bare worktree list --porcelain.
 	pattern := regexp.MustCompile(`^-C .+/\.bare worktree list --porcelain$`)
 	mockExecutor.SetResponsePattern(pattern, output, err)
 }
 
-// withMockedWorktreeList sets up a complete mock git executor with worktree list mock
-// and returns a cleanup function. This is the most convenient helper for list command tests.
 func withMockedWorktreeList(output string, err error) func() {
 	mockExecutor, cleanup := mockGitExecutor()
 	setupWorktreeListMock(mockExecutor, output, err)
@@ -51,7 +47,6 @@ func TestNewListCmd(t *testing.T) {
 	assert.Contains(t, cmd.Short, "List all worktrees")
 	assert.Contains(t, cmd.Long, "List all Git worktrees")
 
-	// Test flags are present
 	assert.NotNil(t, cmd.Flags().Lookup("sort"))
 	assert.NotNil(t, cmd.Flags().Lookup("verbose"))
 	assert.NotNil(t, cmd.Flags().Lookup("porcelain"))
@@ -86,19 +81,19 @@ func TestApplyFilters(t *testing.T) {
 		{
 			Path:         "/repo/main",
 			Branch:       "main",
-			LastActivity: now.AddDate(0, 0, -1), // 1 day ago
+			LastActivity: now.AddDate(0, 0, -1),
 			Status:       git.WorktreeStatus{IsClean: true},
 		},
 		{
 			Path:         "/repo/feature",
 			Branch:       "feature/test",
-			LastActivity: now.AddDate(0, 0, -5), // 5 days ago
+			LastActivity: now.AddDate(0, 0, -5),
 			Status:       git.WorktreeStatus{Modified: 2, IsClean: false},
 		},
 		{
 			Path:         "/repo/old",
 			Branch:       "old/branch",
-			LastActivity: now.AddDate(0, 0, -35), // 35 days ago (stale)
+			LastActivity: now.AddDate(0, 0, -35),
 			Status:       git.WorktreeStatus{IsClean: true},
 		},
 	}
@@ -151,23 +146,23 @@ func TestSortWorktrees(t *testing.T) {
 		{
 			Path:         "/repo/zebra",
 			Branch:       "zebra",
-			LastActivity: now.AddDate(0, 0, -5), // 5 days ago
+			LastActivity: now.AddDate(0, 0, -5),
 			Status:       git.WorktreeStatus{IsClean: true},
 			IsCurrent:    false,
 		},
 		{
 			Path:         "/repo/alpha",
 			Branch:       "alpha",
-			LastActivity: now.AddDate(0, 0, -1), // 1 day ago (most recent)
+			LastActivity: now.AddDate(0, 0, -1),
 			Status:       git.WorktreeStatus{Modified: 1, IsClean: false},
 			IsCurrent:    false,
 		},
 		{
 			Path:         "/repo/main",
 			Branch:       "main",
-			LastActivity: now.AddDate(0, 0, -3), // 3 days ago
+			LastActivity: now.AddDate(0, 0, -3),
 			Status:       git.WorktreeStatus{IsClean: true},
-			IsCurrent:    true, // Current worktree
+			IsCurrent:    true,
 		},
 	}
 
@@ -178,7 +173,6 @@ func TestSortWorktrees(t *testing.T) {
 		service := &ListService{}
 		service.sortWorktrees(sorted, SortByActivity)
 
-		// Sort by most recent activity (alpha is 1 day ago, main is 3 days ago, zebra is 5 days ago)
 		assert.Equal(t, "/repo/alpha", sorted[0].Path)
 		assert.Equal(t, "/repo/main", sorted[1].Path)
 		assert.Equal(t, "/repo/zebra", sorted[2].Path)
@@ -191,7 +185,6 @@ func TestSortWorktrees(t *testing.T) {
 		service := &ListService{}
 		service.sortWorktrees(sorted, SortByName)
 
-		// Sort alphabetically by path
 		assert.Equal(t, "/repo/alpha", sorted[0].Path)
 		assert.Equal(t, "/repo/main", sorted[1].Path)
 		assert.Equal(t, "/repo/zebra", sorted[2].Path)
@@ -204,7 +197,7 @@ func TestSortWorktrees(t *testing.T) {
 		service := &ListService{}
 		service.sortWorktrees(sorted, SortByStatus)
 
-		// Sort by status (dirty first, then clean), then by activity within same status
+		// Sort by status (dirty first, then clean), then by activity within same status.
 		assert.Equal(t, "/repo/alpha", sorted[0].Path) // dirty, most recent
 		assert.Equal(t, "/repo/main", sorted[1].Path)  // clean, more recent than zebra
 		assert.Equal(t, "/repo/zebra", sorted[2].Path) // clean, older
@@ -254,16 +247,6 @@ func TestValidateListOptions(t *testing.T) {
 	}
 }
 
-func TestFormatStatus(t *testing.T) {
-	// This functionality is now in WorktreeFormatter and tested in worktree_formatter_test.go
-	t.Skip("Test moved to worktree_formatter_test.go")
-}
-
-func TestFormatActivity(t *testing.T) {
-	// This functionality is now in WorktreeFormatter and tested in worktree_formatter_test.go
-	t.Skip("Test moved to worktree_formatter_test.go")
-}
-
 func TestRunListCommand_ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -300,7 +283,6 @@ func TestRunListCommand_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Mock the git executor to avoid actual git calls
 			mockExecutor, cleanup := mockGitExecutor()
 			defer cleanup()
 			setupWorktreeListMock(mockExecutor, "", nil)
@@ -324,7 +306,7 @@ func TestDisplayPorcelainOutput(t *testing.T) {
 			Branch:       "main",
 			Head:         "abc123",
 			IsCurrent:    true,
-			LastActivity: time.Unix(1609459200, 0), // Jan 1, 2021
+			LastActivity: time.Unix(1609459200, 0),
 			Status:       git.WorktreeStatus{IsClean: true},
 			Remote:       git.RemoteStatus{HasRemote: true, Ahead: 1},
 		},
@@ -337,12 +319,9 @@ func TestDisplayPorcelainOutput(t *testing.T) {
 		},
 	}
 
-	// Capture output (in a real test environment, you might use a buffer)
 	presenter := NewListPresenter()
 	err := presenter.DisplayPorcelain(worktrees)
 	assert.NoError(t, err)
-
-	// For a more thorough test, you could capture stdout and verify the exact output format
 }
 
 func TestNewListCommand(t *testing.T) {
@@ -353,19 +332,15 @@ func TestNewListCommand(t *testing.T) {
 }
 
 func TestListCommand_Integration(t *testing.T) {
-	// Test the command integration
 	cmd := NewListCmd()
 
-	// Verify the command can be created and has the right properties
 	assert.Equal(t, "list", cmd.Use)
 	assert.NotNil(t, cmd)
 
-	// Verify the cobra command has the expected structure
 	assert.Equal(t, "list", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotEmpty(t, cmd.Long)
 
-	// Test that flags are properly configured
 	flags := cmd.Flags()
 	assert.NotNil(t, flags.Lookup("sort"))
 	assert.NotNil(t, flags.Lookup("verbose"))
@@ -376,16 +351,13 @@ func TestListCommand_Integration(t *testing.T) {
 	assert.NotNil(t, flags.Lookup("days"))
 }
 
-// Mock test to verify the command handles empty worktree list.
 func TestListCommand_EmptyWorktrees(t *testing.T) {
-	// Setup mock executor
 	defer withMockedWorktreeList("", nil)()
 
 	options := &ListOptions{Sort: SortByActivity}
 	err := runListCommand(options)
 
 	assert.NoError(t, err)
-	// In a real test, you might capture stdout to verify "No worktrees found" is printed
 }
 
 func TestDisplayHumanOutput(t *testing.T) {
@@ -517,7 +489,6 @@ func TestDisplayHumanOutput(t *testing.T) {
 }
 
 func TestDisplayHumanOutput_ColumnWidthCalculation(t *testing.T) {
-	// Test that column widths are calculated correctly for various input sizes
 	worktrees := []git.WorktreeInfo{
 		{
 			Path:         "/repo/short",
@@ -535,18 +506,15 @@ func TestDisplayHumanOutput_ColumnWidthCalculation(t *testing.T) {
 		},
 	}
 
-	// This test mainly verifies that the function handles extreme column widths without errors
 	presenter := NewListPresenter()
 	err := presenter.DisplayHuman(worktrees, false)
 	assert.NoError(t, err)
 
-	// Test verbose mode as well
 	err = presenter.DisplayHuman(worktrees, true)
 	assert.NoError(t, err)
 }
 
 func TestDisplayHumanOutput_EmptyWorktreesMessage(t *testing.T) {
-	// Test that empty worktrees shows appropriate message
 	presenter := NewListPresenter()
 	err := presenter.DisplayHuman([]git.WorktreeInfo{}, false)
 	assert.NoError(t, err)
@@ -556,7 +524,6 @@ func TestDisplayHumanOutput_EmptyWorktreesMessage(t *testing.T) {
 }
 
 func TestRunListCommand_EdgeCases(t *testing.T) {
-	// Save original executor
 	originalExecutor := git.DefaultExecutor
 	defer func() { git.DefaultExecutor = originalExecutor }()
 

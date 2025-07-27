@@ -6,34 +6,32 @@ import (
 	"github.com/spf13/viper"
 )
 
-// SetDefaults sets all default configuration values.
 func SetDefaults() {
-	// General defaults
+	// General defaults.
 	viper.SetDefault("general.editor", getDefaultEditor())
 	viper.SetDefault("general.pager", getDefaultPager())
 	viper.SetDefault("general.output_format", "text")
 
-	// Git defaults
+	// Git defaults.
 	viper.SetDefault("git.default_remote", "origin")
 	viper.SetDefault("git.fetch_timeout", 30*time.Second)
 	viper.SetDefault("git.max_retries", 3)
 
-	// Retry defaults (matching existing retry system)
+	// Retry defaults (matching existing retry system).
 	viper.SetDefault("retry.max_attempts", 3)
 	viper.SetDefault("retry.base_delay", 1*time.Second)
 	viper.SetDefault("retry.max_delay", 10*time.Second)
 	viper.SetDefault("retry.jitter_enabled", true)
 
-	// Logging defaults (matching existing logger)
+	// Logging defaults (matching existing logger).
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "text")
 
-	// Worktree defaults
+	// Worktree defaults.
 	viper.SetDefault("worktree.naming_pattern", "branch")
 	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days
 }
 
-// getDefaultPager returns the default pager based on environment.
 func getDefaultPager() string {
 	if pager := viper.GetString("PAGER"); pager != "" {
 		return pager
@@ -41,12 +39,9 @@ func getDefaultPager() string {
 	return "less"
 }
 
-// DefaultConfig returns a Config struct with all default values.
 func DefaultConfig() *Config {
-	// Create a temporary viper instance to get defaults
 	v := viper.New()
 
-	// Set defaults on the temporary instance
 	v.SetDefault("general.editor", getDefaultEditor())
 	v.SetDefault("general.pager", getDefaultPager())
 	v.SetDefault("general.output_format", "text")
@@ -68,7 +63,7 @@ func DefaultConfig() *Config {
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
-		// This should never happen with defaults, but handle gracefully
+		// This should never happen with defaults, but handle gracefully.
 		return &Config{
 			General: struct {
 				Editor       string `mapstructure:"editor"`
@@ -118,22 +113,18 @@ func DefaultConfig() *Config {
 	return &config
 }
 
-// ValidLogLevels returns the valid log levels.
 func ValidLogLevels() []string {
 	return []string{"debug", "info", "warn", "error"}
 }
 
-// ValidOutputFormats returns the valid output formats.
 func ValidOutputFormats() []string {
 	return []string{"text", "json"}
 }
 
-// ValidLogFormats returns the valid log formats.
 func ValidLogFormats() []string {
 	return []string{"text", "json"}
 }
 
-// ValidNamingPatterns returns the valid worktree naming patterns.
 func ValidNamingPatterns() []string {
 	return []string{"branch", "slug", "timestamp"}
 }

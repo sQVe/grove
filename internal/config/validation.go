@@ -7,22 +7,18 @@ import (
 	"time"
 )
 
-// ValidationError represents a configuration validation error.
 type ValidationError struct {
 	Field   string
 	Value   interface{}
 	Message string
 }
 
-// Error implements the error interface.
 func (e ValidationError) Error() string {
 	return fmt.Sprintf("config validation error for field '%s': %s (value: %v)", e.Field, e.Message, e.Value)
 }
 
-// ValidationErrors represents multiple validation errors.
 type ValidationErrors []ValidationError
 
-// Error implements the error interface.
 func (e ValidationErrors) Error() string {
 	if len(e) == 0 {
 		return "no validation errors"
@@ -35,7 +31,6 @@ func (e ValidationErrors) Error() string {
 	return fmt.Sprintf("configuration validation failed:\n%s", strings.Join(messages, "\n"))
 }
 
-// Validate validates the current configuration.
 func Validate() error {
 	config, err := Get()
 	if err != nil {
@@ -45,31 +40,25 @@ func Validate() error {
 	return ValidateConfig(config)
 }
 
-// ValidateConfig validates a configuration struct.
 func ValidateConfig(config *Config) error {
 	var errors ValidationErrors
 
-	// Validate general configuration
 	if err := validateGeneral(&config.General); err != nil {
 		errors = append(errors, err...)
 	}
 
-	// Validate git configuration
 	if err := validateGit(&config.Git); err != nil {
 		errors = append(errors, err...)
 	}
 
-	// Validate retry configuration
 	if err := validateRetry(&config.Retry); err != nil {
 		errors = append(errors, err...)
 	}
 
-	// Validate logging configuration
 	if err := validateLogging(&config.Logging); err != nil {
 		errors = append(errors, err...)
 	}
 
-	// Validate worktree configuration
 	if err := validateWorktree(&config.Worktree); err != nil {
 		errors = append(errors, err...)
 	}
@@ -81,7 +70,6 @@ func ValidateConfig(config *Config) error {
 	return nil
 }
 
-// validateGeneral validates general configuration.
 func validateGeneral(config *struct {
 	Editor       string `mapstructure:"editor"`
 	Pager        string `mapstructure:"pager"`
@@ -90,7 +78,6 @@ func validateGeneral(config *struct {
 ) ValidationErrors {
 	var errors ValidationErrors
 
-	// Validate editor
 	if config.Editor == "" {
 		errors = append(errors, ValidationError{
 			Field:   "general.editor",
@@ -99,7 +86,6 @@ func validateGeneral(config *struct {
 		})
 	}
 
-	// Validate pager
 	if config.Pager == "" {
 		errors = append(errors, ValidationError{
 			Field:   "general.pager",
@@ -108,7 +94,6 @@ func validateGeneral(config *struct {
 		})
 	}
 
-	// Validate output format
 	validFormats := ValidOutputFormats()
 	if !slices.Contains(validFormats, config.OutputFormat) {
 		errors = append(errors, ValidationError{
@@ -121,7 +106,6 @@ func validateGeneral(config *struct {
 	return errors
 }
 
-// validateGit validates git configuration.
 func validateGit(config *struct {
 	DefaultRemote string        `mapstructure:"default_remote"`
 	FetchTimeout  time.Duration `mapstructure:"fetch_timeout"`
@@ -130,7 +114,6 @@ func validateGit(config *struct {
 ) ValidationErrors {
 	var errors ValidationErrors
 
-	// Validate default remote
 	if config.DefaultRemote == "" {
 		errors = append(errors, ValidationError{
 			Field:   "git.default_remote",
@@ -139,7 +122,6 @@ func validateGit(config *struct {
 		})
 	}
 
-	// Validate fetch timeout
 	if config.FetchTimeout <= 0 {
 		errors = append(errors, ValidationError{
 			Field:   "git.fetch_timeout",
@@ -156,7 +138,6 @@ func validateGit(config *struct {
 		})
 	}
 
-	// Validate max retries
 	if config.MaxRetries < 0 {
 		errors = append(errors, ValidationError{
 			Field:   "git.max_retries",
@@ -176,7 +157,6 @@ func validateGit(config *struct {
 	return errors
 }
 
-// validateRetry validates retry configuration.
 func validateRetry(config *struct {
 	MaxAttempts int           `mapstructure:"max_attempts"`
 	BaseDelay   time.Duration `mapstructure:"base_delay"`
@@ -186,7 +166,6 @@ func validateRetry(config *struct {
 ) ValidationErrors {
 	var errors ValidationErrors
 
-	// Validate max attempts
 	if config.MaxAttempts < 1 {
 		errors = append(errors, ValidationError{
 			Field:   "retry.max_attempts",
@@ -203,7 +182,6 @@ func validateRetry(config *struct {
 		})
 	}
 
-	// Validate base delay
 	if config.BaseDelay <= 0 {
 		errors = append(errors, ValidationError{
 			Field:   "retry.base_delay",
@@ -212,7 +190,6 @@ func validateRetry(config *struct {
 		})
 	}
 
-	// Validate max delay
 	if config.MaxDelay <= 0 {
 		errors = append(errors, ValidationError{
 			Field:   "retry.max_delay",
@@ -221,7 +198,6 @@ func validateRetry(config *struct {
 		})
 	}
 
-	// Validate base delay <= max delay
 	if config.BaseDelay > config.MaxDelay {
 		errors = append(errors, ValidationError{
 			Field:   "retry.base_delay",
@@ -233,7 +209,6 @@ func validateRetry(config *struct {
 	return errors
 }
 
-// validateLogging validates logging configuration.
 func validateLogging(config *struct {
 	Level  string `mapstructure:"level"`
 	Format string `mapstructure:"format"`
@@ -241,7 +216,6 @@ func validateLogging(config *struct {
 ) ValidationErrors {
 	var errors ValidationErrors
 
-	// Validate log level
 	validLevels := ValidLogLevels()
 	if !slices.Contains(validLevels, config.Level) {
 		errors = append(errors, ValidationError{
@@ -251,7 +225,6 @@ func validateLogging(config *struct {
 		})
 	}
 
-	// Validate log format
 	validFormats := ValidLogFormats()
 	if !slices.Contains(validFormats, config.Format) {
 		errors = append(errors, ValidationError{
@@ -264,7 +237,6 @@ func validateLogging(config *struct {
 	return errors
 }
 
-// validateWorktree validates worktree configuration.
 func validateWorktree(config *struct {
 	NamingPattern    string        `mapstructure:"naming_pattern"`
 	CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
@@ -272,7 +244,6 @@ func validateWorktree(config *struct {
 ) ValidationErrors {
 	var errors ValidationErrors
 
-	// Validate naming pattern
 	validPatterns := ValidNamingPatterns()
 	if !slices.Contains(validPatterns, config.NamingPattern) {
 		errors = append(errors, ValidationError{
@@ -282,7 +253,6 @@ func validateWorktree(config *struct {
 		})
 	}
 
-	// Validate cleanup threshold
 	if config.CleanupThreshold <= 0 {
 		errors = append(errors, ValidationError{
 			Field:   "worktree.cleanup_threshold",
@@ -291,7 +261,7 @@ func validateWorktree(config *struct {
 		})
 	}
 
-	// Warn if cleanup threshold is very short (less than 1 day)
+	// Warn if cleanup threshold is very short (less than 1 day).
 	if config.CleanupThreshold < 24*time.Hour {
 		errors = append(errors, ValidationError{
 			Field:   "worktree.cleanup_threshold",
@@ -303,24 +273,19 @@ func validateWorktree(config *struct {
 	return errors
 }
 
-// ValidateKey validates a specific configuration key.
 func ValidateKey(key string, value interface{}) error {
-	// Get current config to validate against
 	config, err := Get()
 	if err != nil {
 		return fmt.Errorf("failed to get config for validation: %w", err)
 	}
 
-	// Temporarily set the value
 	original := GetString(key)
 	Set(key, value)
 	defer Set(key, original)
 
-	// Validate the updated config
 	return ValidateConfig(config)
 }
 
-// ValidConfigKeys contains all valid configuration keys.
 var ValidConfigKeys = []string{
 	"general.editor",
 	"general.pager",
@@ -338,12 +303,10 @@ var ValidConfigKeys = []string{
 	"worktree.cleanup_threshold",
 }
 
-// IsValidKey checks if a configuration key is valid.
 func IsValidKey(key string) bool {
 	return slices.Contains(ValidConfigKeys, key)
 }
 
-// GetValidKeys returns all valid configuration keys.
 func GetValidKeys() []string {
 	return ValidConfigKeys
 }

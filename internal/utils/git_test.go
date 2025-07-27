@@ -58,7 +58,6 @@ func TestIsGitRepository(t *testing.T) {
 			}
 			assert.Equal(t, tt.expectRepo, isRepo)
 
-			// Verify correct git command was called
 			assert.Equal(t, 1, mock.CallCount)
 			assert.Equal(t, []string{"rev-parse", "--git-dir"}, mock.Commands[0])
 		})
@@ -103,7 +102,6 @@ func TestGetRepositoryRoot(t *testing.T) {
 			}
 			assert.Equal(t, tt.expectRoot, root)
 
-			// Verify correct git command was called
 			assert.Equal(t, 1, mock.CallCount)
 			assert.Equal(t, []string{"rev-parse", "--show-toplevel"}, mock.Commands[0])
 		})
@@ -179,7 +177,7 @@ func TestIsGitURL(t *testing.T) {
 		expected bool
 		desc     string
 	}{
-		// Valid URLs
+		// Valid URLs.
 		{"https://github.com/user/repo.git", true, "HTTPS with .git extension"},
 		{"https://github.com/user/repo", true, "HTTPS GitHub URL without .git"},
 		{"https://gitlab.com/user/repo", true, "HTTPS GitLab URL"},
@@ -188,7 +186,7 @@ func TestIsGitURL(t *testing.T) {
 		{"ssh://git@github.com/user/repo.git", true, "SSH with full protocol"},
 		{"git://example.com/repo.git", true, "Git protocol"},
 
-		// Invalid URLs
+		// Invalid URLs.
 		{"not-a-url", false, "Plain text"},
 		{"https://example.com", false, "HTTPS without repo pattern"},
 		{"file.txt", false, "Local filename"},
@@ -215,7 +213,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 		expectError    bool
 		expectedErrMsg string
 	}{
-		// GitHub URLs
+		// GitHub URLs.
 		{
 			name: "GitHub repository",
 			url:  "https://github.com/owner/repo",
@@ -250,7 +248,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "github",
 			},
 		},
-		// GitLab URLs
+		// GitLab URLs.
 		{
 			name: "GitLab repository",
 			url:  "https://gitlab.com/owner/repo",
@@ -277,7 +275,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "gitlab",
 			},
 		},
-		// Bitbucket URLs
+		// Bitbucket URLs.
 		{
 			name: "Bitbucket repository",
 			url:  "https://bitbucket.org/owner/repo",
@@ -304,7 +302,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "bitbucket",
 			},
 		},
-		// Azure DevOps URLs
+		// Azure DevOps URLs.
 		{
 			name: "Azure DevOps repository",
 			url:  "https://dev.azure.com/org/project/_git/repo",
@@ -331,7 +329,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "azure-devops",
 			},
 		},
-		// Codeberg URLs
+		// Codeberg URLs.
 		{
 			name: "Codeberg repository",
 			url:  "https://codeberg.org/owner/repo",
@@ -358,7 +356,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "codeberg",
 			},
 		},
-		// Standard Git URLs (fallback)
+		// Standard Git URLs (fallback).
 		{
 			name: "Standard Git HTTPS URL",
 			url:  "https://example.com/repo.git",
@@ -375,7 +373,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 				Platform: "git",
 			},
 		},
-		// Error cases
+		// Error cases.
 		{
 			name:           "Empty URL",
 			url:            "",

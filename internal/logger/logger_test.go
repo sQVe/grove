@@ -94,13 +94,11 @@ func TestNew(t *testing.T) {
 			assert.NotNil(t, logger)
 			assert.NotNil(t, logger.Logger)
 
-			// Test that the logger respects the level by trying to log at different levels
 			var buf bytes.Buffer
 			testConfig := tt.config
 			testConfig.Output = &buf
 			testLogger := New(testConfig)
 
-			// Log at debug level
 			testLogger.Debug("debug message")
 			output := buf.String()
 
@@ -417,11 +415,9 @@ func TestLoggerLevelFiltering(t *testing.T) {
 
 	logger := New(config)
 
-	// These should not appear in output
 	logger.Debug("debug message")
 	logger.Info("info message")
 
-	// These should appear in output
 	logger.Warn("warn message")
 	logger.Error("error message")
 
@@ -433,14 +429,14 @@ func TestLoggerLevelFiltering(t *testing.T) {
 }
 
 func TestLoggerWithNilOutput(t *testing.T) {
-	// Test that logger panics with nil output (expected behavior)
+	// Test that logger panics with nil output (expected behavior).
 	config := Config{
 		Level:  "info",
 		Format: "text",
 		Output: nil,
 	}
 
-	// This should panic due to nil output
+	// This should panic due to nil output.
 	require.Panics(t, func() {
 		logger := New(config)
 		logger.Info("test message")

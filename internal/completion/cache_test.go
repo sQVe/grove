@@ -59,7 +59,6 @@ func TestCacheEntry_IsExpired(t *testing.T) {
 func TestCompletionCache_GetSet(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Test cache miss
 	value, exists := cache.Get("test_key")
 	if exists {
 		t.Error("expected cache miss")
@@ -68,7 +67,6 @@ func TestCompletionCache_GetSet(t *testing.T) {
 		t.Errorf("expected nil value, got %v", value)
 	}
 
-	// Test cache set and hit
 	testValue := []string{"main", "develop"}
 	cache.Set("test_key", testValue, time.Hour)
 
@@ -84,11 +82,9 @@ func TestCompletionCache_GetSet(t *testing.T) {
 func TestCompletionCache_Expiration(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Set a value with very short TTL
 	testValue := []string{"main"}
 	cache.Set("test_key", testValue, time.Millisecond)
 
-	// Should be available immediately
 	value, exists := cache.Get("test_key")
 	if !exists {
 		t.Error("expected cache hit")
@@ -97,10 +93,8 @@ func TestCompletionCache_Expiration(t *testing.T) {
 		t.Errorf("expected %v, got %v", testValue, value)
 	}
 
-	// Wait for expiration
 	time.Sleep(10 * time.Millisecond)
 
-	// Should be expired now
 	value, exists = cache.Get("test_key")
 	if exists {
 		t.Error("expected cache miss after expiration")
@@ -113,19 +107,15 @@ func TestCompletionCache_Expiration(t *testing.T) {
 func TestCompletionCache_Delete(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Set a value
 	cache.Set("test_key", []string{"main"}, time.Hour)
 
-	// Verify it exists
 	_, exists := cache.Get("test_key")
 	if !exists {
 		t.Error("expected cache hit")
 	}
 
-	// Delete the value
 	cache.Delete("test_key")
 
-	// Verify it's gone
 	_, exists = cache.Get("test_key")
 	if exists {
 		t.Error("expected cache miss after deletion")
@@ -135,24 +125,19 @@ func TestCompletionCache_Delete(t *testing.T) {
 func TestCompletionCache_Clear(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Set multiple values
 	cache.Set("key1", []string{"value1"}, time.Hour)
 	cache.Set("key2", []string{"value2"}, time.Hour)
 
-	// Verify size
 	if cache.Size() != 2 {
 		t.Errorf("expected size 2, got %d", cache.Size())
 	}
 
-	// Clear cache
 	cache.Clear()
 
-	// Verify empty
 	if cache.Size() != 0 {
 		t.Errorf("expected size 0 after clear, got %d", cache.Size())
 	}
 
-	// Verify values are gone
 	_, exists := cache.Get("key1")
 	if exists {
 		t.Error("expected cache miss after clear")
@@ -162,23 +147,18 @@ func TestCompletionCache_Clear(t *testing.T) {
 func TestCompletionCache_CleanupExpired(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Set values with different TTLs
 	cache.Set("key1", []string{"value1"}, time.Hour)        // Long TTL
 	cache.Set("key2", []string{"value2"}, time.Millisecond) // Short TTL
 	cache.Set("key3", []string{"value3"}, time.Hour)        // Long TTL
 
-	// Wait for short TTL to expire
 	time.Sleep(10 * time.Millisecond)
 
-	// Cleanup expired entries
 	cache.CleanupExpired()
 
-	// Verify only expired entry was removed
 	if cache.Size() != 2 {
 		t.Errorf("expected size 2 after cleanup, got %d", cache.Size())
 	}
 
-	// Verify specific entries
 	_, exists := cache.Get("key1")
 	if !exists {
 		t.Error("expected key1 to still exist")
@@ -239,7 +219,6 @@ func TestCacheKeyBuilder(t *testing.T) {
 }
 
 func TestCacheKeyBuilderChaining(t *testing.T) {
-	// Test that Add() returns the builder for chaining
 	builder := NewCacheKeyBuilder()
 	result := builder.Add("part1").Add("part2").Add("part3").Build()
 
@@ -250,12 +229,10 @@ func TestCacheKeyBuilderChaining(t *testing.T) {
 }
 
 func TestGetSetCachedBranches(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
 	ctx := NewCompletionContext(testutils.NewMockGitExecutor())
 
-	// Test cache miss
 	branches, exists := GetCachedBranches(ctx)
 	if exists {
 		t.Error("expected cache miss")
@@ -264,7 +241,6 @@ func TestGetSetCachedBranches(t *testing.T) {
 		t.Errorf("expected nil branches, got %v", branches)
 	}
 
-	// Test cache set and hit
 	testBranches := []string{"main", "develop"}
 	SetCachedBranches(ctx, testBranches)
 
@@ -278,12 +254,10 @@ func TestGetSetCachedBranches(t *testing.T) {
 }
 
 func TestGetSetCachedWorktrees(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
 	ctx := NewCompletionContext(testutils.NewMockGitExecutor())
 
-	// Test cache miss
 	worktrees, exists := GetCachedWorktrees(ctx)
 	if exists {
 		t.Error("expected cache miss")
@@ -292,7 +266,6 @@ func TestGetSetCachedWorktrees(t *testing.T) {
 		t.Errorf("expected nil worktrees, got %v", worktrees)
 	}
 
-	// Test cache set and hit
 	testWorktrees := []string{"main", "develop"}
 	SetCachedWorktrees(ctx, testWorktrees)
 
@@ -306,10 +279,8 @@ func TestGetSetCachedWorktrees(t *testing.T) {
 }
 
 func TestGetSetCachedRepositoryState(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
-	// Test cache miss
 	isGrove, exists := GetCachedRepositoryState()
 	if exists {
 		t.Error("expected cache miss")
@@ -318,7 +289,6 @@ func TestGetSetCachedRepositoryState(t *testing.T) {
 		t.Error("expected false for cache miss")
 	}
 
-	// Test cache set and hit - true value
 	SetCachedRepositoryState(true)
 
 	isGrove, exists = GetCachedRepositoryState()
@@ -329,7 +299,6 @@ func TestGetSetCachedRepositoryState(t *testing.T) {
 		t.Error("expected true")
 	}
 
-	// Test cache set and hit - false value
 	SetCachedRepositoryState(false)
 
 	isGrove, exists = GetCachedRepositoryState()
@@ -344,10 +313,8 @@ func TestGetSetCachedRepositoryState(t *testing.T) {
 func TestCompletionCache_Concurrent(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Test concurrent access
 	done := make(chan bool)
 
-	// Writer goroutine
 	go func() {
 		for i := 0; i < 100; i++ {
 			cache.Set("key", []string{"value"}, time.Hour)
@@ -355,7 +322,6 @@ func TestCompletionCache_Concurrent(t *testing.T) {
 		done <- true
 	}()
 
-	// Reader goroutine
 	go func() {
 		for i := 0; i < 100; i++ {
 			cache.Get("key")
@@ -363,11 +329,9 @@ func TestCompletionCache_Concurrent(t *testing.T) {
 		done <- true
 	}()
 
-	// Wait for both goroutines to complete
 	<-done
 	<-done
 
-	// Verify cache is in a consistent state
 	value, exists := cache.Get("key")
 	if !exists {
 		t.Error("expected cache hit after concurrent access")
@@ -380,12 +344,10 @@ func TestCompletionCache_Concurrent(t *testing.T) {
 func TestCompletionCache_Size(t *testing.T) {
 	cache := NewCompletionCache()
 
-	// Start with empty cache
 	if cache.Size() != 0 {
 		t.Errorf("expected size 0, got %d", cache.Size())
 	}
 
-	// Add entries
 	cache.Set("key1", []string{"value1"}, time.Hour)
 	if cache.Size() != 1 {
 		t.Errorf("expected size 1, got %d", cache.Size())
@@ -396,13 +358,12 @@ func TestCompletionCache_Size(t *testing.T) {
 		t.Errorf("expected size 2, got %d", cache.Size())
 	}
 
-	// Update existing entry (should not change size)
+	// Update existing entry (should not change size).
 	cache.Set("key1", []string{"new_value"}, time.Hour)
 	if cache.Size() != 2 {
 		t.Errorf("expected size 2 after update, got %d", cache.Size())
 	}
 
-	// Delete entry
 	cache.Delete("key1")
 	if cache.Size() != 1 {
 		t.Errorf("expected size 1 after delete, got %d", cache.Size())
@@ -444,7 +405,6 @@ func TestCalculateCleanupInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear and populate cache with test size
 			GlobalCache.Clear()
 			for i := 0; i < tt.cacheSize; i++ {
 				GlobalCache.Set(fmt.Sprintf("key%d", i), []string{"value"}, time.Hour)
@@ -460,10 +420,8 @@ func TestCalculateCleanupInterval(t *testing.T) {
 }
 
 func TestGetSetCachedNetworkState(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
-	// Test cache miss
 	isOnline, exists := GetCachedNetworkState()
 	if exists {
 		t.Error("expected cache miss")
@@ -472,7 +430,6 @@ func TestGetSetCachedNetworkState(t *testing.T) {
 		t.Error("expected false for cache miss")
 	}
 
-	// Test cache set and hit - true value
 	SetCachedNetworkState(true)
 
 	isOnline, exists = GetCachedNetworkState()
@@ -483,7 +440,6 @@ func TestGetSetCachedNetworkState(t *testing.T) {
 		t.Error("expected true")
 	}
 
-	// Test cache set and hit - false value
 	SetCachedNetworkState(false)
 
 	isOnline, exists = GetCachedNetworkState()

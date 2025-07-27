@@ -1,4 +1,3 @@
-// Package completion provides shell completion functionality for Grove CLI commands.
 package completion
 
 import (
@@ -23,7 +22,6 @@ type CompletionContext struct {
 	Timeout  time.Duration
 }
 
-// NewCompletionContext creates a new completion context with the given executor.
 func NewCompletionContext(executor git.GitExecutor) *CompletionContext {
 	return &CompletionContext{
 		Executor: executor,
@@ -31,7 +29,6 @@ func NewCompletionContext(executor git.GitExecutor) *CompletionContext {
 	}
 }
 
-// WithTimeout executes a completion function with a timeout.
 func (c *CompletionContext) WithTimeout(fn func() ([]string, error)) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
@@ -58,7 +55,6 @@ func (c *CompletionContext) WithTimeout(fn func() ([]string, error)) ([]string, 
 	}
 }
 
-// IsInGroveRepo checks if the current directory is in a Grove repository.
 func (c *CompletionContext) IsInGroveRepo() bool {
 	log := logger.WithComponent("completion")
 
@@ -67,7 +63,6 @@ func (c *CompletionContext) IsInGroveRepo() bool {
 		return isGroveRepo
 	}
 
-	// Check if we're in a git repository first
 	isRepo, err := utils.IsGitRepository(c.Executor)
 	if err != nil || !isRepo {
 		log.Debug("not in git repository for completion", "error", err)
@@ -75,23 +70,21 @@ func (c *CompletionContext) IsInGroveRepo() bool {
 		return false
 	}
 
-	// For now, any git repository is considered valid for completion
-	// In the future, we might want to detect Grove-specific structure
+	// For now, any git repository is considered valid for completion.
+	// In the future, we might want to detect Grove-specific structure.
 	SetCachedRepositoryState(true)
 	return true
 }
 
-// IsOnline checks if the system has network connectivity.
 func (c *CompletionContext) IsOnline() bool {
 	log := logger.WithComponent("network_check")
 
-	// Check cache first
 	if isOnline, exists := GetCachedNetworkState(); exists {
 		log.Debug("using cached network state", "is_online", isOnline)
 		return isOnline
 	}
 
-	// Try to resolve a well-known DNS name with short timeout
+	// Try to resolve a well-known DNS name with short timeout.
 	conn, err := net.DialTimeout("tcp", "8.8.8.8:53", 500*time.Millisecond)
 	if err != nil {
 		log.Debug("network connectivity check failed", "error", err)
@@ -105,14 +98,12 @@ func (c *CompletionContext) IsOnline() bool {
 	return true
 }
 
-// IsNetworkOperationAllowed determines if network operations should be attempted.
 func (c *CompletionContext) IsNetworkOperationAllowed() bool {
-	// For completion, we want to be more conservative about network operations
-	// to avoid blocking the shell
+	// For completion, we want to be more conservative about network operations.
+	// to avoid blocking the shell.
 	return c.IsOnline()
 }
 
-// FilterCompletions filters completions based on the current input.
 func FilterCompletions(completions []string, toComplete string) []string {
 	if toComplete == "" {
 		return completions
@@ -128,7 +119,6 @@ func FilterCompletions(completions []string, toComplete string) []string {
 	return filtered
 }
 
-// CreateCompletionCommands creates the completion subcommands for all supported shells.
 func CreateCompletionCommands(rootCmd *cobra.Command) {
 	completionCmd := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",
@@ -176,11 +166,9 @@ PowerShell:
 	rootCmd.AddCommand(completionCmd)
 }
 
-// RegisterCompletionFunctions registers completion functions for commands and flags.
 func RegisterCompletionFunctions(rootCmd *cobra.Command, executor git.GitExecutor) {
 	ctx := NewCompletionContext(executor)
 
-	// Register completion for init command
 	for _, cmd := range rootCmd.Commands() {
 		if cmd.Name() == "init" {
 			registerInitCompletions(cmd, ctx)
@@ -188,49 +176,41 @@ func RegisterCompletionFunctions(rootCmd *cobra.Command, executor git.GitExecuto
 	}
 }
 
-// registerInitCompletions registers completion functions for the init command.
 func registerInitCompletions(cmd *cobra.Command, ctx *CompletionContext) {
-	// Register completion for --branches flag (handles comma-separated values)
+	// Register completion for --branches flag (handles comma-separated values).
 	_ = cmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return BranchListCompletion(ctx, cmd, args, toComplete)
 	})
 
-	// Register completion for positional arguments (URLs and directories)
+	// Register completion for positional arguments (URLs and directories).
 	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// For the first argument, provide URL and directory completion
+		// For the first argument, provide URL and directory completion.
 		if len(args) == 0 {
 			return URLAndDirectoryCompletion(ctx, cmd, args, toComplete)
 		}
-		// No completion for additional arguments
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 }
 
-// BranchListCompletion provides completion for comma-separated branch lists.
 func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	log := logger.WithComponent("branch_list_completion")
 
-	// Check if we're in a repository
 	if !ctx.IsInGroveRepo() {
 		log.Debug("not in grove repository, skipping branch list completion")
 		return nil, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
 	}
 
-	// Parse the current input to find what we're completing
 	var currentInput, lastBranch string
 
-	// Split on comma to find the last part being completed
 	if lastCommaIndex := strings.LastIndex(toComplete, ","); lastCommaIndex != -1 {
-		// Everything up to and including the last comma (no spaces)
+		// Everything up to and including the last comma (no spaces).
 		currentInput = toComplete[:lastCommaIndex+1]
-		// The part being completed (trimmed)
 		lastBranch = strings.TrimSpace(toComplete[lastCommaIndex+1:])
 	} else {
 		currentInput = ""
 		lastBranch = toComplete
 	}
 
-	// Get completions for the current branch list
 	completions, err := ctx.WithTimeout(func() ([]string, error) {
 		return CompleteBranchList(ctx, toComplete, lastBranch)
 	})
@@ -239,7 +219,7 @@ func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []str
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	// Prepend the current input to each completion (no spaces around commas)
+	// Prepend the current input to each completion (no spaces around commas).
 	var result []string
 	for _, completion := range completions {
 		result = append(result, currentInput+completion)
@@ -249,7 +229,6 @@ func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []str
 	return result, cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
 }
 
-// SafeExecuteWithFallback executes a completion function with error handling.
 func SafeExecuteWithFallback(fn func() ([]string, cobra.ShellCompDirective), fallback []string) (result []string, directive cobra.ShellCompDirective) {
 	defer func() {
 		if r := recover(); r != nil {

@@ -34,7 +34,6 @@ func TestWorktreeCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			mockExecutor := testutils.NewMockGitExecutor()
@@ -49,7 +48,7 @@ func TestWorktreeCompletion(t *testing.T) {
 				assert.Equal(t, cobra.ShellCompDirectiveError, directive)
 			} else {
 				assert.Equal(t, cobra.ShellCompDirectiveNoFileComp, directive)
-				// Results can be nil when not in a Grove repository, which is expected behavior
+				// Results can be nil when not in a Grove repository, which is expected behavior.
 			}
 		})
 	}
@@ -88,7 +87,6 @@ func TestGetWorktreeNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			mockExecutor := testutils.NewMockGitExecutor()
@@ -135,7 +133,6 @@ func TestWorktreePathCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			mockExecutor := testutils.NewMockGitExecutor()
@@ -150,7 +147,7 @@ func TestWorktreePathCompletion(t *testing.T) {
 				assert.Equal(t, cobra.ShellCompDirectiveError, directive)
 			} else {
 				assert.Equal(t, cobra.ShellCompDirectiveDefault, directive)
-				// Results can be nil when not in a Grove repository, which is expected behavior
+				// Results can be nil when not in a Grove repository, which is expected behavior.
 			}
 		})
 	}

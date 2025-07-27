@@ -73,12 +73,10 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 
-	// Test empty directory
 	result, err := validateAndPrepareDirectory()
 	require.NoError(t, err)
 	assert.Equal(t, tempDir, result)
 
-	// Test directory with hidden files (should pass)
 	hiddenFile := filepath.Join(tempDir, ".hidden")
 	err = os.WriteFile(hiddenFile, []byte("test"), 0o644)
 	require.NoError(t, err)
@@ -87,7 +85,6 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tempDir, result)
 
-	// Test directory with non-hidden files (should fail)
 	visibleFile := filepath.Join(tempDir, "visible.txt")
 	err = os.WriteFile(visibleFile, []byte("test"), 0o644)
 	require.NoError(t, err)
@@ -124,13 +121,11 @@ func TestPrintSuccessMessage(t *testing.T) {
 func TestRunInitRouting(t *testing.T) {
 	cmd := NewInitCmd()
 
-	// Test convert flag validation
 	cmd.SetArgs([]string{"--convert", "arg"})
 	err := cmd.Execute()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot specify arguments when using --convert flag")
 
-	// Test too many args validation - need to create a fresh command instance
 	cmd2 := NewInitCmd()
 	cmd2.SetArgs([]string{"arg1", "arg2", "arg3"})
 	err = cmd2.Execute()

@@ -29,7 +29,6 @@ const (
 	patternSSHFull = `^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`
 )
 
-// GitExecutor defines interface for git command execution.
 type GitExecutor interface {
 	Execute(args ...string) (string, error)
 }
@@ -46,7 +45,7 @@ func IsGitRepository(executor GitExecutor) (bool, error) {
 
 	if err != nil {
 		log.Debug("git rev-parse --git-dir failed", "error", err, "duration", duration)
-		// Simple heuristic: if exit code looks like 128, assume it's "not a repo"
+		// Simple heuristic: if exit code looks like 128, assume it's "not a repo".
 		if strings.Contains(err.Error(), "exit 128") {
 			log.Debug("directory is not a git repository", "reason", "exit_code_128", "duration", duration)
 			return false, nil
@@ -59,7 +58,6 @@ func IsGitRepository(executor GitExecutor) (bool, error) {
 	return true, nil
 }
 
-// GetRepositoryRoot returns the root directory of the current git repository.
 func GetRepositoryRoot(executor GitExecutor) (string, error) {
 	log := logger.WithComponent("git_utils")
 	start := time.Now()
@@ -79,14 +77,12 @@ func GetRepositoryRoot(executor GitExecutor) (string, error) {
 	return root, nil
 }
 
-// ValidateRepository returns an error if not in a valid git repository with commits.
 func ValidateRepository(executor GitExecutor) error {
 	log := logger.WithComponent("git_utils")
 	start := time.Now()
 
 	log.DebugOperation("validating git repository")
 
-	// Check git availability
 	log.Debug("checking git availability in PATH")
 	_, err := exec.LookPath("git")
 	if err != nil {
@@ -95,7 +91,6 @@ func ValidateRepository(executor GitExecutor) error {
 	}
 	log.Debug("git found in PATH")
 
-	// Check if we're in a git repository
 	log.Debug("checking if current directory is a git repository")
 	isRepo, err := IsGitRepository(executor)
 	if err != nil {
@@ -109,7 +104,6 @@ func ValidateRepository(executor GitExecutor) error {
 	}
 	log.Debug("confirmed we are in a git repository")
 
-	// Check if repository has any commits
 	log.Debug("checking if repository has commits")
 	_, err = executor.Execute("rev-parse", "HEAD")
 	if err != nil {
@@ -127,7 +121,6 @@ func ValidateRepository(executor GitExecutor) error {
 	return nil
 }
 
-// IsGitURL reports whether str matches recognized git repository URL patterns.
 func IsGitURL(str string) bool {
 	log := logger.WithComponent("git_utils")
 	start := time.Now()
@@ -139,7 +132,6 @@ func IsGitURL(str string) bool {
 		return false
 	}
 
-	// Check for common git URL patterns
 	patterns := []string{
 		patternGitURL,      // Standard Git URLs with .git suffix
 		patternGitHubHTTPS, // GitHub HTTPS URLs
@@ -158,7 +150,6 @@ func IsGitURL(str string) bool {
 		}
 	}
 
-	// Check if it's a valid URL with git scheme
 	log.Debug("checking for git scheme URL")
 	if u, err := url.Parse(str); err == nil {
 		if u.Scheme == "git" {
@@ -174,7 +165,6 @@ func IsGitURL(str string) bool {
 	return false
 }
 
-// GitURLInfo contains parsed information from a Git hosting platform URL.
 type GitURLInfo struct {
 	RepoURL    string // The actual Git repository URL
 	BranchName string // Extracted branch name (if any)
@@ -182,7 +172,7 @@ type GitURLInfo struct {
 	Platform   string // Platform name (github, gitlab, etc.)
 }
 
-// ParseGitPlatformURL parses URLs from various Git hosting platforms
+// ParseGitPlatformURL parses URLs from various Git hosting platforms.
 // and extracts repository information, branch names, PR numbers, etc.
 func ParseGitPlatformURL(inputURL string) (*GitURLInfo, error) {
 	log := logger.WithComponent("url_parser")
@@ -194,39 +184,33 @@ func ParseGitPlatformURL(inputURL string) (*GitURLInfo, error) {
 		return nil, fmt.Errorf("empty URL provided")
 	}
 
-	// Check platform-specific patterns first (before falling back to generic git URL)
+	// Check platform-specific patterns first (before falling back to generic git URL).
 
-	// Parse GitHub URLs
 	if info := parseGitHubURL(inputURL); info != nil {
 		log.Debug("parsed GitHub URL", "repo", info.RepoURL, "branch", info.BranchName, "pr", info.PRNumber, "duration", time.Since(start))
 		return info, nil
 	}
 
-	// Parse GitLab URLs
 	if info := parseGitLabURL(inputURL); info != nil {
 		log.Debug("parsed GitLab URL", "repo", info.RepoURL, "branch", info.BranchName, "pr", info.PRNumber, "duration", time.Since(start))
 		return info, nil
 	}
 
-	// Parse Bitbucket URLs
 	if info := parseBitbucketURL(inputURL); info != nil {
 		log.Debug("parsed Bitbucket URL", "repo", info.RepoURL, "branch", info.BranchName, "pr", info.PRNumber, "duration", time.Since(start))
 		return info, nil
 	}
 
-	// Parse Azure DevOps URLs
 	if info := parseAzureDevOpsURL(inputURL); info != nil {
 		log.Debug("parsed Azure DevOps URL", "repo", info.RepoURL, "branch", info.BranchName, "pr", info.PRNumber, "duration", time.Since(start))
 		return info, nil
 	}
 
-	// Parse Gitea/Codeberg URLs
 	if info := parseGiteaURL(inputURL); info != nil {
 		log.Debug("parsed Gitea/Codeberg URL", "repo", info.RepoURL, "branch", info.BranchName, "pr", info.PRNumber, "duration", time.Since(start))
 		return info, nil
 	}
 
-	// Fall back to standard Git URL detection
 	if IsGitURL(inputURL) {
 		log.Debug("URL is a standard git URL", "url", inputURL, "duration", time.Since(start))
 		return &GitURLInfo{
@@ -239,9 +223,8 @@ func ParseGitPlatformURL(inputURL string) (*GitURLInfo, error) {
 	return nil, fmt.Errorf("URL format not recognized: %s", inputURL)
 }
 
-// parseGitHubURL parses GitHub URLs.
 func parseGitHubURL(inputURL string) *GitURLInfo {
-	// GitHub PR: https://github.com/owner/repo/pull/123
+	// GitHub PR: https://github.com/owner/repo/pull/123.
 	if match := regexp.MustCompile(`^https://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://github.com/%s/%s.git", match[1], match[2]),
@@ -250,7 +233,7 @@ func parseGitHubURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// GitHub branch: https://github.com/owner/repo/tree/branch-name
+	// GitHub branch: https://github.com/owner/repo/tree/branch-name.
 	if match := regexp.MustCompile(`^https://github\.com/([^/]+)/([^/]+)/tree/([^?]+?)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:    fmt.Sprintf("https://github.com/%s/%s.git", match[1], match[2]),
@@ -259,7 +242,7 @@ func parseGitHubURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// GitHub repository: https://github.com/owner/repo
+	// GitHub repository: https://github.com/owner/repo.
 	if match := regexp.MustCompile(`^https://github\.com/([^/]+)/([^/]+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		repoName := strings.TrimSuffix(match[2], ".git")
 		return &GitURLInfo{
@@ -271,9 +254,8 @@ func parseGitHubURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// parseGitLabURL parses GitLab URLs.
 func parseGitLabURL(inputURL string) *GitURLInfo {
-	// GitLab MR: https://gitlab.com/owner/repo/-/merge_requests/123
+	// GitLab MR: https://gitlab.com/owner/repo/-/merge_requests/123.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/-/merge_requests/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -282,7 +264,7 @@ func parseGitLabURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// GitLab branch: https://gitlab.com/owner/repo/-/tree/branch-name
+	// GitLab branch: https://gitlab.com/owner/repo/-/tree/branch-name.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/-/tree/([^?]+?)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:    fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -291,9 +273,9 @@ func parseGitLabURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// GitLab repository: https://gitlab.com/owner/repo
+	// GitLab repository: https://gitlab.com/owner/repo.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/?$`).FindStringSubmatch(inputURL); match != nil {
-		// Only match if it looks like GitLab
+		// Only match if it looks like GitLab.
 		if strings.Contains(match[1], "gitlab") {
 			return &GitURLInfo{
 				RepoURL:  fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -307,7 +289,7 @@ func parseGitLabURL(inputURL string) *GitURLInfo {
 
 // parseBitbucketURL parses Bitbucket URLs.
 func parseBitbucketURL(inputURL string) *GitURLInfo {
-	// Bitbucket PR: https://bitbucket.org/owner/repo/pull-requests/123
+	// Bitbucket PR: https://bitbucket.org/owner/repo/pull-requests/123.
 	if match := regexp.MustCompile(`^https://bitbucket\.org/([^/]+)/([^/]+)/pull-requests/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://bitbucket.org/%s/%s.git", match[1], match[2]),
@@ -316,7 +298,7 @@ func parseBitbucketURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Bitbucket branch: https://bitbucket.org/owner/repo/src/branch-name/
+	// Bitbucket branch: https://bitbucket.org/owner/repo/src/branch-name/.
 	if match := regexp.MustCompile(`^https://bitbucket\.org/([^/]+)/([^/]+)/src/([^?]+?)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:    fmt.Sprintf("https://bitbucket.org/%s/%s.git", match[1], match[2]),
@@ -325,7 +307,7 @@ func parseBitbucketURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Bitbucket repository: https://bitbucket.org/owner/repo
+	// Bitbucket repository: https://bitbucket.org/owner/repo.
 	if match := regexp.MustCompile(`^https://bitbucket\.org/([^/]+)/([^/]+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://bitbucket.org/%s/%s.git", match[1], match[2]),
@@ -338,7 +320,7 @@ func parseBitbucketURL(inputURL string) *GitURLInfo {
 
 // parseAzureDevOpsURL parses Azure DevOps URLs.
 func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
-	// Azure DevOps PR: https://dev.azure.com/org/project/_git/repo/pullrequest/123
+	// Azure DevOps PR: https://dev.azure.com/org/project/_git/repo/pullrequest/123.
 	if match := regexp.MustCompile(`^https://dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/]+)/pullrequest/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", match[1], match[2], match[3]),
@@ -347,7 +329,7 @@ func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Azure DevOps branch: https://dev.azure.com/org/project/_git/repo?version=GBbranch-name
+	// Azure DevOps branch: https://dev.azure.com/org/project/_git/repo?version=GBbranch-name.
 	if match := regexp.MustCompile(`^https://dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/?]+)\?version=GB([^&?]+)$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:    fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", match[1], match[2], match[3]),
@@ -356,7 +338,7 @@ func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Azure DevOps repository: https://dev.azure.com/org/project/_git/repo
+	// Azure DevOps repository: https://dev.azure.com/org/project/_git/repo.
 	if match := regexp.MustCompile(`^https://dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/?]+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", match[1], match[2], match[3]),
@@ -369,7 +351,7 @@ func parseAzureDevOpsURL(inputURL string) *GitURLInfo {
 
 // parseGiteaURL parses Gitea and Codeberg URLs.
 func parseGiteaURL(inputURL string) *GitURLInfo {
-	// Gitea/Codeberg PR: https://gitea.instance/owner/repo/pulls/123 or https://codeberg.org/owner/repo/pulls/123
+	// Gitea/Codeberg PR: https://gitea.instance/owner/repo/pulls/123 or https://codeberg.org/owner/repo/pulls/123.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/pulls/(\d+)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:  fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -378,7 +360,7 @@ func parseGiteaURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Gitea/Codeberg branch: https://gitea.instance/owner/repo/src/branch/branch-name
+	// Gitea/Codeberg branch: https://gitea.instance/owner/repo/src/branch/branch-name.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/src/branch/([^?]+?)/?$`).FindStringSubmatch(inputURL); match != nil {
 		return &GitURLInfo{
 			RepoURL:    fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -387,9 +369,8 @@ func parseGiteaURL(inputURL string) *GitURLInfo {
 		}
 	}
 
-	// Gitea/Codeberg repository: https://gitea.instance/owner/repo or https://codeberg.org/owner/repo
+	// Gitea/Codeberg repository: https://gitea.instance/owner/repo or https://codeberg.org/owner/repo.
 	if match := regexp.MustCompile(`^https://([^/]+)/([^/]+)/([^/]+)/?$`).FindStringSubmatch(inputURL); match != nil {
-		// Only match if it looks like Gitea/Codeberg
 		if isKnownGiteaInstance(match[1]) {
 			return &GitURLInfo{
 				RepoURL:  fmt.Sprintf("https://%s/%s/%s.git", match[1], match[2], match[3]),
@@ -401,7 +382,6 @@ func parseGiteaURL(inputURL string) *GitURLInfo {
 	return nil
 }
 
-// determineGiteaPlatform determines the specific platform name for Gitea-based services.
 func determineGiteaPlatform(host string) string {
 	if host == "codeberg.org" {
 		return "codeberg"
@@ -409,7 +389,6 @@ func determineGiteaPlatform(host string) string {
 	return "gitea"
 }
 
-// isKnownGiteaInstance checks if the host is a known Gitea instance.
 func isKnownGiteaInstance(host string) bool {
 	knownInstances := []string{
 		"codeberg.org",
@@ -423,6 +402,5 @@ func isKnownGiteaInstance(host string) bool {
 		}
 	}
 
-	// Check if it contains "gitea" in the hostname (for self-hosted instances)
 	return strings.Contains(strings.ToLower(host), "gitea")
 }

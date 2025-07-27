@@ -72,7 +72,6 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 				expectedPath := "/repo/worktrees/main"
 				executor.SetResponseSlice([]string{"worktree", "add", "-b", tt.branchName, expectedPath}, "", errors.New("git error"))
 			} else if tt.expectedError == "" {
-				// Set up successful response for valid test cases
 				executor.SetResponseSlice([]string{"worktree", "add", "-b", tt.branchName, tt.expectedPath}, "", nil)
 			}
 
@@ -98,7 +97,6 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 				t.Errorf("CreateWorktreeWithSafeNaming() path = %q, want %q", path, tt.expectedPath)
 			}
 
-			// Verify the correct git command was executed
 			if !tt.simulateError && tt.expectedError == "" {
 				commands := executor.Commands
 				if len(commands) != 1 {
@@ -165,7 +163,6 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 				expectedPath := "/repo/worktrees/main"
 				executor.SetResponseSlice([]string{"worktree", "add", expectedPath, tt.branchName}, "", errors.New("git error"))
 			} else if tt.expectedError == "" {
-				// Set up successful response for valid test cases
 				executor.SetResponseSlice([]string{"worktree", "add", tt.expectedPath, tt.branchName}, "", nil)
 			}
 
@@ -191,7 +188,6 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 				t.Errorf("CreateWorktreeFromExistingBranch() path = %q, want %q", path, tt.expectedPath)
 			}
 
-			// Verify the correct git command was executed
 			if !tt.simulateError && tt.expectedError == "" {
 				commands := executor.Commands
 				if len(commands) != 1 {
@@ -239,7 +235,6 @@ func TestRemoveWorktree(t *testing.T) {
 			if tt.simulateError {
 				executor.SetResponseSlice([]string{"worktree", "remove", tt.worktreePath}, "", errors.New("git error"))
 			} else if tt.expectedError == "" {
-				// Set up successful response for valid test cases
 				executor.SetResponseSlice([]string{"worktree", "remove", tt.worktreePath}, "", nil)
 			}
 
@@ -261,7 +256,6 @@ func TestRemoveWorktree(t *testing.T) {
 				return
 			}
 
-			// Verify the correct git command was executed
 			if !tt.simulateError {
 				commands := executor.Commands
 				if len(commands) != 1 {
@@ -508,7 +502,6 @@ func TestCleanBranchName(t *testing.T) {
 	}
 }
 
-// Helper functions.
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || (len(s) > len(substr) &&
 		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||

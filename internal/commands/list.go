@@ -8,7 +8,6 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
-// ListSortOption represents the available sorting options for worktree listing.
 type ListSortOption string
 
 const (
@@ -17,7 +16,6 @@ const (
 	SortByStatus   ListSortOption = "status"
 )
 
-// ListOptions contains configuration options for the list command.
 type ListOptions struct {
 	Sort      ListSortOption
 	Verbose   bool
@@ -28,7 +26,6 @@ type ListOptions struct {
 	StaleDays int
 }
 
-// NewListCmd creates the list command.
 func NewListCmd() *cobra.Command {
 	options := &ListOptions{
 		Sort:      DefaultSortOption,
@@ -63,7 +60,6 @@ Sorting options: activity (default), name, status`,
 		},
 	}
 
-	// Add flags
 	cmd.Flags().StringVar((*string)(&options.Sort), "sort", "activity", "Sort by: activity, name, status")
 	cmd.Flags().BoolVarP(&options.Verbose, "verbose", "v", false, "Show extended information including full paths")
 	cmd.Flags().BoolVar(&options.Porcelain, "porcelain", false, "Machine-readable output")
@@ -75,24 +71,18 @@ Sorting options: activity (default), name, status`,
 	return cmd
 }
 
-// runListCommand executes the list command with the given options.
 func runListCommand(options *ListOptions) error {
 	return runListCommandWithExecutor(DefaultExecutorProvider.GetExecutor(), options)
 }
 
-// runListCommandWithExecutor executes the list command with the given executor and options.
-// This supports dependency injection for better testability.
 func runListCommandWithExecutor(executor git.GitExecutor, options *ListOptions) error {
-	// Validate input
 	if err := validateListOptions(options); err != nil {
 		return err
 	}
 
-	// Create service with injected executor
 	service := NewListService(executor)
 	presenter := NewListPresenter()
 
-	// Get worktrees
 	worktrees, err := service.ListWorktrees(options)
 	if err != nil {
 		return err
@@ -103,16 +93,13 @@ func runListCommandWithExecutor(executor git.GitExecutor, options *ListOptions) 
 		return nil
 	}
 
-	// Display results
 	if options.Porcelain {
 		return presenter.DisplayPorcelain(worktrees)
 	}
 	return presenter.DisplayHuman(worktrees, options.Verbose)
 }
 
-// validateListOptions validates the command options and returns errors for invalid configurations.
 func validateListOptions(options *ListOptions) error {
-	// Validate mutually exclusive filters
 	filterCount := 0
 	if options.DirtyOnly {
 		filterCount++
@@ -131,7 +118,6 @@ func validateListOptions(options *ListOptions) error {
 		)
 	}
 
-	// Validate sort option
 	validSorts := []ListSortOption{SortByActivity, SortByName, SortByStatus}
 	validSort := false
 	for _, valid := range validSorts {

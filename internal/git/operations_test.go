@@ -13,12 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupMockGitExecutor creates a new mock git executor with common setup.
 func setupMockGitExecutor() *testutils.MockGitExecutor {
 	return testutils.NewMockGitExecutor()
 }
 
-// assertSafetyIssue validates a safety issue has the expected type and description.
 func assertSafetyIssue(t *testing.T, issue SafetyIssue, expectedType, expectedDescContains string) {
 	t.Helper()
 	assert.Equal(t, expectedType, issue.Type)
@@ -172,7 +170,6 @@ func TestSafetyChecks(t *testing.T) {
 	})
 }
 
-// TestCheckGitStatus tests the checkGitStatus function.
 func TestCheckGitStatus(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -223,7 +220,6 @@ func TestCheckGitStatus(t *testing.T) {
 	}
 }
 
-// TestCheckStashedChanges tests the checkStashedChanges function.
 func TestCheckStashedChanges(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -260,7 +256,6 @@ func TestCheckStashedChanges(t *testing.T) {
 	}
 }
 
-// TestCheckUntrackedFiles tests the checkUntrackedFiles function.
 func TestCheckUntrackedFiles(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -297,7 +292,6 @@ func TestCheckUntrackedFiles(t *testing.T) {
 	}
 }
 
-// TestCheckExistingWorktrees tests the checkExistingWorktrees function.
 func TestCheckExistingWorktrees(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -334,7 +328,6 @@ func TestCheckExistingWorktrees(t *testing.T) {
 	}
 }
 
-// TestCheckUnpushedCommits tests the checkUnpushedCommits function.
 func TestCheckUnpushedCommits(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -371,7 +364,6 @@ func TestCheckUnpushedCommits(t *testing.T) {
 	}
 }
 
-// TestCheckLocalOnlyBranches tests the checkLocalOnlyBranches function.
 func TestCheckLocalOnlyBranches(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -408,7 +400,6 @@ func TestCheckLocalOnlyBranches(t *testing.T) {
 	}
 }
 
-// TestGitChangeCounts tests the GitChangeCounts struct and its methods.
 func TestGitChangeCounts(t *testing.T) {
 	t.Run("HasChanges", func(t *testing.T) {
 		tests := []struct {
@@ -511,7 +502,6 @@ func TestGitChangeCounts(t *testing.T) {
 	})
 }
 
-// TestCountGitChanges tests the countGitChanges function.
 func TestCountGitChanges(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -568,7 +558,6 @@ func TestCountGitChanges(t *testing.T) {
 	}
 }
 
-// TestCheckOngoingGitOperations tests the checkOngoingGitOperations function.
 func TestCheckOngoingGitOperations(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -640,7 +629,6 @@ func TestCheckOngoingGitOperations(t *testing.T) {
 	}
 }
 
-// TestParseGitStatusLine tests the parseGitStatusLine function.
 func TestParseGitStatusLine(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -691,16 +679,14 @@ func TestParseGitStatusLine(t *testing.T) {
 
 func TestCheckRepositorySafetyForConversionWithMock(t *testing.T) {
 	t.Run("safe repository", func(t *testing.T) {
-		// Create temporary directory
 		tempDir, err := os.MkdirTemp("", "grove-safety-mock-*")
 		require.NoError(t, err)
 		defer func() { _ = os.RemoveAll(tempDir) }()
 
-		// Use mock executor to simulate a safe repository state
+		// Use mock executor to simulate a safe repository state.
 		mockExecutor := testutils.NewMockGitExecutor()
 		mockExecutor.SetSafeRepositoryState()
 
-		// Check safety - should be clean
 		issues, err := checkRepositorySafetyForConversion(mockExecutor, tempDir)
 		require.NoError(t, err)
 		assert.Empty(t, issues)
@@ -788,13 +774,13 @@ func TestCreateGitFileWithSecurity(t *testing.T) {
 
 	t.Run("relative path with directory traversal", func(t *testing.T) {
 		tempDir := t.TempDir()
-		// Create a path that would result in ../ in the relative path
+		// Create a path that would result in ../ in the relative path.
 		parentDir := tempDir + "/.."
 		bareDir := parentDir + "/malicious"
 
 		err := CreateGitFile(tempDir, bareDir)
 		assert.Error(t, err)
-		// The error should come from validatePaths first (since path contains ..)
+		// The error should come from validatePaths first (since path contains ..).
 		assert.Contains(t, err.Error(), "invalid paths")
 	})
 }

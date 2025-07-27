@@ -107,7 +107,6 @@ func TestWorktreeFormatter_FormatStatus(t *testing.T) {
 			assert.Equal(t, tt.expectedSymbol, result.Symbol)
 			assert.Equal(t, tt.expectedClean, result.IsClean)
 
-			// Verify plain text contains expected elements
 			if tt.expectedClean {
 				assert.Contains(t, result.PlainText, "✓")
 			} else {
@@ -211,7 +210,6 @@ func TestWorktreeFormatter_TruncateText(t *testing.T) {
 			result := formatter.TruncateText(tt.text, tt.maxWidth)
 			assert.Equal(t, tt.expected, result)
 
-			// Ensure result doesn't exceed maxWidth
 			if tt.maxWidth > 0 {
 				assert.LessOrEqual(t, len(result), tt.maxWidth)
 			}
@@ -265,7 +263,6 @@ func TestWorktreeFormatter_TruncateTextMiddle(t *testing.T) {
 			result := formatter.TruncateTextMiddle(tt.text, tt.maxWidth)
 			assert.Equal(t, tt.expected, result)
 
-			// Ensure result doesn't exceed maxWidth
 			if tt.maxWidth > 0 {
 				assert.LessOrEqual(t, len(result), tt.maxWidth)
 			}
@@ -337,7 +334,6 @@ func TestWorktreeFormatter_TruncateBranchName(t *testing.T) {
 			result := formatter.TruncateBranchName(tt.branch, tt.maxWidth)
 			assert.Equal(t, tt.expected, result)
 
-			// Ensure result doesn't exceed maxWidth
 			if tt.maxWidth > 0 {
 				assert.LessOrEqual(t, len(result), tt.maxWidth)
 			}

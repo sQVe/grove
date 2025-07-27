@@ -20,7 +20,7 @@ func TestNewConfigCmd(t *testing.T) {
 	cmd := NewConfigCmd()
 	assert.Equal(t, "config", cmd.Use)
 	assert.Equal(t, "Manage Grove configuration", cmd.Short)
-	assert.Len(t, cmd.Commands(), 7) // get, set, list, validate, reset, path, init
+	assert.Len(t, cmd.Commands(), 7)
 }
 
 func TestConfigGetCmd(t *testing.T) {
@@ -45,7 +45,7 @@ func TestConfigGetCmd(t *testing.T) {
 			setupConfig: func(t *testing.T) {
 				config.Set("general.editor", "emacs")
 			},
-			expectOut: "nvim", // default value
+			expectOut: "nvim",
 		},
 		{
 			name:        "get invalid key",
@@ -66,7 +66,6 @@ func TestConfigGetCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset viper
 			viper.Reset()
 			config.SetDefaults()
 
@@ -195,7 +194,6 @@ func TestConfigListCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset viper
 			viper.Reset()
 			config.SetDefaults()
 
@@ -245,7 +243,6 @@ func TestConfigValidateCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset viper
 			viper.Reset()
 			if tt.setupConfig != nil {
 				tt.setupConfig()
@@ -561,7 +558,6 @@ func TestGetConfigValueByKeySafety(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// This should not panic regardless of input
 			result := getConfigValueByKey(tt.config, tt.key)
 			assert.Equal(t, tt.expectValue, result, tt.description)
 		})
@@ -569,12 +565,9 @@ func TestGetConfigValueByKeySafety(t *testing.T) {
 }
 
 func TestGetConfigValueByKeyPanicRecovery(t *testing.T) {
-	// Test that the function doesn't crash on edge cases that might cause panics
-
-	// Create a config and then test various edge cases
 	cfg := config.DefaultConfig()
 
-	// These calls should not crash the application
+	// These calls should not crash the application.
 	tests := []struct {
 		name   string
 		config *config.Config
@@ -590,7 +583,7 @@ func TestGetConfigValueByKeyPanicRecovery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// This test passes if it doesn't panic
+			// This test passes if it doesn't panic.
 			defer func() {
 				if r := recover(); r != nil {
 					t.Errorf("getConfigValueByKey panicked: %v", r)
@@ -598,13 +591,11 @@ func TestGetConfigValueByKeyPanicRecovery(t *testing.T) {
 			}()
 
 			result := getConfigValueByKey(tt.config, tt.key)
-			// We expect nil for all these edge cases
 			assert.Nil(t, result)
 		})
 	}
 }
 
-// Helper function to execute command and capture output.
 func executeCommand(cmd *cobra.Command, args []string) (string, error) {
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)

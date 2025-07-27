@@ -51,21 +51,17 @@ cleanup_threshold = "7d"
 	originalViper := viper.GetViper()
 	defer func() {
 		viper.Reset()
-		// Restore original viper instance
 		for key, value := range originalViper.AllSettings() {
 			viper.Set(key, value)
 		}
 	}()
 
-	// Reset viper for clean test
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 
-	// Test initialization
 	err = Initialize()
 	require.NoError(t, err)
 
-	// Verify configuration was loaded
 	assert.Equal(t, "vim", GetString("general.editor"))
 	assert.Equal(t, "json", GetString("general.output_format"))
 	assert.Equal(t, "upstream", GetString("git.default_remote"))
@@ -75,16 +71,13 @@ cleanup_threshold = "7d"
 }
 
 func TestInitializeWithoutConfigFile(t *testing.T) {
-	// Create a temporary directory without config file
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Reset viper for clean test
 	originalViper := viper.GetViper()
 	defer func() {
 		viper.Reset()
-		// Restore original viper instance
 		for key, value := range originalViper.AllSettings() {
 			viper.Set(key, value)
 		}
@@ -93,11 +86,9 @@ func TestInitializeWithoutConfigFile(t *testing.T) {
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 
-	// Test initialization without config file
 	err = Initialize()
 	require.NoError(t, err)
 
-	// Verify defaults are used
 	assert.Equal(t, "info", GetString("logging.level"))
 	assert.Equal(t, "text", GetString("logging.format"))
 	assert.Equal(t, "origin", GetString("git.default_remote"))
@@ -105,14 +96,12 @@ func TestInitializeWithoutConfigFile(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	// Reset viper for clean test
 	viper.Reset()
 	SetDefaults()
 
 	config, err := Get()
 	require.NoError(t, err)
 
-	// Verify default values
 	assert.Equal(t, "text", config.General.OutputFormat)
 	assert.Equal(t, "origin", config.Git.DefaultRemote)
 	assert.Equal(t, 30*time.Second, config.Git.FetchTimeout)
@@ -127,10 +116,8 @@ func TestGet(t *testing.T) {
 }
 
 func TestEnvironmentVariables(t *testing.T) {
-	// Reset viper for clean test
 	viper.Reset()
 
-	// Set environment variables
 	require.NoError(t, os.Setenv("GROVE_LOGGING_LEVEL", "debug"))
 	require.NoError(t, os.Setenv("GROVE_GIT_DEFAULT_REMOTE", "upstream"))
 	require.NoError(t, os.Setenv("GROVE_RETRY_MAX_ATTEMPTS", "5"))
@@ -140,11 +127,9 @@ func TestEnvironmentVariables(t *testing.T) {
 		_ = os.Unsetenv("GROVE_RETRY_MAX_ATTEMPTS")
 	}()
 
-	// Initialize configuration
 	err := Initialize()
 	require.NoError(t, err)
 
-	// Verify environment variables are used
 	assert.Equal(t, "debug", GetString("logging.level"))
 	assert.Equal(t, "upstream", GetString("git.default_remote"))
 	assert.Equal(t, 5, GetInt("retry.max_attempts"))
@@ -154,19 +139,16 @@ func TestSetAndIsSet(t *testing.T) {
 	viper.Reset()
 	SetDefaults()
 
-	// Test setting a value
 	Set("test.key", "test_value")
 	assert.Equal(t, "test_value", GetString("test.key"))
 	assert.True(t, IsSet("test.key"))
 
-	// Test checking an unset value
 	assert.False(t, IsSet("unset.key"))
 }
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 
-	// Verify all default values are set correctly
 	assert.Equal(t, "text", config.General.OutputFormat)
 	assert.Equal(t, "origin", config.Git.DefaultRemote)
 	assert.Equal(t, 30*time.Second, config.Git.FetchTimeout)
@@ -182,24 +164,20 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestValidConstants(t *testing.T) {
-	// Test ValidLogLevels
 	logLevels := ValidLogLevels()
 	assert.Contains(t, logLevels, "debug")
 	assert.Contains(t, logLevels, "info")
 	assert.Contains(t, logLevels, "warn")
 	assert.Contains(t, logLevels, "error")
 
-	// Test ValidOutputFormats
 	outputFormats := ValidOutputFormats()
 	assert.Contains(t, outputFormats, "text")
 	assert.Contains(t, outputFormats, "json")
 
-	// Test ValidLogFormats
 	logFormats := ValidLogFormats()
 	assert.Contains(t, logFormats, "text")
 	assert.Contains(t, logFormats, "json")
 
-	// Test ValidNamingPatterns
 	namingPatterns := ValidNamingPatterns()
 	assert.Contains(t, namingPatterns, "branch")
 	assert.Contains(t, namingPatterns, "slug")
@@ -207,7 +185,6 @@ func TestValidConstants(t *testing.T) {
 }
 
 func TestGetDefaultEditor(t *testing.T) {
-	// Save original environment
 	originalEditor := os.Getenv("EDITOR")
 	originalVisual := os.Getenv("VISUAL")
 	defer func() {
@@ -223,21 +200,20 @@ func TestGetDefaultEditor(t *testing.T) {
 		}
 	}()
 
-	// Test with EDITOR environment variable
 	_ = os.Unsetenv("VISUAL")
 	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor := getDefaultEditor()
 	assert.Equal(t, "nano", editor)
 
-	// Test with VISUAL environment variable (should take precedence)
+	// Test with VISUAL environment variable (should take precedence).
 	require.NoError(t, os.Setenv("VISUAL", "emacs"))
 	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor = getDefaultEditor()
 	assert.Equal(t, "emacs", editor) // VISUAL has precedence over EDITOR
 
-	// Test fallback to vi when neither is set
+	// Test fallback to vi when neither is set.
 	_ = os.Unsetenv("EDITOR")
 	_ = os.Unsetenv("VISUAL")
 
@@ -246,30 +222,24 @@ func TestGetDefaultEditor(t *testing.T) {
 }
 
 func TestConfigFileOperations(t *testing.T) {
-	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Reset viper for clean test
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 	viper.SetConfigName("config")
 	viper.SetConfigType("toml")
 
-	// Set some test values
 	Set("logging.level", "debug")
 	Set("git.default_remote", "upstream")
 
-	// Test WriteConfigAs
 	configPath := filepath.Join(tmpDir, "test_config.toml")
 	err = WriteConfigAs(configPath)
 	require.NoError(t, err)
 
-	// Verify file was created
 	assert.FileExists(t, configPath)
 
-	// Test reading the config back
 	viper.Reset()
 	viper.SetConfigFile(configPath)
 	err = viper.ReadInConfig()
@@ -283,26 +253,22 @@ func TestAllSettings(t *testing.T) {
 	viper.Reset()
 	SetDefaults()
 
-	// Set some test values
 	Set("test.key1", "value1")
 	Set("test.key2", "value2")
 
 	settings := AllSettings()
 
-	// Verify settings contains our test values
 	assert.NotNil(t, settings["test"])
 	testSettings := settings["test"].(map[string]interface{})
 	assert.Equal(t, "value1", testSettings["key1"])
 	assert.Equal(t, "value2", testSettings["key2"])
 
-	// Verify default values are also present
 	assert.NotNil(t, settings["logging"])
 	assert.NotNil(t, settings["git"])
 	assert.NotNil(t, settings["retry"])
 }
 
 func TestConfigFileUsed(t *testing.T) {
-	// Create a temporary directory with config file
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
@@ -314,20 +280,17 @@ level = "debug"
 `), 0o644)
 	require.NoError(t, err)
 
-	// Reset viper and initialize
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 
 	err = Initialize()
 	require.NoError(t, err)
 
-	// Verify ConfigFileUsed returns the correct path
 	usedPath := ConfigFileUsed()
 	assert.Equal(t, configPath, usedPath)
 }
 
 func TestConfigWithJSONFormat(t *testing.T) {
-	// Create a temporary directory with JSON config
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
@@ -346,14 +309,12 @@ func TestConfigWithJSONFormat(t *testing.T) {
 	err = os.WriteFile(configPath, []byte(jsonContent), 0o644)
 	require.NoError(t, err)
 
-	// Reset viper and initialize
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 
 	err = Initialize()
 	require.NoError(t, err)
 
-	// Verify JSON config was loaded
 	assert.Equal(t, "code", GetString("general.editor"))
 	assert.Equal(t, "json", GetString("general.output_format"))
 	assert.Equal(t, "debug", GetString("logging.level"))
@@ -361,7 +322,6 @@ func TestConfigWithJSONFormat(t *testing.T) {
 }
 
 func TestConfigWithYAMLFormat(t *testing.T) {
-	// Create a temporary directory with YAML config
 	tmpDir, err := os.MkdirTemp("", "grove-config-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
@@ -381,14 +341,12 @@ git:
 	err = os.WriteFile(configPath, []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
-	// Reset viper and initialize
 	viper.Reset()
 	viper.AddConfigPath(tmpDir)
 
 	err = Initialize()
 	require.NoError(t, err)
 
-	// Verify YAML config was loaded
 	assert.Equal(t, "vim", GetString("general.editor"))
 	assert.Equal(t, "text", GetString("general.output_format"))
 	assert.Equal(t, "warn", GetString("logging.level"))
@@ -397,60 +355,52 @@ git:
 }
 
 func TestWriteConfigSecurity(t *testing.T) {
-	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-security-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Test WriteConfig with secure permissions
+	// Test WriteConfig with secure permissions.
 	t.Run("WriteConfig sets secure permissions", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "test-write-config.toml")
 
-		// Reset viper and set test config
 		viper.Reset()
 		SetDefaults()
 		Set("general.editor", "test-editor")
 		viper.SetConfigFile(configPath)
 
-		// Write config
 		err := WriteConfig()
 		require.NoError(t, err)
 
-		// Check file exists and has correct permissions
+		// Check file exists and has correct permissions.
 		stat, err := os.Stat(configPath)
 		require.NoError(t, err)
 
-		// Check permissions (0o600 = -rw-------)
+		// Check permissions (0o600 = -rw-------).
 		expectedPerm := os.FileMode(0o600)
 		actualPerm := stat.Mode().Perm()
 		assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
 	})
 
-	// Test SafeWriteConfig with secure permissions
+	// Test SafeWriteConfig with secure permissions.
 	t.Run("SafeWriteConfig sets secure permissions", func(t *testing.T) {
-		// Reset viper and set test config
 		viper.Reset()
 		SetDefaults()
 		Set("general.editor", "test-editor")
 
-		// Get the expected config path and clean up any existing file
 		configPaths := GetConfigPaths()
 		require.NotEmpty(t, configPaths)
 		expectedPath := filepath.Join(configPaths[0], "config.toml")
 
-		// Clean up any existing config file
 		_ = os.Remove(expectedPath)
-		defer func() { _ = os.Remove(expectedPath) }() // Clean up after test
+		defer func() { _ = os.Remove(expectedPath) }()
 
-		// Safe write config
 		err := SafeWriteConfig()
 		require.NoError(t, err)
 
-		// Check file exists and has correct permissions
+		// Check file exists and has correct permissions.
 		stat, err := os.Stat(expectedPath)
 		require.NoError(t, err)
 
-		// Check permissions
 		expectedPerm := os.FileMode(0o600)
 		actualPerm := stat.Mode().Perm()
 		assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
@@ -458,12 +408,10 @@ func TestWriteConfigSecurity(t *testing.T) {
 }
 
 func TestWriteConfigAsPathValidation(t *testing.T) {
-	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-path-validation-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Setup viper with test config
 	viper.Reset()
 	SetDefaults()
 	Set("general.editor", "test-editor")
@@ -514,7 +462,7 @@ func TestWriteConfigAsPathValidation(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// For valid paths, check file was created with correct permissions
+				// For valid paths, check file was created with correct permissions.
 				cleanPath := filepath.Clean(tt.path)
 				if !filepath.IsAbs(cleanPath) {
 					cleanPath, _ = filepath.Abs(cleanPath)
@@ -527,7 +475,6 @@ func TestWriteConfigAsPathValidation(t *testing.T) {
 				actualPerm := stat.Mode().Perm()
 				assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
 
-				// Cleanup
 				_ = os.Remove(cleanPath)
 			}
 		})
@@ -535,34 +482,32 @@ func TestWriteConfigAsPathValidation(t *testing.T) {
 }
 
 func TestWriteConfigAsDirectoryCreation(t *testing.T) {
-	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "grove-dir-creation-test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Setup viper with test config
 	viper.Reset()
 	SetDefaults()
 	Set("general.editor", "test-editor")
 
-	// Test creating config in nested directory
+	// Test creating config in nested directory.
 	nestedPath := filepath.Join(tmpDir, "nested", "deep", "config.toml")
 
 	err = WriteConfigAs(nestedPath)
 	require.NoError(t, err)
 
-	// Check directory was created with correct permissions
+	// Check directory was created with correct permissions.
 	nestedDir := filepath.Join(tmpDir, "nested", "deep")
 	stat, err := os.Stat(nestedDir)
 	require.NoError(t, err)
 	assert.True(t, stat.IsDir())
 
-	// Check directory permissions (0o700 = drwx------)
+	// Check directory permissions (0o700 = drwx------).
 	expectedDirPerm := os.FileMode(0o700)
 	actualDirPerm := stat.Mode().Perm()
 	assert.Equal(t, expectedDirPerm, actualDirPerm, "Config directory should have 0700 permissions")
 
-	// Check file was created with correct permissions
+	// Check file was created with correct permissions.
 	fileStat, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 

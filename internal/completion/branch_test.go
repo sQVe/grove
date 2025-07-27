@@ -74,7 +74,6 @@ func TestBranchCompletion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			ctx := NewCompletionContext(tt.mockFunc())
@@ -148,7 +147,6 @@ func TestGetBranchNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			ctx := NewCompletionContext(tt.mockFunc())
@@ -426,7 +424,6 @@ func TestCompleteBranchList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clear cache before each test
 			GlobalCache.Clear()
 
 			ctx := NewCompletionContext(tt.mockFunc())
@@ -446,7 +443,6 @@ func TestCompleteBranchList(t *testing.T) {
 }
 
 func TestBranchCompletionWithCache(t *testing.T) {
-	// Clear cache before test
 	GlobalCache.Clear()
 
 	mock := testutils.NewMockGitExecutor()
@@ -458,17 +454,16 @@ func TestBranchCompletionWithCache(t *testing.T) {
 	cmd := &cobra.Command{}
 	args := []string{}
 
-	// First call should fetch from git
 	results1, _ := BranchCompletion(ctx, cmd, args, "")
 
-	// Second call should use cache (mock won't be called again)
+	// Second call should use cache (mock won't be called again).
 	results2, _ := BranchCompletion(ctx, cmd, args, "")
 
 	if !equalSlices(results1, results2) {
 		t.Errorf("cached results differ: %v vs %v", results1, results2)
 	}
 
-	// Verify the results are correct (main should come first due to priority)
+	// Verify the results are correct (main should come first due to priority).
 	expected := []string{"main", "develop"}
 	if !equalSlices(results1, expected) {
 		t.Errorf("expected %v, got %v", expected, results1)

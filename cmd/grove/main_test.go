@@ -35,19 +35,19 @@ func TestVersionFlag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a new command instance for each test
+			// Create a new command instance for each test.
 			cmd := rootCmd
 			cmd.SetArgs(tt.args)
 
-			// Capture output
+			// Capture output.
 			buf := new(bytes.Buffer)
 			cmd.SetOut(buf)
 
-			// Execute command
+			// Execute command.
 			err := cmd.Execute()
 			require.NoError(t, err)
 
-			// Check output
+			// Check output.
 			output := strings.TrimSpace(buf.String())
 			assert.Equal(t, tt.expected, output)
 		})
@@ -87,16 +87,16 @@ func TestRootCommandDefault(t *testing.T) {
 }
 
 func TestInitConfig(t *testing.T) {
-	// Create a test directory for configuration
+	// Create a test directory for configuration.
 	testDir := testutils.NewTestDirectory(t, "grove-test-config")
 	defer testDir.Cleanup()
 
-	// Test initialization with valid config
+	// Test initialization with valid config.
 	t.Run("successful initialization", func(t *testing.T) {
-		// Reset Viper for clean test
+		// Reset Viper for clean test.
 		viper.Reset()
 
-		// Set a temporary config directory
+		// Set a temporary config directory.
 		oldConfigHome := os.Getenv("XDG_CONFIG_HOME")
 		defer func() {
 			if oldConfigHome != "" {
@@ -107,7 +107,7 @@ func TestInitConfig(t *testing.T) {
 		}()
 		_ = os.Setenv("XDG_CONFIG_HOME", testDir.Path)
 
-		// Test that initConfig doesn't panic or exit
+		// Test that initConfig doesn't panic or exit.
 		require.NotPanics(t, func() {
 			initConfig()
 		})
@@ -139,7 +139,7 @@ func TestLogLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset Viper for clean test
+			// Reset Viper for clean test.
 			viper.Reset()
 
 			cmd := rootCmd
@@ -149,11 +149,11 @@ func TestLogLevel(t *testing.T) {
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
 
-			// Execute command - should not fail
+			// Execute command - should not fail.
 			err := cmd.Execute()
 			require.NoError(t, err)
 
-			// Verify command executed successfully
+			// Verify command executed successfully.
 			output := buf.String()
 			assert.Contains(t, output, "Grove transforms Git worktrees")
 		})
@@ -161,9 +161,9 @@ func TestLogLevel(t *testing.T) {
 }
 
 func TestMainFunction(t *testing.T) {
-	// Test that main function doesn't panic
-	// We can't easily test the actual main() without causing os.Exit,
-	// but we can test the core logic through rootCmd.Execute()
+	// Test that main function doesn't panic.
+	// We can't easily test the actual main() without causing os.Exit,.
+	// but we can test the core logic through rootCmd.Execute().
 	t.Run("help command execution", func(t *testing.T) {
 		cmd := rootCmd
 		cmd.SetArgs([]string{"--help"})
@@ -181,19 +181,19 @@ func TestMainFunction(t *testing.T) {
 }
 
 func TestPersistentFlags(t *testing.T) {
-	// Test that all expected persistent flags are registered
+	// Test that all expected persistent flags are registered.
 	flags := rootCmd.PersistentFlags()
 
 	assert.NotNil(t, flags.Lookup("log-level"))
 	assert.NotNil(t, flags.Lookup("log-format"))
 	assert.NotNil(t, flags.Lookup("debug"))
 
-	// Reset flags to defaults for clean test
+	// Reset flags to defaults for clean test.
 	_ = flags.Set("log-level", "info")
 	_ = flags.Set("log-format", "text")
 	_ = flags.Set("debug", "false")
 
-	// Test default values
+	// Test default values.
 	logLevel, err := flags.GetString("log-level")
 	require.NoError(t, err)
 	assert.Equal(t, "info", logLevel)

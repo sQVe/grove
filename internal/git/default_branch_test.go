@@ -15,7 +15,7 @@ import (
 )
 
 func TestDetectDefaultBranch(t *testing.T) {
-	// Note: This test uses mocks so it's actually fast, removed the skip condition
+	// Note: This test uses mocks so it's actually fast, removed the skip condition.
 
 	tests := []struct {
 		name     string
@@ -522,7 +522,7 @@ func TestIsValidBranchName(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		// Valid branch names
+		// Valid branch names.
 		{"simple name", "main", true},
 		{"with slash", "feature/auth", true},
 		{"with numbers", "v1.2.3", true},
@@ -531,20 +531,20 @@ func TestIsValidBranchName(t *testing.T) {
 		{"hierarchical", "releases/v1.0/hotfix", true},
 		{"complex valid", "feature/user-auth_system.v2", true},
 
-		// Invalid: empty or whitespace
+		// Invalid: empty or whitespace.
 		{"empty string", "", false},
 		{"only whitespace", "   ", false},
 		{"leading whitespace", " main", false},
 		{"trailing whitespace", "main ", false},
 
-		// Invalid: single character @
+		// Invalid: single character @.
 		{"single @", "@", false},
 
-		// Invalid: begins with dash
+		// Invalid: begins with dash.
 		{"starts with dash", "-feature", false},
 		{"starts with dash complex", "-feature/auth", false},
 
-		// Invalid: begins or ends with /
+		// Invalid: begins or ends with /.
 		{"starts with slash", "/feature", false},
 		{"ends with slash", "feature/", false},
 		{"both slashes", "/feature/", false},
@@ -553,20 +553,20 @@ func TestIsValidBranchName(t *testing.T) {
 		{"ends with dot", "feature.", false},
 		{"ends with dot complex", "feature/auth.", false},
 
-		// Invalid: consecutive dots
+		// Invalid: consecutive dots.
 		{"consecutive dots", "feature..auth", false},
 		{"consecutive dots start", "..main", false},
 		{"consecutive dots end", "main..", false},
 
-		// Invalid: @{ sequence
+		// Invalid: @{ sequence.
 		{"contains @{", "feature@{", false},
 		{"contains @{ middle", "fea@{ture", false},
 
-		// Invalid: multiple consecutive slashes
+		// Invalid: multiple consecutive slashes.
 		{"double slash", "feature//auth", false},
 		{"triple slash", "feature///auth", false},
 
-		// Invalid: forbidden characters
+		// Invalid: forbidden characters.
 		{"contains space", "feature auth", false},
 		{"contains tilde", "feature~auth", false},
 		{"contains caret", "feature^auth", false},
@@ -578,13 +578,13 @@ func TestIsValidBranchName(t *testing.T) {
 		{"contains DEL", "feature\x7Fauth", false},
 		{"contains control char", "feature\x01auth", false},
 
-		// Invalid: component rules
+		// Invalid: component rules.
 		{"component starts with dot", "feature/.auth", false},
 		{"component starts with dot start", ".feature/auth", false},
 		{"component ends with .lock", "feature/auth.lock", false},
 		{"component ends with .lock start", "auth.lock/feature", false},
 
-		// Edge cases
+		// Edge cases.
 		{"just dot", ".", false},
 		{"just slash", "/", false},
 		{"just dots", "..", false},
@@ -603,7 +603,7 @@ func TestIsValidBranchName(t *testing.T) {
 }
 
 func TestBranchValidationIntegration(t *testing.T) {
-	// Test that all detection functions now validate branch names
+	// Test that all detection functions now validate branch names.
 	tests := []struct {
 		name        string
 		setupMock   func() *testutils.MockGitExecutor

@@ -11,27 +11,26 @@ const (
 	osDarwin  = "darwin"
 )
 
-// GetConfigPaths returns a list of paths where Grove looks for config files
 // The order is important - first paths have higher precedence.
 func GetConfigPaths() []string {
 	var paths []string
 
-	// 1. Environment variable override (highest precedence)
+	// 1. Environment variable override (highest precedence).
 	if envPath := os.Getenv("GROVE_CONFIG"); envPath != "" {
 		paths = append(paths, filepath.Dir(envPath))
 	}
 
-	// 2. Current directory (project-specific config)
+	// 2. Current directory (project-specific config).
 	if cwd, err := os.Getwd(); err == nil {
 		paths = append(paths, cwd)
 	}
 
-	// 3. User config directory (platform-specific)
+	// 3. User config directory (platform-specific).
 	if userConfigDir := getUserConfigDir(); userConfigDir != "" {
 		paths = append(paths, userConfigDir)
 	}
 
-	// 4. Home directory (fallback)
+	// 4. Home directory (fallback).
 	if homeDir := getHomeDir(); homeDir != "" {
 		paths = append(paths, homeDir)
 	}
@@ -39,7 +38,6 @@ func GetConfigPaths() []string {
 	return paths
 }
 
-// getUserConfigDir returns the user's config directory based on platform.
 func getUserConfigDir() string {
 	switch runtime.GOOS {
 	case osWindows:
@@ -51,7 +49,6 @@ func getUserConfigDir() string {
 	}
 }
 
-// getWindowsConfigDir returns the Windows config directory.
 func getWindowsConfigDir() string {
 	if appData := os.Getenv("APPDATA"); appData != "" {
 		return filepath.Join(appData, "grove")
@@ -62,7 +59,6 @@ func getWindowsConfigDir() string {
 	return ""
 }
 
-// getMacOSConfigDir returns the macOS config directory.
 func getMacOSConfigDir() string {
 	if homeDir := getHomeDir(); homeDir != "" {
 		return filepath.Join(homeDir, "Library", "Application Support", "grove")
@@ -70,9 +66,8 @@ func getMacOSConfigDir() string {
 	return ""
 }
 
-// getLinuxConfigDir returns the Linux config directory following XDG Base Directory specification.
 func getLinuxConfigDir() string {
-	// Follow XDG Base Directory specification
+	// Follow XDG Base Directory specification.
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "grove")
 	}
@@ -82,7 +77,6 @@ func getLinuxConfigDir() string {
 	return ""
 }
 
-// getHomeDir returns the user's home directory.
 func getHomeDir() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return home
@@ -93,7 +87,6 @@ func getHomeDir() string {
 	return ""
 }
 
-// GetDefaultConfigPath returns the default config file path for the current platform.
 func GetDefaultConfigPath() string {
 	configDir := getUserConfigDir()
 	if configDir == "" {
@@ -102,7 +95,6 @@ func GetDefaultConfigPath() string {
 	return filepath.Join(configDir, "config.toml")
 }
 
-// EnsureConfigDir creates the config directory if it doesn't exist.
 func EnsureConfigDir() error {
 	configDir := getUserConfigDir()
 	if configDir == "" {
@@ -112,7 +104,6 @@ func EnsureConfigDir() error {
 	return os.MkdirAll(configDir, 0o755)
 }
 
-// GetConfigFilePath returns the path to a specific config file.
 func GetConfigFilePath(filename string) string {
 	if filename == "" {
 		filename = "config.toml"
@@ -126,7 +117,6 @@ func GetConfigFilePath(filename string) string {
 	return filepath.Join(configDir, filename)
 }
 
-// ConfigExists checks if a config file exists in any of the search paths.
 func ConfigExists() (exists bool, configPath string) {
 	paths := GetConfigPaths()
 	filenames := []string{"config.toml", "config.yaml", "config.yml", "config.json"}
@@ -143,7 +133,6 @@ func ConfigExists() (exists bool, configPath string) {
 	return false, ""
 }
 
-// ListConfigPaths returns all possible config paths with their priority.
 func ListConfigPaths() []ConfigPathInfo {
 	paths := GetConfigPaths()
 	result := make([]ConfigPathInfo, len(paths))
@@ -161,7 +150,6 @@ func ListConfigPaths() []ConfigPathInfo {
 	return result
 }
 
-// ConfigPathInfo contains information about a config path.
 type ConfigPathInfo struct {
 	Path     string
 	Priority int
@@ -169,7 +157,6 @@ type ConfigPathInfo struct {
 	File     string
 }
 
-// checkConfigExistsInPath checks if a config file exists in a specific path.
 func checkConfigExistsInPath(path string) (exists bool, configPath string) {
 	filenames := []string{"config.toml", "config.yaml", "config.yml", "config.json"}
 

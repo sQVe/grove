@@ -55,7 +55,6 @@ func TestGetTerminalWidth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Save original COLUMNS value
 			originalColumns := os.Getenv("COLUMNS")
 			defer func() {
 				if originalColumns != "" {
@@ -65,7 +64,6 @@ func TestGetTerminalWidth(t *testing.T) {
 				}
 			}()
 
-			// Set test COLUMNS value
 			if tt.columnsEnv != "" {
 				_ = os.Setenv("COLUMNS", tt.columnsEnv)
 			} else {
@@ -88,7 +86,6 @@ func TestGetTerminalWidth(t *testing.T) {
 }
 
 func TestGetTerminalWidthWithEnvVar(t *testing.T) {
-	// Save original COLUMNS value
 	originalColumns := os.Getenv("COLUMNS")
 	defer func() {
 		if originalColumns != "" {
@@ -98,7 +95,6 @@ func TestGetTerminalWidthWithEnvVar(t *testing.T) {
 		}
 	}()
 
-	// Test specific width
 	_ = os.Setenv("COLUMNS", "100")
 	width := GetTerminalWidth()
 	if width != 100 {
@@ -107,12 +103,11 @@ func TestGetTerminalWidthWithEnvVar(t *testing.T) {
 }
 
 func TestIsInteractiveTerminal(t *testing.T) {
-	// Note: This test result depends on how the test is run
-	// In CI/CD or when output is redirected, it should be false
-	// When run interactively, it might be true
+	// Note: This test result depends on how the test is run.
+	// In CI/CD or when output is redirected, it should be false.
+	// When run interactively, it might be true.
 	result := IsInteractiveTerminal()
 
-	// Just ensure it doesn't panic and returns a boolean
 	if result != true && result != false {
 		t.Errorf("IsInteractiveTerminal() returned non-boolean value")
 	}

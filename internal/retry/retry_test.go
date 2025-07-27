@@ -80,7 +80,6 @@ func TestExecuteWithRetry_SuccessAfterRetry(t *testing.T) {
 	if callCount != 2 {
 		t.Errorf("expected operation to be called twice, got %d", callCount)
 	}
-	// Should have waited at least the base delay
 	if duration < config.BaseDelay {
 		t.Errorf("expected duration to be at least %v, got %v", config.BaseDelay, duration)
 	}
@@ -151,7 +150,6 @@ func TestExecuteWithRetry_ContextCancellation(t *testing.T) {
 	operation := func() error {
 		callCount++
 		if callCount == 1 {
-			// Cancel context during first retry delay
 			go func() {
 				time.Sleep(100 * time.Millisecond)
 				cancel()
@@ -260,7 +258,7 @@ func TestCalculateDelay(t *testing.T) {
 		{2, 2 * time.Second},
 		{3, 4 * time.Second},
 		{4, 8 * time.Second},
-		{5, 10 * time.Second}, // Capped at MaxDelay
+		{5, 10 * time.Second},
 	}
 
 	for _, tt := range tests {
@@ -280,13 +278,12 @@ func TestCalculateDelay_WithJitter(t *testing.T) {
 		JitterEnabled: true,
 	}
 
-	// Test that jitter produces different values
+	// Test that jitter produces different values.
 	delays := make([]time.Duration, 10)
 	for i := 0; i < 10; i++ {
 		delays[i] = calculateDelay(2, config)
 	}
 
-	// Check that we get some variation (not all delays are the same)
 	allSame := true
 	for i := 1; i < len(delays); i++ {
 		if delays[i] != delays[0] {
@@ -299,8 +296,7 @@ func TestCalculateDelay_WithJitter(t *testing.T) {
 		t.Error("expected jitter to produce different delays, but all were the same")
 	}
 
-	// Check that all delays are within reasonable bounds (±25% of base delay)
-	baseDelay := 2 * time.Second // Expected for attempt 2
+	baseDelay := 2 * time.Second
 	minDelay := time.Duration(float64(baseDelay) * 0.75)
 	maxDelay := time.Duration(float64(baseDelay) * 1.25)
 
@@ -330,21 +326,18 @@ func TestWithRetry_ConvenienceFunction(t *testing.T) {
 	}
 }
 
-// TestRetryableErrorInterface tests that our GroveError properly implements RetryableError.
 func TestRetryableErrorInterface(t *testing.T) {
 	retryableErr := groveErrors.ErrNetworkTimeout("test", errors.New("timeout"))
 	nonRetryableErr := groveErrors.ErrAuthenticationFailed("test", errors.New("auth failed"))
 
 	var retryable RetryableError
 
-	// Test that retryable error implements the interface
 	if !errors.As(retryableErr, &retryable) {
 		t.Error("expected retryable error to implement RetryableError interface")
 	} else if !retryable.IsRetryable() {
 		t.Error("expected retryable error to return true for IsRetryable()")
 	}
 
-	// Test that non-retryable error implements the interface but returns false
 	if !errors.As(nonRetryableErr, &retryable) {
 		t.Error("expected non-retryable error to implement RetryableError interface")
 	} else if retryable.IsRetryable() {

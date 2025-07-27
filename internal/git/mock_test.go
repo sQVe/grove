@@ -13,28 +13,23 @@ import (
 	"github.com/sqve/grove/internal/testutils"
 )
 
-// TestMockGitExecutor tests the mock executor itself.
 func TestMockGitExecutor(t *testing.T) {
 	mock := testutils.NewMockGitExecutor()
 
-	// Test default behavior
 	_, err := mock.Execute("unknown", "command")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unhandled git command")
 
-	// Test configured response
 	mock.SetSuccessResponse("test", "output")
 	output, err := mock.Execute("test")
 	require.NoError(t, err)
 	assert.Equal(t, "output", output)
 
-	// Test error response
 	mock.SetErrorResponseWithMessage("fail", "test error")
 	_, err = mock.Execute("fail")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "test error")
 
-	// Test command tracking
 	assert.Equal(t, 3, mock.CallCount)
 	assert.True(t, mock.HasCommand("test"))
 	assert.False(t, mock.HasCommand("nonexistent"))
@@ -84,7 +79,6 @@ func TestCloneBareWithExecutor(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Verify the correct command was called
 			assert.True(t, mock.HasCommand("clone", "--bare", tt.repoURL, tt.targetDir))
 		})
 	}
@@ -143,7 +137,6 @@ func TestConfigureRemoteTrackingWithExecutor(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Verify expected commands were called
 			if tt.expectConfig {
 				assert.True(t, mock.HasCommand("config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"))
 			}
@@ -215,7 +208,6 @@ func runSetupUpstreamTest(t *testing.T, tt setupUpstreamTestCase) {
 	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("for-each-ref", tt.branchOutput, tt.branchError)
 
-	// Set up upstream responses
 	for branch, err := range tt.upstreamErrors {
 		pattern := fmt.Sprintf("branch --set-upstream-to=origin/%s %s", branch, branch)
 		mock.SetResponse(pattern, "", err)
@@ -229,6 +221,5 @@ func runSetupUpstreamTest(t *testing.T, tt setupUpstreamTestCase) {
 		require.NoError(t, err)
 	}
 
-	// Verify for-each-ref was called
 	assert.True(t, mock.HasCommand("for-each-ref", "--format=%(refname:short)", "refs/heads"))
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-// Test contains test-related targets.
 type Test mg.Namespace
 
 // Unit runs fast unit tests (excluding integration tests).
@@ -37,7 +36,7 @@ func (Test) All() error {
 func (Test) Coverage() error {
 	fmt.Println("Running unit tests with coverage...")
 
-	if err := os.MkdirAll("coverage", 0755); err != nil {
+	if err := os.MkdirAll("coverage", 0o755); err != nil {
 		return err
 	}
 
@@ -58,12 +57,10 @@ func (Test) Watch() error {
 	fmt.Println("Running unit tests in watch mode...")
 	fmt.Println("Press Ctrl+C to stop watching...")
 
-	// Check if entr is available
 	if err := sh.Run("which", "entr"); err != nil {
 		return fmt.Errorf("entr is required for watch mode. Install with: brew install entr (macOS) or apt-get install entr (Linux)")
 	}
 
-	// Use find command to locate Go files and pipe to entr
 	return sh.RunV("sh", "-c", "find . -name '*.go' | entr -c -n mage test:unit")
 }
 
@@ -71,12 +68,10 @@ func (Test) Watch() error {
 func (Test) Clean() error {
 	fmt.Println("Cleaning test artifacts...")
 
-	// Remove coverage directory
 	if err := os.RemoveAll("coverage"); err != nil {
 		return err
 	}
 
-	// Remove any test cache
 	return sh.RunV("go", "clean", "-testcache")
 }
 
@@ -85,7 +80,6 @@ func (Test) Default() error {
 	return Test{}.Unit()
 }
 
-// Build contains build-related targets.
 type Build mg.Namespace
 
 // All builds the application for the current platform.
@@ -141,12 +135,10 @@ func (Build) Clean() error {
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
 
-	// Check if we're in CI environment
 	if os.Getenv("CI") != "" {
 		return sh.RunV("golangci-lint", "run")
 	}
 
-	// Run with --fix in local development
 	return sh.RunV("golangci-lint", "run", "--fix")
 }
 
@@ -154,28 +146,23 @@ func Lint() error {
 func CI() error {
 	fmt.Println("Running CI pipeline...")
 
-	// Clean first
 	test := Test{}
 	build := Build{}
 
 	mg.Deps(test.Clean, build.Clean)
 
-	// Run linting
 	if err := Lint(); err != nil {
 		return fmt.Errorf("linting failed: %w", err)
 	}
 
-	// Run unit tests
 	if err := test.Unit(); err != nil {
 		return fmt.Errorf("unit tests failed: %w", err)
 	}
 
-	// Run integration tests
 	if err := test.Integration(); err != nil {
 		return fmt.Errorf("integration tests failed: %w", err)
 	}
 
-	// Build the application
 	if err := build.All(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -188,7 +175,6 @@ func CI() error {
 func Dev() error {
 	fmt.Println("Setting up development environment...")
 
-	// Install development tools
 	tools := []string{
 		"github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
 	}
@@ -221,7 +207,6 @@ func Info() error {
 	fmt.Printf("Go version: %s\n", runtime.Version())
 	fmt.Printf("Go OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 
-	// Show git information
 	if output, err := sh.Output("git", "rev-parse", "--short", "HEAD"); err == nil {
 		fmt.Printf("Git commit: %s\n", strings.TrimSpace(output))
 	}
@@ -230,7 +215,6 @@ func Info() error {
 		fmt.Printf("Git branch: %s\n", strings.TrimSpace(output))
 	}
 
-	// Show module information
 	if output, err := sh.Output("go", "list", "-m"); err == nil {
 		fmt.Printf("Module: %s\n", strings.TrimSpace(output))
 	}
@@ -275,9 +259,8 @@ func Default() error {
 	return test.Unit()
 }
 
-// Ensure bin directory exists.
 func init() {
-	if err := os.MkdirAll("bin", 0755); err != nil {
+	if err := os.MkdirAll("bin", 0o755); err != nil {
 		fmt.Printf("Warning: failed to create bin directory: %v\n", err)
 	}
 }

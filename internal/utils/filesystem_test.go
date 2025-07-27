@@ -14,7 +14,6 @@ import (
 )
 
 func TestWithDirectoryChange(t *testing.T) {
-	// Get original directory to verify restoration
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -24,7 +23,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		executed := false
 		err := WithDirectoryChange(tempDir, func() error {
 			executed = true
-			// Verify we're in the target directory
 			currentDir, err := os.Getwd()
 			assert.NoError(t, err)
 			assert.Equal(t, tempDir, currentDir)
@@ -34,7 +32,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, executed)
 
-		// Verify we're back to original directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)
@@ -54,7 +51,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		assert.Equal(t, expectedErr, err)
 		assert.True(t, executed)
 
-		// Verify we're still back to original directory despite error
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)
@@ -73,14 +69,12 @@ func TestWithDirectoryChange(t *testing.T) {
 		assert.False(t, executed)
 		assert.Contains(t, err.Error(), "failed to change to directory")
 
-		// Verify we're still in original directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)
 	})
 
 	t.Run("target directory is not a directory", func(t *testing.T) {
-		// Create a file instead of directory
 		tempFile := filepath.Join(t.TempDir(), "file.txt")
 		err := os.WriteFile(tempFile, []byte("test"), 0o644)
 		require.NoError(t, err)
@@ -111,14 +105,12 @@ func TestWithDirectoryChange(t *testing.T) {
 	t.Run("relative path target", func(t *testing.T) {
 		tempDir := t.TempDir()
 
-		// Change to temp directory first
 		err := os.Chdir(tempDir)
 		require.NoError(t, err)
 		defer func() {
 			_ = os.Chdir(originalDir)
 		}()
 
-		// Create subdirectory
 		subdir := "subdir"
 		err = os.Mkdir(subdir, 0o755)
 		require.NoError(t, err)
@@ -126,7 +118,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		executed := false
 		err = WithDirectoryChange(subdir, func() error {
 			executed = true
-			// Verify we're in the subdirectory
 			currentDir, err := os.Getwd()
 			assert.NoError(t, err)
 			assert.Equal(t, filepath.Join(tempDir, subdir), currentDir)
@@ -136,7 +127,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, executed)
 
-		// Verify we're back to temp directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, tempDir, currentDir)
@@ -148,10 +138,8 @@ func TestWithDirectoryChange(t *testing.T) {
 
 		executed := false
 		err := WithDirectoryChange(tempDir1, func() error {
-			// Nested directory change
 			return WithDirectoryChange(tempDir2, func() error {
 				executed = true
-				// Verify we're in tempDir2
 				currentDir, err := os.Getwd()
 				assert.NoError(t, err)
 				assert.Equal(t, tempDir2, currentDir)
@@ -162,7 +150,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, executed)
 
-		// Verify we're back to original directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)
@@ -172,18 +159,16 @@ func TestWithDirectoryChange(t *testing.T) {
 		tempDir := t.TempDir()
 
 		defer func() {
-			// Catch the panic
 			r := recover()
 			assert.Equal(t, "test panic", r)
 
-			// Verify we're back to original directory even after panic
+			// Verify we're back to original directory even after panic.
 			currentDir, err := os.Getwd()
 			require.NoError(t, err)
 			assert.Equal(t, originalDir, currentDir)
 		}()
 
 		err := WithDirectoryChange(tempDir, func() error {
-			// Verify we changed directories
 			currentDir, err := os.Getwd()
 			assert.NoError(t, err)
 			assert.Equal(t, tempDir, currentDir)
@@ -191,7 +176,7 @@ func TestWithDirectoryChange(t *testing.T) {
 			panic("test panic")
 		})
 
-		// This should not be reached due to panic
+		// This should not be reached due to panic.
 		t.Fail()
 		_ = err
 	})
@@ -207,7 +192,7 @@ func TestWithDirectoryChange(t *testing.T) {
 		require.NoError(t, err)
 
 		defer func() {
-			// Restore permissions for cleanup
+			// Restore permissions for cleanup.
 			_ = os.Chmod(restrictedDir, 0o755)
 		}()
 
@@ -221,7 +206,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		assert.False(t, executed)
 		assert.Contains(t, err.Error(), "failed to change to directory")
 
-		// Verify we're still in original directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)
@@ -259,7 +243,6 @@ func TestWithDirectoryChange(t *testing.T) {
 		<-done1
 		<-done2
 
-		// Verify main goroutine is still in original directory
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
 		assert.Equal(t, originalDir, currentDir)

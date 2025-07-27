@@ -4,20 +4,17 @@ import "github.com/charmbracelet/lipgloss"
 
 // List command constants for better maintainability and configuration.
 
-// Default values for list command options.
 const (
 	DefaultStaleDays  = 30             // Default number of days to consider a worktree stale
 	DefaultSortOption = SortByActivity // Default sorting option
 )
 
-// Time duration constants for activity formatting.
 const (
 	HoursPerDay  = 24
 	DaysPerWeek  = 7
 	DaysPerMonth = 30
 )
 
-// Terminal and UI constants.
 const (
 	MinTableWidth          = 17 // Minimum width for table borders and padding
 	MinTableWidthVerbose   = 29 // Minimum width for table with verbose PATH column
@@ -44,7 +41,6 @@ const (
 	TruncationTolerance      = 5  // Don't truncate if within this many characters of natural width
 )
 
-// Color theme constants for consistent styling.
 var (
 	PrimaryColor = lipgloss.Color("#8B5CF6") // Purple - for current worktree and highlights
 	SuccessColor = lipgloss.Color("#059669") // Green - for clean status (✓)

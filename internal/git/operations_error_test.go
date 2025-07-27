@@ -153,7 +153,7 @@ func TestCreateGitFileError(t *testing.T) {
 			bareDir := testDir.Path + "/.bare"
 
 			if tt.expectError {
-				// Use invalid directories to trigger error
+				// Use invalid directories to trigger error.
 				bareDir = "../invalid"
 			}
 

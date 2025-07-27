@@ -33,9 +33,7 @@ func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "main\nfeature", nil)
 	mock.SetResponse("branch", "", nil)
-	// Add default branch detection responses
 	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	// Add worktree creation responses
 	mock.SetResponse("config --bool core.bare true", "", nil)
 	mock.SetResponse("worktree add", "", nil)
 
@@ -48,7 +46,6 @@ func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
 	gitFile := filepath.Join(tempDir, ".git")
 	assert.FileExists(t, gitFile)
 
-	// Verify .git file content.
 	content, err := os.ReadFile(gitFile)
 	require.NoError(t, err)
 	assert.Equal(t, "gitdir: .bare\n", string(content))
@@ -136,9 +133,7 @@ func TestRunInitFromRemoteWithExecutor_UpstreamWarning(t *testing.T) {
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "", fmt.Errorf("no refs found"))
-	// Add default branch detection responses
 	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	// Add worktree creation responses
 	mock.SetResponse("config --bool core.bare true", "", nil)
 	mock.SetResponse("worktree add", "", nil)
 
@@ -192,9 +187,7 @@ func TestRunInitFromRemoteWithExecutor_HiddenFilesAllowed(t *testing.T) {
 	mock.SetResponse("config", "", nil)
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "", nil)
-	// Add default branch detection responses
 	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	// Add worktree creation responses
 	mock.SetResponse("config --bool core.bare true", "", nil)
 	mock.SetResponse("worktree add", "", nil)
 
@@ -222,9 +215,7 @@ func TestRunInitRemoteWithBranches(t *testing.T) {
 	mock.SetResponse("fetch", "", nil)
 	mock.SetResponse("for-each-ref", "main\ndevelop\nfeature", nil)
 	mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
-	// Add default branch detection responses
 	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	// Add worktree creation responses
 	mock.SetResponse("config --bool core.bare true", "", nil)
 	mock.SetResponse("worktree add", "", nil)
 
@@ -317,7 +308,6 @@ func TestIsValidBranchName(t *testing.T) {
 		branch   string
 		expected bool
 	}{
-		// Valid names
 		{"simple branch", "main", true},
 		{"branch with slash", "feature/auth", true},
 		{"branch with dash", "bug-fix", true},
@@ -325,7 +315,6 @@ func TestIsValidBranchName(t *testing.T) {
 		{"branch with numbers", "feature123", true},
 		{"branch with underscore", "feature_branch", true},
 
-		// Invalid names
 		{"empty string", "", false},
 		{"just dash", "-", false},
 		{"starts with dash", "-invalid", false},

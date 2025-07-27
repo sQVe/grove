@@ -12,7 +12,7 @@ func IsHidden(filename string) bool {
 
 	isHidden := filename[0] == '.'
 
-	// Only log when debug level is explicitly enabled to avoid overhead
+	// Only log when debug level is explicitly enabled to avoid overhead.
 	if log := logger.GetGlobalLogger(); log != nil {
 		log.Debug("file hidden status check", "filename", filename, "is_hidden", isHidden)
 	}

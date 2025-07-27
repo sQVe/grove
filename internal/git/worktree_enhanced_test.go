@@ -156,7 +156,6 @@ func TestGetCurrentWorktreePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockExecutor := testutils.NewMockGitExecutor()
-			// Get current working directory to set up the proper mock command
 			cwd, err := os.Getwd()
 			require.NoError(t, err)
 			expectedCmd := fmt.Sprintf("-C %s rev-parse --show-toplevel", cwd)
@@ -238,7 +237,6 @@ M  modified_file.txt`,
 		t.Run(tt.name, func(t *testing.T) {
 			var testDir string
 			if tt.setupDir {
-				// Create temporary directory for test
 				var err error
 				testDir, err = os.MkdirTemp("", "grove-test-*")
 				require.NoError(t, err)
@@ -369,7 +367,6 @@ func TestGetRemoteStatus(t *testing.T) {
 
 			mockExecutor := testutils.NewMockGitExecutor()
 
-			// Set up mock responses with -C flag that the implementation uses
 			upstreamCmd := fmt.Sprintf("-C %s rev-parse --abbrev-ref %s@{upstream}", testDir, tt.branchName)
 			if tt.upstreamError != nil {
 				mockExecutor.SetErrorResponse(upstreamCmd, tt.upstreamError)
@@ -397,7 +394,6 @@ func TestGetRemoteStatus(t *testing.T) {
 func TestListWorktrees_Integration(t *testing.T) {
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	// Mock the porcelain output
 	porcelainOutput := `worktree /repo/main
 HEAD abc123def456
 branch refs/heads/main
@@ -409,19 +405,16 @@ branch refs/heads/feature/test
 `
 	mockExecutor.SetResponse("worktree list --porcelain", porcelainOutput, nil)
 
-	// Mock current worktree detection - this needs to match current working directory
 	cwd, _ := os.Getwd()
 	mockExecutor.SetResponse("-C "+cwd+" rev-parse --show-toplevel", "/repo/main", nil)
 
-	// Mock git status for each worktree
 	mockExecutor.SetResponse("-C /repo/main status --porcelain", "", nil)
 	mockExecutor.SetResponse("-C /repo/feature status --porcelain", "", nil)
 
-	// Mock upstream checking with -C flag (no upstream for simplicity)
+	// Mock upstream checking with -C flag (no upstream for simplicity).
 	mockExecutor.SetErrorResponse("-C /repo/main rev-parse --abbrev-ref main@{upstream}", fmt.Errorf("no upstream"))
 	mockExecutor.SetErrorResponse("-C /repo/feature rev-parse --abbrev-ref feature/test@{upstream}", fmt.Errorf("no upstream"))
 
-	// Create temporary directories to simulate worktrees
 	tempDir, err := os.MkdirTemp("", "grove-test-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -434,7 +427,6 @@ branch refs/heads/feature/test
 	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
-	// Create some files with different timestamps
 	mainFile := filepath.Join(mainDir, "test.txt")
 	featureFile := filepath.Join(featureDir, "test.txt")
 
@@ -443,15 +435,13 @@ branch refs/heads/feature/test
 	err = os.WriteFile(featureFile, []byte("content"), 0o644)
 	require.NoError(t, err)
 
-	// Test the enhanced ListWorktrees function
-	// Note: This test is limited because we can't easily mock the file system operations
-	// In a real scenario, you might want to add dependency injection for file operations
+	// Note: This test is limited because we can't easily mock the file system operations.
+	// In a real scenario, you might want to add dependency injection for file operations.
 	worktrees, err := ListWorktrees(mockExecutor)
 
 	assert.NoError(t, err)
 	assert.Len(t, worktrees, 2)
 
-	// Verify basic parsing worked
 	assert.Equal(t, "/repo/main", worktrees[0].Path)
 	assert.Equal(t, "refs/heads/main", worktrees[0].Branch)
 	assert.Equal(t, "abc123def456", worktrees[0].Head)
@@ -460,7 +450,6 @@ branch refs/heads/feature/test
 	assert.Equal(t, "refs/heads/feature/test", worktrees[1].Branch)
 	assert.Equal(t, "def456abc123", worktrees[1].Head)
 
-	// Verify current worktree detection
 	assert.True(t, worktrees[0].IsCurrent)
 	assert.False(t, worktrees[1].IsCurrent)
 }
@@ -492,18 +481,15 @@ branch refs/heads/feature
 }
 
 func TestGetLastActivity_MockFileSystem(t *testing.T) {
-	// Create a temporary directory structure for testing
 	tempDir, err := os.MkdirTemp("", "grove-test-*")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Create some test files with different timestamps
 	testFile1 := filepath.Join(tempDir, "file1.txt")
 	testFile2 := filepath.Join(tempDir, "file2.txt")
 	gitDir := filepath.Join(tempDir, ".git")
 	hiddenFile := filepath.Join(tempDir, ".hidden")
 
-	// Create files
 	err = os.WriteFile(testFile1, []byte("content1"), 0o644)
 	require.NoError(t, err)
 
@@ -520,15 +506,14 @@ func TestGetLastActivity_MockFileSystem(t *testing.T) {
 	err = os.WriteFile(hiddenFile, []byte("hidden"), 0o644)
 	require.NoError(t, err)
 
-	// Test the function
 	lastActivity, err := getLastActivity(tempDir)
 	require.NoError(t, err)
 
-	// Should be the timestamp of file2.txt (most recent)
+	// Should be the timestamp of file2.txt (most recent).
 	file2Info, err := os.Stat(testFile2)
 	require.NoError(t, err)
 
-	// Allow for small differences due to file system precision
+	// Allow for small differences due to file system precision.
 	timeDiff := lastActivity.Sub(file2Info.ModTime())
 	assert.True(t, timeDiff >= 0 && timeDiff < time.Second)
 }

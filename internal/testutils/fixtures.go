@@ -7,13 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDirectory represents a temporary directory for testing with cleanup.
 type TestDirectory struct {
 	Path string
 	t    *testing.T
 }
 
-// NewTestDirectory creates a temporary directory for testing.
 func NewTestDirectory(t *testing.T, prefix string) *TestDirectory {
 	t.Helper()
 
@@ -32,7 +30,6 @@ func (td *TestDirectory) Cleanup() {
 	_ = os.RemoveAll(td.Path)
 }
 
-// WithWorkingDirectory executes a function with the working directory set to the repository.
 func WithWorkingDirectory(t *testing.T, dir string, callback func()) {
 	t.Helper()
 
