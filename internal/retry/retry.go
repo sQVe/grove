@@ -30,7 +30,6 @@ func DefaultConfig() RetryConfig {
 	}
 }
 
-// Falls back to default values if configuration is not properly initialized.
 func GetConfig() RetryConfig {
 	maxAttempts := config.GetInt("retry.max_attempts")
 	baseDelay := config.GetDuration("retry.base_delay")
@@ -60,7 +59,6 @@ func ExecuteWithRetry(ctx context.Context, retryConfig RetryConfig, operation fu
 	})
 }
 
-// The operation function receives the context and should respect cancellation.
 func ExecuteWithRetryContext(ctx context.Context, retryConfig RetryConfig, operation func(context.Context) error) error {
 	var lastErr error
 

@@ -206,14 +206,14 @@ func TestGetDefaultEditor(t *testing.T) {
 	editor := getDefaultEditor()
 	assert.Equal(t, "nano", editor)
 
-	// Test with VISUAL environment variable (should take precedence).
+	// VISUAL takes precedence over EDITOR.
 	require.NoError(t, os.Setenv("VISUAL", "emacs"))
 	require.NoError(t, os.Setenv("EDITOR", "nano"))
 
 	editor = getDefaultEditor()
 	assert.Equal(t, "emacs", editor) // VISUAL has precedence over EDITOR
 
-	// Test fallback to vi when neither is set.
+	// Falls back to vi when no editor variables set.
 	_ = os.Unsetenv("EDITOR")
 	_ = os.Unsetenv("VISUAL")
 
@@ -359,7 +359,6 @@ func TestWriteConfigSecurity(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Test WriteConfig with secure permissions.
 	t.Run("WriteConfig sets secure permissions", func(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "test-write-config.toml")
 
@@ -371,17 +370,15 @@ func TestWriteConfigSecurity(t *testing.T) {
 		err := WriteConfig()
 		require.NoError(t, err)
 
-		// Check file exists and has correct permissions.
+		// Verify file was created with secure permissions.
 		stat, err := os.Stat(configPath)
 		require.NoError(t, err)
 
-		// Check permissions (0o600 = -rw-------).
 		expectedPerm := os.FileMode(0o600)
 		actualPerm := stat.Mode().Perm()
 		assert.Equal(t, expectedPerm, actualPerm, "Config file should have 0600 permissions")
 	})
 
-	// Test SafeWriteConfig with secure permissions.
 	t.Run("SafeWriteConfig sets secure permissions", func(t *testing.T) {
 		viper.Reset()
 		SetDefaults()
@@ -397,7 +394,7 @@ func TestWriteConfigSecurity(t *testing.T) {
 		err := SafeWriteConfig()
 		require.NoError(t, err)
 
-		// Check file exists and has correct permissions.
+		// Verify secure permissions on created file.
 		stat, err := os.Stat(expectedPath)
 		require.NoError(t, err)
 
@@ -462,7 +459,7 @@ func TestWriteConfigAsPathValidation(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				// For valid paths, check file was created with correct permissions.
+				// Verify secure permissions for valid paths.
 				cleanPath := filepath.Clean(tt.path)
 				if !filepath.IsAbs(cleanPath) {
 					cleanPath, _ = filepath.Abs(cleanPath)
@@ -490,24 +487,23 @@ func TestWriteConfigAsDirectoryCreation(t *testing.T) {
 	SetDefaults()
 	Set("general.editor", "test-editor")
 
-	// Test creating config in nested directory.
+	// Test automatic directory creation for nested paths.
 	nestedPath := filepath.Join(tmpDir, "nested", "deep", "config.toml")
 
 	err = WriteConfigAs(nestedPath)
 	require.NoError(t, err)
 
-	// Check directory was created with correct permissions.
+	// Verify directory created with secure permissions.
 	nestedDir := filepath.Join(tmpDir, "nested", "deep")
 	stat, err := os.Stat(nestedDir)
 	require.NoError(t, err)
 	assert.True(t, stat.IsDir())
 
-	// Check directory permissions (0o700 = drwx------).
 	expectedDirPerm := os.FileMode(0o700)
 	actualDirPerm := stat.Mode().Perm()
 	assert.Equal(t, expectedDirPerm, actualDirPerm, "Config directory should have 0700 permissions")
 
-	// Check file was created with correct permissions.
+	// Verify file created with secure permissions.
 	fileStat, err := os.Stat(nestedPath)
 	require.NoError(t, err)
 

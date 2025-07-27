@@ -142,8 +142,7 @@ func TestGetPlatformURLSuggestions(t *testing.T) {
 		{
 			name:     "github input",
 			input:    "github",
-			expected: []URLSuggestion{}, // Returns empty for simple text
-		},
+			expected: []URLSuggestion{},		},
 	}
 
 	for _, tt := range tests {

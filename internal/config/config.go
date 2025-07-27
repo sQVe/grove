@@ -63,7 +63,7 @@ func Initialize() error {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; using defaults.
+			// Using defaults when config file not found.
 			return nil
 		}
 		return fmt.Errorf("error reading config file: %w", err)
@@ -132,7 +132,7 @@ func SafeWriteConfig() error {
 	configType := "toml"   // Default config type
 	configFile := filepath.Join(targetDir, configName+"."+configType)
 
-	// Check if file already exists (safe write behavior).
+	// Prevent overwriting existing files in safe write mode.
 	if _, err := os.Stat(configFile); err == nil {
 		return fmt.Errorf("config file already exists at %s", configFile)
 	}

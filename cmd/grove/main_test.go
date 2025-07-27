@@ -35,19 +35,15 @@ func TestVersionFlag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a new command instance for each test.
 			cmd := rootCmd
 			cmd.SetArgs(tt.args)
 
-			// Capture output.
 			buf := new(bytes.Buffer)
 			cmd.SetOut(buf)
 
-			// Execute command.
 			err := cmd.Execute()
 			require.NoError(t, err)
 
-			// Check output.
 			output := strings.TrimSpace(buf.String())
 			assert.Equal(t, tt.expected, output)
 		})
@@ -87,16 +83,13 @@ func TestRootCommandDefault(t *testing.T) {
 }
 
 func TestInitConfig(t *testing.T) {
-	// Create a test directory for configuration.
 	testDir := testutils.NewTestDirectory(t, "grove-test-config")
 	defer testDir.Cleanup()
 
-	// Test initialization with valid config.
 	t.Run("successful initialization", func(t *testing.T) {
 		// Reset Viper for clean test.
 		viper.Reset()
 
-		// Set a temporary config directory.
 		oldConfigHome := os.Getenv("XDG_CONFIG_HOME")
 		defer func() {
 			if oldConfigHome != "" {
@@ -149,11 +142,9 @@ func TestLogLevel(t *testing.T) {
 			cmd.SetOut(buf)
 			cmd.SetErr(buf)
 
-			// Execute command - should not fail.
 			err := cmd.Execute()
 			require.NoError(t, err)
 
-			// Verify command executed successfully.
 			output := buf.String()
 			assert.Contains(t, output, "Grove transforms Git worktrees")
 		})
@@ -181,7 +172,6 @@ func TestMainFunction(t *testing.T) {
 }
 
 func TestPersistentFlags(t *testing.T) {
-	// Test that all expected persistent flags are registered.
 	flags := rootCmd.PersistentFlags()
 
 	assert.NotNil(t, flags.Lookup("log-level"))
@@ -193,7 +183,6 @@ func TestPersistentFlags(t *testing.T) {
 	_ = flags.Set("log-format", "text")
 	_ = flags.Set("debug", "false")
 
-	// Test default values.
 	logLevel, err := flags.GetString("log-level")
 	require.NoError(t, err)
 	assert.Equal(t, "info", logLevel)

@@ -261,7 +261,7 @@ func validateWorktree(config *struct {
 		})
 	}
 
-	// Warn if cleanup threshold is very short (less than 1 day).
+	// Warn about potential data loss with short cleanup thresholds.
 	if config.CleanupThreshold < 24*time.Hour {
 		errors = append(errors, ValidationError{
 			Field:   "worktree.cleanup_threshold",

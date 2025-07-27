@@ -456,7 +456,6 @@ func TestBranchCompletionWithCache(t *testing.T) {
 
 	results1, _ := BranchCompletion(ctx, cmd, args, "")
 
-	// Second call should use cache (mock won't be called again).
 	results2, _ := BranchCompletion(ctx, cmd, args, "")
 
 	if !equalSlices(results1, results2) {

@@ -117,7 +117,7 @@ func getWorktreePaths(ctx *CompletionContext) ([]string, error) {
 }
 
 func BranchToWorktreeName(branchName string) string {
-	// Replace characters that are problematic in directory names.
+	// Convert filesystem-unsafe characters to hyphens for directory naming.
 	name := strings.ReplaceAll(branchName, "/", "-")
 	name = strings.ReplaceAll(name, "\\", "-")
 	name = strings.ReplaceAll(name, ":", "-")
@@ -136,24 +136,20 @@ func BranchToWorktreeName(branchName string) string {
 }
 
 func WorktreeNameToBranch(worktreeName string) string {
-	// This is a best-effort conversion since the transformation is not always reversible.
-	// In practice, Grove should store the mapping between worktree names and branches.
+	// Best-effort conversion - not always reversible due to character replacements.
 	return strings.ReplaceAll(worktreeName, "-", "/")
 }
 
 func SuggestWorktreeNamesForBranch(branchName string) []string {
 	var suggestions []string
 
-	// Primary suggestion: filesystem-safe version.
 	safeName := BranchToWorktreeName(branchName)
 	suggestions = append(suggestions, safeName)
 
-	// Alternative suggestion: simple name for main branches.
 	if branchName == "main" || branchName == "master" {
 		suggestions = append(suggestions, branchName)
 	}
 
-	// For feature branches, suggest shortened versions.
 	if strings.HasPrefix(branchName, "feature/") {
 		shortName := strings.TrimPrefix(branchName, "feature/")
 		suggestions = append(suggestions, shortName)

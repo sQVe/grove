@@ -60,7 +60,7 @@ func getURLSuggestions(toComplete string) ([]string, error) {
 func getPlatformURLSuggestions(toComplete string) []URLSuggestion {
 	suggestions := make([]URLSuggestion, 0)
 
-	// Only provide suggestions for URL-like inputs, not plain text.
+	// Avoid suggesting URLs for plain text that doesn't contain domain indicators.
 	if !looksLikeURL(toComplete) && !strings.Contains(toComplete, ".") {
 		return suggestions
 	}
@@ -154,7 +154,6 @@ func CompleteGitURLWithDescriptions(toComplete string) []URLSuggestion {
 }
 
 func ValidateURLCompletion(url string) bool {
-	// Basic validation - check if it looks like a valid repository URL.
 	return utils.IsGitURL(url) || looksLikeURL(url)
 }
 

@@ -22,18 +22,15 @@ type GitExecutor interface {
 
 type DefaultGitExecutor struct{}
 
-// Execute runs a real git command.
 func (e *DefaultGitExecutor) Execute(args ...string) (string, error) {
 	return ExecuteGit(args...)
 }
 
-// ExecuteQuiet runs a real git command without logging failures.
 // Use this for operations where failures are expected and should not be logged as errors.
 func (e *DefaultGitExecutor) ExecuteQuiet(args ...string) (string, error) {
 	return ExecuteGitQuiet(args...)
 }
 
-// ExecuteWithContext runs a real git command with context support for cancellation.
 func (e *DefaultGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
 	return ExecuteGitWithContext(ctx, args...)
 }
@@ -67,7 +64,6 @@ func isAuthError(err error) bool {
 }
 
 func validatePaths(mainDir, bareDir string) error {
-	// Check for directory traversal in original paths before conversion.
 	if strings.Contains(mainDir, "..") || strings.Contains(bareDir, "..") {
 		return errors.ErrPathTraversal("paths contain directory traversal sequences")
 	}
@@ -137,7 +133,6 @@ func ExecuteGit(args ...string) (string, error) {
 	return output, nil
 }
 
-// ExecuteGitWithContext runs a git command with context support for cancellation.
 func ExecuteGitWithContext(ctx context.Context, args ...string) (string, error) {
 	log := logger.WithComponent("git_executor")
 	start := time.Now()
@@ -171,7 +166,6 @@ func ExecuteGitWithContext(ctx context.Context, args ...string) (string, error) 
 	return output, nil
 }
 
-// ExecuteGitQuiet runs a git command without logging failures.
 // This is useful for operations where failures are expected and should not be logged as errors.
 // Successful operations are still logged at debug level.
 func ExecuteGitQuiet(args ...string) (string, error) {
@@ -218,18 +212,15 @@ func CloneBareWithExecutor(executor GitExecutor, repoURL, targetDir string) erro
 
 	log.DebugOperation("cloning bare repository", "repo_url", repoURL, "target_dir", targetDir)
 
-	// Use configured retry mechanism for clone operation.
 	err := retry.WithConfiguredRetry(context.Background(), func() error {
 		_, err := executor.Execute("clone", "--bare", repoURL, targetDir)
 		if err != nil {
-			// Classify error for retry logic.
 			if isNetworkError(err) {
 				return errors.ErrNetworkTimeout("clone", err)
 			}
 			if isAuthError(err) {
 				return errors.ErrAuthenticationFailed("clone", err)
 			}
-			// Default to git operation error (retryable).
 			return errors.ErrGitOperation("clone", err)
 		}
 		return nil
@@ -254,7 +245,6 @@ func CreateGitFile(mainDir, bareDir string) error {
 
 	gitFilePath := filepath.Join(mainDir, ".git")
 
-	// Make bareDir relative to mainDir if possible, otherwise use absolute path.
 	relPath, err := filepath.Rel(mainDir, bareDir)
 	if err != nil {
 		log.Debug("using absolute path for bare directory", "bare_dir", bareDir, "error", err)
@@ -305,14 +295,12 @@ func ConfigureRemoteTrackingWithExecutor(executor GitExecutor, remoteName string
 	err = retry.WithConfiguredRetry(context.Background(), func() error {
 		_, err := executor.Execute("fetch")
 		if err != nil {
-			// Classify error for retry logic.
 			if isNetworkError(err) {
 				return errors.ErrNetworkTimeout("fetch", err)
 			}
 			if isAuthError(err) {
 				return errors.ErrAuthenticationFailed("fetch", err)
 			}
-			// Default to git operation error (retryable).
 			return errors.ErrGitOperation("fetch", err)
 		}
 		return nil
@@ -345,7 +333,6 @@ func SetupUpstreamBranchesWithExecutor(executor GitExecutor, remoteName string) 
 		upstreamBranch := fmt.Sprintf("%s/%s", remoteName, branch)
 		_, err := executor.Execute("branch", "--set-upstream-to="+upstreamBranch, branch)
 		if err != nil {
-			// Continue if this branch doesn't exist on remote.
 			continue
 		}
 	}
@@ -542,7 +529,6 @@ func (c GitChangeCounts) ToSafetyIssue() SafetyIssue {
 	}
 }
 
-// Examples: " M" = unstaged modified, "A " = staged added, "MM" = modified in both staged and unstaged.
 func parseGitStatusLine(line string) (staged, unstaged rune) {
 	if len(line) < 2 {
 		return ' ', ' '
@@ -550,7 +536,6 @@ func parseGitStatusLine(line string) (staged, unstaged rune) {
 	return rune(line[0]), rune(line[1])
 }
 
-// It processes each line from `git status --porcelain=v1` and categorizes changes by type.
 func countGitChanges(lines []string) GitChangeCounts {
 	var counts GitChangeCounts
 
@@ -596,7 +581,7 @@ func checkOngoingGitOperations(executor GitExecutor) ([]SafetyIssue, error) {
 		log.Debug("git status failed during operation check",
 			"error", err,
 			"reason", "continuing without detailed status - git repository might be corrupted or inaccessible")
-		return issues, nil // Continue without detailed status if this fails
+		return issues, nil
 	}
 
 	if strings.Contains(statusOutput, "rebase in progress") {
@@ -654,7 +639,7 @@ func checkGitStatus(executor GitExecutor) ([]SafetyIssue, error) {
 
 	ongoingIssues, err := checkOngoingGitOperations(executor)
 	if err != nil {
-		return issues, nil // Continue if we can't check ongoing operations
+		return issues, nil
 	}
 	issues = append(issues, ongoingIssues...)
 
@@ -666,12 +651,12 @@ func checkStashedChanges(executor GitExecutor) ([]SafetyIssue, error) {
 
 	output, err := executor.Execute("stash", "list")
 	if err != nil {
-		return issues, nil // If stash command fails, assume no stashes
+		return issues, nil
 	}
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	if len(lines) == 1 && lines[0] == "" {
-		return issues, nil // No stashes
+		return issues, nil
 	}
 
 	stashCount := len(lines)
@@ -689,12 +674,12 @@ func checkUntrackedFiles(executor GitExecutor) ([]SafetyIssue, error) {
 
 	output, err := executor.Execute("ls-files", "--others", "--exclude-standard")
 	if err != nil {
-		return issues, nil // If command fails, assume no untracked files
+		return issues, nil
 	}
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	if len(lines) == 1 && lines[0] == "" {
-		return issues, nil // No untracked files
+		return issues, nil
 	}
 
 	fileCount := len(lines)
@@ -716,22 +701,20 @@ func checkExistingWorktrees(executor GitExecutor) ([]SafetyIssue, error) {
 		log.Debug("git worktree list failed during safety check",
 			"error", err,
 			"reason", "assuming no worktrees exist - git version might not support worktrees or repository is corrupted")
-		return issues, nil // If worktree command fails, assume no worktrees
+		return issues, nil
 	}
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	// Filter out the main worktree (current directory).
 	var additionalWorktrees []string
 	for _, line := range lines {
 		if strings.TrimSpace(line) != "" && !strings.Contains(line, " (bare)") {
-			// Check if this is not the main worktree.
 			if !strings.HasSuffix(strings.Fields(line)[0], ".") {
 				additionalWorktrees = append(additionalWorktrees, line)
 			}
 		}
 	}
 
-	if len(additionalWorktrees) > 1 { // More than just the main worktree
+	if len(additionalWorktrees) > 1 {
 		issues = append(issues, SafetyIssue{
 			Type:        "existing_worktrees",
 			Description: fmt.Sprintf("%d existing worktree(s)", len(additionalWorktrees)-1),
@@ -747,7 +730,7 @@ func checkUnpushedCommits(executor GitExecutor) ([]SafetyIssue, error) {
 
 	output, err := executor.Execute("for-each-ref", "--format=%(refname:short) %(upstream:short) %(upstream:track)", "refs/heads")
 	if err != nil {
-		return issues, nil // If command fails, continue without this check
+		return issues, nil
 	}
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
@@ -758,14 +741,13 @@ func checkUnpushedCommits(executor GitExecutor) ([]SafetyIssue, error) {
 
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
-			continue // No upstream
+			continue
 		}
 
 		branch := fields[0]
 		upstream := fields[1]
 
 		if len(fields) >= 3 && strings.Contains(fields[2], "ahead") {
-			// Extract number of commits ahead.
 			trackInfo := strings.Join(fields[2:], " ")
 			issues = append(issues, SafetyIssue{
 				Type:        "unpushed_commits",
@@ -773,7 +755,6 @@ func checkUnpushedCommits(executor GitExecutor) ([]SafetyIssue, error) {
 				Solution:    fmt.Sprintf("Push with 'git push origin %s'", branch),
 			})
 		} else if upstream != "" {
-			// Double-check with git log if tracking info isn't clear.
 			logOutput, logErr := executor.Execute("rev-list", "--count", upstream+".."+branch)
 			if logErr == nil {
 				commitCount := strings.TrimSpace(logOutput)
@@ -794,10 +775,9 @@ func checkUnpushedCommits(executor GitExecutor) ([]SafetyIssue, error) {
 func checkLocalOnlyBranches(executor GitExecutor) ([]SafetyIssue, error) {
 	var issues []SafetyIssue
 
-	// Get all local branches with their upstream info.
 	output, err := executor.Execute("for-each-ref", "--format=%(refname:short) %(upstream)", "refs/heads")
 	if err != nil {
-		return issues, nil // If command fails, continue without this check
+		return issues, nil
 	}
 
 	var localOnlyBranches []string
@@ -809,7 +789,6 @@ func checkLocalOnlyBranches(executor GitExecutor) ([]SafetyIssue, error) {
 
 		fields := strings.Fields(line)
 		if len(fields) == 1 {
-			// No upstream configured.
 			localOnlyBranches = append(localOnlyBranches, fields[0])
 		}
 	}
@@ -888,7 +867,6 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 	worktreePath := filepath.Join(dir, dirName)
 
 	if _, err := os.Stat(worktreePath); err == nil {
-		// Directory exists, skip creation.
 		return nil
 	}
 
@@ -911,7 +889,6 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 			return fmt.Errorf("failed to create temporary directory: %w", err)
 		}
 
-		// Move all working files to temporary directory to preserve them.
 		for _, file := range workingFiles {
 			srcPath := filepath.Join(dir, file)
 			dstPath := filepath.Join(tempDir, file)
@@ -926,26 +903,23 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 			}
 		}
 
-		// Configure the repository as bare to allow worktree creation.
 		_, err = executor.Execute("config", "--bool", "core.bare", "true")
 		if err != nil {
 			return fmt.Errorf("failed to set core.bare: %w", err)
 		}
 
-		// Create the worktree - this will populate it with the files from the branch.
 		_, err = CreateWorktreeFromExistingBranch(executor, currentBranch, dir)
 		if err != nil {
 			return fmt.Errorf("failed to create worktree for branch %s: %w", currentBranch, err)
 		}
 
-		// Move all files from temporary directory to worktree, preserving gitignored files.
 		err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
 
 			if path == tempDir {
-				return nil // Skip the root temp directory itself
+				return nil
 			}
 
 			relPath, err := filepath.Rel(tempDir, path)
@@ -956,13 +930,10 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 			dstPath := filepath.Join(worktreePath, relPath)
 
 			if info.IsDir() {
-				// If it's a directory, ensure it exists in worktree.
 				if err := os.MkdirAll(dstPath, info.Mode()); err != nil {
 					return fmt.Errorf("failed to create directory %s in worktree: %w", relPath, err)
 				}
 			} else {
-				// If destination file already exists (from git worktree add), remove it first.
-				// This handles the case where the file is tracked by git.
 				if _, err := os.Stat(dstPath); err == nil {
 					if err := os.Remove(dstPath); err != nil {
 						return fmt.Errorf("failed to remove existing file %s: %w", dstPath, err)
@@ -981,8 +952,6 @@ func createProperWorktreeStructure(executor GitExecutor, dir string) error {
 		}
 
 		if err := os.RemoveAll(tempDir); err != nil {
-			// Log warning but don't fail the conversion.
-			// The conversion succeeded, just cleanup failed.
 			return fmt.Errorf("failed to clean up temporary directory: %w", err)
 		}
 	}
@@ -1107,8 +1076,6 @@ func IsValidWorktreeDirectory(worktreePath string) error {
 			worktreePath, content)
 	}
 
-	// Extract the gitdir path but don't validate its existence for now.
-	// This allows for more flexibility while still catching malformed .git files.
 	gitdirRelPath := strings.TrimPrefix(content, "gitdir: ")
 	if gitdirRelPath == "" {
 		return fmt.Errorf("empty gitdir path in .git file at %s", worktreePath)

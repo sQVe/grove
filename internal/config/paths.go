@@ -67,7 +67,7 @@ func getMacOSConfigDir() string {
 }
 
 func getLinuxConfigDir() string {
-	// Follow XDG Base Directory specification.
+	// Follow XDG Base Directory spec for Linux config paths.
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "grove")
 	}
@@ -98,7 +98,7 @@ func GetDefaultConfigPath() string {
 func EnsureConfigDir() error {
 	configDir := getUserConfigDir()
 	if configDir == "" {
-		return nil // No config directory available
+		return nil
 	}
 
 	return os.MkdirAll(configDir, 0o755)

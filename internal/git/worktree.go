@@ -63,28 +63,11 @@ type RemoteStatus struct {
 	IsMerged bool
 }
 
-// while preserving the original branch name for Git operations.
+// Addresses the issue where branch names like "fix/123" would create
+// problematic directory structures when using git worktree add directly.
 //
-// This function addresses the issue where branch names like "fix/123" would create.
-// problematic directory structures or incorrect branch names when using git worktree add directly.
-//
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - branchName: The desired branch name (e.g., "fix/123")
-//
-//   - basePath: The base directory where worktrees should be created
-//
-//   - worktreePath: The full path to the created worktree directory
-//
-//   - error: Any error encountered during worktree creation
-//
-// Example:.
-//
-//	path, err := CreateWorktreeWithSafeNaming(executor, "fix/123", "/repo/worktrees")
-//	// Creates directory: /repo/worktrees/fix-123
-//	// Creates branch: fix/123
+// Example: CreateWorktreeWithSafeNaming(executor, "fix/123", "/repo/worktrees")
+// Creates directory: /repo/worktrees/fix-123 with branch: fix/123
 func CreateWorktreeWithSafeNaming(executor GitExecutor, branchName, basePath string) (string, error) {
 	if branchName == "" {
 		return "", fmt.Errorf("branch name cannot be empty")
@@ -117,20 +100,8 @@ func CreateWorktreeWithSafeNaming(executor GitExecutor, branchName, basePath str
 	return worktreePath, nil
 }
 
-// Unlike CreateWorktreeWithSafeNaming, this function doesn't create a new branch but checks out.
+// Unlike CreateWorktreeWithSafeNaming, this doesn't create a new branch but checks out
 // an existing one into a filesystem-safe directory.
-//
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - branchName: The existing branch name to check out
-//
-//   - basePath: The base directory where worktrees should be created
-//
-//   - worktreePath: The full path to the created worktree directory
-//
-//   - error: Any error encountered during worktree creation
 func CreateWorktreeFromExistingBranch(executor GitExecutor, branchName, basePath string) (string, error) {
 	if branchName == "" {
 		return "", fmt.Errorf("branch name cannot be empty")
@@ -155,15 +126,6 @@ func CreateWorktreeFromExistingBranch(executor GitExecutor, branchName, basePath
 	return worktreePath, nil
 }
 
-// RemoveWorktree removes a worktree directory and its Git worktree registration.
-//
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - worktreePath: The path to the worktree directory to remove
-//
-//   - error: Any error encountered during worktree removal
 func RemoveWorktree(executor GitExecutor, worktreePath string) error {
 	if worktreePath == "" {
 		return fmt.Errorf("worktree path cannot be empty")
@@ -177,23 +139,13 @@ func RemoveWorktree(executor GitExecutor, worktreePath string) error {
 	return nil
 }
 
-// This function attempts to find the repository automatically.
-//
-// This function gathers detailed metadata for each worktree including branch status,.
+// Gathers detailed metadata for each worktree including branch status,
 // last activity timestamps, and remote tracking information.
 //
-// Performance Notes:.
-//   - Activity detection is limited to 3 directory levels for performance.
-//   - Large repositories with many worktrees may take several seconds to process.
-//   - Consider caching results if calling frequently.
-//
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - []WorktreeInfo: List of worktree information
-//
-//   - error: Any error encountered during worktree listing
+// Performance Notes:
+// - Activity detection is limited to 3 directory levels for performance
+// - Large repositories with many worktrees may take several seconds to process
+// - Consider caching results if calling frequently
 func ListWorktrees(executor GitExecutor) ([]WorktreeInfo, error) {
 	output, err := executor.ExecuteQuiet("worktree", "list", "--porcelain")
 	if err != nil {
@@ -203,23 +155,7 @@ func ListWorktrees(executor GitExecutor) ([]WorktreeInfo, error) {
 	return parseAndEnhanceWorktrees(executor, output)
 }
 
-// This function gathers detailed metadata for each worktree including branch status,.
-// last activity timestamps, and remote tracking information.
-//
-// Performance Notes:.
-//   - Activity detection is limited to 3 directory levels for performance.
-//   - Large repositories with many worktrees may take several seconds to process.
-//   - Consider caching results if calling frequently.
-//
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - repoPath: Path to the repository (typically the .bare directory)
-//
-//   - []WorktreeInfo: List of worktree information
-//
-//   - error: Any error encountered during worktree listing
+// Similar to ListWorktrees but operates from a specific repository path.
 func ListWorktreesFromRepo(executor GitExecutor, repoPath string) ([]WorktreeInfo, error) {
 	output, err := executor.ExecuteQuiet("-C", repoPath, "worktree", "list", "--porcelain")
 	if err != nil {
@@ -229,7 +165,6 @@ func ListWorktreesFromRepo(executor GitExecutor, repoPath string) ([]WorktreeInf
 	return parseAndEnhanceWorktrees(executor, output)
 }
 
-// parseAndEnhanceWorktrees parses worktree output and enhances with additional information.
 func parseAndEnhanceWorktrees(executor GitExecutor, output string) ([]WorktreeInfo, error) {
 	worktrees, err := parseWorktreePorcelain(output)
 	if err != nil {
@@ -238,7 +173,6 @@ func parseAndEnhanceWorktrees(executor GitExecutor, output string) ([]WorktreeIn
 
 	currentPath, err := getCurrentWorktreePath(executor)
 	if err != nil {
-		// Don't fail the entire operation if we can't determine current path.
 		log := logger.WithComponent("worktree_current_path")
 		log.Debug("failed to get current worktree path",
 			"error", err.Error(),
@@ -269,13 +203,6 @@ func enhanceWorktreeInfo(executor GitExecutor, worktree *WorktreeInfo, currentPa
 	}
 }
 
-// Parameters:.
-//
-//   - executor: GitExecutor interface for running git commands
-//
-//   - []string: List of worktree paths
-//
-//   - error: Any error encountered during worktree listing
 func ListWorktreesPaths(executor GitExecutor) ([]string, error) {
 	worktrees, err := ListWorktrees(executor)
 	if err != nil {
@@ -290,7 +217,6 @@ func ListWorktreesPaths(executor GitExecutor) ([]string, error) {
 	return paths, nil
 }
 
-// parseWorktreePorcelain parses the output of 'git worktree list --porcelain'.
 func parseWorktreePorcelain(output string) ([]WorktreeInfo, error) {
 	if output == "" {
 		return []WorktreeInfo{}, nil
@@ -554,7 +480,6 @@ func CleanBranchName(branchRef string) string {
 	return branchRef
 }
 
-// splitLines splits a string into lines, handling different line endings.
 func splitLines(s string) []string {
 	if s == "" {
 		return nil

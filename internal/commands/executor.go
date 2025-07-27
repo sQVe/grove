@@ -13,7 +13,6 @@ func NewExecutorProvider() *ExecutorProvider {
 	}
 }
 
-// This is primarily used for testing.
 func NewExecutorProviderWithExecutor(executor git.GitExecutor) *ExecutorProvider {
 	return &ExecutorProvider{
 		executor: executor,
@@ -32,12 +31,10 @@ func (ep *ExecutorProvider) CreateListService() *ListService {
 // This can be replaced for testing or different executor configurations.
 var DefaultExecutorProvider = NewExecutorProvider()
 
-// This is primarily used for testing.
 func SetExecutorProvider(provider *ExecutorProvider) {
 	DefaultExecutorProvider = provider
 }
 
-// This is primarily used for testing cleanup.
 func ResetExecutorProvider() {
 	DefaultExecutorProvider = NewExecutorProvider()
 }

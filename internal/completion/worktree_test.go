@@ -48,7 +48,6 @@ func TestWorktreeCompletion(t *testing.T) {
 				assert.Equal(t, cobra.ShellCompDirectiveError, directive)
 			} else {
 				assert.Equal(t, cobra.ShellCompDirectiveNoFileComp, directive)
-				// Results can be nil when not in a Grove repository, which is expected behavior.
 			}
 		})
 	}
@@ -147,7 +146,6 @@ func TestWorktreePathCompletion(t *testing.T) {
 				assert.Equal(t, cobra.ShellCompDirectiveError, directive)
 			} else {
 				assert.Equal(t, cobra.ShellCompDirectiveDefault, directive)
-				// Results can be nil when not in a Grove repository, which is expected behavior.
 			}
 		})
 	}
@@ -293,23 +291,19 @@ func TestSuggestWorktreeNamesForBranch(t *testing.T) {
 		{
 			name:     "simple branch",
 			branch:   "main",
-			expected: []string{"main", "main"}, // Safe name + extra suggestion for main
-		},
+			expected: []string{"main", "main"},		},
 		{
 			name:     "feature branch",
 			branch:   "feature/auth",
-			expected: []string{"feature-auth", "auth"}, // Safe name + shortened
-		},
+			expected: []string{"feature-auth", "auth"},		},
 		{
 			name:     "complex branch",
 			branch:   "bugfix/user-login/fix-validation",
-			expected: []string{"bugfix-user-login-fix-validation"}, // Just safe name
-		},
+			expected: []string{"bugfix-user-login-fix-validation"},		},
 		{
 			name:     "empty branch",
 			branch:   "",
-			expected: []string{""}, // Just safe name (empty)
-		},
+			expected: []string{""},		},
 	}
 
 	for _, tt := range tests {

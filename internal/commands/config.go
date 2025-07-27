@@ -456,12 +456,10 @@ func getConfigValueByKey(cfg *config.Config, key string) interface{} {
 		return nil
 	}
 
-	// Check if it's a pointer and is not nil.
 	if v.Kind() != reflect.Ptr || v.IsNil() {
 		return nil
 	}
 
-	// Get the element safely.
 	v = v.Elem()
 	if !v.IsValid() || v.Kind() != reflect.Struct {
 		return nil

@@ -70,8 +70,7 @@ func (c *CompletionContext) IsInGroveRepo() bool {
 		return false
 	}
 
-	// For now, any git repository is considered valid for completion.
-	// In the future, we might want to detect Grove-specific structure.
+	// Any git repository is considered valid for completion.
 	SetCachedRepositoryState(true)
 	return true
 }
@@ -84,7 +83,7 @@ func (c *CompletionContext) IsOnline() bool {
 		return isOnline
 	}
 
-	// Try to resolve a well-known DNS name with short timeout.
+	// Quick DNS check to determine network connectivity without blocking.
 	conn, err := net.DialTimeout("tcp", "8.8.8.8:53", 500*time.Millisecond)
 	if err != nil {
 		log.Debug("network connectivity check failed", "error", err)
@@ -99,8 +98,7 @@ func (c *CompletionContext) IsOnline() bool {
 }
 
 func (c *CompletionContext) IsNetworkOperationAllowed() bool {
-	// For completion, we want to be more conservative about network operations.
-	// to avoid blocking the shell.
+	// Conservative network operations prevent shell blocking during completion.
 	return c.IsOnline()
 }
 
@@ -177,14 +175,12 @@ func RegisterCompletionFunctions(rootCmd *cobra.Command, executor git.GitExecuto
 }
 
 func registerInitCompletions(cmd *cobra.Command, ctx *CompletionContext) {
-	// Register completion for --branches flag (handles comma-separated values).
 	_ = cmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return BranchListCompletion(ctx, cmd, args, toComplete)
 	})
 
 	// Register completion for positional arguments (URLs and directories).
 	cmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// For the first argument, provide URL and directory completion.
 		if len(args) == 0 {
 			return URLAndDirectoryCompletion(ctx, cmd, args, toComplete)
 		}
@@ -203,7 +199,6 @@ func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []str
 	var currentInput, lastBranch string
 
 	if lastCommaIndex := strings.LastIndex(toComplete, ","); lastCommaIndex != -1 {
-		// Everything up to and including the last comma (no spaces).
 		currentInput = toComplete[:lastCommaIndex+1]
 		lastBranch = strings.TrimSpace(toComplete[lastCommaIndex+1:])
 	} else {
@@ -219,7 +214,7 @@ func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []str
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	// Prepend the current input to each completion (no spaces around commas).
+	// Preserve comma-separated structure by prepending existing input.
 	var result []string
 	for _, completion := range completions {
 		result = append(result, currentInput+completion)

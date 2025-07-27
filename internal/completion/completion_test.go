@@ -327,8 +327,7 @@ func TestCompletionContext_NetworkAwareness(t *testing.T) {
 		Timeout:  100 * time.Millisecond,
 	}
 
-	// Test network detection (this is hard to test in unit tests reliably).
-	// We'll test the caching mechanism instead.
+	// Network detection is unreliable in unit tests, so we test the caching mechanism instead.
 
 	isOnline1 := ctx.IsOnline()
 

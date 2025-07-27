@@ -7,7 +7,6 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// Cache value constants.
 const (
 	CacheValueTrue  = "true"
 	CacheValueFalse = "false"
@@ -194,11 +193,10 @@ func SetCachedNetworkState(isOnline bool) {
 	GlobalCache.Set(key, []string{value}, NetworkCacheTTL)
 }
 
-// Uses adaptive cleanup intervals based on cache size for better performance.
+// Adaptive cleanup frequency based on cache size prevents unnecessary overhead.
 func StartCacheCleanup() {
 	go func() {
 		for {
-			// Adaptive cleanup interval based on cache size.
 			interval := calculateCleanupInterval()
 			ticker := time.NewTicker(interval)
 
@@ -214,16 +212,12 @@ func calculateCleanupInterval() time.Duration {
 
 	switch {
 	case size == 0:
-		// No entries, clean up less frequently.
 		return 5 * time.Minute
 	case size <= 10:
-		// Small cache, moderate cleanup.
 		return 2 * time.Minute
 	case size <= 50:
-		// Medium cache, regular cleanup.
 		return 60 * time.Second
 	default:
-		// Large cache, frequent cleanup.
 		return 30 * time.Second
 	}
 }

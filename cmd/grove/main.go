@@ -45,9 +45,7 @@ func init() {
 	completion.RegisterCompletionFunctions(rootCmd, git.DefaultExecutor)
 }
 
-// initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// Initialize Viper configuration.
 	if err := config.Initialize(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing config: %v\n", err)
 		os.Exit(1)
@@ -65,7 +63,6 @@ func initConfig() {
 		viper.Set("logging.level", "debug")
 	}
 
-	// Configure the global logger using Viper values.
 	loggerConfig := logger.Config{
 		Level:  config.GetString("logging.level"),
 		Format: config.GetString("logging.format"),

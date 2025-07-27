@@ -42,7 +42,7 @@ func getBranchNames(ctx *CompletionContext) ([]string, error) {
 		log.Debug("failed to get local branches", "error", localErr)
 	}
 
-	// Get remote branches (only if network is available).
+	// Only fetch remote branches if network is available to avoid blocking completion.
 	var remoteBranches []string
 	var remoteErr error
 	if ctx.IsNetworkOperationAllowed() {
@@ -52,7 +52,7 @@ func getBranchNames(ctx *CompletionContext) ([]string, error) {
 		}
 	} else {
 		log.Debug("skipping remote branch fetch due to network unavailability")
-		remoteErr = nil // Don't treat offline as an error
+		remoteErr = nil // Treat offline mode as normal, not an error
 	}
 
 	if localErr != nil && remoteErr != nil {
@@ -70,7 +70,7 @@ func getBranchNames(ctx *CompletionContext) ([]string, error) {
 		}
 	}
 
-	// Add remote branches (without remote prefix).
+	// Strip remote prefixes (e.g., "origin/main" -> "main") to avoid duplicates.
 	for _, branch := range remoteBranches {
 		if !branchSet[branch] {
 			branchSet[branch] = true
@@ -118,7 +118,6 @@ func getRemoteBranches(ctx *CompletionContext) ([]string, error) {
 	for _, line := range lines {
 		branch := strings.TrimSpace(line)
 		if branch != "" && !strings.Contains(branch, "->") {
-			// Remove remote prefix (e.g., "origin/main" -> "main").
 			if parts := strings.Split(branch, "/"); len(parts) > 1 {
 				remoteBranch := strings.Join(parts[1:], "/")
 				branches = append(branches, remoteBranch)
@@ -147,7 +146,6 @@ func ParseBranchList(branchStr string) []string {
 	return branches
 }
 
-// This is useful for completing the current branch being typed.
 func GetLastBranchInList(branchStr string) string {
 	branches := ParseBranchList(branchStr)
 	if len(branches) == 0 {
@@ -167,7 +165,7 @@ func CompleteBranchList(ctx *CompletionContext, currentInput, toComplete string)
 		return nil, err
 	}
 
-	// Filter out branches that are already in the list.
+	// Exclude branches already in the comma-separated list to prevent duplicates.
 	branchSet := make(map[string]bool)
 	for _, branch := range branches {
 		branchSet[branch] = true
@@ -188,7 +186,7 @@ func prioritizeBranches(branches []string) []string {
 		return branches
 	}
 
-	// Define priority branches in order of preference.
+	// Common main branches should appear first in completion results.
 	priorityBranches := []string{"main", "master", "develop", "development"}
 
 	var prioritized []string
