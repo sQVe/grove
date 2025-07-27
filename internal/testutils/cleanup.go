@@ -46,7 +46,6 @@ func (c *Cleanup) Run() {
 
 	c.hasRun = true
 
-	// Execute cleanups in reverse order (LIFO).
 	for i := len(c.cleanups) - 1; i >= 0; i-- {
 		c.cleanups[i]()
 	}

@@ -142,7 +142,8 @@ func TestGetPlatformURLSuggestions(t *testing.T) {
 		{
 			name:     "github input",
 			input:    "github",
-			expected: []URLSuggestion{},		},
+			expected: []URLSuggestion{},
+		},
 	}
 
 	for _, tt := range tests {

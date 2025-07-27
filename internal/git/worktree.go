@@ -67,7 +67,7 @@ type RemoteStatus struct {
 // problematic directory structures when using git worktree add directly.
 //
 // Example: CreateWorktreeWithSafeNaming(executor, "fix/123", "/repo/worktrees")
-// Creates directory: /repo/worktrees/fix-123 with branch: fix/123
+// Creates directory: /repo/worktrees/fix-123 with branch: fix/123.
 func CreateWorktreeWithSafeNaming(executor GitExecutor, branchName, basePath string) (string, error) {
 	if branchName == "" {
 		return "", fmt.Errorf("branch name cannot be empty")
@@ -145,7 +145,7 @@ func RemoveWorktree(executor GitExecutor, worktreePath string) error {
 // Performance Notes:
 // - Activity detection is limited to 3 directory levels for performance
 // - Large repositories with many worktrees may take several seconds to process
-// - Consider caching results if calling frequently
+// - Consider caching results if calling frequently.
 func ListWorktrees(executor GitExecutor) ([]WorktreeInfo, error) {
 	output, err := executor.ExecuteQuiet("worktree", "list", "--porcelain")
 	if err != nil {
@@ -444,8 +444,7 @@ const (
 	refsRemotesPrefix       = "refs/remotes/"
 )
 
-//
-// Supported patterns:.
+// Supported patterns:
 //   - refs/heads/branch-name -> branch-name (local branches).
 //   - refs/remotes/origin/branch-name -> branch-name (origin remote branches).
 //   - refs/remotes/upstream/branch-name -> branch-name (other remote branches).

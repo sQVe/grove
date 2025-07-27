@@ -27,7 +27,6 @@ func Join(errs ...error) error {
 	return errors.Join(errs...)
 }
 
-// Create a new error with additional context.
 func Wrap(err error, message string) error {
 	if err == nil {
 		return nil
@@ -35,7 +34,6 @@ func Wrap(err error, message string) error {
 	return fmt.Errorf("%s: %w", message, err)
 }
 
-// Create a new error with formatted additional context.
 func Wrapf(err error, format string, args ...interface{}) error {
 	if err == nil {
 		return nil

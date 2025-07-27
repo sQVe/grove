@@ -9,25 +9,17 @@ import (
 	"time"
 )
 
-// for use across all test packages. It combines features from all mock implementations:.
-// - Command tracking and call counting.
-// - Helper methods for verification.
-// - Delay simulation capability.
-// - Special command handling.
-// - Multiple response formats for flexibility.
+// MockGitExecutor provides comprehensive Git command mocking for use across all test packages.
+// It combines features from all mock implementations: command tracking, call counting,
+// helper methods for verification, delay simulation, special command handling,
+// and multiple response formats for flexibility.
 type MockGitExecutor struct {
-	// Commands stores the executed commands for verification.
-	Commands [][]string
-	// Responses maps command patterns to their responses.
-	Responses map[string]MockResponse
-	// CallCount tracks how many times Execute was called.
-	CallCount int
-	// responses provides legacy support for simple string responses.
-	responses map[string]MockResponse
-	// delays allows simulation of command execution delays.
-	delays map[string]time.Duration
-	// regexPatterns stores regex patterns and their responses for flexible command matching.
-	regexPatterns []RegexPattern
+	Commands      [][]string
+	Responses     map[string]MockResponse
+	CallCount     int
+	responses     map[string]MockResponse  // Legacy support for simple string responses.
+	delays        map[string]time.Duration // Simulation of command execution delays.
+	regexPatterns []RegexPattern           // Flexible command matching via regex patterns.
 }
 
 type RegexPattern struct {
@@ -71,21 +63,18 @@ func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string
 	return m.executeInternal(args)
 }
 
-// executeInternal contains the common execution logic for both Execute methods.
 func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
 	m.CallCount++
 	m.Commands = append(m.Commands, args)
 
-	// Create a command key for lookup.
 	cmdKey := strings.Join(args, " ")
 	cmdSliceKey := fmt.Sprintf("%v", args)
 
-	// Handle delay if configured.
 	if delay, exists := m.delays[cmdKey]; exists {
 		time.Sleep(delay)
 	}
 
-	// Special handling for clone command to create directory (from commands mock).
+	// Clone commands require directory creation for test environment compatibility.
 	if len(args) >= 3 && args[0] == "clone" && args[1] == "--bare" {
 		targetDir := args[3]
 		if err := os.MkdirAll(targetDir, 0o750); err != nil {
@@ -93,36 +82,30 @@ func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
 		}
 	}
 
-	// Check responses map (new format).
 	if response, exists := m.responses[cmdKey]; exists {
 		return response.Output, response.Error
 	}
 
-	// Check Responses map (old format with exact match).
 	if response, exists := m.Responses[cmdKey]; exists {
 		return response.Output, response.Error
 	}
 
-	// Check for slice-based key (from utils mock).
 	if response, exists := m.Responses[cmdSliceKey]; exists {
 		return response.Output, response.Error
 	}
 
-	// Check for pattern matches (useful for commands with variable parts).
 	for pattern, response := range m.Responses {
 		if strings.HasPrefix(cmdKey, pattern) {
 			return response.Output, response.Error
 		}
 	}
 
-	// Check for pattern matches in responses map.
 	for pattern, response := range m.responses {
 		if strings.HasPrefix(cmdKey, pattern) {
 			return response.Output, response.Error
 		}
 	}
 
-	// Check for simple command matches (from commands mock).
 	if len(args) > 0 {
 		for pattern, response := range m.Responses {
 			if args[0] == pattern {
@@ -131,14 +114,12 @@ func (m *MockGitExecutor) executeInternal(args []string) (string, error) {
 		}
 	}
 
-	// Check for regex pattern matches (most flexible matching).
 	for _, regexPattern := range m.regexPatterns {
 		if regexPattern.Pattern.MatchString(cmdKey) {
 			return regexPattern.Response.Output, regexPattern.Response.Error
 		}
 	}
 
-	// Return error for unhandled commands.
 	return "", fmt.Errorf("mock: unhandled git command: %s", cmdKey)
 }
 

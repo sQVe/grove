@@ -5,8 +5,7 @@ import (
 	"strings"
 )
 
-//
-// Examples:.
+// Examples:
 //   - "fix/123" -> "fix-123".
 //   - "feature/user/auth" -> "feature-user-auth".
 //   - "bugfix/issue#456" -> "bugfix-issue-456".

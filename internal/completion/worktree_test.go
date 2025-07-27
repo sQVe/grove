@@ -291,19 +291,23 @@ func TestSuggestWorktreeNamesForBranch(t *testing.T) {
 		{
 			name:     "simple branch",
 			branch:   "main",
-			expected: []string{"main", "main"},		},
+			expected: []string{"main", "main"},
+		},
 		{
 			name:     "feature branch",
 			branch:   "feature/auth",
-			expected: []string{"feature-auth", "auth"},		},
+			expected: []string{"feature-auth", "auth"},
+		},
 		{
 			name:     "complex branch",
 			branch:   "bugfix/user-login/fix-validation",
-			expected: []string{"bugfix-user-login-fix-validation"},		},
+			expected: []string{"bugfix-user-login-fix-validation"},
+		},
 		{
 			name:     "empty branch",
 			branch:   "",
-			expected: []string{""},		},
+			expected: []string{""},
+		},
 	}
 
 	for _, tt := range tests {

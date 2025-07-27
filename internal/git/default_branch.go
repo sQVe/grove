@@ -21,7 +21,7 @@ import (
 // 4. Remote show command (network, comprehensive)
 // 5. Common branch pattern matching (heuristic)
 // 6. First remote branch (last resort)
-// 7. Hard-coded "main" (absolute fallback)
+// 7. Hard-coded "main" (absolute fallback).
 func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error) {
 	log := logger.WithComponent("default_branch")
 	start := time.Now()
@@ -121,7 +121,6 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 	return "main", nil
 }
 
-//
 // Git branch name rules:.
 // - Cannot contain ASCII control characters (< 0x20 or 0x7F DEL), space, ~, ^, :.
 // - Cannot contain ?, *, [.

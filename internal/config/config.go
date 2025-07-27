@@ -13,7 +13,7 @@ import (
 
 const (
 	ConfigFilePermissions = 0o600
-	ConfigDirPermissions = 0o700
+	ConfigDirPermissions  = 0o700
 )
 
 type Config struct {

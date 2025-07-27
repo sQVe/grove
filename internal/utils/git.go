@@ -11,22 +11,12 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
-// Git URL pattern constants for validation.
 const (
-	// Standard Git URL with .git suffix.
-	patternGitURL = `^https?://.*\.git$`
-
-	// GitHub repository URL patterns.
+	patternGitURL      = `^https?://.*\.git$`
 	patternGitHubHTTPS = `^https?://github\.com/[\w\-\.]+/[\w\-\.]+/?$`
-
-	// GitLab repository URL patterns.
 	patternGitLabHTTPS = `^https?://gitlab\.com/[\w\-\.]+/[\w\-\.]+/?$`
-
-	// SSH Git URL patterns.
-	patternGitSSH = `^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`
-
-	// SSH URL with full ssh:// prefix.
-	patternSSHFull = `^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`
+	patternGitSSH      = `^git@[\w\.-]+:[\w\-\.]+/[\w\-\.]+\.git$`
+	patternSSHFull     = `^ssh://git@[\w\.-]+/[\w\-\.]+/[\w\-\.]+\.git$`
 )
 
 type GitExecutor interface {
