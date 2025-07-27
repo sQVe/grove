@@ -22,14 +22,14 @@ The implementation will follow the established service-oriented architecture pat
 
 ## Tasks
 
-- [ ]   1. Set up project structure and core interfaces
+- [x]   1. Set up project structure and core interfaces
     - Create `/internal/commands/create.go` with Cobra command structure
     - Define core data structures: `CreateOptions`, `CreateResult`, `BranchInfo`, `WorktreeOptions`
     - Set up command registration in `cmd/grove/main.go`
     - _Leverage: internal/commands/init.go:17-40, cmd/grove/main.go_
     - _Requirements: 1.1, 4.3_
 
-- [ ]   2. Implement CLI command interface and argument parsing
+- [x]   2. Implement CLI command interface and argument parsing
     - Add Cobra command with flags: `--create/-c`, `--base`, `--force`
     - Implement argument validation for branch names and paths
     - Add shell completion for branch names and paths using existing completion system
