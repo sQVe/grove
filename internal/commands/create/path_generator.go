@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 )
 
@@ -18,7 +19,14 @@ func NewPathGenerator() PathGenerator {
 
 func (pg *pathGenerator) GeneratePath(branchName, basePath string) (string, error) {
 	if branchName == "" {
-		return "", fmt.Errorf("branch name cannot be empty")
+		return "", &errors.GroveError{
+			Code:    errors.ErrCodeGitOperation,
+			Message: "branch name cannot be empty",
+			Context: map[string]interface{}{
+				"branch": branchName,
+			},
+			Operation: "path_generation",
+		}
 	}
 
 	if basePath == "" {
@@ -28,44 +36,70 @@ func (pg *pathGenerator) GeneratePath(branchName, basePath string) (string, erro
 	if !filepath.IsAbs(basePath) {
 		abs, err := filepath.Abs(basePath)
 		if err != nil {
-			return "", fmt.Errorf("failed to resolve absolute path for %s: %w", basePath, err)
+			return "", &errors.GroveError{
+				Code:    errors.ErrCodeFileSystem,
+				Message: "failed to resolve absolute path",
+				Cause:   err,
+				Context: map[string]interface{}{
+					"base_path": basePath,
+				},
+				Operation: "path_resolution",
+			}
 		}
 		basePath = abs
 	}
 
-	// Generate safe directory name from branch name.
 	dirName := git.BranchToDirectoryName(branchName)
 	if dirName == "" {
-		return "", fmt.Errorf("failed to generate valid directory name from branch %s", branchName)
+		return "", &errors.GroveError{
+			Code:    errors.ErrCodeGitOperation,
+			Message: "failed to generate valid directory name from branch",
+			Context: map[string]interface{}{
+				"branch": branchName,
+			},
+			Operation: "directory_name_generation",
+		}
 	}
 
 	targetPath := filepath.Join(basePath, dirName)
 	finalPath, err := pg.resolveCollisions(targetPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path collisions for %s: %w", targetPath, err)
+		return "", &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "failed to resolve path collisions",
+			Cause:   err,
+			Context: map[string]interface{}{
+				"target_path": targetPath,
+			},
+			Operation: "collision_resolution",
+		}
 	}
 
-	// Validate the final path.
 	if err := pg.validatePath(finalPath); err != nil {
-		return "", fmt.Errorf("generated path is invalid: %w", err)
+		return "", &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "generated path is invalid",
+			Cause:   err,
+			Context: map[string]interface{}{
+				"path": finalPath,
+			},
+			Operation: "path_validation",
+		}
 	}
 
 	return finalPath, nil
 }
 
 func (pg *pathGenerator) getConfiguredBasePath() string {
-	// Try to get from worktree configuration.
 	if viper.IsSet("worktree.base_path") {
 		basePath := viper.GetString("worktree.base_path")
 		if basePath != "" {
-			// Expand home directory if present.
 			if expandedPath, err := expandHomePath(basePath); err == nil {
 				return expandedPath
 			}
 		}
 	}
 
-	// Fallback to current directory.
 	if cwd, err := os.Getwd(); err == nil {
 		return cwd
 	}
@@ -73,63 +107,130 @@ func (pg *pathGenerator) getConfiguredBasePath() string {
 	return "."
 }
 
+// Finds an available path by appending numeric suffixes if the original exists.
+// Note: This function only checks for existence and doesn't create directories to avoid race conditions.
+// The caller must handle atomic directory creation using the returned path.
 func (pg *pathGenerator) resolveCollisions(basePath string) (string, error) {
-	// Check if path already exists.
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		return basePath, nil
 	} else if err != nil {
-		return "", fmt.Errorf("failed to check path existence: %w", err)
+		return "", &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "failed to check path existence",
+			Cause:   err,
+			Context: map[string]interface{}{
+				"path": basePath,
+			},
+			Operation: "path_existence_check",
+		}
 	}
 
-	// Path exists, try with suffixes.
 	dir := filepath.Dir(basePath)
 	name := filepath.Base(basePath)
 
-	for i := 1; i <= 999; i++ { // Prevents infinite loops when finding unique paths.
+	const maxCollisionAttempts = 999
+
+	for i := 1; i <= maxCollisionAttempts; i++ {
 		candidateName := fmt.Sprintf("%s-%d", name, i)
 		candidatePath := filepath.Join(dir, candidateName)
 
 		if _, err := os.Stat(candidatePath); os.IsNotExist(err) {
 			return candidatePath, nil
 		} else if err != nil {
-			return "", fmt.Errorf("failed to check candidate path %s: %w", candidatePath, err)
+			return "", &errors.GroveError{
+				Code:    errors.ErrCodeFileSystem,
+				Message: "failed to check candidate path",
+				Cause:   err,
+				Context: map[string]interface{}{
+					"candidate_path": candidatePath,
+				},
+				Operation: "candidate_path_check",
+			}
 		}
 	}
 
-	return "", fmt.Errorf("unable to find unique path after 999 attempts for %s", basePath)
+	return "", &errors.GroveError{
+		Code:    errors.ErrCodeFileSystem,
+		Message: fmt.Sprintf("unable to find unique path after %d attempts", maxCollisionAttempts),
+		Context: map[string]interface{}{
+			"base_path": basePath,
+			"attempts":  maxCollisionAttempts,
+		},
+		Operation: "collision_resolution",
+	}
 }
 
 func (pg *pathGenerator) validatePath(path string) error {
-	// Ensure path is absolute.
 	if !filepath.IsAbs(path) {
-		return fmt.Errorf("path must be absolute: %s", path)
+		return &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "path must be absolute",
+			Context: map[string]interface{}{
+				"path": path,
+			},
+			Operation: "path_validation",
+		}
 	}
 
 	cleanPath := filepath.Clean(path)
 
 	if strings.Contains(path, "..") || len(cleanPath) < len(path)/2 {
-		return fmt.Errorf("path contains traversal elements: %s", path)
+		return &errors.GroveError{
+			Code:    errors.ErrCodePathTraversal,
+			Message: "path contains traversal elements",
+			Context: map[string]interface{}{
+				"path": path,
+			},
+			Operation: "path_validation",
+		}
 	}
 
 	dirName := filepath.Base(path)
 
 	if !git.IsValidDirectoryName(dirName) {
-		return fmt.Errorf("directory name is invalid: %s", dirName)
+		return &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "directory name is invalid",
+			Context: map[string]interface{}{
+				"directory_name": dirName,
+			},
+			Operation: "directory_name_validation",
+		}
 	}
 
 	parentDir := filepath.Dir(path)
 	if parentInfo, err := os.Stat(parentDir); err != nil {
 		if os.IsNotExist(err) {
-			// Only fail for clearly invalid parent directories like "/" or "".
 			if parentDir == "/" || parentDir == "" {
-				return fmt.Errorf("invalid parent directory: %s", parentDir)
+				return &errors.GroveError{
+					Code:    errors.ErrCodeFileSystem,
+					Message: "invalid parent directory",
+					Context: map[string]interface{}{
+						"parent_dir": parentDir,
+					},
+					Operation: "parent_directory_validation",
+				}
 			}
-			// Allow non-existent parents since they may be created later.
 		} else {
-			return fmt.Errorf("cannot access parent directory %s: %w", parentDir, err)
+			return &errors.GroveError{
+				Code:    errors.ErrCodeDirectoryAccess,
+				Message: "cannot access parent directory",
+				Cause:   err,
+				Context: map[string]interface{}{
+					"parent_dir": parentDir,
+				},
+				Operation: "parent_directory_access",
+			}
 		}
 	} else if !parentInfo.IsDir() {
-		return fmt.Errorf("parent path is not a directory: %s", parentDir)
+		return &errors.GroveError{
+			Code:    errors.ErrCodeFileSystem,
+			Message: "parent path is not a directory",
+			Context: map[string]interface{}{
+				"parent_dir": parentDir,
+			},
+			Operation: "parent_directory_validation",
+		}
 	}
 
 	return nil
