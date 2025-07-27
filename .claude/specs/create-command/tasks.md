@@ -45,7 +45,7 @@ The implementation will follow the established service-oriented architecture pat
     - _Leverage: internal/utils/git.go:185 ParseGitPlatformURL(), internal/git/operations.go:18-22_
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 7.1, 7.2, 7.3, 7.4, 7.5, 8.1, 8.2, 8.3_
 
-- [ ]   4. Create PathGenerator service component
+- [x]   4. Create PathGenerator service component
     - Implement `GeneratePath()` method for filesystem-safe path generation
     - Add collision detection and unique path generation with suffixes
     - Integrate with Grove configuration for base path preferences
@@ -128,4 +128,10 @@ The implementation will follow the established service-oriented architecture pat
     - Add filesystem permission validation and security checks for file copying
     - Implement proper cleanup and atomic operations for both worktree and file operations
     - Optimize file copying for large numbers of files
+    - **PathGenerator Optimizations (from code review)**:
+        - Optimize collision resolution algorithm to reduce filesystem operations (current O(n) up to 999)
+        - Enhance path traversal detection logic for better precision vs false positives
+        - Make collision iteration limit configurable instead of hardcoded 999
+        - Cache home directory lookup to avoid repeated `os.UserHomeDir()` calls
+        - Add performance benchmarks for collision resolution scenarios
     - _Requirements: Performance, security, and reliability requirements_
