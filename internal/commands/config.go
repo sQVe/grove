@@ -31,10 +31,10 @@ Available configuration sections:
 
 Examples:
   grove config list                     # Show all configuration
-  grove config get general.editor      # Get a specific value
-  grove config set git.max_retries 5   # Set a configuration value
-  grove config validate                # Validate current configuration
-  grove config path                    # Show config file paths`,
+  grove config get general.editor       # Get a specific value
+  grove config set git.max_retries 5    # Set a configuration value
+  grove config validate                 # Validate current configuration
+  grove config path                     # Show config file paths`,
 	}
 
 	cmd.AddCommand(newConfigGetCmd())
@@ -91,7 +91,7 @@ func newConfigListCmd() *cobra.Command {
 		Long: `List all configuration values.
 
 Examples:
-  grove config list                 # Show all configuration in text format
+  grove config list                # Show all configuration in text format
   grove config list --format=json  # Show all configuration in JSON format`,
 		RunE: runConfigList,
 	}
@@ -126,7 +126,7 @@ If a key is specified, only that configuration value is reset.
 If no key is specified, all configuration is reset to defaults.
 
 Examples:
-  grove config reset                    # Reset all configuration
+  grove config reset                   # Reset all configuration
   grove config reset general.editor    # Reset only the editor setting`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runConfigReset,
