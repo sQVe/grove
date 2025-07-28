@@ -6,6 +6,9 @@ import (
 )
 
 const (
+	// Maximum number of context entries to prevent memory leaks.
+	maxContextEntries = 10
+
 	// System errors.
 	ErrCodeGitNotFound     = "GIT_NOT_FOUND"
 	ErrCodeDirectoryAccess = "DIRECTORY_ACCESS"
@@ -98,6 +101,18 @@ func (e *GroveError) WithContext(key string, value interface{}) *GroveError {
 	if e.Context == nil {
 		e.Context = make(map[string]interface{})
 	}
+
+	// Prevent memory leaks by limiting context size.
+	if len(e.Context) >= maxContextEntries {
+		// Remove oldest entry to make room (simple FIFO approach).
+		oldestKey := ""
+		for k := range e.Context {
+			oldestKey = k
+			break
+		}
+		delete(e.Context, oldestKey)
+	}
+
 	e.Context[key] = value
 	return e
 }
@@ -107,33 +122,38 @@ func (e *GroveError) WithOperation(operation string) *GroveError {
 	return e
 }
 
+// retryableErrors maps error codes to their retryability status.
+var retryableErrors = map[string]bool{
+	// Network errors are typically retryable.
+	ErrCodeNetworkTimeout:     true,
+	ErrCodeNetworkUnavailable: true,
+
+	// Git and file operations may be retryable depending on context.
+	ErrCodeGitOperation:     true,
+	ErrCodeWorktreeCreation: true,
+	ErrCodeFileCopyFailed:   true,
+
+	// These errors are generally not retryable.
+	ErrCodeAuthenticationFailed:   false,
+	ErrCodeInvalidURL:             false,
+	ErrCodeGitClone:               false,
+	ErrCodePermission:             false,
+	ErrCodeSecurityViolation:      false,
+	ErrCodeBranchNotFound:         false,
+	ErrCodeBranchExists:           false,
+	ErrCodeInvalidBranchName:      false,
+	ErrCodeRemoteNotFound:         false,
+	ErrCodeSourceWorktreeNotFound: false,
+	ErrCodePathExists:             false,
+	ErrCodeInvalidPattern:         false,
+}
+
 func (e *GroveError) IsRetryable() bool {
-	switch e.Code {
-	case ErrCodeNetworkTimeout,
-		ErrCodeNetworkUnavailable:
-		return true
-	case ErrCodeAuthenticationFailed,
-		ErrCodeInvalidURL,
-		ErrCodeGitClone,
-		ErrCodePermission,
-		ErrCodeSecurityViolation,
-		ErrCodeBranchNotFound,
-		ErrCodeBranchExists,
-		ErrCodeInvalidBranchName,
-		ErrCodeRemoteNotFound,
-		ErrCodeSourceWorktreeNotFound,
-		ErrCodePathExists,
-		ErrCodeInvalidPattern:
-		return false
-	case ErrCodeGitOperation,
-		ErrCodeWorktreeCreation,
-		ErrCodeFileCopyFailed:
-		// Git operations and file operations might be retryable depending on the underlying error.
-		return true
-	default:
-		// Conservative approach: unknown errors are not retryable.
-		return false
+	if retryable, exists := retryableErrors[e.Code]; exists {
+		return retryable
 	}
+	// Conservative approach: unknown errors are not retryable.
+	return false
 }
 
 func NewGroveError(code, message string, cause error) *GroveError {
