@@ -21,6 +21,7 @@ grove init https://github.com/user/repo # Clone remote with worktree structure
 - ✅ Repository initialization and remote cloning
 - ✅ Cross-platform (Windows/macOS/Linux)
 - ✅ 96.4% test coverage
+- ✅ Pre-commit hooks for automated code quality
 - 🚧 Worktree management (list, create, switch, remove)
 - 📅 GitHub/Linear integration, smart cleanup, TUI
 

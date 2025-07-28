@@ -2,11 +2,11 @@
 
 ## Setup
 
-| Step        | Command                                                   |
-| ----------- | --------------------------------------------------------- |
+| Step        | Command                                               |
+| ----------- | ----------------------------------------------------- |
 | **Clone**   | `git clone https://github.com/sqve/grove && cd grove` |
-| **Install** | `go mod download`                                         |
-| **Verify**  | `mage test:unit && mage lint && mage build:all`           |
+| **Install** | `go mod download`                                     |
+| **Verify**  | `mage test:unit && mage lint && mage build:all`       |
 
 ## Prerequisites
 
@@ -20,27 +20,134 @@
 
 ```bash
 # Fast development workflow
-mage test:unit                                 # Fast unit tests (~2s)
-mage lint                                      # Run golangci-lint (with --fix)
-mage build:all                                 # Build
+mage test:unit # Fast unit tests (~2s)
+mage lint      # Run golangci-lint (with --fix)
+mage build:all # Build
 
 # Full validation (CI-like)
-mage ci                                        # Complete pipeline
+mage ci # Complete pipeline
+```
+
+### Pre-commit Hooks (Optional)
+
+Pre-commit hooks automatically run quality checks before each commit, catching issues early and ensuring consistent code quality. These hooks leverage Grove's existing `.golangci.yml` configuration.
+
+#### Installation
+
+**Install pre-commit:**
+
+```bash
+# macOS (Homebrew)
+brew install pre-commit
+
+# Linux (pip)
+pip install pre-commit
+
+# Windows (pip)
+pip install pre-commit
+```
+
+**Set up hooks:**
+
+```bash
+# Install hooks (run once per repository clone)
+pre-commit install
+
+# Test setup (optional)
+pre-commit run --all-files
+```
+
+#### How It Works
+
+When you commit code, pre-commit automatically:
+
+1. **Runs golangci-lint** with your existing `.golangci.yml` configuration
+2. **Applies auto-fixes** for formatting issues (gofumpt, goimports)
+3. **Blocks commits** if unfixable linting violations are found
+4. **Shows clear error messages** with specific file/line details
+
+**Example workflow:**
+
+```bash
+# Make changes with formatting issues
+echo 'package main;import"fmt";func main(){fmt.Println("test")}' > test.go
+
+# Commit triggers pre-commit hooks
+git add test.go
+git commit -m "feat: add test file"
+
+# Hook automatically fixes formatting
+# Files are modified in your working directory
+# Re-run commit to proceed
+git commit -m "feat: add test file"
+```
+
+#### Integration with Existing Workflow
+
+- **`mage lint`** continues to work independently
+- **Same configuration** - hooks use your existing `.golangci.yml`
+- **Same linters** - identical to `mage lint` behavior
+- **No conflicts** - pre-commit complements existing workflow
+
+#### Troubleshooting
+
+**Hook execution fails:**
+
+```bash
+# Check pre-commit installation
+pre-commit --version
+
+# Reinstall hooks
+pre-commit uninstall
+pre-commit install
+
+# Run manually to debug
+pre-commit run golangci-lint --verbose
+```
+
+**Performance issues:**
+
+```bash
+# Skip hooks for urgent commits
+git commit --no-verify -m "fix: urgent hotfix"
+
+# Run specific hook only
+pre-commit run golangci-lint
+```
+
+**Platform-specific issues:**
+
+- **Windows**: Ensure `pre-commit` is in your PATH
+- **Linux**: May need `pip install --user pre-commit` if system-wide install fails
+- **macOS**: Use Homebrew installation for best compatibility
+
+#### Emergency Bypass
+
+For urgent commits when hooks are problematic:
+
+```bash
+# Skip all pre-commit hooks
+git commit --no-verify -m "fix: emergency fix"
+
+# Or disable hooks temporarily
+pre-commit uninstall
+# ... make commits ...
+pre-commit install
 ```
 
 ### Testing workflow
 
 ```bash
 # Development (fast feedback)
-mage test:unit                                 # Unit tests (~2s)
-mage test:coverage                             # Unit tests with coverage report
+mage test:unit     # Unit tests (~2s)
+mage test:coverage # Unit tests with coverage report
 
 # Full validation
-mage test:integration                          # Integration tests (~35s)
-mage test:all                                  # All tests
+mage test:integration # Integration tests (~35s)
+mage test:all         # All tests
 
 # Debugging
-mage test:watch                                # Watch for changes and run unit tests
+mage test:watch # Watch for changes and run unit tests
 ```
 
 ### Git workflow
