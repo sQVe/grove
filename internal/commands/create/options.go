@@ -1,6 +1,6 @@
 package create
 
-// ProgressCallback allows the service to report progress to the caller
+// ProgressCallback allows the service to report progress to the caller.
 type ProgressCallback func(message string)
 
 type CreateOptions struct {
@@ -8,9 +8,9 @@ type CreateOptions struct {
 	WorktreePath     string
 	BaseBranch       string // Base branch when creating new branches.
 	CopyFiles        bool
-	CopyPatterns     []string // Overrides default copy configuration.
-	CopyEnv          bool     // Shorthand for common environment file patterns.
-	ProgressCallback ProgressCallback // Optional callback for progress updates
+	CopyPatterns     []string         // Overrides default copy configuration.
+	CopyEnv          bool             // Shorthand for common environment file patterns.
+	ProgressCallback ProgressCallback // Optional callback for progress updates.
 }
 
 type CreateResult struct {
@@ -39,7 +39,7 @@ type URLBranchInfo struct {
 
 type WorktreeOptions struct {
 	TrackRemote bool
-	BaseBranch  string // Base branch for new branch creation
+	BaseBranch  string // Base branch for new branch creation.
 }
 
 type CopyOptions struct {
