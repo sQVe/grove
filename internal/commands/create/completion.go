@@ -54,12 +54,6 @@ func RegisterCreateCompletion(cmd *cobra.Command) {
 		log.Warn("Failed to register base flag completion", "error", err)
 	}
 
-	if err := cmd.RegisterFlagCompletionFunc("source", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return nil, cobra.ShellCompDirectiveFilterDirs
-	}); err != nil {
-		log.Warn("Failed to register source flag completion", "error", err)
-	}
-
 	if err := cmd.RegisterFlagCompletionFunc("copy", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if strings.Contains(toComplete, ",") {
 			parts := strings.Split(toComplete, ",")

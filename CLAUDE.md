@@ -377,3 +377,57 @@ A successful spec workflow completion includes:
 6. **Validation**: Ensure each task meets requirements before proceeding
 
 Remember: The workflow ensures systematic feature development with proper documentation, validation, and quality control at each step.
+
+# User Experience Guidelines
+
+## Logging and User Output
+
+**CRITICAL**: Users should NEVER see technical debug information, timestamps, or internal logging messages.
+
+### User Output Rules
+
+1. **Clean User Interface**: Users should only see clean, user-friendly messages
+2. **No Debug Logs**: Technical logging should NEVER appear in user output
+3. **No Timestamps**: Never show timestamps like `time=2025-07-28T22:09:42.252+02:00 level=ERROR`
+4. **No Component Tags**: Never show internal component names like `component=git_executor`
+5. **User-Friendly Errors**: Error messages should be helpful to users, not technical stack traces
+
+### Logging Level Guidelines
+
+- **Debug Level**: Technical details, git command outputs, internal operations
+- **Info Level**: General application flow (use sparingly in user-facing commands)
+- **Warn Level**: **NEVER use for internal failures** - only for user-actionable warnings
+- **Error Level**: **NEVER use for internal failures** - only for user-facing errors
+
+### Examples
+
+❌ **BAD** - Shows technical details to users:
+
+```go
+logger.Error("git command failed", "git_command", "git", "success", false, "output", "fatal: branch already exists")
+logger.Warn("could not remove directory during rollback", "directory", dir, "error", err.Error())
+```
+
+✅ **GOOD** - Logs at debug level, returns user-friendly errors:
+
+```go
+logger.DebugOperation("git command failed", "git_command", "git", "success", false, "output", "fatal: branch already exists")
+logger.DebugOperation("could not remove directory during rollback", "directory", dir, "error", err.Error())
+return fmt.Errorf("branch 'main' already exists. Use --force to overwrite or choose a different name")
+```
+
+### When Writing New Code
+
+1. **Internal Operations**: Always use `logger.DebugOperation()` or `logger.Debug()`
+2. **Git Command Failures**: Log at debug level, return structured user errors
+3. **Rollback/Cleanup Failures**: Log at debug level only
+4. **Network/Remote Failures**: Log at debug level, provide user guidance
+5. **User Errors**: Return clear error messages, no logging needed
+
+# Important Development Reminders
+
+- **NEVER show technical debug information to users** - all logging should be at debug level unless it's user-actionable
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (\*.md) or README files unless explicitly requested

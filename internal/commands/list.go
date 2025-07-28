@@ -56,7 +56,11 @@ Examples:
 
 Sorting options: activity (default), name, status`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runListCommand(options)
+			if err := runListCommand(options); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
 		},
 	}
 

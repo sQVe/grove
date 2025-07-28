@@ -31,20 +31,8 @@ func ParseCreateOptions(cmd *cobra.Command, args []string) (CreateOptions, error
 func parseBasicFlags(cmd *cobra.Command, options *CreateOptions) error {
 	var err error
 
-	if options.CreateBranch, err = cmd.Flags().GetBool("create"); err != nil {
-		return errors.Wrap(err, "failed to get create flag")
-	}
-
 	if options.BaseBranch, err = cmd.Flags().GetString("base"); err != nil {
 		return errors.Wrap(err, "failed to get base flag")
-	}
-
-	if options.Force, err = cmd.Flags().GetBool("force"); err != nil {
-		return errors.Wrap(err, "failed to get force flag")
-	}
-
-	if options.SourceWorktree, err = cmd.Flags().GetString("source"); err != nil {
-		return errors.Wrap(err, "failed to get source flag")
 	}
 
 	return nil

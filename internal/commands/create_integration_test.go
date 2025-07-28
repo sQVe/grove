@@ -396,7 +396,7 @@ func TestCreateCommand_Integration_ErrorHandling(t *testing.T) {
 	
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
-	// Test creating worktree for nonexistent branch without create flag
+	// Test creating worktree for nonexistent branch without new flag
 	options := &create.CreateOptions{
 		BranchName:   "nonexistent-branch",
 		CreateBranch: false,
@@ -538,3 +538,5 @@ func setupTestRepositoryWithFiles(t *testing.T) string {
 
 	return testDir
 }
+
+

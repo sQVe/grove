@@ -59,7 +59,13 @@ Examples:
   grove config get git.fetch_timeout
   grove config get logging.level`,
 		Args: cobra.ExactArgs(1),
-		RunE: runConfigGet,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigGet(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	cmd.Flags().Bool("default", false, "Show the default value instead of the current value")
@@ -78,7 +84,13 @@ Examples:
   grove config set git.fetch_timeout 60s
   grove config set logging.level debug`,
 		Args: cobra.ExactArgs(2),
-		RunE: runConfigSet,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigSet(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	return cmd
@@ -93,7 +105,13 @@ func newConfigListCmd() *cobra.Command {
 Examples:
   grove config list                # Show all configuration in text format
   grove config list --format=json  # Show all configuration in JSON format`,
-		RunE: runConfigList,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigList(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	cmd.Flags().String("format", "text", "Output format (text, json)")
@@ -110,7 +128,13 @@ func newConfigValidateCmd() *cobra.Command {
 
 This command checks all configuration values against their validation rules
 and reports any issues found.`,
-		RunE: runConfigValidate,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigValidate(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	return cmd
@@ -129,7 +153,13 @@ Examples:
   grove config reset                   # Reset all configuration
   grove config reset general.editor    # Reset only the editor setting`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: runConfigReset,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigReset(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	cmd.Flags().Bool("confirm", false, "Skip confirmation prompt")
@@ -144,7 +174,13 @@ func newConfigPathCmd() *cobra.Command {
 		Long: `Show the paths where Grove looks for configuration files.
 
 This includes the currently used config file (if any) and all search paths.`,
-		RunE: runConfigPath,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigPath(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	return cmd
@@ -158,7 +194,13 @@ func newConfigInitCmd() *cobra.Command {
 
 This creates a configuration file in the user's config directory with
 all configuration options set to their default values.`,
-		RunE: runConfigInit,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runConfigInit(cmd, args); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
+		},
 	}
 
 	cmd.Flags().Bool("force", false, "Overwrite existing configuration file")

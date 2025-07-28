@@ -292,6 +292,18 @@ func ErrWorktreeCreation(operation string, cause error) *GroveError {
 		WithContext("operation", operation)
 }
 
+func ErrBranchInUseByWorktree(branchName, worktreePath string) *GroveError {
+	message := fmt.Sprintf("branch '%s' is already checked out in another worktree", branchName)
+	if worktreePath != "" {
+		message += fmt.Sprintf(" at: %s", worktreePath)
+	}
+	message += "\nTip: Use a different branch name or switch to that worktree"
+	
+	return NewGroveErrorf(ErrCodeWorktreeCreation, nil, message).
+		WithContext("branch", branchName).
+		WithContext("worktree_path", worktreePath)
+}
+
 func ErrRemoteNotFound(remoteName string) *GroveError {
 	return NewGroveErrorf(ErrCodeRemoteNotFound, nil, "remote '%s' not found", remoteName).
 		WithContext("remote", remoteName)

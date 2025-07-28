@@ -1,10 +1,124 @@
 package commands
 
 import (
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/sqve/grove/internal/commands/create"
+	"github.com/sqve/grove/internal/git"
 )
+
+var (
+	primaryColor = lipgloss.Color("#8B5CF6") 	primaryColor = lipgloss.Color("#8B5CF6") // Purple - for highlights.
+	successColor = lipgloss.Color("#059669") 	successColor = lipgloss.Color("#059669") // Green - for success messages.
+	mutedColor   = lipgloss.Color("#9CA3AF") 	mutedColor   = lipgloss.Color("#9CA3AF") // Gray - for progress messages.
+)
+
+var (
+	successStyle = lipgloss.NewStyle().Foreground(successColor).Bold(true)
+	primaryStyle = lipgloss.NewStyle().Foreground(primaryColor).Bold(true)
+	mutedStyle   = lipgloss.NewStyle().Foreground(mutedColor)
+	boldStyle    = lipgloss.NewStyle().Bold(true)
+)
+
+type progressIndicator struct {
+	message string
+	start   time.Time
+}
+
+func (p *progressIndicator) show() {
+	fmt.Fprintf(os.Stderr, "%s %s...\n", mutedStyle.Render("→"), p.message)
+}
+
+func (p *progressIndicator) complete() {
+	elapsed := time.Since(p.start)
+		// Move cursor up one line and clear it, then write success message.
+	fmt.Fprintf(os.Stderr, "\033[1A\033[2K")
+	if elapsed > time.Second {
+		fmt.Fprintf(os.Stderr, "%s %s (%s)\n", successStyle.Render("✓"), p.message, mutedStyle.Render(elapsed.Round(time.Millisecond).String()))
+	} else {
+		fmt.Fprintf(os.Stderr, "%s %s\n", successStyle.Render("✓"), p.message)
+	}
+}
+
+func (p *progressIndicator) fail() {
+	elapsed := time.Since(p.start)
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) 	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red.
+		// Move cursor up one line and clear it, then write failure message.
+	fmt.Fprintf(os.Stderr, "\033[1A\033[2K")
+	if elapsed > time.Second {
+		fmt.Fprintf(os.Stderr, "%s %s (%s)\n", errorStyle.Render("✗"), p.message, mutedStyle.Render(elapsed.Round(time.Millisecond).String()))
+	} else {
+		fmt.Fprintf(os.Stderr, "%s %s\n", errorStyle.Render("✗"), p.message)
+	}
+}
+
+func startProgress(message string) *progressIndicator {
+	p := &progressIndicator{message: message, start: time.Now()}
+	p.show()
+	return p
+}
+
+func classifyInputType(input string) string {
+	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		return "url"
+	}
+	if strings.Contains(input, "/") && !strings.HasPrefix(input, "/") && !strings.HasSuffix(input, "/") {
+		return "remote"
+	}
+	return "branch"
+}
+
+func displaySuccess(result *create.CreateResult) {
+	fmt.Println()
+	
+		// Main success message.
+	fmt.Printf("%s Worktree created successfully!\n", successStyle.Render("✅"))
+	fmt.Println()
+	
+		// Branch information.
+	if result.WasCreated {
+		fmt.Printf("  %s %s %s\n",
+			boldStyle.Render("Branch:"),
+			primaryStyle.Render(result.BranchName),
+			mutedStyle.Render("(created)"))
+	} else {
+		fmt.Printf("  %s %s\n",
+			boldStyle.Render("Branch:"),
+			primaryStyle.Render(result.BranchName))
+	}
+	
+		// Path information.
+	fmt.Printf("  %s %s\n",
+		boldStyle.Render("Path:"),
+		result.WorktreePath)
+	
+		// Base branch information (if applicable).
+	if result.BaseBranch != "" {
+		fmt.Printf("  %s %s\n",
+			boldStyle.Render("Base:"),
+			result.BaseBranch)
+	}
+	
+		// File copying information.
+	if result.CopiedFiles > 0 {
+		fmt.Printf("  %s %d files copied\n",
+			boldStyle.Render("Files:"),
+			result.CopiedFiles)
+	}
+	
+	fmt.Println()
+	
+		// Next steps.
+	fmt.Printf("%s Next steps:\n", boldStyle.Render("→"))
+	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
+	fmt.Printf("  %s\n", mutedStyle.Render("# Start working on your branch"))
+}
 
 func NewCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -15,8 +129,8 @@ func NewCreateCmd() *cobra.Command {
 Basic usage:
   grove create feature-branch              # Create worktree for existing branch
   grove create feature-branch ./custom     # Create at specific path
-  grove create --create new-feature        # Create new branch without prompting
-  grove create --base main new-feature     # Create from specific base branch
+  grove create new-feature                 # Creates new branch automatically if it doesn't exist
+  grove create --base main new-feature     # Create new branch from specific base branch
 
 URL and remote branch support:
   grove create https://github.com/owner/repo/pull/123
@@ -32,7 +146,6 @@ File copying options:
   grove create feature-branch --copy-env               # Copy environment files (.env*, *.local.*)
   grove create feature-branch --copy ".env*,.vscode/"  # Copy specific patterns
   grove create feature-branch --no-copy                # Skip all file copying
-  grove create feature-branch --source main            # Copy from specific source worktree
 
 File copying patterns support glob syntax. Common patterns:
   .env*             # All environment files
@@ -41,9 +154,9 @@ File copying patterns support glob syntax. Common patterns:
   *.local.*         # Local configuration files
   .gitignore.local  # Local gitignore
 
-By default, files are copied from the main worktree based on configuration.
-Use --no-copy to disable, --copy-env for quick environment setup, or --copy with
-custom patterns for specific files.`,
+By default, files are copied from the base branch's worktree when --base is specified,
+or from the default branch worktree otherwise. Use --no-copy to disable, --copy-env for quick 
+environment setup, or --copy with custom patterns for specific files.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := create.ValidateCreateArgs(args); err != nil {
 				return err
@@ -61,24 +174,63 @@ custom patterns for specific files.`,
 				return err
 			}
 
-			// TODO: Initialize services and execute create command.
-			cmd.Printf("Creating worktree for: %s\n", options.BranchName)
-			if options.WorktreePath != "" {
-				cmd.Printf("Path: %s\n", options.WorktreePath)
+						// Track current progress indicator.
+			var currentProgress *progressIndicator
+			
+						// Add progress callback for enhanced user feedback.
+			options.ProgressCallback = func(message string) {
+								// Complete previous progress if it exists.
+				if currentProgress != nil {
+					currentProgress.complete()
+				}
+								// Start new progress.
+				currentProgress = startProgress(message)
 			}
-			cmd.Println("Implementation in progress...")
+
+						// Create service with dependencies.
+			service := create.NewCreateService(
+				create.NewBranchResolver(git.DefaultExecutor),
+				create.NewPathGenerator(),
+				create.NewWorktreeCreator(git.DefaultExecutor),
+				create.NewFileManager(git.DefaultExecutor),
+			)
+
+						// Execute the create operation.
+			result, err := service.Create(&options)
+			if err != nil {
+								// Mark current progress as failed.
+				if currentProgress != nil {
+					currentProgress.fail()
+				}
+								// Show error immediately after the failed step.
+				fmt.Fprintf(os.Stderr, "\n%s %s\n", 
+					lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true).Render("Error:"), 
+					err.Error())
+				
+								// Add space after error (tip is already included in error message for some errors).
+				fmt.Fprintf(os.Stderr, "\n")
+				
+								// Don't show usage for operational errors (command was correct).
+				cmd.SilenceUsage = true
+				return err
+			}
+
+						// Mark final progress as completed.
+			if currentProgress != nil {
+				currentProgress.complete()
+			}
+
+						// Display success information.
+			displaySuccess(result)
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolP("create", "c", false, "Create new branch without prompting")
 	cmd.Flags().String("base", "", "Base branch for new branch creation (default: current branch)")
-	cmd.Flags().Bool("force", false, "Force creation even if path exists")
 	cmd.Flags().Bool("copy-env", false, "Copy common environment files (.env*, *.local.*, docker-compose.override.yml)")
 	cmd.Flags().String("copy", "", "Comma-separated glob patterns to copy (supports .env*,.vscode/,.idea/ etc.)")
 	cmd.Flags().Bool("no-copy", false, "Skip all file copying (overrides config and other copy flags)")
-	cmd.Flags().String("source", "", "Source worktree path for file copying (default: main worktree from config)")
 
 	create.RegisterCreateCompletion(cmd)
 

@@ -13,9 +13,9 @@ type ErrorEnhancement struct {
 
 var errorEnhancements = map[string]ErrorEnhancement{
 	errors.ErrCodeBranchNotFound: {
-		Suggestion: "Check available branches with 'git branch -a' or use --create to create new branch",
+		Suggestion: "Check available branches with 'git branch -a' or use --new to create new branch",
 		Examples: []string{
-			"grove create --create %s",
+			"grove create --new %s",
 			"grove create --base main %s",
 		},
 	},
@@ -43,10 +43,10 @@ var errorEnhancements = map[string]ErrorEnhancement{
 		},
 	},
 	errors.ErrCodePathExists: {
-		Suggestion: "Use --force to overwrite or choose a different path",
+		Suggestion: "Choose a different path or remove the existing directory",
 		Examples: []string{
-			"grove create %s --force",
 			"grove create %s ./alternative-path",
+			"rm -rf existing-path && grove create %s",
 		},
 	},
 	errors.ErrCodeRemoteNotFound: {

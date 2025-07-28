@@ -36,7 +36,7 @@ func ValidatePath(path string) error {
 	// Prevent accidental overwrites of existing directories.
 	if _, err := os.Stat(cleanPath); err == nil {
 		return errors.ErrPathExists(cleanPath).
-			WithContext("suggestion", "Use --force to overwrite or choose a different path")
+			WithContext("suggestion", "Choose a different path or remove the existing directory")
 	}
 
 	// Ensure we can create the worktree directory by testing parent permissions.

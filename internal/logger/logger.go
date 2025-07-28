@@ -92,7 +92,9 @@ func (l *Logger) InfoOperation(operation string, attrs ...any) {
 
 func (l *Logger) ErrorOperation(operation string, err error, attrs ...any) {
 	allAttrs := append([]any{"op", operation, "error", err}, attrs...)
-	l.Error("operation failed", allAttrs...)
+	// Log operation failures at debug level to avoid duplicate error messages
+	// The actual error should be returned to the user by the calling code.
+	l.Debug("operation failed", allAttrs...)
 }
 
 func (l *Logger) GitCommand(command string, args []string, attrs ...any) {
@@ -113,7 +115,9 @@ func (l *Logger) GitResult(command string, success bool, output string, attrs ..
 	if success {
 		l.Debug("git command completed", allAttrs...)
 	} else {
-		l.Error("git command failed", allAttrs...)
+		// Log git failures at debug level to avoid cluttering user output
+		// Actual user-facing errors should come from the calling code.
+		l.Debug("git command failed", allAttrs...)
 	}
 }
 

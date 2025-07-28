@@ -30,7 +30,7 @@ func TestNewCreateCmd_Flags(t *testing.T) {
 		shorthand string
 		flagType  string
 	}{
-		{"create", "c", "bool"},
+		{"new", "n", "bool"},
 		{"base", "", "string"},
 		{"force", "", "bool"},
 		{"copy-env", "", "bool"},
@@ -234,7 +234,7 @@ func TestNewCreateCmd_HelpText_ContainsExamples(t *testing.T) {
 
 	expectedExamples := []string{
 		"grove create feature-branch",
-		"grove create --create new-feature",
+		"grove create --new new-feature",
 		"grove create https://github.com/owner/repo/pull/123",
 		"grove create origin/feature-branch",
 		"grove create feature-branch --copy-env",
@@ -321,7 +321,7 @@ func TestNewCreateCmd_RunE_WithPath(t *testing.T) {
 
 func TestNewCreateCmd_FlagParsing_BoolFlags(t *testing.T) {
 	cmd := NewCreateCmd()
-	cmd.SetArgs([]string{"--create", "--force", "--copy-env", "--no-copy", "feature-branch"})
+	cmd.SetArgs([]string{"--new", "--copy-env", "--no-copy", "feature-branch"})
 
 	// This should fail due to conflicting flags, but let's test individual flags.
 	tests := []struct {
@@ -331,21 +331,15 @@ func TestNewCreateCmd_FlagParsing_BoolFlags(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "create flag",
-			flag:     "create",
-			args:     []string{"--create", "feature-branch"},
+			name:     "new flag",
+			flag:     "new",
+			args:     []string{"--new", "feature-branch"},
 			expected: true,
 		},
 		{
-			name:     "create short flag",
-			flag:     "create",
-			args:     []string{"-c", "feature-branch"},
-			expected: true,
-		},
-		{
-			name:     "force flag",
-			flag:     "force",
-			args:     []string{"--force", "feature-branch"},
+			name:     "new short flag",
+			flag:     "new",
+			args:     []string{"-n", "feature-branch"},
 			expected: true,
 		},
 		{
@@ -487,8 +481,8 @@ func TestNewCreateCmd_DefaultFlagValues(t *testing.T) {
 		isBool       bool
 	}{
 		{
-			name:         "create default",
-			flag:         "create",
+			name:         "new default",
+			flag:         "new",
 			expectedBool: false,
 			isBool:       true,
 		},

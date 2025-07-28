@@ -89,24 +89,12 @@ func (r *branchResolver) ResolveBranch(name, base string, createIfMissing bool) 
 		}
 	}
 
-	err = r.createNewBranch(name, base)
-	if err != nil {
-		return nil, &errors.GroveError{
-			Code:    errors.ErrCodeGitOperation,
-			Message: "failed to create new branch",
-			Cause:   err,
-			Context: map[string]interface{}{
-				"branch": name,
-				"base":   base,
-			},
-			Operation: "branch_creation",
-		}
-	}
-
-	r.logger.Debug("created new branch", "branch", name, "base", base)
+	// For worktree creation, return BranchInfo with Exists=false to let
+	// the worktree creator handle branch creation atomically via 'git worktree add -b'
+	r.logger.Debug("branch will be created during worktree creation", "branch", name, "base", base)
 	return &BranchInfo{
 		Name:   name,
-		Exists: true,
+		Exists: false,
 	}, nil
 }
 
@@ -192,7 +180,8 @@ func (r *branchResolver) ResolveRemoteBranch(remoteBranch string) (*BranchInfo, 
 	// Fetch from remote to ensure we have latest branch information.
 	err := r.fetchRemote(remoteName)
 	if err != nil {
-		r.logger.Warn("failed to fetch from remote - branch info may be stale", "remote", remoteName, "error", err)
+		// Log fetch failures at debug level to avoid cluttering user output
+		r.logger.DebugOperation("failed to fetch from remote - branch info may be stale", "remote", remoteName, "error", err)
 		// Continue anyway as branch might still exist locally, but warn user about potential staleness.
 	}
 
@@ -243,6 +232,7 @@ func (r *branchResolver) branchExistsLocally(branchName string) (bool, error) {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		line = strings.TrimPrefix(line, "* ")
+		line = strings.TrimPrefix(line, "+ ")
 		line = strings.TrimSpace(line)
 		if line == branchName && !strings.HasPrefix(line, "remotes/") {
 			return true, nil
@@ -308,6 +298,10 @@ func (r *branchResolver) requiresRemoteSetup(repoURL string) bool {
 	}
 
 	return !strings.Contains(output, repoURL)
+}
+
+func (r *branchResolver) RemoteExists(remoteName string) bool {
+	return r.remoteExists(remoteName)
 }
 
 func (r *branchResolver) remoteExists(remoteName string) bool {

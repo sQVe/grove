@@ -47,6 +47,11 @@ func (m *MockBranchResolver) ResolveRemoteBranch(remoteBranch string) (*BranchIn
 	return args.Get(0).(*BranchInfo), args.Error(1)
 }
 
+func (m *MockBranchResolver) RemoteExists(remoteName string) bool {
+	args := m.Called(remoteName)
+	return args.Bool(0)
+}
+
 type MockPathGenerator struct {
 	mock.Mock
 }
@@ -65,6 +70,11 @@ func (m *MockWorktreeCreator) CreateWorktree(branchName, path string, options Wo
 	return args.Error(0)
 }
 
+func (m *MockWorktreeCreator) CreateWorktreeWithProgress(branchName, path string, options WorktreeOptions, progressCallback ProgressCallback) error {
+	args := m.Called(branchName, path, options, progressCallback)
+	return args.Error(0)
+}
+
 type MockFileManager struct {
 	mock.Mock
 }
@@ -79,9 +89,19 @@ func (m *MockFileManager) DiscoverSourceWorktree() (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockFileManager) GetCurrentWorktreePath() (string, error) {
+	args := m.Called()
+	return args.String(0), args.Error(1)
+}
+
 func (m *MockFileManager) ResolveConflicts(conflicts []FileConflict, strategy ConflictStrategy) error {
 	args := m.Called(conflicts, strategy)
 	return args.Error(0)
+}
+
+func (m *MockFileManager) FindWorktreeByBranch(branchName string) (string, error) {
+	args := m.Called(branchName)
+	return args.String(0), args.Error(1)
 }
 
 func TestCreateServiceImpl_Create_Success(t *testing.T) {

@@ -81,6 +81,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if !utils.IsGitAvailable() {
 		err := errors.ErrGitNotFound(nil)
 		log.ErrorOperation("git availability check failed", err)
+		cmd.SilenceUsage = true
 		return err
 	}
 
@@ -89,7 +90,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if convert {
 		log.DebugOperation("running init convert", "duration", time.Since(start))
-		return runInitConvert()
+		if err := runInitConvert(); err != nil {
+			cmd.SilenceUsage = true
+			return err
+		}
+		return nil
 	}
 
 	var targetArg string
@@ -132,18 +137,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 				fmt.Printf("Detected %s branch: %s\n", urlInfo.Platform, urlInfo.BranchName)
 			}
 
-			return runInitRemote(urlInfo.RepoURL, branches)
+			if err := runInitRemote(urlInfo.RepoURL, branches); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
 		case utils.IsGitURL(targetArg):
 			branches, _ := cmd.Flags().GetString("branches")
 			log.DebugOperation("running init remote", "repo_url", targetArg, "branches", branches, "duration", time.Since(start))
-			return runInitRemote(targetArg, branches)
+			if err := runInitRemote(targetArg, branches); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
 		default:
 			log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
-			return runInitLocal(targetArg)
+			if err := runInitLocal(targetArg); err != nil {
+				cmd.SilenceUsage = true
+				return err
+			}
+			return nil
 		}
 	} else {
 		log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
-		return runInitLocal(targetArg)
+		if err := runInitLocal(targetArg); err != nil {
+			cmd.SilenceUsage = true
+			return err
+		}
+		return nil
 	}
 }
 

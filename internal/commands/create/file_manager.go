@@ -87,13 +87,96 @@ func (f *FileManagerImpl) CopyFiles(sourceWorktree, targetWorktree string, patte
 	return nil
 }
 
-// DiscoverSourceWorktree attempts to find the main/primary worktree for file copying.
-func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
-	repoRoot, err := f.executor.ExecuteQuiet("rev-parse", "--show-toplevel")
+// GetCurrentWorktreePath returns the path of the current worktree.
+func (f *FileManagerImpl) GetCurrentWorktreePath() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	output, err := f.executor.ExecuteQuiet("-C", cwd, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("rev-parse --show-toplevel", err)
 	}
-	repoRoot = strings.TrimSpace(repoRoot)
+
+	return strings.TrimSpace(output), nil
+}
+
+// DiscoverSourceWorktree attempts to find the default branch's worktree for file copying.
+func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
+	// First, try to detect the default branch with any available remote
+	remoteName := f.getFirstRemote()
+	if remoteName != "" {
+		defaultBranch, err := git.DetectDefaultBranch(f.executor, remoteName)
+		if err == nil {
+			// Look for a worktree that has the default branch
+			worktreePath, err := f.FindWorktreeByBranch(defaultBranch)
+			if err == nil && worktreePath != "" {
+				return worktreePath, nil
+			}
+		}
+	}
+
+	// If no remote or detection failed, try to find the current HEAD branch
+	currentBranch, err := f.getCurrentBranch()
+	if err == nil && currentBranch != "" {
+		worktreePath, err := f.FindWorktreeByBranch(currentBranch)
+		if err == nil && worktreePath != "" {
+			return worktreePath, nil
+		}
+	}
+
+	// If all else fails, fall back to common paths
+	return f.discoverSourceWorktreeFallback()
+}
+
+// getFirstRemote returns the name of the first available remote, or empty string if none
+func (f *FileManagerImpl) getFirstRemote() string {
+	output, err := f.executor.ExecuteQuiet("remote")
+	if err != nil {
+		return ""
+	}
+	
+	remotes := strings.Split(strings.TrimSpace(output), "\n")
+	if len(remotes) > 0 && strings.TrimSpace(remotes[0]) != "" {
+		return strings.TrimSpace(remotes[0])
+	}
+	return ""
+}
+
+// getCurrentBranch returns the name of the current branch
+func (f *FileManagerImpl) getCurrentBranch() (string, error) {
+	output, err := f.executor.ExecuteQuiet("branch", "--show-current")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(output), nil
+}
+
+// discoverSourceWorktreeFallback uses the original logic as fallback
+func (f *FileManagerImpl) discoverSourceWorktreeFallback() (string, error) {
+	// Check if we're in a bare repository first
+	isBare, err := f.executor.ExecuteQuiet("rev-parse", "--is-bare-repository")
+	if err != nil {
+		return "", groveErrors.ErrGitOperation("rev-parse --is-bare-repository", err)
+	}
+	
+	var repoRoot string
+	if strings.TrimSpace(isBare) == "true" {
+		// In bare repository, get the git directory path
+		gitDir, err := f.executor.ExecuteQuiet("rev-parse", "--git-dir")
+		if err != nil {
+			return "", groveErrors.ErrGitOperation("rev-parse --git-dir", err)
+		}
+		repoRoot = strings.TrimSpace(gitDir)
+	} else {
+		// In regular repository, get the working tree root
+		root, err := f.executor.ExecuteQuiet("rev-parse", "--show-toplevel")
+		if err != nil {
+			return "", groveErrors.ErrGitOperation("rev-parse --show-toplevel", err)
+		}
+		repoRoot = strings.TrimSpace(root)
+	}
 
 	worktreeList, err := f.executor.ExecuteQuiet("worktree", "list", "--porcelain")
 	if err != nil {
@@ -131,6 +214,36 @@ func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
 	}
 
 	return "", groveErrors.ErrSourceWorktreeNotFound("")
+}
+
+// FindWorktreeByBranch finds the worktree path for a specific branch name.
+func (f *FileManagerImpl) FindWorktreeByBranch(branchName string) (string, error) {
+	worktreeList, err := f.executor.ExecuteQuiet("worktree", "list", "--porcelain")
+	if err != nil {
+		return "", groveErrors.ErrGitOperation("worktree list --porcelain", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(worktreeList), "\n")
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "worktree ") {
+			worktreePath := strings.TrimPrefix(line, "worktree ")
+			
+			// Look ahead for the branch information
+			for j := i + 1; j < len(lines) && !strings.HasPrefix(lines[j], "worktree "); j++ {
+				branchLine := strings.TrimSpace(lines[j])
+				if strings.HasPrefix(branchLine, "branch refs/heads/") {
+					currentBranch := strings.TrimPrefix(branchLine, "branch refs/heads/")
+					if currentBranch == branchName {
+						return worktreePath, nil
+					}
+					break // Found branch info for this worktree, move to next
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no worktree found for branch '%s'", branchName)
 }
 
 // ResolveConflicts handles file conflicts based on the specified strategy.
