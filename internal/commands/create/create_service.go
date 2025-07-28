@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/validation"
 )
 
 type CreateServiceImpl struct {
@@ -130,7 +131,11 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 }
 
 func (s *CreateServiceImpl) validateOptions(options *CreateOptions) error {
-	if options.BranchName == "" {
+	if options == nil {
+		return fmt.Errorf("options cannot be nil")
+	}
+
+	if strings.TrimSpace(options.BranchName) == "" {
 		return fmt.Errorf("branch name cannot be empty")
 	}
 
@@ -160,7 +165,7 @@ type InputInfo struct {
 }
 
 func (s *CreateServiceImpl) classifyInput(input string) (*InputInfo, error) {
-	if isURL(input) {
+	if validation.IsURL(input) {
 		urlInfo, err := s.branchResolver.ResolveURL(input)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve URL: %w", err)

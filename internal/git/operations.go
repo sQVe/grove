@@ -255,7 +255,7 @@ func CreateGitFile(mainDir, bareDir string) error {
 	// Allow single level traversal (../something) but reject deep traversal (../../something).
 	if strings.HasPrefix(relPath, "../../") || strings.Contains(relPath, "/../..") {
 		err := fmt.Errorf("relative path contains directory traversal: %s", relPath)
-		log.ErrorOperation("path traversal validation failed", err, "rel_path", relPath)
+		log.Debug("path traversal validation failed", "rel_path", relPath, "error", err)
 		return err
 	}
 
@@ -973,12 +973,12 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 	log.Debug("checking .git file", "path", gitPath)
 	gitInfo, err := os.Stat(gitPath)
 	if err != nil {
-		log.ErrorOperation(".git file validation failed", err, "path", gitPath)
+		log.Debug(".git file validation failed", "path", gitPath, "error", err)
 		return fmt.Errorf(".git file does not exist: %w", err)
 	}
 	if gitInfo.IsDir() {
 		err := fmt.Errorf(".git should be a file, not a directory")
-		log.ErrorOperation(".git file type validation failed", err, "path", gitPath)
+		log.Debug(".git file type validation failed", "path", gitPath, "error", err)
 		return err
 	}
 
@@ -986,26 +986,26 @@ func ValidateGroveStructureWithExecutor(executor GitExecutor, dir string) error 
 	log.Debug("checking .bare directory", "path", bareDir)
 	bareInfo, err := os.Stat(bareDir)
 	if err != nil {
-		log.ErrorOperation(".bare directory validation failed", err, "path", bareDir)
+		log.Debug(".bare directory validation failed", "path", bareDir, "error", err)
 		return fmt.Errorf(".bare directory does not exist: %w", err)
 	}
 	if !bareInfo.IsDir() {
 		err := fmt.Errorf(".bare should be a directory")
-		log.ErrorOperation(".bare directory type validation failed", err, "path", bareDir)
+		log.Debug(".bare directory type validation failed", "path", bareDir, "error", err)
 		return err
 	}
 
 	log.Debug("validating .git file content", "path", gitPath)
 	gitContent, err := os.ReadFile(gitPath)
 	if err != nil {
-		log.ErrorOperation(".git file content read failed", err, "path", gitPath)
+		log.Debug(".git file content read failed", "path", gitPath, "error", err)
 		return fmt.Errorf("failed to read .git file: %w", err)
 	}
 
 	expectedContent := fmt.Sprintf("gitdir: %s\n", ".bare")
 	if string(gitContent) != expectedContent {
 		err := fmt.Errorf(".git file content is invalid, expected 'gitdir: .bare\\n', got '%s'", string(gitContent))
-		log.ErrorOperation(".git file content validation failed", err, "expected", expectedContent, "actual", string(gitContent))
+		log.Debug(".git file content validation failed", "expected", expectedContent, "actual", string(gitContent), "error", err)
 		return err
 	}
 

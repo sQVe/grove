@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/sqve/grove/internal/validation"
 )
 
 type ValidationError struct {
@@ -297,33 +298,13 @@ func validateCopyFiles(config *CopyFilesConfig) ValidationErrors {
 		})
 	}
 
-	for i, pattern := range config.Patterns {
-		if strings.TrimSpace(pattern) == "" {
-			errors = append(errors, ValidationError{
-				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
-				Value:   pattern,
-				Message: "pattern cannot be empty",
-			})
-			continue
-		}
-
-		// Path traversal attempts pose security risks.
-		if strings.Contains(pattern, "..") {
-			errors = append(errors, ValidationError{
-				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
-				Value:   pattern,
-				Message: "path traversal not allowed in patterns",
-			})
-		}
-
-		// Malformed patterns will cause runtime errors.
-		if _, err := filepath.Match(pattern, "test"); err != nil {
-			errors = append(errors, ValidationError{
-				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
-				Value:   pattern,
-				Message: fmt.Sprintf("invalid glob pattern: %v", err),
-			})
-		}
+	if err := validation.ValidateFilePatterns(config.Patterns); err != nil {
+		// Extract pattern index from error context if needed, otherwise use generic error.
+		errors = append(errors, ValidationError{
+			Field:   "worktree.copy_files.patterns",
+			Value:   config.Patterns,
+			Message: err.Error(),
+		})
 	}
 
 	if strings.TrimSpace(config.SourceWorktree) == "" {
@@ -341,7 +322,8 @@ func validateCreate(config *struct {
 	DefaultBaseBranch  string `mapstructure:"default_base_branch"`
 	PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
 	AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
-}) ValidationErrors {
+},
+) ValidationErrors {
 	var errors ValidationErrors
 
 	if strings.TrimSpace(config.DefaultBaseBranch) == "" {
@@ -354,19 +336,11 @@ func validateCreate(config *struct {
 
 	branchName := strings.TrimSpace(config.DefaultBaseBranch)
 	if branchName != "" {
-		if strings.Contains(branchName, " ") {
+		if err := validation.ValidateGitBranchName(branchName); err != nil {
 			errors = append(errors, ValidationError{
 				Field:   "create.default_base_branch",
 				Value:   config.DefaultBaseBranch,
-				Message: "branch name cannot contain spaces",
-			})
-		}
-
-		if strings.HasPrefix(branchName, "-") {
-			errors = append(errors, ValidationError{
-				Field:   "create.default_base_branch",
-				Value:   config.DefaultBaseBranch,
-				Message: "branch name cannot start with a dash",
+				Message: err.Error(),
 			})
 		}
 	}

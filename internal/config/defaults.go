@@ -6,34 +6,41 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Single source of truth for all configuration defaults.
+var defaultValues = map[string]interface{}{
+	"general.editor":                      getDefaultEditor,
+	"general.pager":                       getDefaultPager,
+	"general.output_format":               "text",
+	"git.default_remote":                  "origin",
+	"git.fetch_timeout":                   30 * time.Second,
+	"git.max_retries":                     3,
+	"retry.max_attempts":                  3,
+	"retry.base_delay":                    1 * time.Second,
+	"retry.max_delay":                     10 * time.Second,
+	"retry.jitter_enabled":                true,
+	"logging.level":                       "info",
+	"logging.format":                      "text",
+	"worktree.naming_pattern":             "branch",
+	"worktree.cleanup_threshold":          30 * 24 * time.Hour,
+	"worktree.base_path":                  "",
+	"worktree.auto_track_remote":          true,
+	"worktree.copy_files.patterns":        []string{},
+	"worktree.copy_files.source_worktree": "main",
+	"worktree.copy_files.on_conflict":     "prompt",
+	"create.default_base_branch":          "main",
+	"create.prompt_for_new_branch":        true,
+	"create.auto_create_parents":          true,
+}
+
 func SetDefaults() {
-	viper.SetDefault("general.editor", getDefaultEditor())
-	viper.SetDefault("general.pager", getDefaultPager())
-	viper.SetDefault("general.output_format", "text")
-
-	viper.SetDefault("git.default_remote", "origin")
-	viper.SetDefault("git.fetch_timeout", 30*time.Second)
-	viper.SetDefault("git.max_retries", 3)
-
-	viper.SetDefault("retry.max_attempts", 3)
-	viper.SetDefault("retry.base_delay", 1*time.Second)
-	viper.SetDefault("retry.max_delay", 10*time.Second)
-	viper.SetDefault("retry.jitter_enabled", true)
-
-	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.format", "text")
-
-	viper.SetDefault("worktree.naming_pattern", "branch")
-	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days.
-	viper.SetDefault("worktree.base_path", "")                      // Empty means current directory.
-	viper.SetDefault("worktree.auto_track_remote", true)
-	viper.SetDefault("worktree.copy_files.patterns", []string{})
-	viper.SetDefault("worktree.copy_files.source_worktree", "main")
-	viper.SetDefault("worktree.copy_files.on_conflict", "prompt")
-
-	viper.SetDefault("create.default_base_branch", "main")
-	viper.SetDefault("create.prompt_for_new_branch", true)
-	viper.SetDefault("create.auto_create_parents", true)
+	for key, value := range defaultValues {
+		// Handle function values that need to be called.
+		if fn, ok := value.(func() string); ok {
+			viper.SetDefault(key, fn())
+		} else {
+			viper.SetDefault(key, value)
+		}
+	}
 }
 
 func getDefaultPager() string {
@@ -46,33 +53,15 @@ func getDefaultPager() string {
 func DefaultConfig() *Config {
 	v := viper.New()
 
-	v.SetDefault("general.editor", getDefaultEditor())
-	v.SetDefault("general.pager", getDefaultPager())
-	v.SetDefault("general.output_format", "text")
-
-	v.SetDefault("git.default_remote", "origin")
-	v.SetDefault("git.fetch_timeout", 30*time.Second)
-	v.SetDefault("git.max_retries", 3)
-
-	v.SetDefault("retry.max_attempts", 3)
-	v.SetDefault("retry.base_delay", 1*time.Second)
-	v.SetDefault("retry.max_delay", 10*time.Second)
-	v.SetDefault("retry.jitter_enabled", true)
-
-	v.SetDefault("logging.level", "info")
-	v.SetDefault("logging.format", "text")
-
-	v.SetDefault("worktree.naming_pattern", "branch")
-	v.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour)
-	v.SetDefault("worktree.base_path", "")
-	v.SetDefault("worktree.auto_track_remote", true)
-	v.SetDefault("worktree.copy_files.patterns", []string{})
-	v.SetDefault("worktree.copy_files.source_worktree", "main")
-	v.SetDefault("worktree.copy_files.on_conflict", "prompt")
-
-	v.SetDefault("create.default_base_branch", "main")
-	v.SetDefault("create.prompt_for_new_branch", true)
-	v.SetDefault("create.auto_create_parents", true)
+	// Apply defaults from single source of truth.
+	for key, value := range defaultValues {
+		// Handle function values that need to be called.
+		if fn, ok := value.(func() string); ok {
+			v.SetDefault(key, fn())
+		} else {
+			v.SetDefault(key, value)
+		}
+	}
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {

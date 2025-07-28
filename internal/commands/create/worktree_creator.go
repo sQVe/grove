@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	groveErrors "github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 )
 
@@ -24,24 +25,24 @@ func NewWorktreeCreator(executor git.GitExecutor) *WorktreeCreatorImpl {
 // It handles both new branch creation and existing branch checkout based on the options.
 func (w *WorktreeCreatorImpl) CreateWorktree(branchName, path string, options WorktreeOptions) error {
 	if branchName == "" {
-		return fmt.Errorf("branch name cannot be empty")
+		return groveErrors.ErrWorktreeCreation("validation", fmt.Errorf("branch name cannot be empty"))
 	}
 
 	if path == "" {
-		return fmt.Errorf("worktree path cannot be empty")
+		return groveErrors.ErrWorktreeCreation("validation", fmt.Errorf("worktree path cannot be empty"))
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("failed to create parent directories for %s: %w", path, err)
+		return groveErrors.ErrDirectoryAccess(filepath.Dir(path), err)
 	}
 
 	if _, err := os.Stat(path); err == nil && !options.Force {
-		return fmt.Errorf("path already exists: %s", path)
+		return groveErrors.ErrPathExists(path)
 	}
 
 	branchExists, err := w.branchExists(branchName)
 	if err != nil {
-		return fmt.Errorf("failed to check if branch exists: %w", err)
+		return groveErrors.ErrWorktreeCreation("branch-check", err)
 	}
 
 	var worktreeErr error
@@ -72,7 +73,7 @@ func (w *WorktreeCreatorImpl) branchExists(branchName string) (bool, error) {
 func (w *WorktreeCreatorImpl) createFromExistingBranch(branchName, path string) error {
 	_, err := w.executor.Execute("worktree", "add", path, branchName)
 	if err != nil {
-		return fmt.Errorf("failed to create worktree from existing branch %s at %s: %w", branchName, path, err)
+		return groveErrors.ErrGitWorktree("add", err)
 	}
 	return nil
 }
@@ -83,14 +84,14 @@ func (w *WorktreeCreatorImpl) createWithNewBranch(branchName, path string, track
 
 	_, err := w.executor.Execute(args...)
 	if err != nil {
-		return fmt.Errorf("failed to create worktree with new branch %s at %s: %w", branchName, path, err)
+		return groveErrors.ErrWorktreeCreation("create", err)
 	}
 
 	if trackRemote {
 		if err := w.setupRemoteTracking(branchName, path); err != nil {
 			// Remote tracking failure is not critical, log but don't fail.
 			// The worktree was created successfully.
-			return fmt.Errorf("worktree created but failed to set up remote tracking: %w", err)
+			return groveErrors.ErrWorktreeCreation("remote-tracking", err)
 		}
 	}
 
@@ -107,7 +108,7 @@ func (w *WorktreeCreatorImpl) setupRemoteTracking(branchName, worktreePath strin
 	remoteBranch := remote + "/" + branchName
 	_, err = w.executor.Execute("-C", worktreePath, "branch", "--set-upstream-to="+remoteBranch, branchName)
 	if err != nil {
-		return fmt.Errorf("failed to set up remote tracking for %s: %w", branchName, err)
+		return groveErrors.ErrWorktreeCreation("set-upstream", err)
 	}
 
 	return nil

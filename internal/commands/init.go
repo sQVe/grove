@@ -181,7 +181,7 @@ func runInitLocal(targetDir string) error {
 	if _, err := os.Stat(gitPath); err == nil {
 		err := errors.ErrRepoExists(absPath).
 			WithContext("conflict", ".git file or directory")
-		log.ErrorOperation("existing .git found", err, "path", gitPath)
+		log.Debug("existing .git found", "path", gitPath, "error", err)
 		return err
 	}
 
@@ -190,7 +190,7 @@ func runInitLocal(targetDir string) error {
 	if _, err := os.Stat(bareDir); err == nil {
 		err := errors.ErrRepoExists(absPath).
 			WithContext("conflict", ".bare directory")
-		log.ErrorOperation("existing .bare found", err, "path", bareDir)
+		log.Debug("existing .bare found", "path", bareDir, "error", err)
 		return err
 	}
 
@@ -363,12 +363,12 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 		if git.IsGroveRepo(currentDir) {
 			err := errors.ErrRepoExists(currentDir).
 				WithContext("type", "Grove repository")
-			log.ErrorOperation("already a Grove repository", err, "current_dir", currentDir)
+			log.Debug("already a Grove repository", "current_dir", currentDir, "error", err)
 			return err
 		}
 		err := errors.ErrRepoNotFound(currentDir).
 			WithContext("expected", "traditional Git repository (.git directory)")
-		log.ErrorOperation("not a traditional Git repository", err, "current_dir", currentDir)
+		log.Debug("not a traditional Git repository", "current_dir", currentDir, "error", err)
 		return err
 	}
 	log.Debug("confirmed traditional Git repository", "current_dir", currentDir)

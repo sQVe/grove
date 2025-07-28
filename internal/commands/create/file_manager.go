@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	groveErrors "github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 )
 
@@ -90,13 +91,13 @@ func (f *FileManagerImpl) CopyFiles(sourceWorktree, targetWorktree string, patte
 func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
 	repoRoot, err := f.executor.ExecuteQuiet("rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", fmt.Errorf("failed to find repository root: %w", err)
+		return "", groveErrors.ErrGitOperation("rev-parse --show-toplevel", err)
 	}
 	repoRoot = strings.TrimSpace(repoRoot)
 
 	worktreeList, err := f.executor.ExecuteQuiet("worktree", "list", "--porcelain")
 	if err != nil {
-		return "", fmt.Errorf("failed to list worktrees: %w", err)
+		return "", groveErrors.ErrGitOperation("worktree list --porcelain", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(worktreeList), "\n")
@@ -129,7 +130,7 @@ func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not discover source worktree")
+	return "", groveErrors.ErrSourceWorktreeNotFound("")
 }
 
 // ResolveConflicts handles file conflicts based on the specified strategy.

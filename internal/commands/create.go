@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/sqve/grove/internal/commands/create"
@@ -64,11 +62,11 @@ custom patterns for specific files.`,
 			}
 
 			// TODO: Initialize services and execute create command.
-			fmt.Printf("Creating worktree for: %s\n", options.BranchName)
+			cmd.Printf("Creating worktree for: %s\n", options.BranchName)
 			if options.WorktreePath != "" {
-				fmt.Printf("Path: %s\n", options.WorktreePath)
+				cmd.Printf("Path: %s\n", options.WorktreePath)
 			}
-			fmt.Println("Implementation in progress...")
+			cmd.Println("Implementation in progress...")
 
 			return nil
 		},
