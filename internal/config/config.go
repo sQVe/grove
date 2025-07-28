@@ -42,9 +42,24 @@ type Config struct {
 	} `mapstructure:"logging"`
 
 	Worktree struct {
-		NamingPattern    string        `mapstructure:"naming_pattern"`
-		CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+		NamingPattern    string          `mapstructure:"naming_pattern"`
+		CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+		BasePath         string          `mapstructure:"base_path"`
+		AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+		CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 	} `mapstructure:"worktree"`
+
+	Create struct {
+		DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+		PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+		AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+	} `mapstructure:"create"`
+}
+
+type CopyFilesConfig struct {
+	Patterns       []string `mapstructure:"patterns"`
+	SourceWorktree string   `mapstructure:"source_worktree"`
+	OnConflict     string   `mapstructure:"on_conflict"`
 }
 
 func Initialize() error {

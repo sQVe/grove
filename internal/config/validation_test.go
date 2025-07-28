@@ -64,11 +64,30 @@ func TestValidateConfig(t *testing.T) {
 					Format: "text",
 				},
 				Worktree: struct {
-					NamingPattern    string        `mapstructure:"naming_pattern"`
-					CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+					NamingPattern    string          `mapstructure:"naming_pattern"`
+					CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+					BasePath         string          `mapstructure:"base_path"`
+					AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+					CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 				}{
 					NamingPattern:    "branch",
 					CleanupThreshold: 30 * 24 * time.Hour,
+					BasePath:         "",
+					AutoTrackRemote:  true,
+					CopyFiles: CopyFilesConfig{
+						Patterns:       []string{},
+						SourceWorktree: "main",
+						OnConflict:     "prompt",
+					},
+				},
+				Create: struct {
+					DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+					PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+					AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+				}{
+					DefaultBaseBranch:  "main",
+					PromptForNewBranch: true,
+					AutoCreateParents:  true,
 				},
 			},
 			expectError: true,
@@ -114,11 +133,30 @@ func TestValidateConfig(t *testing.T) {
 					Format: "text",
 				},
 				Worktree: struct {
-					NamingPattern    string        `mapstructure:"naming_pattern"`
-					CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+					NamingPattern    string          `mapstructure:"naming_pattern"`
+					CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+					BasePath         string          `mapstructure:"base_path"`
+					AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+					CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 				}{
 					NamingPattern:    "branch",
 					CleanupThreshold: 30 * 24 * time.Hour,
+					BasePath:         "",
+					AutoTrackRemote:  true,
+					CopyFiles: CopyFilesConfig{
+						Patterns:       []string{},
+						SourceWorktree: "main",
+						OnConflict:     "prompt",
+					},
+				},
+				Create: struct {
+					DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+					PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+					AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+				}{
+					DefaultBaseBranch:  "main",
+					PromptForNewBranch: true,
+					AutoCreateParents:  true,
 				},
 			},
 			expectError: true,
@@ -164,11 +202,30 @@ func TestValidateConfig(t *testing.T) {
 					Format: "text",
 				},
 				Worktree: struct {
-					NamingPattern    string        `mapstructure:"naming_pattern"`
-					CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+					NamingPattern    string          `mapstructure:"naming_pattern"`
+					CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+					BasePath         string          `mapstructure:"base_path"`
+					AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+					CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 				}{
 					NamingPattern:    "branch",
 					CleanupThreshold: 30 * 24 * time.Hour,
+					BasePath:         "",
+					AutoTrackRemote:  true,
+					CopyFiles: CopyFilesConfig{
+						Patterns:       []string{},
+						SourceWorktree: "main",
+						OnConflict:     "prompt",
+					},
+				},
+				Create: struct {
+					DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+					PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+					AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+				}{
+					DefaultBaseBranch:  "main",
+					PromptForNewBranch: true,
+					AutoCreateParents:  true,
 				},
 			},
 			expectError: true,
@@ -214,11 +271,30 @@ func TestValidateConfig(t *testing.T) {
 					Format: "invalid",
 				},
 				Worktree: struct {
-					NamingPattern    string        `mapstructure:"naming_pattern"`
-					CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+					NamingPattern    string          `mapstructure:"naming_pattern"`
+					CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+					BasePath         string          `mapstructure:"base_path"`
+					AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+					CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 				}{
 					NamingPattern:    "invalid",
 					CleanupThreshold: -1 * time.Hour,
+					BasePath:         "",
+					AutoTrackRemote:  true,
+					CopyFiles: CopyFilesConfig{
+						Patterns:       []string{},
+						SourceWorktree: "main",
+						OnConflict:     "prompt",
+					},
+				},
+				Create: struct {
+					DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+					PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+					AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+				}{
+					DefaultBaseBranch:  "main",
+					PromptForNewBranch: true,
+					AutoCreateParents:  true,
 				},
 			},
 			expectError: true,
@@ -563,52 +639,95 @@ func TestValidateWorktree(t *testing.T) {
 	tests := []struct {
 		name   string
 		config *struct {
-			NamingPattern    string        `mapstructure:"naming_pattern"`
-			CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+			NamingPattern    string          `mapstructure:"naming_pattern"`
+			CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+			BasePath         string          `mapstructure:"base_path"`
+			AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+			CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 		}
 		expectErrors int
 	}{
 		{
 			name: "valid config",
 			config: &struct {
-				NamingPattern    string        `mapstructure:"naming_pattern"`
-				CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+				NamingPattern    string          `mapstructure:"naming_pattern"`
+				CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+				BasePath         string          `mapstructure:"base_path"`
+				AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+				CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 			}{
 				NamingPattern:    "branch",
 				CleanupThreshold: 30 * 24 * time.Hour,
+				BasePath:         "",
+				AutoTrackRemote:  true,
+				CopyFiles: CopyFilesConfig{
+					Patterns:       []string{},
+					SourceWorktree: "main",
+					OnConflict:     "prompt",
+				},
 			},
 			expectErrors: 0,
 		},
 		{
 			name: "invalid naming pattern",
 			config: &struct {
-				NamingPattern    string        `mapstructure:"naming_pattern"`
-				CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+				NamingPattern    string          `mapstructure:"naming_pattern"`
+				CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+				BasePath         string          `mapstructure:"base_path"`
+				AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+				CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 			}{
 				NamingPattern:    "invalid",
 				CleanupThreshold: 30 * 24 * time.Hour,
+				BasePath:         "",
+				AutoTrackRemote:  true,
+				CopyFiles: CopyFilesConfig{
+					Patterns:       []string{},
+					SourceWorktree: "main",
+					OnConflict:     "prompt",
+				},
 			},
 			expectErrors: 1,
 		},
 		{
 			name: "negative cleanup threshold",
 			config: &struct {
-				NamingPattern    string        `mapstructure:"naming_pattern"`
-				CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+				NamingPattern    string          `mapstructure:"naming_pattern"`
+				CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+				BasePath         string          `mapstructure:"base_path"`
+				AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+				CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 			}{
 				NamingPattern:    "branch",
 				CleanupThreshold: -1 * time.Hour,
+				BasePath:         "",
+				AutoTrackRemote:  true,
+				CopyFiles: CopyFilesConfig{
+					Patterns:       []string{},
+					SourceWorktree: "main",
+					OnConflict:     "prompt",
+				},
 			},
 			expectErrors: 2, // Negative threshold plus data loss warning.
 		},
 		{
 			name: "short cleanup threshold (warning)",
 			config: &struct {
-				NamingPattern    string        `mapstructure:"naming_pattern"`
-				CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+				NamingPattern    string          `mapstructure:"naming_pattern"`
+				CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+				BasePath         string          `mapstructure:"base_path"`
+				AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+				CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 			}{
 				NamingPattern:    "branch",
 				CleanupThreshold: 1 * time.Hour,
+				BasePath:         "",
+				AutoTrackRemote:  true,
+				CopyFiles: CopyFilesConfig{
+					Patterns:       []string{},
+					SourceWorktree: "main",
+					OnConflict:     "prompt",
+				},
 			},
 			expectErrors: 1, // Data loss warning below 24h threshold.
 		},
@@ -688,6 +807,14 @@ func TestGetValidKeys(t *testing.T) {
 		"logging.format",
 		"worktree.naming_pattern",
 		"worktree.cleanup_threshold",
+		"worktree.base_path",
+		"worktree.auto_track_remote",
+		"worktree.copy_files.patterns",
+		"worktree.copy_files.source_worktree",
+		"worktree.copy_files.on_conflict",
+		"create.default_base_branch",
+		"create.prompt_for_new_branch",
+		"create.auto_create_parents",
 	}
 
 	assert.ElementsMatch(t, expectedKeys, keys)

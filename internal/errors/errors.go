@@ -43,6 +43,17 @@ const (
 
 	// Authentication errors.
 	ErrCodeAuthenticationFailed = "AUTHENTICATION_FAILED"
+
+	// Create command specific errors.
+	ErrCodeBranchNotFound         = "BRANCH_NOT_FOUND"
+	ErrCodeBranchExists           = "BRANCH_EXISTS"
+	ErrCodeInvalidBranchName      = "INVALID_BRANCH_NAME"
+	ErrCodeWorktreeCreation       = "WORKTREE_CREATION"
+	ErrCodeRemoteNotFound         = "REMOTE_NOT_FOUND"
+	ErrCodeFileCopyFailed         = "FILE_COPY_FAILED"
+	ErrCodeSourceWorktreeNotFound = "SOURCE_WORKTREE_NOT_FOUND"
+	ErrCodePathExists             = "PATH_EXISTS"
+	ErrCodeInvalidPattern         = "INVALID_PATTERN"
 )
 
 //   - Code: standardized error code for programmatic handling.
@@ -105,11 +116,19 @@ func (e *GroveError) IsRetryable() bool {
 		ErrCodeInvalidURL,
 		ErrCodeGitClone,
 		ErrCodePermission,
-		ErrCodeSecurityViolation:
+		ErrCodeSecurityViolation,
+		ErrCodeBranchNotFound,
+		ErrCodeBranchExists,
+		ErrCodeInvalidBranchName,
+		ErrCodeRemoteNotFound,
+		ErrCodeSourceWorktreeNotFound,
+		ErrCodePathExists,
+		ErrCodeInvalidPattern:
 		return false
-	case ErrCodeGitOperation:
-		// Git operations might be retryable depending on the underlying error.
-		// For now, we'll make them retryable and let the retry logic decide.
+	case ErrCodeGitOperation,
+		ErrCodeWorktreeCreation,
+		ErrCodeFileCopyFailed:
+		// Git operations and file operations might be retryable depending on the underlying error.
 		return true
 	default:
 		// Conservative approach: unknown errors are not retryable.
@@ -230,6 +249,53 @@ func ErrNetworkUnavailable(operation string, cause error) *GroveError {
 func ErrAuthenticationFailed(operation string, cause error) *GroveError {
 	return NewGroveErrorf(ErrCodeAuthenticationFailed, cause, "authentication failed during %s", operation).
 		WithContext("operation", operation)
+}
+
+func ErrBranchNotFound(branchName string) *GroveError {
+	return NewGroveErrorf(ErrCodeBranchNotFound, nil, "branch '%s' not found", branchName).
+		WithContext("branch", branchName)
+}
+
+func ErrBranchExists(branchName string) *GroveError {
+	return NewGroveErrorf(ErrCodeBranchExists, nil, "branch '%s' already exists", branchName).
+		WithContext("branch", branchName)
+}
+
+func ErrInvalidBranchName(branchName, reason string) *GroveError {
+	return NewGroveErrorf(ErrCodeInvalidBranchName, nil, "invalid branch name '%s': %s", branchName, reason).
+		WithContext("branch", branchName).
+		WithContext("reason", reason)
+}
+
+func ErrWorktreeCreation(operation string, cause error) *GroveError {
+	return NewGroveErrorf(ErrCodeWorktreeCreation, cause, "worktree %s failed", operation).
+		WithContext("operation", operation)
+}
+
+func ErrRemoteNotFound(remoteName string) *GroveError {
+	return NewGroveErrorf(ErrCodeRemoteNotFound, nil, "remote '%s' not found", remoteName).
+		WithContext("remote", remoteName)
+}
+
+func ErrFileCopyFailed(operation string, cause error) *GroveError {
+	return NewGroveErrorf(ErrCodeFileCopyFailed, cause, "file copy operation failed: %s", operation).
+		WithContext("operation", operation)
+}
+
+func ErrSourceWorktreeNotFound(path string) *GroveError {
+	return NewGroveErrorf(ErrCodeSourceWorktreeNotFound, nil, "source worktree not found at: %s", path).
+		WithContext("path", path)
+}
+
+func ErrPathExists(path string) *GroveError {
+	return NewGroveErrorf(ErrCodePathExists, nil, "path already exists: %s", path).
+		WithContext("path", path)
+}
+
+func ErrInvalidPattern(pattern, reason string) *GroveError {
+	return NewGroveErrorf(ErrCodeInvalidPattern, nil, "invalid pattern '%s': %s", pattern, reason).
+		WithContext("pattern", pattern).
+		WithContext("reason", reason)
 }
 
 func IsGroveError(err error, code string) bool {

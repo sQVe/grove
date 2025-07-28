@@ -25,6 +25,15 @@ func SetDefaults() {
 
 	viper.SetDefault("worktree.naming_pattern", "branch")
 	viper.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour) // 30 days.
+	viper.SetDefault("worktree.base_path", "")                      // Empty means current directory.
+	viper.SetDefault("worktree.auto_track_remote", true)
+	viper.SetDefault("worktree.copy_files.patterns", []string{})
+	viper.SetDefault("worktree.copy_files.source_worktree", "main")
+	viper.SetDefault("worktree.copy_files.on_conflict", "prompt")
+
+	viper.SetDefault("create.default_base_branch", "main")
+	viper.SetDefault("create.prompt_for_new_branch", true)
+	viper.SetDefault("create.auto_create_parents", true)
 }
 
 func getDefaultPager() string {
@@ -55,6 +64,15 @@ func DefaultConfig() *Config {
 
 	v.SetDefault("worktree.naming_pattern", "branch")
 	v.SetDefault("worktree.cleanup_threshold", 30*24*time.Hour)
+	v.SetDefault("worktree.base_path", "")
+	v.SetDefault("worktree.auto_track_remote", true)
+	v.SetDefault("worktree.copy_files.patterns", []string{})
+	v.SetDefault("worktree.copy_files.source_worktree", "main")
+	v.SetDefault("worktree.copy_files.on_conflict", "prompt")
+
+	v.SetDefault("create.default_base_branch", "main")
+	v.SetDefault("create.prompt_for_new_branch", true)
+	v.SetDefault("create.auto_create_parents", true)
 
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
@@ -97,11 +115,30 @@ func DefaultConfig() *Config {
 				Format: "text",
 			},
 			Worktree: struct {
-				NamingPattern    string        `mapstructure:"naming_pattern"`
-				CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+				NamingPattern    string          `mapstructure:"naming_pattern"`
+				CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+				BasePath         string          `mapstructure:"base_path"`
+				AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+				CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 			}{
 				NamingPattern:    "branch",
 				CleanupThreshold: 30 * 24 * time.Hour,
+				BasePath:         "",
+				AutoTrackRemote:  true,
+				CopyFiles: CopyFilesConfig{
+					Patterns:       []string{},
+					SourceWorktree: "main",
+					OnConflict:     "prompt",
+				},
+			},
+			Create: struct {
+				DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+				PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+				AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+			}{
+				DefaultBaseBranch:  "main",
+				PromptForNewBranch: true,
+				AutoCreateParents:  true,
 			},
 		}
 	}
@@ -122,4 +159,8 @@ func ValidLogFormats() []string {
 
 func ValidNamingPatterns() []string {
 	return []string{"branch", "slug", "timestamp"}
+}
+
+func ValidConflictStrategies() []string {
+	return []string{"prompt", "skip", "overwrite", "backup"}
 }

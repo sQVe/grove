@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -60,6 +61,10 @@ func ValidateConfig(config *Config) error {
 	}
 
 	if err := validateWorktree(&config.Worktree); err != nil {
+		errors = append(errors, err...)
+	}
+
+	if err := validateCreate(&config.Create); err != nil {
 		errors = append(errors, err...)
 	}
 
@@ -238,8 +243,11 @@ func validateLogging(config *struct {
 }
 
 func validateWorktree(config *struct {
-	NamingPattern    string        `mapstructure:"naming_pattern"`
-	CleanupThreshold time.Duration `mapstructure:"cleanup_threshold"`
+	NamingPattern    string          `mapstructure:"naming_pattern"`
+	CleanupThreshold time.Duration   `mapstructure:"cleanup_threshold"`
+	BasePath         string          `mapstructure:"base_path"`
+	AutoTrackRemote  bool            `mapstructure:"auto_track_remote"`
+	CopyFiles        CopyFilesConfig `mapstructure:"copy_files"`
 },
 ) ValidationErrors {
 	var errors ValidationErrors
@@ -268,6 +276,99 @@ func validateWorktree(config *struct {
 			Value:   config.CleanupThreshold,
 			Message: "cleanup threshold less than 1 day may cause data loss",
 		})
+	}
+
+	if err := validateCopyFiles(&config.CopyFiles); err != nil {
+		errors = append(errors, err...)
+	}
+
+	return errors
+}
+
+func validateCopyFiles(config *CopyFilesConfig) ValidationErrors {
+	var errors ValidationErrors
+
+	validStrategies := ValidConflictStrategies()
+	if !slices.Contains(validStrategies, config.OnConflict) {
+		errors = append(errors, ValidationError{
+			Field:   "worktree.copy_files.on_conflict",
+			Value:   config.OnConflict,
+			Message: fmt.Sprintf("must be one of: %v", validStrategies),
+		})
+	}
+
+	for i, pattern := range config.Patterns {
+		if strings.TrimSpace(pattern) == "" {
+			errors = append(errors, ValidationError{
+				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
+				Value:   pattern,
+				Message: "pattern cannot be empty",
+			})
+			continue
+		}
+
+		// Path traversal attempts pose security risks.
+		if strings.Contains(pattern, "..") {
+			errors = append(errors, ValidationError{
+				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
+				Value:   pattern,
+				Message: "path traversal not allowed in patterns",
+			})
+		}
+
+		// Malformed patterns will cause runtime errors.
+		if _, err := filepath.Match(pattern, "test"); err != nil {
+			errors = append(errors, ValidationError{
+				Field:   fmt.Sprintf("worktree.copy_files.patterns[%d]", i),
+				Value:   pattern,
+				Message: fmt.Sprintf("invalid glob pattern: %v", err),
+			})
+		}
+	}
+
+	if strings.TrimSpace(config.SourceWorktree) == "" {
+		errors = append(errors, ValidationError{
+			Field:   "worktree.copy_files.source_worktree",
+			Value:   config.SourceWorktree,
+			Message: "source worktree cannot be empty",
+		})
+	}
+
+	return errors
+}
+
+func validateCreate(config *struct {
+	DefaultBaseBranch  string `mapstructure:"default_base_branch"`
+	PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
+	AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
+}) ValidationErrors {
+	var errors ValidationErrors
+
+	if strings.TrimSpace(config.DefaultBaseBranch) == "" {
+		errors = append(errors, ValidationError{
+			Field:   "create.default_base_branch",
+			Value:   config.DefaultBaseBranch,
+			Message: "default base branch cannot be empty",
+		})
+	}
+
+	branchName := strings.TrimSpace(config.DefaultBaseBranch)
+	if branchName != "" {
+		if strings.Contains(branchName, " ") {
+			errors = append(errors, ValidationError{
+				Field:   "create.default_base_branch",
+				Value:   config.DefaultBaseBranch,
+				Message: "branch name cannot contain spaces",
+			})
+		}
+
+		if strings.HasPrefix(branchName, "-") {
+			errors = append(errors, ValidationError{
+				Field:   "create.default_base_branch",
+				Value:   config.DefaultBaseBranch,
+				Message: "branch name cannot start with a dash",
+			})
+		}
 	}
 
 	return errors
@@ -301,6 +402,14 @@ var ValidConfigKeys = []string{
 	"logging.format",
 	"worktree.naming_pattern",
 	"worktree.cleanup_threshold",
+	"worktree.base_path",
+	"worktree.auto_track_remote",
+	"worktree.copy_files.patterns",
+	"worktree.copy_files.source_worktree",
+	"worktree.copy_files.on_conflict",
+	"create.default_base_branch",
+	"create.prompt_for_new_branch",
+	"create.auto_create_parents",
 }
 
 func IsValidKey(key string) bool {
