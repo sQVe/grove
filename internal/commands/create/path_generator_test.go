@@ -276,10 +276,10 @@ func TestExpandHomePath(t *testing.T) {
 // Performance benchmarks for collision resolution
 func BenchmarkCollisionResolution(b *testing.B) {
 	pg := &pathGenerator{}
-	
+
 	b.Run("NoCollisions", func(b *testing.B) {
 		tempDir := b.TempDir()
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// Test with a fresh path that doesn't exist - true no-collision scenario
@@ -290,11 +290,11 @@ func BenchmarkCollisionResolution(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("WithFewCollisions", func(b *testing.B) {
 		tempDir := b.TempDir()
 		basePath := filepath.Join(tempDir, "collision-test")
-		
+
 		// Create 5 existing directories to test collision resolution
 		for i := 0; i < 5; i++ {
 			var dirPath string
@@ -308,7 +308,7 @@ func BenchmarkCollisionResolution(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, err := pg.resolveCollisions(basePath)
@@ -317,11 +317,11 @@ func BenchmarkCollisionResolution(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("WithManyCollisions", func(b *testing.B) {
 		tempDir := b.TempDir()
 		basePath := filepath.Join(tempDir, "many-collisions")
-		
+
 		// Create 50 existing directories to test performance with many collisions
 		// Create directories 0-49 (basePath, basePath-1, basePath-2, ..., basePath-49)
 		for i := 0; i < 50; i++ {
@@ -336,7 +336,7 @@ func BenchmarkCollisionResolution(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// Test the same collision scenario repeatedly to measure collision resolution performance
@@ -351,12 +351,12 @@ func BenchmarkCollisionResolution(b *testing.B) {
 			}
 		}
 	})
-	
+
 	// Add a benchmark that measures collision resolution with a moderate number of collisions
 	b.Run("ModerateCollisions", func(b *testing.B) {
 		tempDir := b.TempDir()
 		basePath := filepath.Join(tempDir, "moderate-test")
-		
+
 		// Create 10 existing directories to simulate moderate collision scenario
 		for i := 0; i < 10; i++ {
 			var dirPath string
@@ -370,7 +370,7 @@ func BenchmarkCollisionResolution(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			// Test collision resolution with moderate collisions (should return basePath-10)
@@ -391,7 +391,7 @@ func BenchmarkHomeDirCaching(b *testing.B) {
 	b.Run("CachedHomeDirLookup", func(b *testing.B) {
 		// Reset the cache for this benchmark using the dedicated test function
 		resetHomeDirCache()
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, err := getHomeDir()
@@ -400,7 +400,7 @@ func BenchmarkHomeDirCaching(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("DirectHomeDirLookup", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

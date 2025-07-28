@@ -217,6 +217,9 @@ func TestFileManagerImpl_DiscoverSourceWorktree_Success(t *testing.T) {
 	// Mock repository root discovery.
 	mockExecutor.SetSuccessResponse("rev-parse --show-toplevel", "/path/to/repo")
 
+	// Mock bare repository check.
+	mockExecutor.SetSuccessResponse("rev-parse --is-bare-repository", "false")
+
 	// Mock worktree list output with repo root as main worktree in porcelain format.
 	worktreeList := "worktree /path/to/repo\nbranch main\nHEAD abc123\n\nworktree /path/to/repo/feature\nbranch feature\nHEAD def456"
 	mockExecutor.SetSuccessResponse("worktree list --porcelain", worktreeList)
@@ -256,6 +259,9 @@ func TestFileManagerImpl_DiscoverSourceWorktree_NoMainWorktree(t *testing.T) {
 
 	// Mock repository root discovery.
 	mockExecutor.SetSuccessResponse("rev-parse --show-toplevel", "/path/to/repo")
+
+	// Mock bare repository check.
+	mockExecutor.SetSuccessResponse("rev-parse --is-bare-repository", "false")
 
 	// Mock worktree list without main branch in porcelain format.
 	worktreeList := "worktree /path/to/repo/feature\nbranch feature\nHEAD def456\n\nworktree /path/to/repo/develop\nbranch develop\nHEAD ghi789"

@@ -13,6 +13,7 @@ type BranchResolver interface {
 
 type PathGenerator interface {
 	GeneratePath(branchName, basePath string) (string, error)
+	ResolveUserPath(userPath string) (string, error)
 }
 
 type WorktreeCreator interface {

@@ -49,7 +49,7 @@ func TestCreateCommand_Integration_BasicWorktreeCreation(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Test creating worktree for existing branch
@@ -97,7 +97,7 @@ func TestCreateCommand_Integration_NewBranchCreation(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Test creating worktree for new branch
@@ -143,9 +143,9 @@ func TestCreateCommand_Integration_FileCopying(t *testing.T) {
 		Worktree: config.WorktreeConfig{
 			BasePath: filepath.Join(testDir, "worktrees"),
 			CopyFiles: config.CopyFilesConfig{
-				Patterns:         []string{".env*", ".vscode/"},
-				SourceWorktree:   "main",
-				OnConflict:       "skip",
+				Patterns:       []string{".env*", ".vscode/"},
+				SourceWorktree: "main",
+				OnConflict:     "skip",
 			},
 		},
 	}
@@ -156,7 +156,7 @@ func TestCreateCommand_Integration_FileCopying(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Create a feature branch first
@@ -222,7 +222,7 @@ func TestCreateCommand_Integration_PathGeneration(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Create a feature branch with special characters
@@ -270,7 +270,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 
 	// Create a directory that would conflict
 	conflictPath := filepath.Join(cfg.Worktree.BasePath, "feature-branch")
-	require.NoError(t, os.MkdirAll(conflictPath, 0755))
+	require.NoError(t, os.MkdirAll(conflictPath, 0o755))
 
 	// Set up create service components
 	gitExec := git.NewGitExecutor()
@@ -278,7 +278,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Create a feature branch
@@ -302,7 +302,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 	// Verify a unique path was generated
 	assert.NotEqual(t, conflictPath, result.WorktreePath)
 	assert.Contains(t, result.WorktreePath, "feature-branch")
-	
+
 	// Should contain a suffix like -2, -3, etc.
 	basename := filepath.Base(result.WorktreePath)
 	assert.True(t, strings.HasPrefix(basename, "feature-branch"))
@@ -332,9 +332,9 @@ func TestCreateCommand_Integration_ConfigurationIntegration(t *testing.T) {
 			},
 		},
 		Create: config.CreateConfig{
-			DefaultBaseBranch:    "main",
-			PromptForNewBranch:   false,
-			AutoCreateParents:    true,
+			DefaultBaseBranch:  "main",
+			PromptForNewBranch: false,
+			AutoCreateParents:  true,
 		},
 	}
 
@@ -344,7 +344,7 @@ func TestCreateCommand_Integration_ConfigurationIntegration(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Test creating worktree with configuration integration
@@ -362,7 +362,7 @@ func TestCreateCommand_Integration_ConfigurationIntegration(t *testing.T) {
 
 	// Verify custom base path was used
 	assert.Contains(t, result.WorktreePath, customBasePath)
-	
+
 	// Verify branch was created with default base
 	branches, err := gitExec.Execute("branch", "--list", "config-test")
 	require.NoError(t, err)
@@ -393,7 +393,7 @@ func TestCreateCommand_Integration_ErrorHandling(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Test creating worktree for nonexistent branch without new flag
@@ -407,7 +407,7 @@ func TestCreateCommand_Integration_ErrorHandling(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	
+
 	// Should be a Grove error with appropriate code
 	assert.Contains(t, err.Error(), "branch not found")
 }
@@ -440,7 +440,7 @@ func TestCreateCommand_Integration_PerformanceRequirements(t *testing.T) {
 	pathGenerator := create.NewPathGenerator(cfg)
 	worktreeCreator := create.NewWorktreeCreator(gitExec)
 	fileManager := create.NewFileManager(gitExec)
-	
+
 	service := create.NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
 	// Create a feature branch
@@ -473,10 +473,10 @@ func TestCreateCommand_Integration_PerformanceRequirements(t *testing.T) {
 
 func setupTestRepository(t *testing.T) string {
 	testDir := t.TempDir()
-	
+
 	// Initialize git repository
 	gitExec := git.NewGitExecutor()
-	
+
 	// Change to test directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
@@ -495,8 +495,8 @@ func setupTestRepository(t *testing.T) string {
 
 	// Create initial commit
 	initialFile := filepath.Join(testDir, "README.md")
-	require.NoError(t, os.WriteFile(initialFile, []byte("# Test Repository"), 0644))
-	
+	require.NoError(t, os.WriteFile(initialFile, []byte("# Test Repository"), 0o644))
+
 	_, err = gitExec.Execute("add", "README.md")
 	require.NoError(t, err)
 	_, err = gitExec.Execute("commit", "-m", "Initial commit")
@@ -507,7 +507,7 @@ func setupTestRepository(t *testing.T) string {
 
 func setupTestRepositoryWithFiles(t *testing.T) string {
 	testDir := setupTestRepository(t)
-	
+
 	// Change to test directory for file creation
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
@@ -520,13 +520,13 @@ func setupTestRepositoryWithFiles(t *testing.T) string {
 		".env.local":            "DEBUG=true",
 		".vscode/settings.json": `{"editor.tabSize": 2}`,
 		".vscode/launch.json":   `{"version": "0.2.0"}`,
-		"src/main.go":          "package main\n\nfunc main() {}\n",
+		"src/main.go":           "package main\n\nfunc main() {}\n",
 	}
 
 	for path, content := range testFiles {
 		fullPath := filepath.Join(testDir, path)
-		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0755))
-		require.NoError(t, os.WriteFile(fullPath, []byte(content), 0644))
+		require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
+		require.NoError(t, os.WriteFile(fullPath, []byte(content), 0o644))
 	}
 
 	// Add files to git (but don't track .env files in real scenario)
@@ -538,5 +538,3 @@ func setupTestRepositoryWithFiles(t *testing.T) string {
 
 	return testDir
 }
-
-

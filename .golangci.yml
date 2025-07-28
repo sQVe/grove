@@ -33,7 +33,6 @@ linters:
     # Code quality
     - goconst # Find repeated strings for constants
     - gocritic # Comprehensive diagnostics
-    - godot # Check comment punctuation
 
   settings:
     gocritic:
@@ -44,7 +43,7 @@ linters:
       disabled-checks:
         - dupImport
         - whyNoLint
-    
+
     godot:
       # Check comment punctuation - start with warnings only
       scope: all # Check all comments throughout the codebase

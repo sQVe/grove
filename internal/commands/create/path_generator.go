@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 )
 
 var (
@@ -21,7 +22,7 @@ var (
 const (
 	// maxCollisionAttempts defines the limit for collision resolution attempts
 	maxCollisionAttempts = 999
-	
+
 	// maxPathLength defines the maximum allowed path length
 	// 4096 bytes is conservative and works across most filesystems:
 	// - Linux ext4: 4096 bytes for path, 255 bytes for filename
@@ -31,11 +32,9 @@ const (
 	maxPathLength = 4096
 )
 
-var (
-	// commonCollisionNumbers defines the small numbers to try first for collision resolution
-	// These are most likely to be available and provide good performance for typical use cases
-	commonCollisionNumbers = []int{1, 2, 3, 4, 5}
-)
+// commonCollisionNumbers defines the small numbers to try first for collision resolution
+// These are most likely to be available and provide good performance for typical use cases
+var commonCollisionNumbers = []int{1, 2, 3, 4, 5}
 
 type pathGenerator struct{}
 
@@ -57,6 +56,22 @@ func resetHomeDirCache() {
 
 func NewPathGenerator() PathGenerator {
 	return &pathGenerator{}
+}
+
+// ResolveUserPath resolves a user-provided path against the configured base path
+// For relative paths, it resolves against the bare repository root instead of cwd
+func (pg *pathGenerator) ResolveUserPath(userPath string) (string, error) {
+	if userPath == "" {
+		return "", fmt.Errorf("user path cannot be empty")
+	}
+	
+	if filepath.IsAbs(userPath) {
+		return userPath, nil
+	}
+	
+	// For relative paths, resolve against the configured base path (bare root)
+	configuredBase := pg.getConfiguredBasePath()
+	return filepath.Join(configuredBase, userPath), nil
 }
 
 func (pg *pathGenerator) GeneratePath(branchName, basePath string) (string, error) {
@@ -159,14 +174,14 @@ func (pg *pathGenerator) getConfiguredBasePath() string {
 // For bare repositories with worktrees, this is the parent directory of the .bare directory
 func (pg *pathGenerator) getGitRepositoryRoot() (string, error) {
 	executor := git.DefaultExecutor
-	
+
 	// First, check if we're in a worktree setup by looking for the .bare directory
 	gitDir, err := executor.ExecuteQuiet("rev-parse", "--git-dir")
 	if err != nil {
 		return "", err
 	}
 	gitDir = strings.TrimSpace(gitDir)
-	
+
 	// If the git directory contains .bare, we're in a worktree setup
 	if strings.Contains(gitDir, ".bare") {
 		// Extract the .bare directory path and return its parent
@@ -177,7 +192,7 @@ func (pg *pathGenerator) getGitRepositoryRoot() (string, error) {
 			return filepath.Dir(bareDir), nil
 		}
 	}
-	
+
 	// Fall back to the traditional git repository root
 	output, err := executor.ExecuteQuiet("rev-parse", "--show-toplevel")
 	if err != nil {
@@ -245,7 +260,7 @@ func (pg *pathGenerator) findNextAvailablePath(dir, name string) (string, error)
 	for _, num := range commonCollisionNumbers {
 		candidateName := fmt.Sprintf("%s-%d", name, num)
 		candidatePath := filepath.Join(dir, candidateName)
-		
+
 		exists, err := pg.pathExists(candidatePath)
 		if err != nil {
 			return "", err
@@ -267,7 +282,7 @@ func (pg *pathGenerator) findAvailablePathInRange(dir, name string, start, end i
 	for i := start; i <= end; i++ {
 		candidateName := fmt.Sprintf("%s-%d", name, i)
 		candidatePath := filepath.Join(dir, candidateName)
-		
+
 		exists, err := pg.pathExists(candidatePath)
 		if err != nil {
 			return "", err
@@ -276,7 +291,7 @@ func (pg *pathGenerator) findAvailablePathInRange(dir, name string, start, end i
 			return candidatePath, nil
 		}
 	}
-	
+
 	return "", nil // No available path found in range
 }
 
@@ -339,7 +354,7 @@ func (pg *pathGenerator) validatePath(path string) error {
 // validatePathSecurity performs comprehensive security validation
 func (pg *pathGenerator) validatePathSecurity(path string) error {
 	cleanPath := filepath.Clean(path)
-	
+
 	// Check for path traversal attempts
 	if strings.Contains(path, "..") {
 		return &errors.GroveError{
@@ -351,7 +366,7 @@ func (pg *pathGenerator) validatePathSecurity(path string) error {
 			Operation: "path_security_validation",
 		}
 	}
-	
+
 	// Check for significant path manipulation (potential traversal)
 	if len(cleanPath) < len(path)/2 {
 		return &errors.GroveError{
@@ -364,7 +379,7 @@ func (pg *pathGenerator) validatePathSecurity(path string) error {
 			Operation: "path_security_validation",
 		}
 	}
-	
+
 	// Check for null bytes (security vulnerability)
 	if strings.Contains(path, "\x00") {
 		return &errors.GroveError{
@@ -376,7 +391,7 @@ func (pg *pathGenerator) validatePathSecurity(path string) error {
 			Operation: "path_security_validation",
 		}
 	}
-	
+
 	// Check for excessively long paths
 	if len(path) > maxPathLength {
 		return &errors.GroveError{
@@ -390,14 +405,14 @@ func (pg *pathGenerator) validatePathSecurity(path string) error {
 			Operation: "path_security_validation",
 		}
 	}
-	
+
 	return nil
 }
 
 // validateParentDirectory checks parent directory existence and permissions
 func (pg *pathGenerator) validateParentDirectory(path string) error {
 	parentDir := filepath.Dir(path)
-	
+
 	parentInfo, err := os.Stat(parentDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -435,7 +450,7 @@ func (pg *pathGenerator) validateParentDirectory(path string) error {
 				Operation: "parent_directory_validation",
 			}
 		}
-		
+
 		// Check write permissions on existing parent directory
 		if err := pg.validateWritePermissions(parentDir); err != nil {
 			return &errors.GroveError{
@@ -449,7 +464,7 @@ func (pg *pathGenerator) validateParentDirectory(path string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -465,7 +480,7 @@ func (pg *pathGenerator) validateWritableAncestor(path string) error {
 		}
 		current = filepath.Dir(current)
 	}
-	
+
 	return fmt.Errorf("no writable ancestor directory found")
 }
 
@@ -473,19 +488,20 @@ func (pg *pathGenerator) validateWritableAncestor(path string) error {
 func (pg *pathGenerator) validateWritePermissions(dir string) error {
 	// Try to create a temporary file to test write permissions
 	tempFile := filepath.Join(dir, ".grove_write_test_"+fmt.Sprintf("%d", os.Getpid()))
-	
+
 	file, err := os.Create(tempFile)
 	if err != nil {
 		return fmt.Errorf("cannot write to directory: %w", err)
 	}
-	
+
 	// Clean up immediately
-	file.Close()
-	if removeErr := os.Remove(tempFile); removeErr != nil {
-		// Log but don't fail - the main check passed
-		// In a real application, you might want to log this
+	if closeErr := file.Close(); closeErr != nil {
+		logger.Debug("failed to close temp file", "file", tempFile, "error", closeErr)
 	}
-	
+	if removeErr := os.Remove(tempFile); removeErr != nil {
+		logger.Debug("failed to remove temp file", "file", tempFile, "error", removeErr)
+	}
+
 	return nil
 }
 

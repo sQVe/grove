@@ -298,8 +298,8 @@ func ErrBranchInUseByWorktree(branchName, worktreePath string) *GroveError {
 		message += fmt.Sprintf(" at: %s", worktreePath)
 	}
 	message += "\nTip: Use a different branch name or switch to that worktree"
-	
-	return NewGroveErrorf(ErrCodeWorktreeCreation, nil, message).
+
+	return NewGroveErrorf(ErrCodeWorktreeCreation, nil, "%s", message).
 		WithContext("branch", branchName).
 		WithContext("worktree_path", worktreePath)
 }

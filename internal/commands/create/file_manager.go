@@ -136,7 +136,7 @@ func (f *FileManagerImpl) getFirstRemote() string {
 	if err != nil {
 		return ""
 	}
-	
+
 	remotes := strings.Split(strings.TrimSpace(output), "\n")
 	if len(remotes) > 0 && strings.TrimSpace(remotes[0]) != "" {
 		return strings.TrimSpace(remotes[0])
@@ -160,7 +160,7 @@ func (f *FileManagerImpl) discoverSourceWorktreeFallback() (string, error) {
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("rev-parse --is-bare-repository", err)
 	}
-	
+
 	var repoRoot string
 	if strings.TrimSpace(isBare) == "true" {
 		// In bare repository, get the git directory path
@@ -228,7 +228,7 @@ func (f *FileManagerImpl) FindWorktreeByBranch(branchName string) (string, error
 		line := strings.TrimSpace(lines[i])
 		if strings.HasPrefix(line, "worktree ") {
 			worktreePath := strings.TrimPrefix(line, "worktree ")
-			
+
 			// Look ahead for the branch information
 			for j := i + 1; j < len(lines) && !strings.HasPrefix(lines[j], "worktree "); j++ {
 				branchLine := strings.TrimSpace(lines[j])

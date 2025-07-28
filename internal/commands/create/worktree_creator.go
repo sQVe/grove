@@ -106,7 +106,7 @@ func (op *worktreeOperation) execute() error {
 // ensureParentDirectory creates parent directories if needed
 func (op *worktreeOperation) ensureParentDirectory() error {
 	parentDir := filepath.Dir(op.path)
-	
+
 	// MkdirAll is idempotent - safe to call even if directory exists
 	// This eliminates the race condition between stat check and directory creation
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {
@@ -132,7 +132,7 @@ func (op *worktreeOperation) createFromExistingBranch() error {
 // createWithNewBranch creates worktree with new branch and optional remote tracking
 func (op *worktreeOperation) createWithNewBranch() error {
 	args := []string{"worktree", "add", "-b", op.branchName, op.path}
-	
+
 	// Add base branch if specified
 	if op.options.BaseBranch != "" {
 		args = append(args, op.options.BaseBranch)
@@ -161,12 +161,12 @@ func (op *worktreeOperation) setupRemoteTracking() error {
 	}
 
 	remoteBranch := remote + "/" + op.branchName
-	
+
 	// Check if the remote branch exists before setting upstream
 	output, err := op.worktree.executor.ExecuteQuiet("branch", "-r", "--list", remoteBranch)
 	if err != nil || strings.TrimSpace(output) == "" {
 		// Remote branch doesn't exist, skip upstream setup
-		op.worktree.logger.Debug("skipping upstream setup - remote branch does not exist", 
+		op.worktree.logger.Debug("skipping upstream setup - remote branch does not exist",
 			"remote_branch", remoteBranch)
 		return nil
 	}
@@ -188,8 +188,8 @@ func (op *worktreeOperation) rollback() {
 			// If git worktree remove fails, try manual cleanup
 			if fsErr := os.RemoveAll(op.path); fsErr != nil {
 				// Log rollback failures at debug level to avoid cluttering user output
-				op.worktree.logger.DebugOperation("failed to remove worktree directory during rollback", 
-					"path", op.path, 
+				op.worktree.logger.DebugOperation("failed to remove worktree directory during rollback",
+					"path", op.path,
 					"error", fsErr.Error())
 			}
 		}
@@ -206,8 +206,8 @@ func (op *worktreeOperation) rollback() {
 				// If Remove fails (directory not empty), that's expected for existing directories
 				// We only created the path, not necessarily all contents
 				// Log rollback failures at debug level to avoid cluttering user output
-				op.worktree.logger.DebugOperation("could not remove directory during rollback (may contain user files)", 
-					"directory", dir, 
+				op.worktree.logger.DebugOperation("could not remove directory during rollback (may contain user files)",
+					"directory", dir,
 					"error", err.Error())
 			}
 		}
@@ -217,8 +217,8 @@ func (op *worktreeOperation) rollback() {
 	for _, file := range op.createdFiles {
 		if err := os.Remove(file); err != nil {
 			// Log rollback failures at debug level to avoid cluttering user output
-			op.worktree.logger.DebugOperation("failed to remove created file during rollback", 
-				"file", file, 
+			op.worktree.logger.DebugOperation("failed to remove created file during rollback",
+				"file", file,
 				"error", err.Error())
 		}
 	}
@@ -228,7 +228,7 @@ func (op *worktreeOperation) rollback() {
 // and attempts automatic resolution when safe to do so
 func (op *worktreeOperation) handleWorktreeError(err error) error {
 	errorStr := err.Error()
-	
+
 	// Check for "already used by worktree" error
 	if strings.Contains(errorStr, "already used by worktree") {
 		// Try to extract the worktree path from the error message
@@ -240,24 +240,24 @@ func (op *worktreeOperation) handleWorktreeError(err error) error {
 				worktreePath = errorStr[start : start+end]
 			}
 		}
-		
+
 		// Attempt automatic conflict resolution if we have a valid worktree path
 		if worktreePath != "" {
 			// Provide user feedback about conflict resolution attempt
 			if op.progressCallback != nil {
 				op.progressCallback(fmt.Sprintf("Branch '%s' is in use, attempting automatic resolution...", op.branchName))
 			}
-			
+
 			op.worktree.logger.DebugOperation("attempting automatic worktree conflict resolution",
 				"branch", op.branchName,
 				"conflicting_worktree", worktreePath)
-			
+
 			if resolveErr := op.worktree.resolveWorktreeConflict(op.branchName, worktreePath); resolveErr != nil {
 				op.worktree.logger.DebugOperation("automatic conflict resolution failed",
 					"branch", op.branchName,
 					"conflicting_worktree", worktreePath,
 					"error", resolveErr.Error())
-				
+
 				// Inform user that automatic resolution failed
 				if op.progressCallback != nil {
 					if strings.Contains(resolveErr.Error(), "uncommitted changes") {
@@ -266,29 +266,29 @@ func (op *worktreeOperation) handleWorktreeError(err error) error {
 						op.progressCallback("Automatic conflict resolution failed")
 					}
 				}
-				
+
 				// Return the original error with additional context about failed resolution
 				return groveErrors.ErrBranchInUseByWorktree(op.branchName, worktreePath).
 					WithContext("resolution_attempted", true).
 					WithContext("resolution_error", resolveErr.Error())
 			}
-			
+
 			// Inform user about successful resolution
 			if op.progressCallback != nil {
-				op.progressCallback(fmt.Sprintf("Resolved conflict: switched previous worktree to detached HEAD"))
+				op.progressCallback("Resolved conflict: switched previous worktree to detached HEAD")
 			}
-			
+
 			// Conflict resolved successfully, retry the original worktree creation
 			op.worktree.logger.DebugOperation("worktree conflict resolved, retrying creation",
 				"branch", op.branchName,
 				"conflicting_worktree", worktreePath)
-			
+
 			return op.retryWorktreeCreation()
+		} else {
+			return groveErrors.ErrBranchInUseByWorktree(op.branchName, "")
 		}
-		
-		return groveErrors.ErrBranchInUseByWorktree(op.branchName, worktreePath)
 	}
-	
+
 	// Default to generic worktree creation error
 	return groveErrors.ErrWorktreeCreation("create", err)
 }
@@ -299,29 +299,76 @@ func (w *WorktreeCreatorImpl) resolveWorktreeConflict(branchName, conflictingWor
 	w.logger.DebugOperation("checking worktree status before conflict resolution",
 		"branch", branchName,
 		"worktree_path", conflictingWorktreePath)
-	
+
+	// Check if the conflicting worktree is the main worktree
+	if isMain, err := w.isMainWorktree(conflictingWorktreePath); err != nil {
+		return fmt.Errorf("failed to determine if worktree is main: %w", err)
+	} else if isMain {
+		return fmt.Errorf("cannot automatically resolve conflict with main worktree - manual resolution required")
+	}
+
 	// First, check if the conflicting worktree has uncommitted changes
 	if hasChanges, err := w.worktreeHasUncommittedChanges(conflictingWorktreePath); err != nil {
 		return fmt.Errorf("failed to check worktree status: %w", err)
 	} else if hasChanges {
 		return fmt.Errorf("conflicting worktree has uncommitted changes - manual resolution required")
 	}
-	
+
 	// Switch the conflicting worktree to detached HEAD at current commit
 	w.logger.DebugOperation("switching conflicting worktree to detached HEAD",
 		"branch", branchName,
 		"worktree_path", conflictingWorktreePath)
-	
+
 	_, err := w.executor.Execute("-C", conflictingWorktreePath, "checkout", "--detach")
 	if err != nil {
 		return fmt.Errorf("failed to detach HEAD in conflicting worktree: %w", err)
 	}
-	
+
 	w.logger.DebugOperation("successfully resolved worktree conflict",
 		"branch", branchName,
 		"worktree_path", conflictingWorktreePath)
-	
+
 	return nil
+}
+
+// isMainWorktree checks if the given worktree path is the main worktree
+func (w *WorktreeCreatorImpl) isMainWorktree(worktreePath string) (bool, error) {
+	// Use git worktree list to find the main worktree, as this works from both
+	// regular worktrees and bare repositories
+	output, err := w.executor.ExecuteQuiet("worktree", "list", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+
+	// Parse the output to find the main worktree (first non-bare worktree)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var currentWorktreePath string
+	var isBare bool
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			// End of a worktree entry
+			if currentWorktreePath != "" && !isBare {
+				// This is the main worktree (first non-bare worktree)
+				return currentWorktreePath == worktreePath, nil
+			}
+			// Reset for next worktree
+			currentWorktreePath = ""
+			isBare = false
+		} else if strings.HasPrefix(line, "worktree ") {
+			currentWorktreePath = strings.TrimPrefix(line, "worktree ")
+		} else if line == "bare" {
+			isBare = true
+		}
+	}
+
+	// Check the last worktree entry
+	if currentWorktreePath != "" && !isBare {
+		return currentWorktreePath == worktreePath, nil
+	}
+
+	return false, nil
 }
 
 // worktreeHasUncommittedChanges checks if a worktree has uncommitted changes
@@ -331,7 +378,7 @@ func (w *WorktreeCreatorImpl) worktreeHasUncommittedChanges(worktreePath string)
 	if err != nil {
 		return false, err
 	}
-	
+
 	// If output is empty (after trimming whitespace), there are no uncommitted changes
 	return strings.TrimSpace(output) != "", nil
 }
@@ -339,13 +386,13 @@ func (w *WorktreeCreatorImpl) worktreeHasUncommittedChanges(worktreePath string)
 // retryWorktreeCreation retries the original worktree creation after conflict resolution
 func (op *worktreeOperation) retryWorktreeCreation() error {
 	var args []string
-	
+
 	// Determine if this is a new branch or existing branch creation
 	exists, err := op.worktree.branchExists(op.branchName)
 	if err != nil {
 		return fmt.Errorf("failed to check branch existence during retry: %w", err)
 	}
-	
+
 	if exists {
 		// Create worktree for existing branch
 		args = []string{"worktree", "add", op.path, op.branchName}
@@ -353,17 +400,17 @@ func (op *worktreeOperation) retryWorktreeCreation() error {
 		// Create worktree with new branch
 		args = []string{"worktree", "add", "-b", op.branchName, op.path}
 	}
-	
+
 	// Track remote if specified
 	if op.options.TrackRemote && exists {
 		// Add tracking after worktree creation for existing branches
 		if _, trackErr := op.worktree.executor.Execute("-C", op.path, "branch", "--set-upstream-to", "origin/"+op.branchName); trackErr != nil {
-			op.worktree.logger.DebugOperation("failed to set upstream tracking", 
-				"branch", op.branchName, 
+			op.worktree.logger.DebugOperation("failed to set upstream tracking",
+				"branch", op.branchName,
 				"error", trackErr.Error())
 		}
 	}
-	
+
 	_, err = op.worktree.executor.Execute(args...)
 	return err
 }
@@ -376,4 +423,3 @@ func (w *WorktreeCreatorImpl) branchExists(branchName string) (bool, error) {
 	}
 	return true, nil
 }
-

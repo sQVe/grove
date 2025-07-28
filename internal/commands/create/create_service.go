@@ -85,8 +85,9 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 		}
 	}
 
-	worktreePath := options.WorktreePath
-	if worktreePath == "" {
+	var worktreePath string
+	if options.WorktreePath == "" {
+		// Generate path from branch name
 		if options.ProgressCallback != nil {
 			options.ProgressCallback("Generating worktree path")
 		}
@@ -97,6 +98,20 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 				Message:   "failed to generate worktree path",
 				Cause:     err,
 				Operation: "path_generation",
+			}
+		}
+	} else {
+		// Resolve user-provided path against bare root
+		if options.ProgressCallback != nil {
+			options.ProgressCallback(fmt.Sprintf("Resolving worktree path: %s", options.WorktreePath))
+		}
+		worktreePath, err = s.pathGenerator.ResolveUserPath(options.WorktreePath)
+		if err != nil {
+			return nil, &errors.GroveError{
+				Code:      errors.ErrCodeFileSystem,
+				Message:   "failed to resolve worktree path",
+				Cause:     err,
+				Operation: "path_resolution",
 			}
 		}
 	}
@@ -256,16 +271,16 @@ func (s *CreateServiceImpl) shouldTrackRemote(branchInfo *BranchInfo, options *C
 func (s *CreateServiceImpl) handleFileCopying(options *CreateOptions, targetWorktree string) (int, error) {
 	var sourceWorktree string
 	var err error
-	
+
 	// If base branch is specified, try to find worktree for that branch first
 	if options.BaseBranch != "" {
 		sourceWorktree, err = s.fileManager.FindWorktreeByBranch(options.BaseBranch)
 		if err != nil {
-			s.logger.DebugOperation("failed to find worktree for base branch, falling back to auto-discovery", 
+			s.logger.DebugOperation("failed to find worktree for base branch, falling back to auto-discovery",
 				"base_branch", options.BaseBranch, "error", err.Error())
 		}
 	}
-	
+
 	// Fall back to default branch worktree if base branch worktree not found
 	if sourceWorktree == "" {
 		sourceWorktree, err = s.fileManager.DiscoverSourceWorktree()

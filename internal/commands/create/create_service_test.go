@@ -61,6 +61,11 @@ func (m *MockPathGenerator) GeneratePath(branchName, basePath string) (string, e
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockPathGenerator) ResolveUserPath(userPath string) (string, error) {
+	args := m.Called(userPath)
+	return args.String(0), args.Error(1)
+}
+
 type MockWorktreeCreator struct {
 	mock.Mock
 }
@@ -129,9 +134,9 @@ func TestCreateServiceImpl_Create_Success(t *testing.T) {
 	sourceWorktree := testSourcePath
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{}).Return(nil)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
 	// When CopyFiles is true, the service calls handleFileCopying which calls DiscoverSourceWorktree and CopyFiles.
 	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
 	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", "*.local"}, CopyOptions{
@@ -174,7 +179,7 @@ func TestCreateServiceImpl_Create_BranchResolutionFailure(t *testing.T) {
 	}
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "nonexistent-branch", "", false).Return(nil, expectedError)
+	mockBranchResolver.On("ResolveBranch", "nonexistent-branch", "", true).Return(nil, expectedError)
 
 	// Execute the test.
 	result, err := service.Create(options)
@@ -213,7 +218,7 @@ func TestCreateServiceImpl_Create_PathGenerationFailure(t *testing.T) {
 	}
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return("", pathError)
 
 	// Execute the test.
@@ -254,9 +259,9 @@ func TestCreateServiceImpl_Create_WorktreeCreationFailure(t *testing.T) {
 	}
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{}).Return(worktreeError)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(worktreeError)
 
 	// Execute the test.
 	result, err := service.Create(options)
@@ -296,9 +301,9 @@ func TestCreateServiceImpl_Create_FileCopyingSuccess(t *testing.T) {
 	sourceWorktree := testSourcePath
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{}).Return(nil)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
 	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
 	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", ".vscode/"}, CopyOptions{
 		ConflictStrategy: ConflictPrompt,
@@ -347,9 +352,9 @@ func TestCreateServiceImpl_Create_FileCopyingFailure(t *testing.T) {
 	}
 
 	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{}).Return(nil)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
 	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
 	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", "*.local"}, CopyOptions{
 		ConflictStrategy: ConflictPrompt,
@@ -397,9 +402,9 @@ func TestCreateServiceImpl_Create_URLInput(t *testing.T) {
 
 	// Set up mock expectations for URL resolution.
 	mockBranchResolver.On("ResolveURL", "https://github.com/owner/repo/pull/123").Return(urlInfo, nil)
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", false).Return(branchInfo, nil)
+	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{}).Return(nil)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
 
 	// Execute the test.
 	result, err := service.Create(options)
@@ -439,9 +444,10 @@ func TestCreateServiceImpl_Create_RemoteBranchInput(t *testing.T) {
 	generatedPath := testWorktreePath
 
 	// Set up mock expectations for remote branch resolution.
+	mockBranchResolver.On("RemoteExists", "origin").Return(true)
 	mockBranchResolver.On("ResolveRemoteBranch", "origin/feature-branch").Return(branchInfo, nil)
 	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktree", "feature-branch", generatedPath, WorktreeOptions{TrackRemote: true}).Return(nil)
+	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{TrackRemote: true}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
 
 	// Execute the test.
 	result, err := service.Create(options)
@@ -554,7 +560,7 @@ func TestCreateServiceImpl_classifyInput(t *testing.T) {
 			name:         "remote branch reference",
 			input:        "origin/feature-branch",
 			expectedType: InputTypeRemoteBranch,
-			setupMocks:   func() {}, // No mocks needed for simple remote branch parsing.
+			setupMocks:   func() { mockBranchResolver.On("RemoteExists", "origin").Return(true) },
 			expectError:  false,
 		},
 	}

@@ -74,25 +74,24 @@ func TestBranchResolverImpl_ResolveBranch_NonexistentBranchWithCreate(t *testing
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "nonexistent", result.Name)
-	assert.True(t, result.Exists)
+	assert.False(t, result.Exists) // New behavior: returns false for branches to be created
 	assert.False(t, result.IsRemote)
 }
 
-func TestBranchResolverImpl_ResolveBranch_CreateBranchFailure(t *testing.T) {
+func TestBranchResolverImpl_ResolveBranch_CreateBranchDeferred(t *testing.T) {
 	mockExecutor := testutils.NewMockGitExecutor()
 	mockExecutor.SetSuccessResponse("branch -a --list", "  main\n  remotes/origin/main")
 	mockExecutor.SetSuccessResponse("branch -r --list */nonexistent", "")
-	mockExecutor.SetErrorResponse("checkout -b nonexistent main", errors.New("failed to create branch"))
 
 	resolver := NewBranchResolver(mockExecutor)
 
 	result, err := resolver.ResolveBranch("nonexistent", "main", true)
 
-	require.Error(t, err)
-	assert.Nil(t, result)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeGitOperation, groveErr.Code)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "nonexistent", result.Name)
+	assert.False(t, result.Exists) // Branch creation is deferred to worktree creator
+	assert.False(t, result.IsRemote)
 }
 
 func TestBranchResolverImpl_ResolveURL_GitHubPR(t *testing.T) {

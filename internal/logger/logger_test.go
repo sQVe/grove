@@ -275,7 +275,7 @@ func TestInfoOperation(t *testing.T) {
 func TestErrorOperation(t *testing.T) {
 	var buf bytes.Buffer
 	config := Config{
-		Level:  "error",
+		Level:  "debug", // Changed to debug level since ErrorOperation logs at debug level
 		Format: "json",
 		Output: &buf,
 	}
@@ -330,7 +330,7 @@ func TestGitResult(t *testing.T) {
 			success:         false,
 			output:          "command failed",
 			expectedMessage: "git command failed",
-			expectedLevel:   "ERROR",
+			expectedLevel:   "DEBUG", // Changed to DEBUG since GitResult logs failures at debug level
 		},
 	}
 

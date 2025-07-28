@@ -269,28 +269,6 @@ func (r *branchResolver) checkRemoteBranch(branchName string) (*BranchInfo, erro
 	return nil, nil
 }
 
-func (r *branchResolver) createNewBranch(branchName, baseBranch string) error {
-	if baseBranch == "" {
-		baseBranch = "HEAD"
-	}
-
-	_, err := r.executor.Execute("checkout", "-b", branchName, baseBranch)
-	if err != nil {
-		return &errors.GroveError{
-			Code:    errors.ErrCodeGitOperation,
-			Message: fmt.Sprintf("failed to create branch '%s' from '%s'", branchName, baseBranch),
-			Cause:   err,
-			Context: map[string]interface{}{
-				"branch": branchName,
-				"base":   baseBranch,
-			},
-			Operation: "branch_creation",
-		}
-	}
-
-	return nil
-}
-
 func (r *branchResolver) requiresRemoteSetup(repoURL string) bool {
 	output, err := r.executor.ExecuteQuiet("remote", "-v")
 	if err != nil {

@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -14,9 +13,9 @@ import (
 )
 
 var (
-	primaryColor = lipgloss.Color("#8B5CF6") 	primaryColor = lipgloss.Color("#8B5CF6") // Purple - for highlights.
-	successColor = lipgloss.Color("#059669") 	successColor = lipgloss.Color("#059669") // Green - for success messages.
-	mutedColor   = lipgloss.Color("#9CA3AF") 	mutedColor   = lipgloss.Color("#9CA3AF") // Gray - for progress messages.
+	primaryColor = lipgloss.Color("#8B5CF6") // Purple - for highlights.
+	successColor = lipgloss.Color("#059669") // Green - for success messages.
+	mutedColor   = lipgloss.Color("#9CA3AF") // Gray - for progress messages.
 )
 
 var (
@@ -37,7 +36,7 @@ func (p *progressIndicator) show() {
 
 func (p *progressIndicator) complete() {
 	elapsed := time.Since(p.start)
-		// Move cursor up one line and clear it, then write success message.
+	// Move cursor up one line and clear it, then write success message.
 	fmt.Fprintf(os.Stderr, "\033[1A\033[2K")
 	if elapsed > time.Second {
 		fmt.Fprintf(os.Stderr, "%s %s (%s)\n", successStyle.Render("✓"), p.message, mutedStyle.Render(elapsed.Round(time.Millisecond).String()))
@@ -48,8 +47,8 @@ func (p *progressIndicator) complete() {
 
 func (p *progressIndicator) fail() {
 	elapsed := time.Since(p.start)
-	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) 	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red.
-		// Move cursor up one line and clear it, then write failure message.
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red.
+	// Move cursor up one line and clear it, then write failure message.
 	fmt.Fprintf(os.Stderr, "\033[1A\033[2K")
 	if elapsed > time.Second {
 		fmt.Fprintf(os.Stderr, "%s %s (%s)\n", errorStyle.Render("✗"), p.message, mutedStyle.Render(elapsed.Round(time.Millisecond).String()))
@@ -64,24 +63,14 @@ func startProgress(message string) *progressIndicator {
 	return p
 }
 
-func classifyInputType(input string) string {
-	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		return "url"
-	}
-	if strings.Contains(input, "/") && !strings.HasPrefix(input, "/") && !strings.HasSuffix(input, "/") {
-		return "remote"
-	}
-	return "branch"
-}
-
 func displaySuccess(result *create.CreateResult) {
 	fmt.Println()
-	
-		// Main success message.
+
+	// Main success message.
 	fmt.Printf("%s Worktree created successfully!\n", successStyle.Render("✅"))
 	fmt.Println()
-	
-		// Branch information.
+
+	// Branch information.
 	if result.WasCreated {
 		fmt.Printf("  %s %s %s\n",
 			boldStyle.Render("Branch:"),
@@ -92,29 +81,29 @@ func displaySuccess(result *create.CreateResult) {
 			boldStyle.Render("Branch:"),
 			primaryStyle.Render(result.BranchName))
 	}
-	
-		// Path information.
+
+	// Path information.
 	fmt.Printf("  %s %s\n",
 		boldStyle.Render("Path:"),
 		result.WorktreePath)
-	
-		// Base branch information (if applicable).
+
+	// Base branch information (if applicable).
 	if result.BaseBranch != "" {
 		fmt.Printf("  %s %s\n",
 			boldStyle.Render("Base:"),
 			result.BaseBranch)
 	}
-	
-		// File copying information.
+
+	// File copying information.
 	if result.CopiedFiles > 0 {
 		fmt.Printf("  %s %d files copied\n",
 			boldStyle.Render("Files:"),
 			result.CopiedFiles)
 	}
-	
+
 	fmt.Println()
-	
-		// Next steps.
+
+	// Next steps.
 	fmt.Printf("%s Next steps:\n", boldStyle.Render("→"))
 	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
 	fmt.Printf("  %s\n", mutedStyle.Render("# Start working on your branch"))
@@ -174,20 +163,20 @@ environment setup, or --copy with custom patterns for specific files.`,
 				return err
 			}
 
-						// Track current progress indicator.
+			// Track current progress indicator.
 			var currentProgress *progressIndicator
-			
-						// Add progress callback for enhanced user feedback.
+
+			// Add progress callback for enhanced user feedback.
 			options.ProgressCallback = func(message string) {
-								// Complete previous progress if it exists.
+				// Complete previous progress if it exists.
 				if currentProgress != nil {
 					currentProgress.complete()
 				}
-								// Start new progress.
+				// Start new progress.
 				currentProgress = startProgress(message)
 			}
 
-						// Create service with dependencies.
+			// Create service with dependencies.
 			service := create.NewCreateService(
 				create.NewBranchResolver(git.DefaultExecutor),
 				create.NewPathGenerator(),
@@ -195,32 +184,32 @@ environment setup, or --copy with custom patterns for specific files.`,
 				create.NewFileManager(git.DefaultExecutor),
 			)
 
-						// Execute the create operation.
+			// Execute the create operation.
 			result, err := service.Create(&options)
 			if err != nil {
-								// Mark current progress as failed.
+				// Mark current progress as failed.
 				if currentProgress != nil {
 					currentProgress.fail()
 				}
-								// Show error immediately after the failed step.
-				fmt.Fprintf(os.Stderr, "\n%s %s\n", 
-					lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true).Render("Error:"), 
+				// Show error immediately after the failed step.
+				fmt.Fprintf(os.Stderr, "\n%s %s\n",
+					lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true).Render("Error:"),
 					err.Error())
-				
-								// Add space after error (tip is already included in error message for some errors).
+
+				// Add space after error (tip is already included in error message for some errors).
 				fmt.Fprintf(os.Stderr, "\n")
-				
-								// Don't show usage for operational errors (command was correct).
+
+				// Don't show usage for operational errors (command was correct).
 				cmd.SilenceUsage = true
 				return err
 			}
 
-						// Mark final progress as completed.
+			// Mark final progress as completed.
 			if currentProgress != nil {
 				currentProgress.complete()
 			}
 
-						// Display success information.
+			// Display success information.
 			displaySuccess(result)
 
 			return nil
