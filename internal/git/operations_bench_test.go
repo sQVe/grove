@@ -5,6 +5,7 @@ package git
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,13 +16,15 @@ import (
 func BenchmarkGitOperations_CheckRepositorySafety(b *testing.B) {
 	mockExec := testutils.NewMockGitExecutor()
 	mockExec.SetSafeRepositoryState()
-	
+
+	tempDir := b.TempDir()
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
-		_, err := CheckRepositorySafetyForConversion(mockExec)
+		_, err := checkRepositorySafetyForConversion(mockExec, tempDir)
 		if err != nil {
-			b.Fatalf("CheckRepositorySafetyForConversion failed: %v", err)
+			b.Fatalf("checkRepositorySafetyForConversion failed: %v", err)
 		}
 	}
 }
@@ -30,11 +33,13 @@ func BenchmarkGitOperations_CheckRepositorySafety(b *testing.B) {
 func BenchmarkGitOperations_CheckRepositorySafetyWithIssues(b *testing.B) {
 	mockExec := testutils.NewMockGitExecutor()
 	mockExec.SetUnsafeRepositoryState()
-	
+
+	tempDir := b.TempDir()
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
-		_, _ = CheckRepositorySafetyForConversion(mockExec)
+		_, _ = checkRepositorySafetyForConversion(mockExec, tempDir)
 		// Ignore error since we expect issues in this benchmark
 	}
 }
@@ -53,14 +58,14 @@ func BenchmarkGitOperations_SafetyCheckComponents(b *testing.B) {
 		{"checkLocalOnlyBranches", checkLocalOnlyBranches},
 		{"checkOngoingGitOperations", checkOngoingGitOperations},
 	}
-	
+
 	for _, tt := range tests {
 		b.Run(tt.name, func(b *testing.B) {
 			mockExec := testutils.NewMockGitExecutor()
 			mockExec.SetSafeRepositoryState()
-			
+
 			b.ResetTimer()
-			
+
 			for i := 0; i < b.N; i++ {
 				_, err := tt.fn(mockExec)
 				if err != nil {
@@ -75,15 +80,15 @@ func BenchmarkGitOperations_SafetyCheckComponents(b *testing.B) {
 func BenchmarkGitOperations_ParseGitStatusLine(b *testing.B) {
 	statusLines := []string{
 		" M modified_file.txt",
-		"A  added_file.txt", 
+		"A  added_file.txt",
 		"D  deleted_file.txt",
 		"R  renamed_file.txt -> new_name.txt",
 		"?? untracked_file.txt",
 		"!! ignored_file.txt",
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		line := statusLines[i%len(statusLines)]
 		parseGitStatusLine(line)
@@ -101,11 +106,12 @@ R  file4.txt -> file4_renamed.txt
 ?? untracked2.txt
 !! ignored.txt
 `
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
-		CountGitChanges(porcelainOutput)
+		lines := strings.Split(strings.TrimSpace(porcelainOutput), "\n")
+		countGitChanges(lines)
 	}
 }
 
@@ -113,21 +119,21 @@ R  file4.txt -> file4_renamed.txt
 func BenchmarkGitOperations_WithTimeout(b *testing.B) {
 	mockExec := testutils.NewMockGitExecutor()
 	mockExec.SetSafeRepositoryState()
-	
+
 	// Add a small delay to simulate real git commands
 	mockExec.SetDelayedResponse("status --porcelain=v1", "", nil, time.Millisecond)
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		
+
 		// Simulate a safety check with timeout
 		_, err := mockExec.ExecuteWithContext(ctx, "status", "--porcelain=v1")
 		if err != nil && err != context.DeadlineExceeded {
 			b.Fatalf("Operation failed: %v", err)
 		}
-		
+
 		cancel()
 	}
 }

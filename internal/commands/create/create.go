@@ -99,7 +99,6 @@ func displaySuccess(result *CreateResult) {
 
 	fmt.Printf("%s Next steps:\n", boldStyle.Render("→"))
 	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
-	fmt.Printf("  %s\n", mutedStyle.Render("# Start working on your branch"))
 }
 
 func NewCreateCmd() *cobra.Command {
