@@ -65,11 +65,9 @@ func startProgress(message string) *progressIndicator {
 func displaySuccess(result *CreateResult) {
 	fmt.Println()
 
-	// Main success message.
 	fmt.Printf("%s Worktree created successfully!\n", successStyle.Render("✅"))
 	fmt.Println()
 
-	// Branch information.
 	if result.WasCreated {
 		fmt.Printf("  %s %s %s\n",
 			boldStyle.Render("Branch:"),
@@ -81,19 +79,16 @@ func displaySuccess(result *CreateResult) {
 			primaryStyle.Render(result.BranchName))
 	}
 
-	// Path information.
 	fmt.Printf("  %s %s\n",
 		boldStyle.Render("Path:"),
 		result.WorktreePath)
 
-	// Base branch information (if applicable).
 	if result.BaseBranch != "" {
 		fmt.Printf("  %s %s\n",
 			boldStyle.Render("Base:"),
 			result.BaseBranch)
 	}
 
-	// File copying information.
 	if result.CopiedFiles > 0 {
 		fmt.Printf("  %s %d files copied\n",
 			boldStyle.Render("Files:"),
@@ -102,7 +97,6 @@ func displaySuccess(result *CreateResult) {
 
 	fmt.Println()
 
-	// Next steps.
 	fmt.Printf("%s Next steps:\n", boldStyle.Render("→"))
 	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
 	fmt.Printf("  %s\n", mutedStyle.Render("# Start working on your branch"))
@@ -162,16 +156,12 @@ environment setup, or --copy with custom patterns for specific files.`,
 				return err
 			}
 
-			// Track current progress indicator.
 			var currentProgress *progressIndicator
 
-			// Add progress callback for enhanced user feedback.
 			options.ProgressCallback = func(message string) {
-				// Complete previous progress if it exists.
 				if currentProgress != nil {
 					currentProgress.complete()
 				}
-				// Start new progress.
 				currentProgress = startProgress(message)
 			}
 

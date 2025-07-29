@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	// Global cache for home directory to avoid repeated lookups
 	homeDir     string
 	homeDirOnce sync.Once
 )
@@ -77,8 +76,7 @@ func getHomeDir() (string, error) {
 	return homeDir, err
 }
 
-// resetHomeDirCache resets the home directory cache - FOR TESTING ONLY
-// This function should only be called from test code to ensure test isolation
+// resetHomeDirCache should only be called from test code to ensure test isolation.
 func resetHomeDirCache() {
 	homeDir = ""
 	homeDirOnce = sync.Once{}
@@ -90,8 +88,8 @@ func NewPathGenerator() PathGenerator {
 	}
 }
 
-// ResolveUserPath resolves a user-provided path against the configured base path
-// For relative paths, it resolves against the bare repository root instead of cwd
+// ResolveUserPath resolves a user-provided path against the configured base path.
+// For relative paths, it resolves against the bare repository root instead of cwd.
 func (pg *pathGenerator) ResolveUserPath(userPath string) (string, error) {
 	if userPath == "" {
 		return "", fmt.Errorf("user path cannot be empty")
@@ -101,7 +99,6 @@ func (pg *pathGenerator) ResolveUserPath(userPath string) (string, error) {
 		return userPath, nil
 	}
 
-	// For relative paths, resolve against the configured base path (bare root)
 	configuredBase := pg.getConfiguredBasePath()
 	return filepath.Join(configuredBase, userPath), nil
 }
@@ -288,13 +285,11 @@ func (pg *pathGenerator) resolveCollisions(basePath string) (string, error) {
 
 // tryAtomicPathCreation attempts to atomically create a directory, returning error if it exists
 func (pg *pathGenerator) tryAtomicPathCreation(path string) error {
-	// Create parent directory first if needed
 	parentDir := filepath.Dir(path)
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return err
 	}
 
-	// Try to create the target directory atomically
 	return os.Mkdir(path, 0o755)
 }
 

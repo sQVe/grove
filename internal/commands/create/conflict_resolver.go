@@ -112,6 +112,5 @@ func (cr *conflictResolver) worktreeHasUncommittedChanges(worktreePath string) (
 		return false, err
 	}
 
-	// Empty output means no uncommitted changes.
 	return strings.TrimSpace(output) != "", nil
 }
