@@ -75,6 +75,8 @@ func TestBranchCompletion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			GlobalCache.Clear()
+			// Pre-cache network state to avoid network calls in tests
+			SetCachedNetworkState(true)
 
 			ctx := NewCompletionContext(tt.mockFunc())
 			cmd := &cobra.Command{}
@@ -148,6 +150,8 @@ func TestGetBranchNames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			GlobalCache.Clear()
+			// Pre-cache network state to avoid network calls in tests
+			SetCachedNetworkState(true)
 
 			ctx := NewCompletionContext(tt.mockFunc())
 			result, err := getBranchNames(ctx)
@@ -425,6 +429,8 @@ func TestCompleteBranchList(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			GlobalCache.Clear()
+			// Pre-cache network state to avoid network calls in tests
+			SetCachedNetworkState(true)
 
 			ctx := NewCompletionContext(tt.mockFunc())
 			result, err := CompleteBranchList(ctx, tt.currentInput, tt.toComplete)
@@ -444,6 +450,8 @@ func TestCompleteBranchList(t *testing.T) {
 
 func TestBranchCompletionWithCache(t *testing.T) {
 	GlobalCache.Clear()
+	// Pre-cache network state to avoid network calls in tests
+	SetCachedNetworkState(true)
 
 	mock := testutils.NewMockGitExecutor()
 	mock.SetResponse("rev-parse --git-dir", "", nil)

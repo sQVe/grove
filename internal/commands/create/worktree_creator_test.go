@@ -554,38 +554,51 @@ func TestWorktreeCreatorImpl_ConflictResolution_NoProgressCallback(t *testing.T)
 	assert.Equal(t, 2, mockExecutor.worktreeAddCalls)
 }
 
-func TestWorktreeCreatorImpl_CreateWorktree_EmptyBranch(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-	creator := NewWorktreeCreator(mockExecutor)
+func TestWorktreeCreatorImpl_CreateWorktree_ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name           string
+		branchName     string
+		path           string
+		expectGitCalls bool
+	}{
+		{
+			name:           "empty branch name",
+			branchName:     "",
+			path:           "/path/to/worktree",
+			expectGitCalls: false,
+		},
+		{
+			name:           "empty path",
+			branchName:     "feature-branch",
+			path:           "",
+			expectGitCalls: false,
+		},
+		{
+			name:           "whitespace only branch name",
+			branchName:     "   ",
+			path:           "/path/to/worktree",
+			expectGitCalls: false,
+		},
+	}
 
-	options := WorktreeOptions{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockExecutor := testutils.NewMockGitExecutor()
+			creator := NewWorktreeCreator(mockExecutor)
+			options := WorktreeOptions{}
 
-	err := creator.CreateWorktree("", "/path/to/worktree", options)
+			err := creator.CreateWorktree(tt.branchName, tt.path, options)
 
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
+			require.Error(t, err)
+			assert.IsType(t, &groveErrors.GroveError{}, err)
+			groveErr := err.(*groveErrors.GroveError)
+			assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
 
-	// Should not make any git calls for invalid input.
-	assert.Equal(t, 0, mockExecutor.CallCount)
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_EmptyPath(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{}
-
-	err := creator.CreateWorktree("feature-branch", "", options)
-
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-
-	// Should not make any git calls for invalid input.
-	assert.Equal(t, 0, mockExecutor.CallCount)
+			if !tt.expectGitCalls {
+				assert.Equal(t, 0, mockExecutor.CallCount, "Should not make git calls for invalid input")
+			}
+		})
+	}
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_ValidationSuccess(t *testing.T) {

@@ -82,7 +82,7 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 					t.Errorf("CreateWorktreeWithSafeNaming() error = nil, want error containing %q", tt.expectedError)
 					return
 				}
-				if err.Error() != tt.expectedError && !contains(err.Error(), tt.expectedError) {
+				if err.Error() != tt.expectedError && !testutils.ContainsSubstring([]string{err.Error()}, tt.expectedError) {
 					t.Errorf("CreateWorktreeWithSafeNaming() error = %q, want error containing %q", err.Error(), tt.expectedError)
 				}
 				return
@@ -105,7 +105,7 @@ func TestCreateWorktreeWithSafeNaming(t *testing.T) {
 				}
 
 				expectedCmd := []string{"worktree", "add", "-b", tt.branchName, tt.expectedPath}
-				if !slicesEqual(commands[0], expectedCmd) {
+				if !testutils.StringSlicesEqual(commands[0], expectedCmd) {
 					t.Errorf("Expected git command %v, got %v", expectedCmd, commands[0])
 				}
 			}
@@ -173,7 +173,7 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 					t.Errorf("CreateWorktreeFromExistingBranch() error = nil, want error containing %q", tt.expectedError)
 					return
 				}
-				if !contains(err.Error(), tt.expectedError) {
+				if !testutils.ContainsSubstring([]string{err.Error()}, tt.expectedError) {
 					t.Errorf("CreateWorktreeFromExistingBranch() error = %q, want error containing %q", err.Error(), tt.expectedError)
 				}
 				return
@@ -196,7 +196,7 @@ func TestCreateWorktreeFromExistingBranch(t *testing.T) {
 				}
 
 				expectedCmd := []string{"worktree", "add", tt.expectedPath, tt.branchName}
-				if !slicesEqual(commands[0], expectedCmd) {
+				if !testutils.StringSlicesEqual(commands[0], expectedCmd) {
 					t.Errorf("Expected git command %v, got %v", expectedCmd, commands[0])
 				}
 			}
@@ -245,7 +245,7 @@ func TestRemoveWorktree(t *testing.T) {
 					t.Errorf("RemoveWorktree() error = nil, want error containing %q", tt.expectedError)
 					return
 				}
-				if !contains(err.Error(), tt.expectedError) {
+				if !testutils.ContainsSubstring([]string{err.Error()}, tt.expectedError) {
 					t.Errorf("RemoveWorktree() error = %q, want error containing %q", err.Error(), tt.expectedError)
 				}
 				return
@@ -264,7 +264,7 @@ func TestRemoveWorktree(t *testing.T) {
 				}
 
 				expectedCmd := []string{"worktree", "remove", tt.worktreePath}
-				if !slicesEqual(commands[0], expectedCmd) {
+				if !testutils.StringSlicesEqual(commands[0], expectedCmd) {
 					t.Errorf("Expected git command %v, got %v", expectedCmd, commands[0])
 				}
 			}
@@ -335,7 +335,7 @@ branch refs/heads/fix-123
 					t.Errorf("ListWorktrees() error = nil, want error containing %q", tt.expectedError)
 					return
 				}
-				if !contains(err.Error(), tt.expectedError) {
+				if !testutils.ContainsSubstring([]string{err.Error()}, tt.expectedError) {
 					t.Errorf("ListWorktrees() error = %q, want error containing %q", err.Error(), tt.expectedError)
 				}
 				return
@@ -502,29 +502,5 @@ func TestCleanBranchName(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || (len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			indexOf(s, substr) >= 0)))
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}
-
-func slicesEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
+// Helper functions moved to testutils package for reuse
+// Use testutils.ContainsSubstring, testutils.StringSlicesEqual instead

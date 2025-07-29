@@ -393,6 +393,8 @@ func TestBranchListCompletion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			GlobalCache.Clear()
+			// Pre-cache network state as offline to avoid network calls in tests
+			SetCachedNetworkState(false)
 
 			mock := testutils.NewMockGitExecutor()
 
