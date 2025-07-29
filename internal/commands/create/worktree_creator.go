@@ -53,6 +53,11 @@ func (w *WorktreeCreatorImpl) CreateWorktreeWithProgress(branchName, path string
 		return groveErrors.ErrWorktreeCreation("validation", fmt.Errorf("branch name cannot be empty"))
 	}
 
+	// Check for whitespace-only branch names
+	if strings.TrimSpace(branchName) == "" {
+		return groveErrors.ErrWorktreeCreation("validation", fmt.Errorf("branch name cannot be empty or whitespace-only"))
+	}
+
 	if path == "" {
 		return groveErrors.ErrWorktreeCreation("validation", fmt.Errorf("worktree path cannot be empty"))
 	}

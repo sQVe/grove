@@ -207,10 +207,10 @@ func BranchListCompletion(ctx *CompletionContext, cmd *cobra.Command, args []str
 	}
 
 	completions, err := ctx.WithTimeout(func() ([]string, error) {
-		return CompleteBranchList(ctx, toComplete, lastBranch)
+		return CompleteBranchList(ctx, currentInput, lastBranch)
 	})
 	if err != nil {
-		log.Debug("failed to get branch list completions", "error", err)
+		log.Debug("failed to get branch list completions", "error", err, "currentInput", currentInput, "lastBranch", lastBranch)
 		return nil, cobra.ShellCompDirectiveError
 	}
 
