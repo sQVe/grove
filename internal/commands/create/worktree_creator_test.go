@@ -4,11 +4,8 @@
 package create
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	groveErrors "github.com/sqve/grove/internal/errors"
@@ -19,328 +16,45 @@ import (
 
 const testExistingWorktreePath = "/existing/worktree"
 
-func TestWorktreeCreatorImpl_CreateWorktree_ExistingBranchSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
-	// Mock successful worktree creation for existing branch.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), "")
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", worktreePath, "feature-branch"))
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_NewBranchSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return error (branch doesn't exist).
-	mockExecutor.SetErrorResponse("show-ref --verify --quiet refs/heads/feature-branch", fmt.Errorf("ref not found"))
-	// Mock successful worktree creation with new branch.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add -b feature-branch %s", worktreePath), "")
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", "-b", "feature-branch", worktreePath))
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_TrackRemoteSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return error (branch doesn't exist).
-	mockExecutor.SetErrorResponse("show-ref --verify --quiet refs/heads/feature-branch", fmt.Errorf("ref not found"))
-	// Mock successful worktree creation with new branch.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add -b feature-branch %s", worktreePath), "")
-	mockExecutor.SetResponseSlice([]string{"worktree", "add", "-b", "feature-branch", worktreePath}, "", nil)
-	// Mock getting default remote name.
-	mockExecutor.SetSuccessResponse("config --get clone.defaultRemoteName", "origin")
-	// Mock checking if remote branch exists
-	mockExecutor.SetSuccessResponse("branch -r --list origin/feature-branch", "origin/feature-branch")
-	// Mock setting up remote tracking.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("-C %s branch --set-upstream-to=origin/feature-branch feature-branch", worktreePath), "")
-	mockExecutor.SetResponseSlice([]string{"-C", worktreePath, "branch", "--set-upstream-to=origin/feature-branch", "feature-branch"}, "", nil)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: true,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", "-b", "feature-branch", worktreePath))
-	assert.True(t, mockExecutor.HasCommand("-C", worktreePath, "branch", "--set-upstream-to=origin/feature-branch", "feature-branch"))
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_ForceSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
-	// Mock successful worktree creation with existing branch.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), "")
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", worktreePath, "feature-branch"))
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_GitCommandFailure(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
-	// Mock git command failure.
-	expectedError := errors.New("fatal: '/path/to/worktree' already exists")
-	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), expectedError)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-	assert.Contains(t, groveErr.Message, "worktree existing-branch failed")
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_BranchAlreadyCheckedOut(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
-	// Mock specific error for branch already checked out.
-	expectedError := errors.New("fatal: 'feature-branch' is already checked out at '/other/path'")
-	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), expectedError)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-	assert.Contains(t, groveErr.Message, "worktree existing-branch failed")
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_PathAlreadyExists(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
-	// Mock specific error for path already exists.
-	expectedError := errors.New("fatal: '/path/to/worktree' already exists")
-	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), expectedError)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("feature-branch", worktreePath, options)
-
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-	assert.Contains(t, groveErr.Message, "worktree existing-branch failed")
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_InvalidBranch(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/nonexistent-branch", "")
-	// Mock specific error for invalid branch.
-	expectedError := errors.New("fatal: invalid reference: nonexistent-branch")
-	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s nonexistent-branch", worktreePath), expectedError)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: false,
-	}
-
-	err := creator.CreateWorktree("nonexistent-branch", worktreePath, options)
-
-	require.Error(t, err)
-	assert.IsType(t, &groveErrors.GroveError{}, err)
-	groveErr := err.(*groveErrors.GroveError)
-	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-	assert.Contains(t, groveErr.Message, "worktree existing-branch failed")
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_ComplexOptionsSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "worktree")
-
-	// Mock branch exists check to return error (branch doesn't exist).
-	mockExecutor.SetErrorResponse("show-ref --verify --quiet refs/heads/local-branch", fmt.Errorf("ref not found"))
-	// Mock successful worktree creation with new branch.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add -b local-branch %s", worktreePath), "")
-	mockExecutor.SetResponseSlice([]string{"worktree", "add", "-b", "local-branch", worktreePath}, "", nil)
-	// Mock getting default remote name.
-	mockExecutor.SetSuccessResponse("config --get clone.defaultRemoteName", "origin")
-	// Mock checking if remote branch exists
-	mockExecutor.SetSuccessResponse("branch -r --list origin/local-branch", "origin/local-branch")
-	// Mock setting up remote tracking.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("-C %s branch --set-upstream-to=origin/local-branch local-branch", worktreePath), "")
-	mockExecutor.SetResponseSlice([]string{"-C", worktreePath, "branch", "--set-upstream-to=origin/local-branch", "local-branch"}, "", nil)
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{
-		TrackRemote: true,
-	}
-
-	err := creator.CreateWorktree("local-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", "-b", "local-branch", worktreePath))
-	assert.True(t, mockExecutor.HasCommand("-C", worktreePath, "branch", "--set-upstream-to=origin/local-branch", "local-branch"))
-}
-
-// Note: Internal method tests removed as they test unexported functions
-// The public interface tests above provide sufficient coverage for the WorktreeCreator component.
-
-// Sequential Mock Git Executor for testing conflict resolution
-type SequentialMockGitExecutor struct {
-	responses        map[string][]testutils.MockResponse // Sequential responses for commands
-	otherResponses   map[string]testutils.MockResponse   // Single responses for other commands
-	callCounts       map[string]int                      // Track how many times each command was called
-	worktreeAddCalls int                                 // Specific counter for worktree add calls
-}
-
-func (m *SequentialMockGitExecutor) Execute(args ...string) (string, error) {
-	return m.ExecuteQuiet(args...)
-}
-
-func (m *SequentialMockGitExecutor) ExecuteQuiet(args ...string) (string, error) {
-	cmdKey := strings.Join(args, " ")
-
-	// Initialize call counts if needed
-	if m.callCounts == nil {
-		m.callCounts = make(map[string]int)
-	}
-
-	// Track specific worktree add calls
-	if len(args) >= 2 && args[0] == "worktree" && args[1] == "add" {
-		m.worktreeAddCalls++
-	}
-
-	// Check for sequential responses first
-	for pattern, responses := range m.responses {
-		if strings.HasPrefix(cmdKey, pattern) || cmdKey == pattern {
-			callIndex := m.callCounts[pattern]
-			m.callCounts[pattern]++
-
-			if callIndex < len(responses) {
-				response := responses[callIndex]
-				return response.Output, response.Error
-			}
-			// If we've exhausted sequential responses, return the last one
-			if len(responses) > 0 {
-				response := responses[len(responses)-1]
-				return response.Output, response.Error
-			}
-		}
-	}
-
-	// Check other responses
-	if response, exists := m.otherResponses[cmdKey]; exists {
-		return response.Output, response.Error
-	}
-
-	return "", fmt.Errorf("mock: unhandled git command: %s", cmdKey)
-}
-
-func (m *SequentialMockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
-	return m.ExecuteQuiet(args...)
-}
+// Note: Basic worktree creation tests moved to worktree_creator_basic_test.go
+// Error handling tests moved to worktree_creator_errors_test.go
+// Validation tests moved to worktree_creator_validation_test.go
 
 // Conflict Resolution Tests
+//
+// These tests verify automatic worktree conflict resolution when a branch
+// is already checked out in another worktree. The resolution process:
+// 1. Detects the conflict during worktree creation
+// 2. Locates the conflicting worktree
+// 3. Checks if it's safe to resolve (no uncommitted changes)
+// 4. Switches the conflicting worktree to detached HEAD
+// 5. Retries the original worktree creation
 
 func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
-	// Create a sequential mock that can handle different responses for the same command
-	mockExecutor := &SequentialMockGitExecutor{
-		responses: map[string][]testutils.MockResponse{
-			fmt.Sprintf("worktree add %s feature-branch", worktreePath): {
-				// First call fails with conflict
-				{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
-				// Second call succeeds after resolution
-				{Output: "", Error: nil},
-			},
+	// Create a sequential mock that simulates the conflict resolution workflow:
+	// 1st call: fails with "branch already used" error
+	// 2nd call: succeeds after conflict resolution
+	mockExecutor := testutils.NewSequentialMockGitExecutor()
+
+	// Set up sequential responses for worktree add command
+	mockExecutor.SetSequentialResponse(
+		fmt.Sprintf("worktree add %s feature-branch", worktreePath),
+		[]testutils.MockResponse{
+			// First call fails with conflict - simulates the initial error
+			{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
+			// Second call succeeds after resolution - simulates successful retry
+			{Output: "", Error: nil},
 		},
-		otherResponses: map[string]testutils.MockResponse{
-			"show-ref --verify --quiet refs/heads/feature-branch":    {Output: "", Error: nil},
-			"worktree list --porcelain":                              {Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil},
-			"-C " + testExistingWorktreePath + " status --porcelain": {Output: "", Error: nil},
-			"-C " + testExistingWorktreePath + " checkout --detach":  {Output: "Switched to detached HEAD", Error: nil},
-		},
-	}
+	)
+
+	// Set up responses for conflict resolution workflow
+	mockExecutor.SetSingleResponse("show-ref --verify --quiet refs/heads/feature-branch", testutils.MockResponse{Output: "", Error: nil})                                                                                                                                   // Branch exists check
+	mockExecutor.SetSingleResponse("worktree list --porcelain", testutils.MockResponse{Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil}) // List existing worktrees
+	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" status --porcelain", testutils.MockResponse{Output: "", Error: nil})                                                                                                                                    // Check if conflicting worktree is clean
+	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" checkout --detach", testutils.MockResponse{Output: "Switched to detached HEAD", Error: nil})                                                                                                            // Detach conflicting worktree
 
 	creator := NewWorktreeCreator(mockExecutor)
 
@@ -359,10 +73,12 @@ func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.
 	assert.Contains(t, progressMessages, "Resolved conflict: switched previous worktree to detached HEAD")
 
 	// Verify the worktree add command was called twice (first fails, then succeeds)
-	assert.Equal(t, 2, mockExecutor.worktreeAddCalls)
+	assert.Equal(t, 2, mockExecutor.GetSpecificCounter("worktree_add"))
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_DirtyWorktreeFails(t *testing.T) {
+	// This test verifies that automatic conflict resolution fails when the
+	// conflicting worktree has uncommitted changes, preventing data loss
 	mockExecutor := testutils.NewMockGitExecutor()
 	tmpDir := t.TempDir()
 	worktreePath := filepath.Join(tmpDir, "worktree")
@@ -378,7 +94,8 @@ func TestWorktreeCreatorImpl_ConflictResolution_DirtyWorktreeFails(t *testing.T)
 	// Mock worktree list to show conflicting worktree is not main
 	mockExecutor.SetSuccessResponse("worktree list --porcelain", "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree "+conflictingWorktreePath+"\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n")
 
-	// Mock status check showing dirty worktree (has uncommitted changes)
+	// Mock status check showing dirty worktree - this prevents automatic resolution
+	// Format: " M" = modified, "??" = untracked (git status --porcelain format)
 	mockExecutor.SetSuccessResponse(fmt.Sprintf("-C %s status --porcelain", conflictingWorktreePath), " M modified_file.txt\n?? untracked_file.txt")
 
 	creator := NewWorktreeCreator(mockExecutor)
@@ -526,22 +243,24 @@ func TestWorktreeCreatorImpl_ConflictResolution_NoProgressCallback(t *testing.T)
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Create a sequential mock that can handle different responses for the same command
-	mockExecutor := &SequentialMockGitExecutor{
-		responses: map[string][]testutils.MockResponse{
-			fmt.Sprintf("worktree add %s feature-branch", worktreePath): {
-				// First call fails with conflict
-				{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
-				// Second call succeeds after resolution
-				{Output: "", Error: nil},
-			},
+	mockExecutor := testutils.NewSequentialMockGitExecutor()
+
+	// Set up sequential responses for worktree add command
+	mockExecutor.SetSequentialResponse(
+		fmt.Sprintf("worktree add %s feature-branch", worktreePath),
+		[]testutils.MockResponse{
+			// First call fails with conflict
+			{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
+			// Second call succeeds after resolution
+			{Output: "", Error: nil},
 		},
-		otherResponses: map[string]testutils.MockResponse{
-			"show-ref --verify --quiet refs/heads/feature-branch":    {Output: "", Error: nil},
-			"worktree list --porcelain":                              {Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil},
-			"-C " + testExistingWorktreePath + " status --porcelain": {Output: "", Error: nil},
-			"-C " + testExistingWorktreePath + " checkout --detach":  {Output: "Switched to detached HEAD", Error: nil},
-		},
-	}
+	)
+
+	// Set up single responses for other commands
+	mockExecutor.SetSingleResponse("show-ref --verify --quiet refs/heads/feature-branch", testutils.MockResponse{Output: "", Error: nil})
+	mockExecutor.SetSingleResponse("worktree list --porcelain", testutils.MockResponse{Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil})
+	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" status --porcelain", testutils.MockResponse{Output: "", Error: nil})
+	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" checkout --detach", testutils.MockResponse{Output: "Switched to detached HEAD", Error: nil})
 
 	creator := NewWorktreeCreator(mockExecutor)
 
@@ -551,74 +270,5 @@ func TestWorktreeCreatorImpl_ConflictResolution_NoProgressCallback(t *testing.T)
 	require.NoError(t, err)
 
 	// Verify the worktree add command was called twice (first fails, then succeeds)
-	assert.Equal(t, 2, mockExecutor.worktreeAddCalls)
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_ValidationErrors(t *testing.T) {
-	tests := []struct {
-		name           string
-		branchName     string
-		path           string
-		expectGitCalls bool
-	}{
-		{
-			name:           "empty branch name",
-			branchName:     "",
-			path:           "/path/to/worktree",
-			expectGitCalls: false,
-		},
-		{
-			name:           "empty path",
-			branchName:     "feature-branch",
-			path:           "",
-			expectGitCalls: false,
-		},
-		{
-			name:           "whitespace only branch name",
-			branchName:     "   ",
-			path:           "/path/to/worktree",
-			expectGitCalls: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockExecutor := testutils.NewMockGitExecutor()
-			creator := NewWorktreeCreator(mockExecutor)
-			options := WorktreeOptions{}
-
-			err := creator.CreateWorktree(tt.branchName, tt.path, options)
-
-			require.Error(t, err)
-			assert.IsType(t, &groveErrors.GroveError{}, err)
-			groveErr := err.(*groveErrors.GroveError)
-			assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
-
-			if !tt.expectGitCalls {
-				assert.Equal(t, 0, mockExecutor.CallCount, "Should not make git calls for invalid input")
-			}
-		})
-	}
-}
-
-func TestWorktreeCreatorImpl_CreateWorktree_ValidationSuccess(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-
-	tmpDir := t.TempDir()
-	worktreePath := filepath.Join(tmpDir, "valid")
-
-	// Mock branch exists check to return success (branch exists).
-	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/valid-branch", "")
-	// Mock successful worktree creation.
-	mockExecutor.SetSuccessResponse(fmt.Sprintf("worktree add %s valid-branch", worktreePath), "")
-
-	creator := NewWorktreeCreator(mockExecutor)
-
-	options := WorktreeOptions{}
-
-	err := creator.CreateWorktree("valid-branch", worktreePath, options)
-
-	require.NoError(t, err)
-	assert.Equal(t, 2, mockExecutor.CallCount) // Branch check + worktree add.
-	assert.True(t, mockExecutor.HasCommand("worktree", "add", worktreePath, "valid-branch"))
+	assert.Equal(t, 2, mockExecutor.GetSpecificCounter("worktree_add"))
 }

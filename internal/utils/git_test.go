@@ -13,7 +13,7 @@ import (
 	"github.com/sqve/grove/internal/testutils"
 )
 
-func TestIsGitRepository(t *testing.T) {
+func TestGitRepository_IsGitRepository(t *testing.T) {
 	tests := []struct {
 		name        string
 		gitOutput   string
@@ -64,7 +64,7 @@ func TestIsGitRepository(t *testing.T) {
 	}
 }
 
-func TestGetRepositoryRoot(t *testing.T) {
+func TestGitRepository_GetRepositoryRoot(t *testing.T) {
 	tests := []struct {
 		name        string
 		gitOutput   string
@@ -108,7 +108,7 @@ func TestGetRepositoryRoot(t *testing.T) {
 	}
 }
 
-func TestValidateRepository(t *testing.T) {
+func TestGitRepository_ValidateRepository(t *testing.T) {
 	tests := []struct {
 		name           string
 		isRepoOutput   string
@@ -171,7 +171,7 @@ func TestValidateRepository(t *testing.T) {
 	}
 }
 
-func TestIsGitURL(t *testing.T) {
+func TestGitURL_IsGitURL(t *testing.T) {
 	tests := []struct {
 		url      string
 		expected bool
@@ -205,7 +205,7 @@ func TestIsGitURL(t *testing.T) {
 	}
 }
 
-func TestParseGitPlatformURL(t *testing.T) {
+func TestGitURL_ParseGitPlatformURL(t *testing.T) {
 	tests := []struct {
 		name           string
 		url            string
@@ -414,7 +414,7 @@ func TestParseGitPlatformURL(t *testing.T) {
 	}
 }
 
-func TestParseGitHubURL(t *testing.T) {
+func TestGitURL_ParseGitHubURL(t *testing.T) {
 	tests := []struct {
 		name         string
 		url          string
@@ -465,7 +465,7 @@ func TestParseGitHubURL(t *testing.T) {
 	}
 }
 
-func TestDetermineGiteaPlatform(t *testing.T) {
+func TestGitURL_DetermineGiteaPlatform(t *testing.T) {
 	tests := []struct {
 		host     string
 		expected string
@@ -484,7 +484,7 @@ func TestDetermineGiteaPlatform(t *testing.T) {
 	}
 }
 
-func TestIsKnownGiteaInstance(t *testing.T) {
+func TestGitURL_IsKnownGiteaInstance(t *testing.T) {
 	tests := []struct {
 		host     string
 		expected bool
