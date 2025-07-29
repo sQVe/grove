@@ -2,27 +2,27 @@
 
 ## Task Breakdown
 
-- [ ]   1. Create switch command package structure
+- [x]   1. Create switch command package structure
     - Create `/internal/commands/switch/` directory
     - Create basic package files following Grove conventions
     - _Leverage: `/internal/commands/create/` structure, `/internal/commands/list/` patterns_
     - _Requirements: 1.1, 2.1_
 
-- [ ]   2. Implement core path resolution service
+- [x]   2. Implement core path resolution service
     - Create `SwitchService` interface and implementation
     - Implement worktree path resolution with exact and fuzzy matching
     - Add path validation and security checks
     - _Leverage: `internal/completion/worktree.go:161-207`, `internal/completion/worktree.go:33-68`_
     - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ]   3. Create basic switch command with --get-path mode
+- [x]   3. Create basic switch command with --get-path mode
     - Implement `switch.go` with Cobra command setup
     - Add `--get-path` flag for path-only output
     - Integrate with path resolution service
     - _Leverage: `/internal/commands/list/list.go`, `/internal/commands/create/create.go` command patterns_
     - _Requirements: 1.1, 4.1_
 
-- [ ]   4. Add multiple execution modes
+- [x]   4. Add multiple execution modes
     - Implement `--eval` mode for shell evaluation output
     - Implement `--subshell` mode for launching new shell
     - Add auto-detection of shell integration availability
