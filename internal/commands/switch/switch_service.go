@@ -11,20 +11,41 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
+// SwitchService provides worktree switching functionality with path resolution and validation.
+// It handles exact and fuzzy matching of worktree names, validates paths for security,
+// and integrates with Grove's existing completion and git execution systems.
 type SwitchService interface {
+	// Switch performs a complete worktree switch operation with the given options.
+	// It returns a SwitchResult containing the path, command, and mode used.
 	Switch(ctx context.Context, worktreeName string, options SwitchOptions) (*SwitchResult, error)
+	
+	// GetWorktreePath resolves a worktree name to its absolute file system path.
+	// Supports both exact matching and fuzzy matching using completion logic.
+	// Returns an error if the worktree is not found or path is invalid.
 	GetWorktreePath(worktreeName string) (string, error)
+	
+	// ListWorktrees returns all available worktrees using Grove's completion system.
+	// This provides access to cached worktree information for performance.
 	ListWorktrees() ([]completion.WorktreeInfo, error)
+	
+	// GenerateShellIntegration creates shell-specific integration code for the given shell type.
+	// Supported shells: bash, zsh, fish, powershell
 	GenerateShellIntegration(shell string) (string, error)
 }
 
+// SwitchResult contains the outcome of a worktree switch operation.
 type SwitchResult struct {
+	// Path is the absolute file system path to the target worktree
 	Path         string
+	// WorktreeName is the resolved name of the worktree that was switched to
 	WorktreeName string
+	// Mode indicates which execution mode was used (auto, eval, subshell, etc.)
 	Mode         SwitchMode
+	// Command contains any shell command that should be executed (for eval mode)
 	Command      string
 }
 
+// switchService implements SwitchService using Grove's git execution and completion systems.
 type switchService struct {
 	executor git.GitExecutor
 }

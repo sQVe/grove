@@ -29,14 +29,14 @@
     - _Leverage: existing shell detection patterns, configuration system_
     - _Requirements: 2.4, 4.2, 4.3, 4.4_
 
-- [ ]   5. Implement shell integration generation
+- [x]   5. Implement shell integration generation
     - Create `shell_integration.go` with function generation logic
     - Support bash, zsh, fish, and PowerShell function generation
     - Add shell environment detection and validation
     - _Leverage: `/internal/completion/completion.go:120-165` completion patterns_
     - _Requirements: 2.1, 2.2, 5.2_
 
-- [ ]   6. Create install-shell-integration command
+- [x]   6. Create install-shell-integration command
     - Implement installation command with backup creation
     - Add shell configuration file modification logic
     - Provide manual setup instructions for fallback

@@ -6,6 +6,7 @@ import (
 	initcmd "github.com/sqve/grove/internal/commands/init"
 	"github.com/sqve/grove/internal/commands/list"
 	"github.com/sqve/grove/internal/commands/shared"
+	switchcmd "github.com/sqve/grove/internal/commands/switch"
 )
 
 // Re-export shared utilities for backward compatibility
@@ -27,4 +28,9 @@ func NewInitCmd() *cobra.Command {
 // NewListCmd returns the list command.
 func NewListCmd() *cobra.Command {
 	return list.NewListCmd()
+}
+
+// NewSwitchCmd returns the switch command.
+func NewSwitchCmd() *cobra.Command {
+	return switchcmd.NewSwitchCmd()
 }

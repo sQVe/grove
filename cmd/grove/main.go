@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewConfigCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewCreateCmd())
+	rootCmd.AddCommand(commands.NewSwitchCmd())
 
 	completion.CreateCompletionCommands(rootCmd)
 
