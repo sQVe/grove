@@ -36,34 +36,14 @@ You are helping create a new bug fix workflow. This is designed for smaller fixe
    - Use structured format for consistency
 
 4. **Generate Bug Report**
-   - Use the bug report template from `.claude/templates/bug-report-template.md`
-   - Create detailed bug description including:
-     - Expected vs actual behavior
-     - Steps to reproduce
-     - Environment details
-     - Impact assessment
-     - Initial analysis
+   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-report-template.md`
+   - **Read and follow**: Load the template and follow all sections precisely
+   - Create detailed bug description following the template structure
 
-### Bug Report Structure
-```markdown
-## Bug Summary
-[Clear description of the issue]
-
-## Bug Details
-- Expected Behavior: [What should happen]
-- Actual Behavior: [What actually happens]
-- Steps to Reproduce: [Numbered steps]
-- Environment: [Platform, version, config details]
-
-## Impact Assessment
-- Severity: [Critical/High/Medium/Low]
-- Affected Users: [Who is impacted]
-- Affected Features: [What functionality is broken]
-
-## Initial Analysis
-- Suspected Root Cause: [Initial thoughts]
-- Affected Components: [Files/modules that might be involved]
-```
+## Template Usage
+- **Follow exact structure**: Use `.claude/templates/bug-report-template.md` precisely
+- **Include all sections**: Don't omit any required template sections
+- **Structured format**: Follow the template's format for consistency
 
 5. **Request User Input**
    - Ask for bug details if not provided in description

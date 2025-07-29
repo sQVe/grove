@@ -44,28 +44,14 @@ You are working on the analysis phase of the bug fix workflow.
       - Identify potential risks
 
 3. **Create Analysis Document**
-   - Use the bug analysis template
-   - Document investigation findings
-   - Include specific code locations affected
-   - Provide implementation plan for the fix
+   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-analysis-template.md`
+   - **Read and follow**: Load the template and follow all sections precisely
+   - Document investigation findings following the template structure
 
-### Analysis Structure
-```markdown
-## Root Cause Analysis
-- Investigation Summary: [What you found]
-- Root Cause: [The underlying issue]
-- Contributing Factors: [Secondary issues]
-
-## Technical Details
-- Affected Code Locations: [Specific files and functions]
-- Data Flow Analysis: [How data moves and where it breaks]
-- Dependencies: [External factors involved]
-
-## Solution Approach
-- Fix Strategy: [How to solve it]
-- Alternative Solutions: [Other options considered]
-- Implementation Plan: [Specific changes needed]
-```
+## Template Usage
+- **Follow exact structure**: Use `.claude/templates/bug-analysis-template.md` precisely
+- **Include all sections**: Don't omit any required template sections
+- **Detailed analysis**: Follow the template's format for comprehensive investigation
 
 4. **Investigation Guidelines**
    - **Follow tech.md standards**: Understand existing patterns before proposing changes

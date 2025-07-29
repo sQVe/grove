@@ -49,32 +49,14 @@ You are working on the verification phase of the bug fix workflow.
    - **Code Quality**: Changes follow project conventions
 
 4. **Create Verification Document**
-   - Use the bug verification template
-   - Document all test results
-   - Include verification checklist completion
-   - Note any observations or follow-up needed
+   - **Template to Follow**: Use the exact structure from `.claude/templates/bug-verification-template.md`
+   - **Read and follow**: Load the template and follow all sections precisely
+   - Document all test results following the template structure
 
-### Verification Structure
-```markdown
-## Fix Implementation Summary
-[Brief description of what was changed]
-
-## Test Results
-- Original Bug Reproduction: [Before/After results]
-- Regression Testing: [Related functionality status]
-- Edge Case Testing: [Boundary condition results]
-
-## Code Quality Checks
-- Automated Tests: [Test suite results]
-- Code Style: [Standards compliance]
-- Error Handling: [Error scenario testing]
-
-## Closure Checklist
-- [ ] Original issue resolved
-- [ ] No regressions introduced
-- [ ] Tests passing
-- [ ] Documentation updated
-```
+## Template Usage
+- **Follow exact structure**: Use `.claude/templates/bug-verification-template.md` precisely
+- **Include all sections**: Don't omit any required template sections
+- **Complete checklist**: Follow the template's checklist format for thoroughness
 
 5. **Final Approval**
    - Present complete verification results
