@@ -24,15 +24,17 @@ type worktreeOperation struct {
 
 // WorktreeCreatorImpl implements the WorktreeCreator interface.
 type WorktreeCreatorImpl struct {
-	executor git.GitExecutor
-	logger   *logger.Logger
+	executor         git.GitExecutor
+	logger           *logger.Logger
+	conflictResolver *conflictResolver
 }
 
 // NewWorktreeCreator creates a new WorktreeCreator with the provided GitExecutor.
 func NewWorktreeCreator(executor git.GitExecutor) *WorktreeCreatorImpl {
 	return &WorktreeCreatorImpl{
-		executor: executor,
-		logger:   logger.WithComponent("worktree_creator"),
+		executor:         executor,
+		logger:           logger.WithComponent("worktree_creator"),
+		conflictResolver: newConflictResolver(executor),
 	}
 }
 
@@ -69,78 +71,111 @@ func (w *WorktreeCreatorImpl) CreateWorktreeWithProgress(branchName, path string
 
 // execute performs the atomic worktree creation with comprehensive rollback
 func (op *worktreeOperation) execute() error {
-	// Ensure parent directory exists
-	if err := op.ensureParentDirectory(); err != nil {
+	if err := op.validateAndPrepare(); err != nil {
 		op.rollback()
 		return err
 	}
 
-	// Check if path already exists
-	if _, err := os.Stat(op.path); err == nil {
-		return groveErrors.ErrPathExists(op.path)
-	}
-
-	// Check if branch exists
-	branchExists, err := op.worktree.branchExists(op.branchName)
-	if err != nil {
+	if err := op.createWorktreeAtomically(); err != nil {
 		op.rollback()
-		return groveErrors.ErrWorktreeCreation("branch-check", err)
-	}
-
-	// Create worktree atomically
-	var worktreeErr error
-	if branchExists {
-		worktreeErr = op.createFromExistingBranch()
-	} else {
-		worktreeErr = op.createWithNewBranch()
-	}
-
-	if worktreeErr != nil {
-		op.rollback()
-		return worktreeErr
+		return err
 	}
 
 	return nil
+}
+
+// validateAndPrepare handles pre-creation validation and setup
+func (op *worktreeOperation) validateAndPrepare() error {
+	// Ensure parent directory exists
+	if err := op.ensureParentDirectory(); err != nil {
+		return err
+	}
+
+	// Note: Path existence checking is now handled by path generator's atomic collision resolution
+	// The path generator creates directories atomically to prevent race conditions
+	// If path exists, it would have been resolved during path generation phase
+
+	return nil
+}
+
+// createWorktreeAtomically performs the actual worktree creation
+func (op *worktreeOperation) createWorktreeAtomically() error {
+	// Check if branch exists
+	branchExists, err := op.worktree.branchExists(op.branchName)
+	if err != nil {
+		return groveErrors.ErrWorktreeCreation("branch-check", err)
+	}
+
+	// Create worktree using appropriate strategy
+	if branchExists {
+		return op.createFromExistingBranch()
+	} else {
+		return op.createWithNewBranch()
+	}
 }
 
 // ensureParentDirectory creates parent directories if needed
 func (op *worktreeOperation) ensureParentDirectory() error {
 	parentDir := filepath.Dir(op.path)
 
-	// MkdirAll is idempotent - safe to call even if directory exists
-	// This eliminates the race condition between stat check and directory creation
+	// Identify which directories need to be created before creating them
+	dirsToCreate := op.identifyDirectoriesToCreate(parentDir)
+
+	// Create the directories
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return groveErrors.ErrDirectoryAccess(parentDir, err)
 	}
 
-	// Track parent directory for potential rollback
-	// Note: We track it even if it already existed, as rollback logic
-	// will safely handle attempting to remove existing directories
-	op.createdDirs = append(op.createdDirs, parentDir)
+	// Track in reverse order for proper cleanup.
+	for i := len(dirsToCreate) - 1; i >= 0; i-- {
+		op.createdDirs = append(op.createdDirs, dirsToCreate[i])
+	}
+
 	return nil
 }
 
-// createFromExistingBranch creates worktree from existing branch with tracking
+// Returns directories that need creation in parent-to-child order.
+func (op *worktreeOperation) identifyDirectoriesToCreate(targetDir string) []string {
+	var dirsToCreate []string
+	currentPath := targetDir
+
+	for currentPath != "." && currentPath != "/" {
+		if _, err := os.Stat(currentPath); os.IsNotExist(err) {
+			// Prepend to maintain parent-to-child order.
+			dirsToCreate = append([]string{currentPath}, dirsToCreate...)
+			currentPath = filepath.Dir(currentPath)
+		} else {
+			break
+		}
+	}
+
+	return dirsToCreate
+}
+
 func (op *worktreeOperation) createFromExistingBranch() error {
 	_, err := op.worktree.executor.Execute("worktree", "add", op.path, op.branchName)
 	if err != nil {
-		return op.handleWorktreeError(err)
+		if op.isBranchInUseError(err) {
+			return op.handleBranchConflict(err)
+		}
+		return groveErrors.ErrWorktreeCreation("existing-branch", err)
 	}
 	return nil
 }
 
-// createWithNewBranch creates worktree with new branch and optional remote tracking
 func (op *worktreeOperation) createWithNewBranch() error {
 	args := []string{"worktree", "add", "-b", op.branchName, op.path}
 
-	// Add base branch if specified
 	if op.options.BaseBranch != "" {
 		args = append(args, op.options.BaseBranch)
 	}
 
 	_, err := op.worktree.executor.Execute(args...)
 	if err != nil {
-		return op.handleWorktreeError(err)
+		if op.isBranchInUseError(err) {
+			return op.handleBranchConflict(err)
+		}
+		return groveErrors.ErrWorktreeCreation("new-branch", err)
 	}
 
 	if op.options.TrackRemote {
@@ -151,6 +186,65 @@ func (op *worktreeOperation) createWithNewBranch() error {
 	}
 
 	return nil
+}
+
+// isBranchInUseError checks if the error indicates a branch is already in use by another worktree
+func (op *worktreeOperation) isBranchInUseError(err error) bool {
+	return strings.Contains(err.Error(), "already used by worktree")
+}
+
+// handleBranchConflict attempts to resolve branch conflicts using Grove error patterns
+func (op *worktreeOperation) handleBranchConflict(err error) error {
+	worktreePath := op.extractWorktreePath(err.Error())
+
+	if op.progressCallback != nil {
+		op.progressCallback(fmt.Sprintf("Branch '%s' is in use, attempting automatic resolution...", op.branchName))
+	}
+
+	op.worktree.logger.DebugOperation("attempting automatic worktree conflict resolution",
+		"branch", op.branchName,
+		"conflicting_worktree", worktreePath)
+
+	if resolveErr := op.worktree.conflictResolver.resolveWorktreeConflict(op.branchName, worktreePath); resolveErr != nil {
+		op.worktree.logger.DebugOperation("automatic conflict resolution failed",
+			"branch", op.branchName,
+			"conflicting_worktree", worktreePath,
+			"error", resolveErr.Error())
+
+		if op.progressCallback != nil {
+			if strings.Contains(resolveErr.Error(), "uncommitted changes") {
+				op.progressCallback("Cannot resolve automatically: conflicting worktree has uncommitted changes")
+			} else {
+				op.progressCallback("Automatic conflict resolution failed")
+			}
+		}
+
+		return groveErrors.ErrBranchInUseByWorktree(op.branchName, worktreePath).
+			WithContext("resolution_attempted", true).
+			WithContext("resolution_error", resolveErr.Error())
+	}
+
+	if op.progressCallback != nil {
+		op.progressCallback("Resolved conflict: switched previous worktree to detached HEAD")
+	}
+
+	op.worktree.logger.DebugOperation("worktree conflict resolved successfully",
+		"branch", op.branchName,
+		"conflicting_worktree", worktreePath)
+
+	// Conflict resolved, retry the operation
+	return op.retryWorktreeCreation()
+}
+
+// extractWorktreePath extracts the worktree path from error message
+func (op *worktreeOperation) extractWorktreePath(errorStr string) string {
+	if idx := strings.Index(errorStr, "at '"); idx != -1 {
+		start := idx + 4
+		if end := strings.Index(errorStr[start:], "'"); end != -1 {
+			return errorStr[start : start+end]
+		}
+	}
+	return ""
 }
 
 // setupRemoteTracking configures remote tracking for the new branch
@@ -222,165 +316,6 @@ func (op *worktreeOperation) rollback() {
 				"error", err.Error())
 		}
 	}
-}
-
-// handleWorktreeError provides enhanced error messages for common worktree failures
-// and attempts automatic resolution when safe to do so
-func (op *worktreeOperation) handleWorktreeError(err error) error {
-	errorStr := err.Error()
-
-	// Check for "already used by worktree" error
-	if strings.Contains(errorStr, "already used by worktree") {
-		// Try to extract the worktree path from the error message
-		// Error format: "fatal: 'branchname' is already used by worktree at '/path/to/worktree'"
-		worktreePath := ""
-		if idx := strings.Index(errorStr, "at '"); idx != -1 {
-			start := idx + 4
-			if end := strings.Index(errorStr[start:], "'"); end != -1 {
-				worktreePath = errorStr[start : start+end]
-			}
-		}
-
-		// Attempt automatic conflict resolution if we have a valid worktree path
-		if worktreePath != "" {
-			// Provide user feedback about conflict resolution attempt
-			if op.progressCallback != nil {
-				op.progressCallback(fmt.Sprintf("Branch '%s' is in use, attempting automatic resolution...", op.branchName))
-			}
-
-			op.worktree.logger.DebugOperation("attempting automatic worktree conflict resolution",
-				"branch", op.branchName,
-				"conflicting_worktree", worktreePath)
-
-			if resolveErr := op.worktree.resolveWorktreeConflict(op.branchName, worktreePath); resolveErr != nil {
-				op.worktree.logger.DebugOperation("automatic conflict resolution failed",
-					"branch", op.branchName,
-					"conflicting_worktree", worktreePath,
-					"error", resolveErr.Error())
-
-				// Inform user that automatic resolution failed
-				if op.progressCallback != nil {
-					if strings.Contains(resolveErr.Error(), "uncommitted changes") {
-						op.progressCallback("Cannot resolve automatically: conflicting worktree has uncommitted changes")
-					} else {
-						op.progressCallback("Automatic conflict resolution failed")
-					}
-				}
-
-				// Return the original error with additional context about failed resolution
-				return groveErrors.ErrBranchInUseByWorktree(op.branchName, worktreePath).
-					WithContext("resolution_attempted", true).
-					WithContext("resolution_error", resolveErr.Error())
-			}
-
-			// Inform user about successful resolution
-			if op.progressCallback != nil {
-				op.progressCallback("Resolved conflict: switched previous worktree to detached HEAD")
-			}
-
-			// Conflict resolved successfully, retry the original worktree creation
-			op.worktree.logger.DebugOperation("worktree conflict resolved, retrying creation",
-				"branch", op.branchName,
-				"conflicting_worktree", worktreePath)
-
-			return op.retryWorktreeCreation()
-		} else {
-			return groveErrors.ErrBranchInUseByWorktree(op.branchName, "")
-		}
-	}
-
-	// Default to generic worktree creation error
-	return groveErrors.ErrWorktreeCreation("create", err)
-}
-
-// resolveWorktreeConflict attempts to resolve a branch conflict by switching the conflicting
-// worktree to a detached HEAD state, allowing the branch to be used elsewhere
-func (w *WorktreeCreatorImpl) resolveWorktreeConflict(branchName, conflictingWorktreePath string) error {
-	w.logger.DebugOperation("checking worktree status before conflict resolution",
-		"branch", branchName,
-		"worktree_path", conflictingWorktreePath)
-
-	// Check if the conflicting worktree is the main worktree
-	if isMain, err := w.isMainWorktree(conflictingWorktreePath); err != nil {
-		return fmt.Errorf("failed to determine if worktree is main: %w", err)
-	} else if isMain {
-		return fmt.Errorf("cannot automatically resolve conflict with main worktree - manual resolution required")
-	}
-
-	// First, check if the conflicting worktree has uncommitted changes
-	if hasChanges, err := w.worktreeHasUncommittedChanges(conflictingWorktreePath); err != nil {
-		return fmt.Errorf("failed to check worktree status: %w", err)
-	} else if hasChanges {
-		return fmt.Errorf("conflicting worktree has uncommitted changes - manual resolution required")
-	}
-
-	// Switch the conflicting worktree to detached HEAD at current commit
-	w.logger.DebugOperation("switching conflicting worktree to detached HEAD",
-		"branch", branchName,
-		"worktree_path", conflictingWorktreePath)
-
-	_, err := w.executor.Execute("-C", conflictingWorktreePath, "checkout", "--detach")
-	if err != nil {
-		return fmt.Errorf("failed to detach HEAD in conflicting worktree: %w", err)
-	}
-
-	w.logger.DebugOperation("successfully resolved worktree conflict",
-		"branch", branchName,
-		"worktree_path", conflictingWorktreePath)
-
-	return nil
-}
-
-// isMainWorktree checks if the given worktree path is the main worktree
-func (w *WorktreeCreatorImpl) isMainWorktree(worktreePath string) (bool, error) {
-	// Use git worktree list to find the main worktree, as this works from both
-	// regular worktrees and bare repositories
-	output, err := w.executor.ExecuteQuiet("worktree", "list", "--porcelain")
-	if err != nil {
-		return false, err
-	}
-
-	// Parse the output to find the main worktree (first non-bare worktree)
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	var currentWorktreePath string
-	var isBare bool
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			// End of a worktree entry
-			if currentWorktreePath != "" && !isBare {
-				// This is the main worktree (first non-bare worktree)
-				return currentWorktreePath == worktreePath, nil
-			}
-			// Reset for next worktree
-			currentWorktreePath = ""
-			isBare = false
-		} else if strings.HasPrefix(line, "worktree ") {
-			currentWorktreePath = strings.TrimPrefix(line, "worktree ")
-		} else if line == "bare" {
-			isBare = true
-		}
-	}
-
-	// Check the last worktree entry
-	if currentWorktreePath != "" && !isBare {
-		return currentWorktreePath == worktreePath, nil
-	}
-
-	return false, nil
-}
-
-// worktreeHasUncommittedChanges checks if a worktree has uncommitted changes
-func (w *WorktreeCreatorImpl) worktreeHasUncommittedChanges(worktreePath string) (bool, error) {
-	// Use git status --porcelain to check for uncommitted changes
-	output, err := w.executor.ExecuteQuiet("-C", worktreePath, "status", "--porcelain")
-	if err != nil {
-		return false, err
-	}
-
-	// If output is empty (after trimming whitespace), there are no uncommitted changes
-	return strings.TrimSpace(output) != "", nil
 }
 
 // retryWorktreeCreation retries the original worktree creation after conflict resolution

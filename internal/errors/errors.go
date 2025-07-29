@@ -3,11 +3,15 @@ package errors
 import (
 	"errors"
 	"fmt"
+
+	"github.com/spf13/viper"
 )
 
 const (
-	// Maximum number of context entries to prevent memory leaks.
-	maxContextEntries = 10
+	// Default maximum number of context entries to prevent memory leaks.
+	// This limit ensures error objects don't grow unbounded while providing
+	// sufficient context for debugging (10 key-value pairs = ~20 pieces of info).
+	defaultMaxContextEntries = 10
 
 	// System errors.
 	ErrCodeGitNotFound     = "GIT_NOT_FOUND"
@@ -59,24 +63,33 @@ const (
 	ErrCodeInvalidPattern         = "INVALID_PATTERN"
 )
 
+// contextEntry represents a single context entry with insertion order tracking.
+type contextEntry struct {
+	Key   string
+	Value interface{}
+	Order int
+}
+
 //   - Code: standardized error code for programmatic handling.
 //   - Message: human-readable error description.
 //   - Cause: underlying error that caused this error (optional).
 //   - Context: additional contextual information as key-value pairs.
 //   - Operation: the operation that failed (optional).
 //
-// Example usage:.
+// Example usage:
 //
 //	err := ErrGitNotFound(nil).WithContext("path", "/usr/bin")
-//	if IsGroveError(err, ErrCodeGitNotFound) {.
+//	if IsGroveError(err, ErrCodeGitNotFound) {
 //	  // Handle git not found error.
-//	}.
+//	}
 type GroveError struct {
-	Code      string                 // Standardized error code (see ErrCode* constants).
-	Message   string                 // Human-readable error message.
-	Cause     error                  // Underlying error that caused this error.
-	Context   map[string]interface{} // Additional contextual information.
-	Operation string                 // The operation that failed.
+	Code           string                 // Standardized error code (see ErrCode* constants).
+	Message        string                 // Human-readable error message.
+	Cause          error                  // Underlying error that caused this error.
+	Context        map[string]interface{} // Additional contextual information.
+	contextEntries []contextEntry         // Ordered context entries for proper FIFO removal.
+	contextOrder   int                    // Current insertion order counter.
+	Operation      string                 // The operation that failed.
 }
 
 func (e *GroveError) Error() string {
@@ -98,22 +111,40 @@ func (e *GroveError) Is(target error) bool {
 }
 
 func (e *GroveError) WithContext(key string, value interface{}) *GroveError {
+	maxEntries := getMaxContextEntries()
+
 	if e.Context == nil {
 		e.Context = make(map[string]interface{})
+		e.contextEntries = make([]contextEntry, 0, maxEntries)
 	}
 
-	// Prevent memory leaks by limiting context size.
-	if len(e.Context) >= maxContextEntries {
-		// Remove oldest entry to make room (simple FIFO approach).
-		oldestKey := ""
-		for k := range e.Context {
-			oldestKey = k
-			break
+	// Check if key already exists and update it
+	for i, entry := range e.contextEntries {
+		if entry.Key == key {
+			e.contextEntries[i].Value = value
+			e.Context[key] = value
+			return e
 		}
-		delete(e.Context, oldestKey)
 	}
 
+	// Prevent memory leaks by implementing proper FIFO removal
+	if len(e.contextEntries) >= maxEntries {
+		// Remove oldest entry (first in slice)
+		oldestEntry := e.contextEntries[0]
+		delete(e.Context, oldestEntry.Key)
+		e.contextEntries = e.contextEntries[1:]
+	}
+
+	// Add new entry
+	e.contextOrder++
+	newEntry := contextEntry{
+		Key:   key,
+		Value: value,
+		Order: e.contextOrder,
+	}
+	e.contextEntries = append(e.contextEntries, newEntry)
 	e.Context[key] = value
+
 	return e
 }
 
@@ -156,21 +187,35 @@ func (e *GroveError) IsRetryable() bool {
 	return false
 }
 
+// getMaxContextEntries returns the configured maximum context entries or the default value.
+func getMaxContextEntries() int {
+	if maxEntries := viper.GetInt("errors.max_context_entries"); maxEntries > 0 {
+		return maxEntries
+	}
+	return defaultMaxContextEntries
+}
+
 func NewGroveError(code, message string, cause error) *GroveError {
+	maxEntries := getMaxContextEntries()
 	return &GroveError{
-		Code:    code,
-		Message: message,
-		Cause:   cause,
-		Context: make(map[string]interface{}),
+		Code:           code,
+		Message:        message,
+		Cause:          cause,
+		Context:        make(map[string]interface{}),
+		contextEntries: make([]contextEntry, 0, maxEntries),
+		contextOrder:   0,
 	}
 }
 
 func NewGroveErrorf(code string, cause error, format string, args ...interface{}) *GroveError {
+	maxEntries := getMaxContextEntries()
 	return &GroveError{
-		Code:    code,
-		Message: fmt.Sprintf(format, args...),
-		Cause:   cause,
-		Context: make(map[string]interface{}),
+		Code:           code,
+		Message:        fmt.Sprintf(format, args...),
+		Cause:          cause,
+		Context:        make(map[string]interface{}),
+		contextEntries: make([]contextEntry, 0, maxEntries),
+		contextOrder:   0,
 	}
 }
 

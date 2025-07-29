@@ -1,9 +1,10 @@
-package commands
+package list
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/commands/shared"
 	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 )
@@ -14,6 +15,8 @@ const (
 	SortByActivity ListSortOption = "activity"
 	SortByName     ListSortOption = "name"
 	SortByStatus   ListSortOption = "status"
+
+	DefaultSortOption = SortByActivity
 )
 
 type ListOptions struct {
@@ -29,7 +32,7 @@ type ListOptions struct {
 func NewListCmd() *cobra.Command {
 	options := &ListOptions{
 		Sort:      DefaultSortOption,
-		StaleDays: DefaultStaleDays,
+		StaleDays: shared.DefaultStaleDays,
 	}
 
 	cmd := &cobra.Command{
@@ -70,13 +73,13 @@ Sorting options: activity (default), name, status`,
 	cmd.Flags().BoolVar(&options.DirtyOnly, "dirty", false, "Show only worktrees with uncommitted changes")
 	cmd.Flags().BoolVar(&options.StaleOnly, "stale", false, "Show only stale worktrees (unused for specified days)")
 	cmd.Flags().BoolVar(&options.CleanOnly, "clean", false, "Show only clean worktrees (no uncommitted changes)")
-	cmd.Flags().IntVar(&options.StaleDays, "days", DefaultStaleDays, "Number of days to consider a worktree stale (used with --stale)")
+	cmd.Flags().IntVar(&options.StaleDays, "days", shared.DefaultStaleDays, "Number of days to consider a worktree stale (used with --stale)")
 
 	return cmd
 }
 
 func runListCommand(options *ListOptions) error {
-	return runListCommandWithExecutor(DefaultExecutorProvider.GetExecutor(), options)
+	return runListCommandWithExecutor(shared.DefaultExecutorProvider.GetExecutor(), options)
 }
 
 func runListCommandWithExecutor(executor git.GitExecutor, options *ListOptions) error {

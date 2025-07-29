@@ -1,4 +1,4 @@
-package commands
+package shared
 
 import "github.com/sqve/grove/internal/git"
 
@@ -21,10 +21,6 @@ func NewExecutorProviderWithExecutor(executor git.GitExecutor) *ExecutorProvider
 
 func (ep *ExecutorProvider) GetExecutor() git.GitExecutor {
 	return ep.executor
-}
-
-func (ep *ExecutorProvider) CreateListService() *ListService {
-	return NewListService(ep.executor)
 }
 
 // Global executor provider instance for commands.

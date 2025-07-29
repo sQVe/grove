@@ -30,6 +30,7 @@ var defaultValues = map[string]interface{}{
 	"create.default_base_branch":          "main",
 	"create.prompt_for_new_branch":        true,
 	"create.auto_create_parents":          true,
+	"errors.max_context_entries":          10,
 }
 
 func SetDefaults() {

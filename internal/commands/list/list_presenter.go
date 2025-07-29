@@ -1,10 +1,11 @@
-package commands
+package list
 
 import (
 	"fmt"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/sqve/grove/internal/commands/shared"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/utils"
 )
@@ -18,18 +19,18 @@ type ColumnWidths struct {
 }
 
 type ListPresenter struct {
-	formatter *WorktreeFormatter
+	formatter *shared.WorktreeFormatter
 }
 
 func NewListPresenter() *ListPresenter {
 	return &ListPresenter{
-		formatter: NewWorktreeFormatter(),
+		formatter: shared.NewWorktreeFormatter(),
 	}
 }
 
 func (p *ListPresenter) DisplayHuman(worktrees []git.WorktreeInfo, verbose bool) error {
 	if len(worktrees) == 0 {
-		emptyStyle := lipgloss.NewStyle().Foreground(MutedColor).Italic(true)
+		emptyStyle := lipgloss.NewStyle().Foreground(shared.MutedColor).Italic(true)
 		fmt.Println(emptyStyle.Render("No worktrees match the specified criteria"))
 		return nil
 	}
@@ -86,7 +87,7 @@ func (p *ListPresenter) DisplayPorcelain(worktrees []git.WorktreeInfo) error {
 func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWidths ColumnWidths) []string {
 	marker := " "
 	if wt.IsCurrent {
-		marker = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(CurrentMarker)
+		marker = lipgloss.NewStyle().Foreground(shared.PrimaryColor).Bold(true).Render(shared.CurrentMarker)
 	}
 
 	name := p.formatter.GetWorktreeName(wt.Path)
@@ -94,7 +95,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWid
 		name = p.formatter.TruncateText(name, colWidths.Worktree)
 	}
 	if wt.IsCurrent {
-		name = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(name)
+		name = lipgloss.NewStyle().Foreground(shared.PrimaryColor).Bold(true).Render(name)
 	}
 
 	branch := git.CleanBranchName(wt.Branch)
@@ -102,7 +103,7 @@ func (p *ListPresenter) buildTableRow(wt *git.WorktreeInfo, verbose bool, colWid
 		branch = p.formatter.TruncateBranchName(branch, colWidths.Branch)
 	}
 	if wt.IsCurrent {
-		branch = lipgloss.NewStyle().Foreground(PrimaryColor).Bold(true).Render(branch)
+		branch = lipgloss.NewStyle().Foreground(shared.PrimaryColor).Bold(true).Render(branch)
 	}
 
 	status := p.buildStyledStatus(wt.Status, wt.Remote)
@@ -125,14 +126,14 @@ func (p *ListPresenter) buildStyledStatus(status git.WorktreeStatus, remote git.
 
 	var result string
 	if statusInfo.IsClean {
-		result = lipgloss.NewStyle().Foreground(SuccessColor).Bold(true).Render(statusInfo.Symbol)
+		result = lipgloss.NewStyle().Foreground(shared.SuccessColor).Bold(true).Render(statusInfo.Symbol)
 	} else {
-		warning := lipgloss.NewStyle().Foreground(WarningColor).Bold(true).Render(statusInfo.Symbol)
+		warning := lipgloss.NewStyle().Foreground(shared.WarningColor).Bold(true).Render(statusInfo.Symbol)
 		result = warning + " " + statusInfo.CountsText
 	}
 
 	if statusInfo.RemoteText != "" {
-		remoteStyled := lipgloss.NewStyle().Foreground(MutedColor).Render(" " + statusInfo.RemoteText)
+		remoteStyled := lipgloss.NewStyle().Foreground(shared.MutedColor).Render(" " + statusInfo.RemoteText)
 		result += remoteStyled
 	}
 
@@ -144,13 +145,13 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 
 	// Reserve space for table borders and padding.
 	// Marker(1) + borders(6) + padding(5*2) = 17 characters minimum.
-	minTableWidth := MinTableWidth
+	minTableWidth := shared.MinTableWidth
 	if verbose {
-		minTableWidth = MinTableWidthVerbose
+		minTableWidth = shared.MinTableWidthVerbose
 	}
 
 	availableWidth := terminalWidth - minTableWidth
-	if availableWidth < MinAvailableWidth {
+	if availableWidth < shared.MinAvailableWidth {
 		return ColumnWidths{}
 	}
 
@@ -177,8 +178,8 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	// Fixed widths for status and activity columns.
-	statusWidth := StatusColumnWidth     // STATUS column needs space for symbols and counts.
-	activityWidth := ActivityColumnWidth // ACTIVITY column ("2d ago", etc).
+	statusWidth := shared.StatusColumnWidth     // STATUS column needs space for symbols and counts.
+	activityWidth := shared.ActivityColumnWidth // ACTIVITY column ("2d ago", etc).
 	reservedWidth := statusWidth + activityWidth
 
 	if verbose {
@@ -186,35 +187,35 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 	}
 
 	flexibleWidth := availableWidth - reservedWidth
-	if flexibleWidth < MinFlexibleWidth {
+	if flexibleWidth < shared.MinFlexibleWidth {
 		return ColumnWidths{}
 	}
 
 	// Distribute flexible width between worktree and branch columns.
-	worktreeRatio := WorktreeColumnRatio // 40% for worktree names.
-	branchRatio := BranchColumnRatio     // 60% for branch names (often longer).
+	worktreeRatio := shared.WorktreeColumnRatio // 40% for worktree names.
+	branchRatio := shared.BranchColumnRatio     // 60% for branch names (often longer).
 
 	worktreeWidth := int(float64(flexibleWidth) * worktreeRatio)
 	branchWidth := int(float64(flexibleWidth) * branchRatio)
 
-	if worktreeWidth < MinWorktreeWidth {
-		worktreeWidth = MinWorktreeWidth
+	if worktreeWidth < shared.MinWorktreeWidth {
+		worktreeWidth = shared.MinWorktreeWidth
 	}
-	if branchWidth < MinBranchWidth {
-		branchWidth = MinBranchWidth
+	if branchWidth < shared.MinBranchWidth {
+		branchWidth = shared.MinBranchWidth
 	}
 
 	// Don't truncate if natural width is reasonable.
-	if maxWorktreeWidth <= worktreeWidth+TruncationTolerance {
+	if maxWorktreeWidth <= worktreeWidth+shared.TruncationTolerance {
 		worktreeWidth = 0
 	}
-	if maxBranchWidth <= branchWidth+TruncationTolerance {
+	if maxBranchWidth <= branchWidth+shared.TruncationTolerance {
 		branchWidth = 0
 	}
 
 	pathWidth := 0
-	if verbose && maxPathWidth > DefaultPathColumnWidth {
-		pathWidth = DefaultPathColumnWidth
+	if verbose && maxPathWidth > shared.DefaultPathColumnWidth {
+		pathWidth = shared.DefaultPathColumnWidth
 	}
 
 	return ColumnWidths{
@@ -227,11 +228,11 @@ func (p *ListPresenter) calculateColumnWidths(worktrees []git.WorktreeInfo, verb
 }
 
 func (p *ListPresenter) displayTable(headers []string, rows [][]string) {
-	headerStyle := lipgloss.NewStyle().Foreground(HeaderColor).Bold(false)
+	headerStyle := lipgloss.NewStyle().Foreground(shared.HeaderColor).Bold(false)
 
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(lipgloss.NewStyle().Foreground(MutedColor)).
+		BorderStyle(lipgloss.NewStyle().Foreground(shared.MutedColor)).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
 				return headerStyle

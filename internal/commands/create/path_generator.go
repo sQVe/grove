@@ -19,24 +19,54 @@ var (
 	homeDirOnce sync.Once
 )
 
-const (
-	// maxCollisionAttempts defines the limit for collision resolution attempts
-	maxCollisionAttempts = 999
+// PathGeneratorConfig defines configurable parameters for path generation
+type PathGeneratorConfig struct {
+	// MaxCollisionAttempts defines the limit for collision resolution attempts
+	MaxCollisionAttempts int
 
-	// maxPathLength defines the maximum allowed path length
+	// MaxPathLength defines the maximum allowed path length
 	// 4096 bytes is conservative and works across most filesystems:
 	// - Linux ext4: 4096 bytes for path, 255 bytes for filename
 	// - macOS HFS+/APFS: ~1024 bytes practical limit
 	// - Windows NTFS: 32,767 characters (much higher)
-	// This can be made configurable in the future if needed
-	maxPathLength = 4096
-)
+	MaxPathLength int
 
-// commonCollisionNumbers defines the small numbers to try first for collision resolution
-// These are most likely to be available and provide good performance for typical use cases
-var commonCollisionNumbers = []int{1, 2, 3, 4, 5}
+	// CommonCollisionNumbers defines the small numbers to try first for collision resolution
+	// These are most likely to be available and provide good performance for typical use cases
+	CommonCollisionNumbers []int
+}
 
-type pathGenerator struct{}
+// DefaultPathGeneratorConfig returns the default configuration
+func DefaultPathGeneratorConfig() PathGeneratorConfig {
+	return PathGeneratorConfig{
+		MaxCollisionAttempts:   999,
+		MaxPathLength:          4096,
+		CommonCollisionNumbers: []int{1, 2, 3, 4, 5},
+	}
+}
+
+// getConfigFromViper loads configuration from Viper with defaults
+func getConfigFromViper() PathGeneratorConfig {
+	config := DefaultPathGeneratorConfig()
+
+	if viper.IsSet("path_generator.max_collision_attempts") {
+		config.MaxCollisionAttempts = viper.GetInt("path_generator.max_collision_attempts")
+	}
+
+	if viper.IsSet("path_generator.max_path_length") {
+		config.MaxPathLength = viper.GetInt("path_generator.max_path_length")
+	}
+
+	if viper.IsSet("path_generator.common_collision_numbers") {
+		config.CommonCollisionNumbers = viper.GetIntSlice("path_generator.common_collision_numbers")
+	}
+
+	return config
+}
+
+type pathGenerator struct {
+	config PathGeneratorConfig
+}
 
 // getHomeDir returns the cached home directory or retrieves it once
 func getHomeDir() (string, error) {
@@ -55,7 +85,9 @@ func resetHomeDirCache() {
 }
 
 func NewPathGenerator() PathGenerator {
-	return &pathGenerator{}
+	return &pathGenerator{
+		config: getConfigFromViper(),
+	}
 }
 
 // ResolveUserPath resolves a user-provided path against the configured base path
@@ -64,11 +96,11 @@ func (pg *pathGenerator) ResolveUserPath(userPath string) (string, error) {
 	if userPath == "" {
 		return "", fmt.Errorf("user path cannot be empty")
 	}
-	
+
 	if filepath.IsAbs(userPath) {
 		return userPath, nil
 	}
-	
+
 	// For relative paths, resolve against the configured base path (bare root)
 	configuredBase := pg.getConfiguredBasePath()
 	return filepath.Join(configuredBase, userPath), nil
@@ -204,28 +236,29 @@ func (pg *pathGenerator) getGitRepositoryRoot() (string, error) {
 // Finds an available path by appending numeric suffixes if the original exists.
 // Uses an optimized collision resolution strategy that reduces filesystem operations
 // by intelligently searching for gaps rather than sequential checking.
-// Note: This function only checks for existence and doesn't create directories to avoid race conditions.
-// The caller must handle atomic directory creation using the returned path.
+// Uses atomic operations to prevent race conditions between path checking and creation.
 func (pg *pathGenerator) resolveCollisions(basePath string) (string, error) {
-	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+	// Try atomic creation of the base path first
+	if err := pg.tryAtomicPathCreation(basePath); err == nil {
 		return basePath, nil
-	} else if err != nil {
+	} else if !os.IsExist(err) {
+		// If error is not "already exists", it's a real failure
 		return "", &errors.GroveError{
 			Code:    errors.ErrCodeFileSystem,
-			Message: "failed to check path existence",
+			Message: "failed to check path availability",
 			Cause:   err,
 			Context: map[string]interface{}{
 				"path": basePath,
 			},
-			Operation: "path_existence_check",
+			Operation: "atomic_path_check",
 		}
 	}
 
 	dir := filepath.Dir(basePath)
 	name := filepath.Base(basePath)
 
-	// Optimized collision resolution: try common patterns first, then search gaps
-	result, err := pg.findNextAvailablePath(dir, name)
+	// Base path exists, find alternative using atomic operations
+	result, err := pg.findNextAvailablePathAtomic(dir, name)
 	if err != nil {
 		return "", &errors.GroveError{
 			Code:    errors.ErrCodeFileSystem,
@@ -241,10 +274,10 @@ func (pg *pathGenerator) resolveCollisions(basePath string) (string, error) {
 	if result == "" {
 		return "", &errors.GroveError{
 			Code:    errors.ErrCodeFileSystem,
-			Message: fmt.Sprintf("unable to find unique path after %d attempts", maxCollisionAttempts),
+			Message: fmt.Sprintf("unable to find unique path after %d attempts", pg.config.MaxCollisionAttempts),
 			Context: map[string]interface{}{
 				"base_path": basePath,
-				"attempts":  maxCollisionAttempts,
+				"attempts":  pg.config.MaxCollisionAttempts,
 			},
 			Operation: "collision_resolution",
 		}
@@ -253,64 +286,56 @@ func (pg *pathGenerator) resolveCollisions(basePath string) (string, error) {
 	return result, nil
 }
 
-// findNextAvailablePath uses an optimized strategy to find available paths
-// First tries common small numbers, then searches for gaps in larger numbers
-func (pg *pathGenerator) findNextAvailablePath(dir, name string) (string, error) {
+// tryAtomicPathCreation attempts to atomically create a directory, returning error if it exists
+func (pg *pathGenerator) tryAtomicPathCreation(path string) error {
+	// Create parent directory first if needed
+	parentDir := filepath.Dir(path)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return err
+	}
+
+	// Try to create the target directory atomically
+	return os.Mkdir(path, 0o755)
+}
+
+// findNextAvailablePathAtomic uses atomic operations to find and reserve the next available path
+func (pg *pathGenerator) findNextAvailablePathAtomic(dir, name string) (string, error) {
 	// First, try common small numbers (most likely to be available)
-	for _, num := range commonCollisionNumbers {
+	for _, num := range pg.config.CommonCollisionNumbers {
 		candidateName := fmt.Sprintf("%s-%d", name, num)
 		candidatePath := filepath.Join(dir, candidateName)
 
-		exists, err := pg.pathExists(candidatePath)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
+		if err := pg.tryAtomicPathCreation(candidatePath); err == nil {
 			return candidatePath, nil
+		} else if !os.IsExist(err) {
+			// Real error, not just "already exists"
+			return "", err
 		}
 	}
 
 	// If common numbers are taken, search sequentially in the remaining range
-	// Start from the number after the last common collision number
-	nextNumber := commonCollisionNumbers[len(commonCollisionNumbers)-1] + 1
-	return pg.findAvailablePathInRange(dir, name, nextNumber, maxCollisionAttempts)
+	nextNumber := 1 // Default starting point
+	if len(pg.config.CommonCollisionNumbers) > 0 {
+		nextNumber = pg.config.CommonCollisionNumbers[len(pg.config.CommonCollisionNumbers)-1] + 1
+	}
+	return pg.findAvailablePathInRangeAtomic(dir, name, nextNumber, pg.config.MaxCollisionAttempts)
 }
 
-// findAvailablePathInRange searches for available paths within a numeric range
-// Uses sequential search within the specified range to find the first available path
-func (pg *pathGenerator) findAvailablePathInRange(dir, name string, start, end int) (string, error) {
+// findAvailablePathInRangeAtomic searches for available paths within a numeric range using atomic operations
+func (pg *pathGenerator) findAvailablePathInRangeAtomic(dir, name string, start, end int) (string, error) {
 	for i := start; i <= end; i++ {
 		candidateName := fmt.Sprintf("%s-%d", name, i)
 		candidatePath := filepath.Join(dir, candidateName)
 
-		exists, err := pg.pathExists(candidatePath)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
+		if err := pg.tryAtomicPathCreation(candidatePath); err == nil {
 			return candidatePath, nil
+		} else if !os.IsExist(err) {
+			// Real error, not just "already exists"
+			return "", err
 		}
 	}
 
 	return "", nil // No available path found in range
-}
-
-// pathExists checks if a path exists with proper error handling
-func (pg *pathGenerator) pathExists(path string) (bool, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false, nil
-	} else if err != nil {
-		return false, &errors.GroveError{
-			Code:    errors.ErrCodeFileSystem,
-			Message: "failed to check path existence",
-			Cause:   err,
-			Context: map[string]interface{}{
-				"path": path,
-			},
-			Operation: "path_existence_check",
-		}
-	}
-	return true, nil
 }
 
 func (pg *pathGenerator) validatePath(path string) error {
@@ -393,14 +418,14 @@ func (pg *pathGenerator) validatePathSecurity(path string) error {
 	}
 
 	// Check for excessively long paths
-	if len(path) > maxPathLength {
+	if len(path) > pg.config.MaxPathLength {
 		return &errors.GroveError{
 			Code:    errors.ErrCodeFileSystem,
 			Message: "path exceeds maximum length",
 			Context: map[string]interface{}{
 				"path":       path,
 				"length":     len(path),
-				"max_length": maxPathLength,
+				"max_length": pg.config.MaxPathLength,
 			},
 			Operation: "path_security_validation",
 		}
@@ -494,13 +519,14 @@ func (pg *pathGenerator) validateWritePermissions(dir string) error {
 		return fmt.Errorf("cannot write to directory: %w", err)
 	}
 
-	// Clean up immediately
-	if closeErr := file.Close(); closeErr != nil {
-		logger.Debug("failed to close temp file", "file", tempFile, "error", closeErr)
-	}
-	if removeErr := os.Remove(tempFile); removeErr != nil {
-		logger.Debug("failed to remove temp file", "file", tempFile, "error", removeErr)
-	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Debug("failed to close temp file", "file", tempFile, "error", closeErr)
+		}
+		if removeErr := os.Remove(tempFile); removeErr != nil {
+			logger.Debug("failed to remove temp file", "file", tempFile, "error", removeErr)
+		}
+	}()
 
 	return nil
 }

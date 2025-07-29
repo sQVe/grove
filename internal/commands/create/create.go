@@ -1,4 +1,4 @@
-package commands
+package create
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/sqve/grove/internal/commands/create"
 	"github.com/sqve/grove/internal/git"
 )
 
@@ -63,7 +62,7 @@ func startProgress(message string) *progressIndicator {
 	return p
 }
 
-func displaySuccess(result *create.CreateResult) {
+func displaySuccess(result *CreateResult) {
 	fmt.Println()
 
 	// Main success message.
@@ -147,7 +146,7 @@ By default, files are copied from the base branch's worktree when --base is spec
 or from the default branch worktree otherwise. Use --no-copy to disable, --copy-env for quick 
 environment setup, or --copy with custom patterns for specific files.`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if err := create.ValidateCreateArgs(args); err != nil {
+			if err := ValidateCreateArgs(args); err != nil {
 				return err
 			}
 
@@ -155,10 +154,10 @@ environment setup, or --copy with custom patterns for specific files.`,
 			copyEnv, _ := cmd.Flags().GetBool("copy-env")
 			copyPatterns, _ := cmd.Flags().GetString("copy")
 
-			return create.ValidateFlags(noCopy, copyEnv, copyPatterns)
+			return ValidateFlags(noCopy, copyEnv, copyPatterns)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			options, err := create.ParseCreateOptions(cmd, args)
+			options, err := ParseCreateOptions(cmd, args)
 			if err != nil {
 				return err
 			}
@@ -177,11 +176,11 @@ environment setup, or --copy with custom patterns for specific files.`,
 			}
 
 			// Create service with dependencies.
-			service := create.NewCreateService(
-				create.NewBranchResolver(git.DefaultExecutor),
-				create.NewPathGenerator(),
-				create.NewWorktreeCreator(git.DefaultExecutor),
-				create.NewFileManager(git.DefaultExecutor),
+			service := NewCreateService(
+				NewBranchResolver(git.DefaultExecutor),
+				NewPathGenerator(),
+				NewWorktreeCreator(git.DefaultExecutor),
+				NewFileManager(git.DefaultExecutor),
 			)
 
 			// Execute the create operation.
@@ -221,7 +220,7 @@ environment setup, or --copy with custom patterns for specific files.`,
 	cmd.Flags().String("copy", "", "Comma-separated glob patterns to copy (supports .env*,.vscode/,.idea/ etc.)")
 	cmd.Flags().Bool("no-copy", false, "Skip all file copying (overrides config and other copy flags)")
 
-	create.RegisterCreateCompletion(cmd)
+	RegisterCreateCompletion(cmd)
 
 	return cmd
 }

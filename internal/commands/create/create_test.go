@@ -1,15 +1,29 @@
 //go:build !integration
 // +build !integration
 
-package commands
+package create
 
 import (
 	"bytes"
+	"crypto/rand"
+	"fmt"
+	"math/big"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// generateUniqueBranchName creates a unique branch name using timestamp and random suffix
+func generateUniqueBranchName(prefix string) string {
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	random, _ := rand.Int(rand.Reader, big.NewInt(10000))
+	return fmt.Sprintf("%s-%d-%d", prefix, timestamp, random.Int64())
+}
 
 func TestNewCreateCmd_BasicStructure(t *testing.T) {
 	cmd := NewCreateCmd()
@@ -282,37 +296,83 @@ func TestNewCreateCmd_HelpText_ContainsFilePatterns(t *testing.T) {
 }
 
 func TestNewCreateCmd_RunE_PlaceholderImplementation(t *testing.T) {
-	cmd := NewCreateCmd()
-	cmd.SetArgs([]string{"feature-branch"})
+	// Set up isolated test environment
+	testDir, cleanup := testutils.SetupTestEnvironment(t, "create-cmd-test-")
+	defer cleanup.Run()
 
-	// The command should execute successfully in this test environment
-	// since it creates a real worktree. We're testing that the command structure
-	// and implementation work correctly.
-	err := cmd.Execute()
+	// Change to test directory
+	testutils.WithWorkingDirectory(t, testDir.Path, func() {
+		// Initialize a git repository for the test
+		gitExec := git.DefaultExecutor
+		_, err := gitExec.Execute("init")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "user.name", "Test User")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "user.email", "test@example.com")
+		require.NoError(t, err)
 
-	// The command should succeed - if it fails, that's a real issue
-	require.NoError(t, err, "Create command should execute successfully")
+		// Create initial commit
+		require.NoError(t, os.WriteFile("README.md", []byte("# Test"), 0o644))
+		_, err = gitExec.Execute("add", "README.md")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("commit", "-m", "Initial commit")
+		require.NoError(t, err)
+
+		// Generate unique branch name
+		uniqueBranch := generateUniqueBranchName("test-feature")
+
+		cmd := NewCreateCmd()
+		cmd.SetArgs([]string{uniqueBranch})
+
+		// The command should execute successfully in this test environment
+		err = cmd.Execute()
+
+		// The command should succeed - if it fails, that's a real issue
+		require.NoError(t, err, "Create command should execute successfully")
+	})
 }
 
 func TestNewCreateCmd_RunE_WithPath(t *testing.T) {
-	cmd := NewCreateCmd()
-	cmd.SetArgs([]string{"feature-branch", "./custom-path"})
+	// Set up isolated test environment
+	testDir, cleanup := testutils.SetupTestEnvironment(t, "create-cmd-path-test-")
+	defer cleanup.Run()
 
-	// Capture output.
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
+	// Change to test directory
+	testutils.WithWorkingDirectory(t, testDir.Path, func() {
+		// Initialize a git repository for the test
+		gitExec := git.DefaultExecutor
+		_, err := gitExec.Execute("init")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "user.name", "Test User")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "user.email", "test@example.com")
+		require.NoError(t, err)
 
-	err := cmd.Execute()
-	// The command will likely fail in test environment due to git operations
-	// but that's expected - we're testing the structure, not the implementation
-	if err != nil {
-		// Test passes if error is expected due to test environment
-		return
-	}
+		// Create initial commit
+		require.NoError(t, os.WriteFile("README.md", []byte("# Test"), 0o644))
+		_, err = gitExec.Execute("add", "README.md")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("commit", "-m", "Initial commit")
+		require.NoError(t, err)
 
-	// If it somehow succeeds, check for success output
-	output := buf.String()
-	assert.Contains(t, output, "Worktree created successfully!")
+		// Generate unique branch name
+		uniqueBranch := generateUniqueBranchName("test-feature")
+
+		cmd := NewCreateCmd()
+		cmd.SetArgs([]string{uniqueBranch, "./custom-path"})
+
+		// Capture both stdout and stderr
+		buf := new(bytes.Buffer)
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+
+		err = cmd.Execute()
+		// The command should succeed in our isolated test environment
+		require.NoError(t, err, "Create command with custom path should execute successfully")
+
+		// Check for success output - The command prints to stdout directly, not through the cmd output
+		// So we just verify that the command executed successfully without errors
+	})
 }
 
 func TestNewCreateCmd_FlagParsing_BoolFlags(t *testing.T) {

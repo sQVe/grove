@@ -40,16 +40,10 @@ func ValidateURL(input string) error {
 		return errors.ErrInvalidURL(input, "missing host")
 	}
 
-	// Check if the host is supported using exact matching to prevent subdomain attacks.
 	hostSupported := supportedHostsMap[parsed.Host]
 	if !hostSupported {
-		// Also check for subdomains of supported hosts (e.g., api.github.com).
-		for host := range supportedHostsMap {
-			if strings.HasSuffix(parsed.Host, "."+host) {
-				hostSupported = true
-				break
-			}
-		}
+		// Check for valid subdomains (e.g., api.github.com).
+		hostSupported = isValidSubdomain(parsed.Host, supportedHostsMap)
 	}
 
 	if !hostSupported {
@@ -58,4 +52,43 @@ func ValidateURL(input string) error {
 	}
 
 	return nil
+}
+
+// Prevents subdomain spoofing attacks like evil.github.com.badsite.com by validating domain hierarchy.
+func isValidSubdomain(host string, supportedHosts map[string]bool) bool {
+	hostParts := strings.Split(host, ".")
+	if len(hostParts) < 2 {
+		return false
+	}
+
+	for supportedHost := range supportedHosts {
+		supportedParts := strings.Split(supportedHost, ".")
+
+		if len(hostParts) <= len(supportedParts) {
+			continue
+		}
+
+		// Validate suffix matches exactly (e.g., "api.github.com" ends with "github.com").
+		hostSuffix := hostParts[len(hostParts)-len(supportedParts):]
+		isMatch := true
+		for i, part := range supportedParts {
+			if hostSuffix[i] != part {
+				isMatch = false
+				break
+			}
+		}
+
+		if isMatch {
+			// Reject malformed subdomains (empty parts, leading/trailing hyphens).
+			subdomainParts := hostParts[:len(hostParts)-len(supportedParts)]
+			for _, part := range subdomainParts {
+				if part == "" || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
+					return false
+				}
+			}
+			return true
+		}
+	}
+
+	return false
 }

@@ -54,6 +54,10 @@ type Config struct {
 		PromptForNewBranch bool   `mapstructure:"prompt_for_new_branch"`
 		AutoCreateParents  bool   `mapstructure:"auto_create_parents"`
 	} `mapstructure:"create"`
+
+	Errors struct {
+		MaxContextEntries int `mapstructure:"max_context_entries"`
+	} `mapstructure:"errors"`
 }
 
 type CopyFilesConfig struct {

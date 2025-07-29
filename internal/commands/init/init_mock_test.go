@@ -1,7 +1,7 @@
 //go:build !integration
 // +build !integration
 
-package commands
+package init
 
 import (
 	"fmt"

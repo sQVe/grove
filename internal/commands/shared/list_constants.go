@@ -1,10 +1,9 @@
-package commands
+package shared
 
 import "github.com/charmbracelet/lipgloss"
 
 const (
-	DefaultStaleDays  = 30
-	DefaultSortOption = SortByActivity
+	DefaultStaleDays = 30
 )
 
 const (

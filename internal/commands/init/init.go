@@ -1,4 +1,4 @@
-package commands
+package init
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/commands/shared"
 	"github.com/sqve/grove/internal/errors"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
@@ -239,7 +240,7 @@ func runInitLocal(targetDir string) error {
 }
 
 func runInitRemote(repoURL, branches string) error {
-	return RunInitRemoteWithExecutor(DefaultExecutorProvider.GetExecutor(), repoURL, branches)
+	return RunInitRemoteWithExecutor(shared.DefaultExecutorProvider.GetExecutor(), repoURL, branches)
 }
 
 func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches string) error {
@@ -363,7 +364,7 @@ func printSuccessMessage(targetDir, bareDir string) {
 }
 
 func runInitConvert() error {
-	return runInitConvertWithExecutor(DefaultExecutorProvider.GetExecutor())
+	return runInitConvertWithExecutor(shared.DefaultExecutorProvider.GetExecutor())
 }
 
 func runInitConvertWithExecutor(executor git.GitExecutor) error {

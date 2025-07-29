@@ -134,7 +134,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 }
 
 func TestPathGenerator_ValidatePath(t *testing.T) {
-	pg := &pathGenerator{}
+	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
 
 	t.Run("accepts valid absolute path", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -186,7 +186,7 @@ func TestPathGenerator_ValidatePath(t *testing.T) {
 }
 
 func TestPathGenerator_ResolveCollisions(t *testing.T) {
-	pg := &pathGenerator{}
+	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
 
 	t.Run("returns original path when no collision", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -275,7 +275,7 @@ func TestExpandHomePath(t *testing.T) {
 
 // Performance benchmarks for collision resolution
 func BenchmarkCollisionResolution(b *testing.B) {
-	pg := &pathGenerator{}
+	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
 
 	b.Run("NoCollisions", func(b *testing.B) {
 		tempDir := b.TempDir()
