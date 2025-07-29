@@ -17,9 +17,10 @@ type MockGitExecutor struct {
 	Commands      [][]string
 	Responses     map[string]MockResponse
 	CallCount     int
-	responses     map[string]MockResponse  // Legacy support for simple string responses.
-	delays        map[string]time.Duration // Simulation of command execution delays.
-	regexPatterns []RegexPattern           // Flexible command matching via regex patterns.
+	responses     map[string]MockResponse    // Legacy support for simple string responses.
+	delays        map[string]time.Duration   // Simulation of command execution delays.
+	regexPatterns []RegexPattern             // Flexible command matching via regex patterns.
+	contexts      map[string]context.Context // Track contexts for cancellation testing
 }
 
 type RegexPattern struct {
@@ -40,6 +41,7 @@ func NewMockGitExecutor() *MockGitExecutor {
 		responses:     make(map[string]MockResponse),
 		delays:        make(map[string]time.Duration),
 		regexPatterns: []RegexPattern{},
+		contexts:      make(map[string]context.Context),
 	}
 }
 
@@ -53,11 +55,24 @@ func (m *MockGitExecutor) ExecuteQuiet(args ...string) (string, error) {
 }
 
 func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	cmdKey := strings.Join(args, " ")
+	m.contexts[cmdKey] = ctx
+
 	// Check if context is cancelled before execution.
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	default:
+	}
+
+	// Simulate delay if set for this command, respecting context cancellation
+	if delay, exists := m.delays[cmdKey]; exists {
+		select {
+		case <-time.After(delay):
+			// Continue with execution
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
 	}
 
 	return m.executeInternal(args)
@@ -145,6 +160,12 @@ func (m *MockGitExecutor) SetErrorResponseWithMessage(command, errMsg string) {
 }
 
 func (m *MockGitExecutor) SetDelay(command string, delay time.Duration) {
+	m.delays[command] = delay
+}
+
+// SetDelayedResponse sets a response with a delay for testing context cancellation
+func (m *MockGitExecutor) SetDelayedResponse(command, output string, err error, delay time.Duration) {
+	m.responses[command] = MockResponse{Output: output, Error: err}
 	m.delays[command] = delay
 }
 
