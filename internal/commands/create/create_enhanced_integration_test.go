@@ -22,7 +22,7 @@ func setupTestRepositoryForCreate(t *testing.T) (string, func()) {
 	t.Helper()
 
 	tempDir := testutils.NewTestDirectory(t, "grove-create-enhanced-test")
-	
+
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -144,14 +144,14 @@ func TestCreateCommand_FileCopying_Integration(t *testing.T) {
 
 	// Create files that should be copied
 	files := map[string]string{
-		".env":                    "NODE_ENV=development",
-		".env.local":             "LOCAL_VAR=local_value",
-		".env.example":           "NODE_ENV=production",
+		".env":                        "NODE_ENV=development",
+		".env.local":                  "LOCAL_VAR=local_value",
+		".env.example":                "NODE_ENV=production",
 		"docker-compose.override.yml": "version: '3'\nservices:\n  app:\n    volumes:\n      - .:/app",
-		".vscode/settings.json":  `{"editor.tabSize": 2}`,
-		".idea/workspace.xml":    `<workspace></workspace>`,
-		"regular-file.txt":       "regular content",
-		".gitignore.local":       "*.local",
+		".vscode/settings.json":       `{"editor.tabSize": 2}`,
+		".idea/workspace.xml":         `<workspace></workspace>`,
+		"regular-file.txt":            "regular content",
+		".gitignore.local":            "*.local",
 	}
 
 	for filename, content := range files {
@@ -169,9 +169,9 @@ func TestCreateCommand_FileCopying_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name         string
-		args         []string
-		expectFiles  []string
+		name           string
+		args           []string
+		expectFiles    []string
 		expectNotFiles []string
 	}{
 		{
@@ -179,7 +179,7 @@ func TestCreateCommand_FileCopying_Integration(t *testing.T) {
 			args: []string{generateUniqueBranchNameEnhanced("test-copy-env"), "--copy-env"},
 			expectFiles: []string{
 				".env",
-				".env.local", 
+				".env.local",
 				".env.example",
 				"docker-compose.override.yml",
 			},

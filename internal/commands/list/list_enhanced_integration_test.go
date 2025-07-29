@@ -21,7 +21,7 @@ func setupTestRepositoryWithWorktrees(t *testing.T) (string, func()) {
 	t.Helper()
 
 	tempDir := testutils.NewTestDirectory(t, "grove-list-enhanced-test")
-	
+
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -261,7 +261,7 @@ func TestListCommand_FilterOptions_Integration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.check(t, &tt.options)
 			assert.NoError(t, err)
-			
+
 			// Verify the dirty worktree exists for comparison
 			assert.DirExists(t, dirtyWorktree)
 		})
@@ -569,7 +569,7 @@ func TestListCommand_StatusIndicators_Integration(t *testing.T) {
 
 	// Create worktrees with different git states
 	createWorktreeWithState(t, repoDir, "clean-status", "clean")
-	createWorktreeWithState(t, repoDir, "dirty-status", "dirty") 
+	createWorktreeWithState(t, repoDir, "dirty-status", "dirty")
 
 	options := &ListOptions{
 		Sort: SortByActivity,

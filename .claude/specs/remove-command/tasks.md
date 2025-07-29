@@ -22,7 +22,7 @@ All tasks follow established conventions:
 
 ## Tasks
 
-- [ ]   1. Create remove command structure and interfaces
+- [x]   1. Create remove command structure and interfaces
     - Create `/internal/commands/remove/` directory
     - Define core interfaces for RemoveService, SafetyChecker, BranchManager
     - Create remove command entry point with basic Cobra structure
@@ -30,7 +30,7 @@ All tasks follow established conventions:
     - _Leverage: internal/commands/create/create.go, internal/commands/list/list.go, cmd/grove/main.go_
     - _Requirements: 1.1, 5.1_
 
-- [ ]   2. Implement data models and options structures
+- [x]   2. Implement data models and options structures
     - Define RemoveOptions, BulkCriteria, SafetyReport data structures
     - Create BranchSafetyStatus, RemoveResults, RemoveSkip, RemoveFailure structs
     - Add validation methods for all option structures
@@ -38,7 +38,7 @@ All tasks follow established conventions:
     - _Leverage: internal/commands/create/options.go, internal/git/worktree.go (WorktreeInfo struct)_
     - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1_
 
-- [ ]   3. Create safety validation system
+- [x]   3. Create safety validation system
     - Build SafetyChecker component with uncommitted change detection
     - Implement current worktree validation (prevent removing active worktree)
     - Add path validation and existence checking
@@ -47,7 +47,7 @@ All tasks follow established conventions:
     - _Leverage: internal/git/worktree.go (getWorktreeStatus, getCurrentWorktreePath), internal/validation/filesystem.go_
     - _Requirements: 1.1, 1.2, 1.4, 5.1, 5.2_
 
-- [ ]   4. Implement intelligent branch safety logic
+- [x]   4. Implement intelligent branch safety logic
     - Create BranchManager with smart branch deletion logic
     - Implement automatic deletion for merged branches and pushed branches
     - Add confirmation prompts for unmerged, unpushed branches
@@ -56,7 +56,7 @@ All tasks follow established conventions:
     - _Leverage: internal/git/worktree.go (getRemoteStatus, RemoteStatus struct), internal/git/operations.go_
     - _Requirements: 4.2, 4.3, 4.4, 4.5_
 
-- [ ]   5. Build core remove service implementation
+- [x]   5. Build core remove service implementation
     - Create RemoveService with single worktree removal logic
     - Implement dry-run functionality with detailed previews
     - Add force removal with comprehensive safety bypasses
@@ -66,7 +66,7 @@ All tasks follow established conventions:
     - _Leverage: internal/git/worktree.go (RemoveWorktree function), internal/commands/shared/executor.go_
     - _Requirements: 1.1, 1.3, 1.5, 2.1, 2.3_
 
-- [ ]   6. Implement bulk removal operations
+- [x]   6. Implement bulk removal operations
     - Add merged worktree identification and removal
     - Create stale worktree detection based on last activity timestamps
     - Implement bulk removal with progress reporting and summaries
@@ -75,7 +75,7 @@ All tasks follow established conventions:
     - _Leverage: internal/git/worktree.go (ListWorktrees, WorktreeInfo.LastActivity, RemoteStatus.IsMerged)_
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ]   7. Create CLI command interface and flag handling
+- [x]   7. Create CLI command interface and flag handling
     - Implement main remove command with comprehensive flag support
     - Add --force, --dry-run, --delete-branch, --merged, --stale, --all flags
     - Create input validation and path resolution
@@ -84,7 +84,7 @@ All tasks follow established conventions:
     - _Leverage: internal/commands/create/create.go (flag patterns), internal/completion/worktree.go_
     - _Requirements: 1.1, 2.1, 3.1, 4.1_
 
-- [ ]   8. Implement comprehensive error handling
+- [x]   8. Implement comprehensive error handling
     - Create user-friendly error messages for all failure scenarios
     - Add specific error handling for permissions, not found, current worktree
     - Implement partial failure reporting for bulk operations
@@ -93,7 +93,7 @@ All tasks follow established conventions:
     - _Leverage: internal/errors/errors.go, internal/validation/error_enhancer.go_
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ]   9. Add result presentation and user feedback
+- [x]   9. Add result presentation and user feedback
     - Create clear success/failure messaging with operation summaries
     - Implement progress indicators for bulk operations
     - Add detailed dry-run output with action previews

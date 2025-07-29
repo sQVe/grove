@@ -5,6 +5,7 @@ import (
 	"github.com/sqve/grove/internal/commands/create"
 	initcmd "github.com/sqve/grove/internal/commands/init"
 	"github.com/sqve/grove/internal/commands/list"
+	"github.com/sqve/grove/internal/commands/remove"
 	"github.com/sqve/grove/internal/commands/shared"
 )
 
@@ -27,4 +28,9 @@ func NewInitCmd() *cobra.Command {
 // NewListCmd returns the list command.
 func NewListCmd() *cobra.Command {
 	return list.NewListCmd()
+}
+
+// NewRemoveCmd returns the remove command.
+func NewRemoveCmd() *cobra.Command {
+	return remove.NewRemoveCmd()
 }

@@ -209,7 +209,7 @@ func TestConfigCommand_Integration_Set(t *testing.T) {
 			} else {
 				assert.NoError(t, output.err)
 				assert.Contains(t, output.stdout, "Set "+tt.key)
-				
+
 				if tt.validate != nil {
 					tt.validate(t)
 				}
@@ -246,8 +246,8 @@ func TestConfigCommand_Integration_List(t *testing.T) {
 			format: "json",
 		},
 		{
-			name: "list with defaults flag",
-			args: []string{"list", "--defaults"},
+			name:   "list with defaults flag",
+			args:   []string{"list", "--defaults"},
 			format: "text",
 		},
 		{
@@ -256,8 +256,8 @@ func TestConfigCommand_Integration_List(t *testing.T) {
 			format: "json",
 		},
 		{
-			name: "list with custom values",
-			args: []string{"list"},
+			name:   "list with custom values",
+			args:   []string{"list"},
 			format: "text",
 			setup: func() {
 				config.Set("general.editor", "nano")
@@ -354,7 +354,7 @@ func TestConfigCommand_Integration_Validate(t *testing.T) {
 	t.Run("validate with custom valid config", func(t *testing.T) {
 		viper.Reset()
 		config.Initialize()
-		
+
 		config.Set("general.editor", "code")
 		config.Set("git.fetch_timeout", "60s")
 
@@ -379,7 +379,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 	t.Run("reset single key", func(t *testing.T) {
 		viper.Reset()
 		config.Initialize()
-		
+
 		// Set a custom value
 		config.Set("general.editor", "custom-editor")
 		assert.Equal(t, "custom-editor", config.GetString("general.editor"))
@@ -393,7 +393,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 
 		assert.NoError(t, output.err)
 		assert.Contains(t, output.stdout, "Reset general.editor to default value")
-		
+
 		// Should be back to default
 		defaultConfig := config.DefaultConfig()
 		assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
@@ -417,7 +417,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 	t.Run("reset all with confirm", func(t *testing.T) {
 		viper.Reset()
 		config.Initialize()
-		
+
 		// Set custom values
 		config.Set("general.editor", "custom1")
 		config.Set("git.fetch_timeout", "123s")
@@ -431,7 +431,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 
 		assert.NoError(t, output.err)
 		assert.Contains(t, output.stdout, "All configuration reset to defaults")
-		
+
 		// Should be back to defaults
 		defaultConfig := config.DefaultConfig()
 		assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
@@ -533,7 +533,7 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 
 func setupConfigTestEnvironment(t *testing.T, configDir string) {
 	t.Helper()
-	
+
 	// Set XDG_CONFIG_HOME to test directory
 	oldConfigHome := os.Getenv("XDG_CONFIG_HOME")
 	t.Cleanup(func() {
@@ -543,7 +543,7 @@ func setupConfigTestEnvironment(t *testing.T, configDir string) {
 			os.Unsetenv("XDG_CONFIG_HOME")
 		}
 	})
-	
+
 	os.Setenv("XDG_CONFIG_HOME", configDir)
 }
 
@@ -555,21 +555,21 @@ type commandOutput struct {
 
 func captureOutput(t *testing.T, fn func() error) commandOutput {
 	t.Helper()
-	
+
 	// Create a new command instance to capture its output
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
-	
+
 	stdoutR, stdoutW, _ := os.Pipe()
 	stderrR, stderrW, _ := os.Pipe()
-	
+
 	os.Stdout = stdoutW
 	os.Stderr = stderrW
-	
+
 	// Create channels to capture output
 	stdoutCh := make(chan string, 1)
 	stderrCh := make(chan string, 1)
-	
+
 	go func() {
 		buf := make([]byte, 1024)
 		var output strings.Builder
@@ -584,7 +584,7 @@ func captureOutput(t *testing.T, fn func() error) commandOutput {
 		}
 		stdoutCh <- output.String()
 	}()
-	
+
 	go func() {
 		buf := make([]byte, 1024)
 		var output strings.Builder
@@ -599,20 +599,20 @@ func captureOutput(t *testing.T, fn func() error) commandOutput {
 		}
 		stderrCh <- output.String()
 	}()
-	
+
 	// Execute the function
 	err := fn()
-	
+
 	// Restore original stdout/stderr
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
 	stdoutW.Close()
 	stderrW.Close()
-	
+
 	// Get captured output
 	stdout := <-stdoutCh
 	stderr := <-stderrCh
-	
+
 	return commandOutput{
 		stdout: stdout,
 		stderr: stderr,

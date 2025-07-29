@@ -97,7 +97,7 @@ func TestCreateCommand_Integration_NewBranchCreation(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("new-feature")
-	
+
 	branchResolver := NewBranchResolver(gitExec)
 	pathGenerator := NewPathGenerator()
 	worktreeCreator := NewWorktreeCreator(gitExec)
@@ -147,7 +147,7 @@ func TestCreateCommand_Integration_FileCopying(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("feature-with-files")
-	
+
 	branchResolver := NewBranchResolver(gitExec)
 	pathGenerator := NewPathGenerator()
 	worktreeCreator := NewWorktreeCreator(gitExec)
@@ -291,7 +291,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("feature-branch")
-	
+
 	// Create a directory that would conflict
 	// Use git.BranchToDirectoryName to match what the path generator will do
 	dirName := git.BranchToDirectoryName(uniqueBranch)
@@ -329,7 +329,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 
 	// Should contain a suffix like -2, -3, etc.
 	basename := filepath.Base(result.WorktreePath)
-	assert.True(t, strings.HasPrefix(basename, dirName+"-") || basename == dirName+"-1", 
+	assert.True(t, strings.HasPrefix(basename, dirName+"-") || basename == dirName+"-1",
 		"basename %s should have collision suffix starting with %s-", basename, dirName)
 	assert.NotEqual(t, dirName, basename)
 }
@@ -380,7 +380,7 @@ func TestCreateCommand_Integration_ConfigurationIntegration(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("config-test")
-	
+
 	branchResolver := NewBranchResolver(gitExec)
 	pathGenerator := NewPathGenerator()
 	worktreeCreator := NewWorktreeCreator(gitExec)
