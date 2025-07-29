@@ -5,5 +5,5 @@ repos:
           - id: golangci-lint
             name: golangci-lint
             description: Fast Multi-Linter for Go
-            args: [--fix]
+            args: [--fix, --new-from-rev=HEAD~1]
             alias: lint
