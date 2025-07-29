@@ -17,15 +17,19 @@ You are executing implementation tasks from the spec workflow.
 
 1. **Prerequisites**
    - Ensure tasks.md exists and is approved
-   - Load requirements.md, design.md, and tasks.md for context
-   - **Load all steering documents**: 
+   - Load the spec documents from `.claude/specs/{feature-name}/`:
+     - Load `.claude/specs/{feature-name}/requirements.md` for feature requirements
+     - Load `.claude/specs/{feature-name}/design.md` for technical design
+     - Load `.claude/specs/{feature-name}/tasks.md` for the complete task list
+   - **Load all steering documents** (if available): 
      - Load .claude/steering/product.md for product context
      - Load .claude/steering/tech.md for technical patterns
      - Load .claude/steering/structure.md for project conventions
    - Identify the specific task to execute
 
 2. **Process**
-   1. Load requirements.md, design.md, and tasks.md for context
+   1. Load spec documents from `.claude/specs/{feature-name}/` directory:
+      - Load requirements.md, design.md, and tasks.md for complete context
    2. Execute ONLY the specified task (never multiple tasks)
    3. Implement following existing code patterns and conventions
    4. Validate implementation against referenced requirements
@@ -81,6 +85,12 @@ If no task-id specified:
 - Look at tasks.md for the spec
 - Recommend the next pending task
 - Ask user to confirm before proceeding
+
+If no feature-name specified:
+- Check `.claude/specs/` directory for available specs
+- If only one spec exists, use it
+- If multiple specs exist, ask user which one to use
+- Display error if no specs are found
 
 ## Examples
 ```

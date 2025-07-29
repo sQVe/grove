@@ -16,26 +16,27 @@ This is Phase 2 of the spec workflow. Your goal is to create a comprehensive tec
 You are working on the design phase of the spec workflow.
 
 1. **Prerequisites**
-   - Ensure requirements.md exists and is approved
-   - Load the requirements document for context
-   - **Load steering documents**: 
+   - Ensure requirements.md exists and is approved in `.claude/specs/{feature-name}/`
+   - Load the requirements document from `.claude/specs/{feature-name}/requirements.md`
+   - **Load steering documents** (if available): 
      - Check for .claude/steering/tech.md for technical standards
      - Check for .claude/steering/structure.md for project conventions
      - Check for .claude/steering/product.md for product context
    - Research existing codebase patterns and architecture
 
-2. **Process**
-   1. Research existing codebase patterns and architecture
-   2. Create comprehensive design document including:
+2. **Design Creation Process**
+   1. **Read the design template**: Load `.claude/templates/design-template.md` and follow its exact structure
+   2. Research existing codebase patterns and architecture
+   3. Create comprehensive design document following the template including:
       - System overview and architecture
       - Component specifications and interfaces
       - Data models and validation rules
       - Error handling strategies
       - Testing approach
-   3. Include Mermaid diagrams for visual representation
-   4. Present complete design document
-   5. Ask: "Does the design look good? If so, we can move on to the implementation plan."
-   6. **CRITICAL**: Wait for explicit approval before proceeding
+   4. Include Mermaid diagrams for visual representation
+   5. Present complete design document following the template structure
+   6. Ask: "Does the design look good? If so, we can move on to the implementation planning phase."
+   7. **CRITICAL**: Wait for explicit approval before proceeding to the tasks phase
 
 3. **Codebase Research Phase** (MANDATORY)
    - **Map existing patterns**: Identify data models, API patterns, component structures that match your needs
@@ -62,69 +63,15 @@ You are working on the design phase of the spec workflow.
    - Present the complete design document
    - **Highlight code reuse**: Clearly show what existing code will be leveraged
    - **Show steering document alignment**: Note how design follows tech.md and structure.md
-   - Ask: "Does the design look good? If so, we can move on to the implementation plan."
+   - Ask: "Does the design look good? If so, we can move on to the implementation planning phase."
    - Incorporate feedback and revisions
    - Continue until explicit approval
    - **CRITICAL**: Do not proceed without explicit approval
 
-## Design Sections Required
-- Overview
-- Architecture (with Mermaid diagrams)
-- Components and Interfaces
-- Data Models
-- Error Handling
-- Testing Strategy
-
-## Design Structure
-```markdown
-# Design Document
-
-## Overview
-[High-level description of the feature and its place in the overall system]
-
-## Steering Document Alignment
-
-### Technical Standards (tech.md)
-[How the design follows documented technical patterns and standards]
-
-### Project Structure (structure.md)
-[How the implementation will follow project organization conventions]
-
-## Code Reuse Analysis
-[What existing code will be leveraged, extended, or integrated]
-
-## Architecture
-[Describe the overall architecture and design patterns used]
-
-```mermaid
-graph TD
-    A[Component A] --> B[Component B]
-    B --> C[Component C]
-```
-
-## Components and Interfaces
-
-### Component 1
-- **Purpose:** [What this component does]
-- **Interfaces:** [Public methods/APIs]
-- **Dependencies:** [What it depends on]
-- **Reuses:** [Existing components/utilities it builds upon]
-
-### Component 2
-- **Purpose:** [What this component does]
-- **Interfaces:** [Public methods/APIs]
-- **Dependencies:** [What it depends on]
-- **Reuses:** [Existing components/utilities it builds upon]
-
-## Data Models
-[Data structures following established patterns]
-
-## Error Handling
-[Error scenarios consistent with current approach]
-
-## Testing Strategy
-[Testing approach using existing utilities and patterns]
-```
+## Template Usage
+- **Follow exact structure**: Use `.claude/templates/design-template.md` precisely
+- **Include all sections**: Don't omit any required template sections (Overview, Architecture, Components, Data Models, Error Handling, Testing Strategy)
+- **Add Mermaid diagrams**: Include visual representations as shown in template
 
 ## Critical Rules
 - **NEVER** proceed to the next phase without explicit user approval
@@ -133,4 +80,4 @@ graph TD
 - Continue revision cycle until explicit approval is received
 
 ## Next Phase
-After approval, proceed to `/spec-tasks`.
+After approval, the next phase is task planning. The user can proceed to work on the implementation plan.

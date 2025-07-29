@@ -20,27 +20,31 @@ You are working on the tasks phase of the spec workflow.
 **DO NOT** run task command generation until tasks are approved.
 
 1. **Prerequisites**
-   - Ensure design.md exists and is approved
-   - Load both requirements.md and design.md for context
-   - **Load steering documents**:
+   - Ensure design.md exists and is approved in `.claude/specs/{feature-name}/`
+   - Load both documents from the spec directory:
+     - Load `.claude/specs/{feature-name}/requirements.md` for feature context
+     - Load `.claude/specs/{feature-name}/design.md` for technical design
+   - **Load steering documents** (if available):
      - Check for .claude/steering/structure.md for project conventions
      - Check for .claude/steering/tech.md for technical patterns
    - Understand the complete feature scope
 
-2. **Process**
-   1. Convert design into atomic, executable coding tasks
-   2. Ensure each task:
+2. **Task Creation Process**
+   1. **Read the task template**: Load `.claude/templates/tasks-template.md` and follow its exact structure
+   2. Convert design into atomic, executable coding tasks
+   3. Ensure each task:
       - Has a clear, actionable objective
       - References specific requirements using _Requirements: X.Y_ format
+      - References existing code to leverage using _Leverage: path/to/file.ts_ format
       - Builds incrementally on previous tasks
       - Focuses on coding activities only
-   3. Use checkbox format with hierarchical numbering
-   4. Present complete task list
-   5. Ask: "Do the tasks look good?"
-   6. **CRITICAL**: Wait for explicit approval before proceeding
-   7. **AFTER APPROVAL**: Ask "Would you like me to generate individual task commands for easier execution? (yes/no)"
-   8. **IF YES**: Execute `npx @pimzino/claude-code-spec-workflow@latest generate-task-commands {feature-name}`
-   9. **IF NO**: Continue with traditional `/spec-execute` approach
+   4. Use checkbox format with hierarchical numbering as shown in template
+   5. Present complete task list following the template structure
+   6. Ask: "Do the tasks look good?"
+   7. **CRITICAL**: Wait for explicit approval before proceeding
+   8. **AFTER APPROVAL**: Ask "Would you like me to generate individual task commands for easier execution? (yes/no)"
+   9. **IF YES**: Execute `npx @pimzino/claude-code-spec-workflow@latest generate-task-commands {feature-name}`
+   10. **IF NO**: Continue with traditional task execution approach
 
 3. **Generate Task List** (prioritize code reuse and follow conventions)
    - Break design into atomic, executable coding tasks
@@ -58,14 +62,11 @@ You are working on the tasks phase of the spec workflow.
    - Reference requirements using _Requirements: X.Y_ format
    - Use test-driven development approach leveraging existing test patterns
 
-### Task Format
-```markdown
-- [ ] 1. Task description
-  - Specific implementation details
-  - Files to create/modify
-  - _Leverage: existing-component.ts, utils/helpers.js_
-  - _Requirements: 1.1, 2.3_
-```
+## Template Usage
+- **Follow exact structure**: Use `.claude/templates/tasks-template.md` precisely
+- **Include all sections**: Don't omit any required template sections
+- **Use checkbox format**: Follow the exact task format with requirement and leverage references
+- **See template for format rules**: The template includes detailed formatting guidelines
 
 ### Excluded Task Types
 - User acceptance testing
@@ -93,45 +94,12 @@ You are working on the tasks phase of the spec workflow.
 - **WAIT**: Do not run command generation until user explicitly approves tasks
 - **ASK USER**: "Would you like me to generate individual task commands for easier execution? (yes/no)"
 - **IF YES**: Execute `npx @pimzino/claude-code-spec-workflow@latest generate-task-commands {feature-name}`
-- **IF NO**: Continue with traditional `/spec-execute` approach
+- **IF NO**: Continue with traditional task execution approach
 - **PURPOSE**: Creates individual task commands in `.claude/commands/{feature-name}/`
 - **RESULT**: Each task gets its own command: `/{feature-name}-task-{task-id}`
 - **EXAMPLE**: Creates `/{feature-name}-task-1`, `/{feature-name}-task-2.1`, etc.
 - **RESTART REQUIRED**: Inform user to restart Claude Code for new commands to be visible
 
-## Task Structure Example
-```markdown
-# Implementation Plan
-
-## Task Overview
-[Brief description of the implementation approach]
-
-## Steering Document Compliance
-[How tasks follow structure.md conventions and tech.md patterns]
-
-## Tasks
-
-- [ ] 1. Set up project structure and core interfaces
-  - Create directory structure following existing patterns
-  - Define core interfaces extending existing base classes
-  - Set up basic configuration
-  - _Leverage: src/types/base.ts, src/models/BaseModel.ts_
-  - _Requirements: 1.1_
-
-- [ ] 2. Implement data models and validation
-- [ ] 2.1 Create base model classes
-  - Define data structures/schemas
-  - Implement validation methods
-  - Write unit tests for models
-  - _Leverage: src/utils/validation.ts, tests/helpers/testUtils.ts_
-  - _Requirements: 2.1, 2.2_
-
-- [ ] 2.2 Implement specific model classes
-  - Create concrete model implementations
-  - Add relationship handling
-  - Test model interactions
-  - _Requirements: 2.3_
-```
 
 ## Critical Rules
 - **NEVER** proceed to the next phase without explicit user approval
@@ -143,6 +111,6 @@ You are working on the tasks phase of the spec workflow.
 After approval and command generation:
 1. **RESTART Claude Code** for new commands to be visible
 2. Then you can:
-   - Use `/spec-execute` to implement tasks
-   - Use individual task commands: `/{feature-name}-task-1`, `/{feature-name}-task-2`, etc.
+   - Use individual task commands (if generated): `/{feature-name}-task-1`, `/{feature-name}-task-2`, etc.
+   - Or execute tasks individually as needed
    - Check progress with `/spec-status {feature-name}`
