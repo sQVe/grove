@@ -1,9 +1,10 @@
 repos:
-    - repo: https://github.com/TekWizely/pre-commit-golang
-      rev: v1.0.0-rc.1
+    - repo: local
       hooks:
           - id: golangci-lint
             name: golangci-lint
             description: Fast Multi-Linter for Go
-            args: [--fix]
-            alias: lint
+            entry: golangci-lint run --fix
+            language: system
+            types: [go]
+            pass_filenames: false
