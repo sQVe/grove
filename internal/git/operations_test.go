@@ -24,7 +24,7 @@ func assertSafetyIssue(t *testing.T, issue SafetyIssue, expectedType, expectedDe
 	assert.NotEmpty(t, issue.Solution)
 }
 
-func TestSafetyChecks(t *testing.T) {
+func TestGitOperations_SafetyChecks(t *testing.T) {
 	t.Run("checkGitStatus - clean repo", func(t *testing.T) {
 		mock := testutils.NewMockGitExecutor()
 		mock.SetSuccessResponse("status --porcelain=v1", "")
@@ -170,11 +170,11 @@ func TestSafetyChecks(t *testing.T) {
 	})
 }
 
-// These individual test functions are redundant with TestSafetyChecks which provides comprehensive coverage
+// These individual test functions are redundant with TestSafetyChecks which provides comprehensive coverage.
 // Removed: TestCheckGitStatus, TestCheckStashedChanges, TestCheckUntrackedFiles,
-// TestCheckExistingWorktrees, TestCheckUnpushedCommits, TestCheckLocalOnlyBranches
+// TestCheckExistingWorktrees, TestCheckUnpushedCommits, TestCheckLocalOnlyBranches.
 
-func TestGitChangeCounts(t *testing.T) {
+func TestGitOperations_GitChangeCounts(t *testing.T) {
 	t.Run("HasChanges", func(t *testing.T) {
 		tests := []struct {
 			name     string

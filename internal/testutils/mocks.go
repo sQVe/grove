@@ -58,18 +58,18 @@ func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string
 	cmdKey := strings.Join(args, " ")
 	m.contexts[cmdKey] = ctx
 
-	// Check if context is cancelled before execution.
+	// Check if context is cancelled before execution..
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	default:
 	}
 
-	// Simulate delay if set for this command, respecting context cancellation
+	// Simulate delay if set for this command, respecting context cancellation.
 	if delay, exists := m.delays[cmdKey]; exists {
 		select {
 		case <-time.After(delay):
-			// Continue with execution
+			// Continue with execution.
 		case <-ctx.Done():
 			return "", ctx.Err()
 		}
@@ -266,4 +266,114 @@ func (m *MockGitExecutor) Reset() {
 	m.responses = make(map[string]MockResponse)
 	m.delays = make(map[string]time.Duration)
 	m.regexPatterns = []RegexPattern{}
+}
+
+// SequentialMockGitExecutor provides advanced mocking for testing scenarios where
+// the same command needs to return different responses on successive calls.
+// This is particularly useful for testing conflict resolution and retry logic.
+type SequentialMockGitExecutor struct {
+	responses        map[string][]MockResponse  // Sequential responses for commands
+	otherResponses   map[string]MockResponse    // Single responses for other commands
+	callCounts       map[string]int             // Track how many times each command was called
+	specificCounters map[string]int             // Track specific command patterns (e.g., worktree add calls)
+	contexts         map[string]context.Context // Track contexts for cancellation testing
+}
+
+// NewSequentialMockGitExecutor creates a new sequential mock git executor.
+func NewSequentialMockGitExecutor() *SequentialMockGitExecutor {
+	return &SequentialMockGitExecutor{
+		responses:        make(map[string][]MockResponse),
+		otherResponses:   make(map[string]MockResponse),
+		callCounts:       make(map[string]int),
+		specificCounters: make(map[string]int),
+		contexts:         make(map[string]context.Context),
+	}
+}
+
+func (m *SequentialMockGitExecutor) Execute(args ...string) (string, error) {
+	return m.ExecuteQuiet(args...)
+}
+
+// ExecuteQuiet behaves identically to Execute for testing purposes.
+func (m *SequentialMockGitExecutor) ExecuteQuiet(args ...string) (string, error) {
+	cmdKey := strings.Join(args, " ")
+
+	// Initialize call counts if needed.
+	if m.callCounts == nil {
+		m.callCounts = make(map[string]int)
+	}
+
+	// Track specific command patterns.
+	if len(args) >= 2 && args[0] == "worktree" && args[1] == "add" {
+		m.specificCounters["worktree_add"]++
+	}
+
+	// Check for sequential responses first.
+	for pattern, responses := range m.responses {
+		if strings.HasPrefix(cmdKey, pattern) || cmdKey == pattern {
+			callIndex := m.callCounts[pattern]
+			m.callCounts[pattern]++
+
+			if callIndex < len(responses) {
+				response := responses[callIndex]
+				return response.Output, response.Error
+			}
+			// If we've exhausted sequential responses, return the last one.
+			if len(responses) > 0 {
+				response := responses[len(responses)-1]
+				return response.Output, response.Error
+			}
+		}
+	}
+
+	// Check other responses.
+	if response, exists := m.otherResponses[cmdKey]; exists {
+		return response.Output, response.Error
+	}
+
+	return "", fmt.Errorf("mock: unhandled git command: %s", cmdKey)
+}
+
+func (m *SequentialMockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	cmdKey := strings.Join(args, " ")
+	m.contexts[cmdKey] = ctx
+
+	// Check if context is cancelled before execution.
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	return m.ExecuteQuiet(args...)
+}
+
+// SetSequentialResponse sets up multiple responses for the same command pattern.
+// Each call to a matching command will return the next response in sequence.
+func (m *SequentialMockGitExecutor) SetSequentialResponse(pattern string, responses []MockResponse) {
+	m.responses[pattern] = responses
+}
+
+// SetSingleResponse sets a single response for a command (same as regular mock).
+func (m *SequentialMockGitExecutor) SetSingleResponse(command string, response MockResponse) {
+	m.otherResponses[command] = response
+}
+
+// GetCallCount returns how many times a command pattern was called.
+func (m *SequentialMockGitExecutor) GetCallCount(pattern string) int {
+	return m.callCounts[pattern]
+}
+
+// GetSpecificCounter returns the count for specific command patterns.
+func (m *SequentialMockGitExecutor) GetSpecificCounter(counterName string) int {
+	return m.specificCounters[counterName]
+}
+
+// Reset clears all configured responses and recorded calls.
+func (m *SequentialMockGitExecutor) Reset() {
+	m.responses = make(map[string][]MockResponse)
+	m.otherResponses = make(map[string]MockResponse)
+	m.callCounts = make(map[string]int)
+	m.specificCounters = make(map[string]int)
+	m.contexts = make(map[string]context.Context)
 }
