@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/commands/shared"
@@ -25,12 +27,103 @@ const (
 const (
 	defaultWindowsShell = "cmd.exe"
 	defaultUnixShell    = "/bin/sh"
+	maxWorktreeNameLen  = 255 // Maximum length for worktree names
+)
+
+var (
+	// Regex for dangerous shell metacharacters and sequences
+	dangerousCharsRegex = regexp.MustCompile(`[;&|$\x60(){}[\]<>*?~#!\\]`)
+	// Regex for path traversal attempts
+	pathTraversalRegex = regexp.MustCompile(`\.\.[\\/]|[\\/]\.\.`)
 )
 
 type SwitchOptions struct {
 	Mode         SwitchMode
 	Shell        string
 	ForceInstall bool
+}
+
+// validateWorktreeName performs comprehensive validation on worktree names
+func validateWorktreeName(name string) error {
+	// Check for empty or whitespace-only names
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"worktree name cannot be empty or contain only whitespace",
+			nil,
+		)
+	}
+
+	// Check maximum length
+	if len(trimmed) > maxWorktreeNameLen {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			fmt.Sprintf("worktree name exceeds maximum length of %d characters", maxWorktreeNameLen),
+			nil,
+		).WithContext("name_length", len(trimmed))
+	}
+
+	// Check for dangerous shell metacharacters
+	if dangerousCharsRegex.MatchString(trimmed) {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"worktree name contains dangerous characters that could cause shell injection",
+			nil,
+		).WithContext("dangerous_chars", dangerousCharsRegex.FindAllString(trimmed, -1))
+	}
+
+	// Check for path traversal attempts
+	if pathTraversalRegex.MatchString(trimmed) {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"worktree name contains path traversal sequences",
+			nil,
+		)
+	}
+
+	// Check for control characters and non-printable characters
+	for i, r := range trimmed {
+		if unicode.IsControl(r) || !unicode.IsPrint(r) {
+			return errors.NewGroveError(
+				errors.ErrCodeConfigInvalid,
+				fmt.Sprintf("worktree name contains non-printable character at position %d", i),
+				nil,
+			).WithContext("character", fmt.Sprintf("U+%04X", r))
+		}
+	}
+
+	// Check for reserved names that could cause issues
+	reserved := []string{".", "..", "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
+	upperName := strings.ToUpper(trimmed)
+	for _, reservedName := range reserved {
+		if upperName == reservedName || strings.HasPrefix(upperName, reservedName+".") {
+			return errors.NewGroveError(
+				errors.ErrCodeConfigInvalid,
+				fmt.Sprintf("worktree name '%s' is a reserved name and cannot be used", trimmed),
+				nil,
+			)
+		}
+	}
+
+	// Check for names that start or end with problematic characters
+	if strings.HasPrefix(trimmed, "-") || strings.HasSuffix(trimmed, "-") {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"worktree name cannot start or end with hyphens",
+			nil,
+		)
+	}
+
+	if strings.HasPrefix(trimmed, ".") || strings.HasSuffix(trimmed, ".") {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"worktree name cannot start or end with dots",
+			nil,
+		)
+	}
+
+	return nil
 }
 
 func NewSwitchCmd() *cobra.Command {
@@ -98,6 +191,9 @@ Execution modes:
 	cmd.Flags().StringVar(&options.Shell, "shell", "", "Target shell for integration (auto-detected if not specified)")
 	cmd.Flags().BoolVar(&options.ForceInstall, "force-install", false, "Force shell integration installation")
 
+	// Add install-shell-integration subcommand
+	cmd.AddCommand(NewInstallShellIntegrationCmd())
+
 	return cmd
 }
 
@@ -106,12 +202,8 @@ func runSwitchCommand(worktreeName string, options *SwitchOptions) error {
 }
 
 func runSwitchCommandWithExecutor(executor git.GitExecutor, worktreeName string, options *SwitchOptions) error {
-	if strings.TrimSpace(worktreeName) == "" {
-		return errors.NewGroveError(
-			errors.ErrCodeConfigInvalid,
-			"worktree name cannot be empty",
-			nil,
-		)
+	if err := validateWorktreeName(worktreeName); err != nil {
+		return err
 	}
 
 	service := NewSwitchService(executor)
@@ -203,7 +295,11 @@ func launchSubshell(shell, path, worktreeName string) error {
 			errors.ErrCodeFileSystem,
 			fmt.Sprintf("failed to launch shell '%s'", shell),
 			err,
-		).WithContext("shell", shell).WithContext("directory", path)
+		).WithContext("shell", shell).
+			WithContext("directory", path).
+			WithContext("worktree_name", worktreeName).
+			WithContext("shell_path", shell).
+			WithContext("working_directory", cmd.Dir)
 	}
 	return nil
 }
