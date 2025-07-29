@@ -12,6 +12,17 @@
 ### Project Structure (structure.md)
 [How the implementation will follow project organization conventions]
 
+## Code Reuse Analysis
+[What existing code will be leveraged, extended, or integrated with this feature]
+
+### Existing Components to Leverage
+- **[Component/Utility Name]**: [How it will be used]
+- **[Service/Helper Name]**: [How it will be extended]
+
+### Integration Points
+- **[Existing System/API]**: [How the new feature will integrate]
+- **[Database/Storage]**: [How data will connect to existing schemas]
+
 ## Architecture
 
 [Describe the overall architecture and design patterns used]
@@ -28,11 +39,13 @@ graph TD
 - **Purpose:** [What this component does]
 - **Interfaces:** [Public methods/APIs]
 - **Dependencies:** [What it depends on]
+- **Reuses:** [Existing components/utilities it builds upon]
 
 ### Component 2
 - **Purpose:** [What this component does]
 - **Interfaces:** [Public methods/APIs]
 - **Dependencies:** [What it depends on]
+- **Reuses:** [Existing components/utilities it builds upon]
 
 ## Data Models
 
