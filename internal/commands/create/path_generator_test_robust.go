@@ -8,6 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testRelativePath = "relative/path"
+)
+
 // TestPathGenerator_ValidatePath_Robust demonstrates robust path validation testing
 func TestPathGenerator_ValidatePath_Robust(t *testing.T) {
 	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem().WithIsolatedPath()
@@ -22,7 +26,7 @@ func TestPathGenerator_ValidatePath_Robust(t *testing.T) {
 	})
 
 	t.Run("rejects relative path", func(t *testing.T) {
-		relativePath := "relative/path"
+		relativePath := testRelativePath
 
 		err := pg.validatePath(relativePath)
 		assert.Error(t, err)

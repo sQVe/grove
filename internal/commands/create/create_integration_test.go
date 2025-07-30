@@ -29,7 +29,7 @@ func generateUniqueBranchName(prefix string) string {
 }
 
 func TestCreateCommand_Integration_BasicWorktreeCreation(t *testing.T) {
-	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	_ = testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
 	runner := testutils.NewTestRunner(t)
 
 	runner.WithIsolatedWorkingDir().Run(func() {
@@ -79,7 +79,7 @@ func TestCreateCommand_Integration_BasicWorktreeCreation(t *testing.T) {
 }
 
 func TestCreateCommand_Integration_NewBranchCreation(t *testing.T) {
-	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	_ = testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
 	runner := testutils.NewTestRunner(t)
 
 	runner.WithIsolatedWorkingDir().Run(func() {
@@ -124,7 +124,7 @@ func TestCreateCommand_Integration_NewBranchCreation(t *testing.T) {
 }
 
 func TestCreateCommand_Integration_FileCopying(t *testing.T) {
-	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	_ = testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
 	runner := testutils.NewTestRunner(t)
 
 	runner.WithIsolatedWorkingDir().Run(func() {

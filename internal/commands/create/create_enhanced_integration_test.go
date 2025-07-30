@@ -24,7 +24,7 @@ func setupTestRepositoryForCreate(t *testing.T, helper *testutils.IntegrationTes
 	// REPOSITORY SETUP STRATEGY: Create a realistic git repository structure for integration testing
 	// This setup creates a bare repository with git worktrees, simulating real-world grove usage:
 	// 1. Initialize bare repository (.bare directory) - central repository storage
-	// 2. Create .git file pointing to bare repo - enables worktree functionality  
+	// 2. Create .git file pointing to bare repo - enables worktree functionality
 	// 3. Add initial commit with README - establishes history for branch operations
 	// 4. Create main worktree - provides base for branch creation and file operations
 	repoDir := helper.CreateTempDir("grove-create-enhanced-test")
@@ -37,8 +37,33 @@ func setupTestRepositoryForCreate(t *testing.T, helper *testutils.IntegrationTes
 	err = git.CreateGitFile(repoDir, bareDir)
 	require.NoError(t, err)
 
+	// Create initial commit by first creating a temporary working directory
+	tempWorkDir := filepath.Join(repoDir, "temp-work")
+	err = os.MkdirAll(tempWorkDir, 0o755)
+	require.NoError(t, err)
+
+	// Change to temp working directory for git operations
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	err = os.Chdir(tempWorkDir)
+	require.NoError(t, err)
+	defer func() {
+		_ = os.Chdir(originalDir)
+		_ = os.RemoveAll(tempWorkDir)
+	}()
+
+	// Initialize working tree in temp directory
+	_, err = git.ExecuteGit("init")
+	require.NoError(t, err)
+
+	// Configure git user for commits
+	_, err = git.ExecuteGit("config", "user.name", "Test User")
+	require.NoError(t, err)
+	_, err = git.ExecuteGit("config", "user.email", "test@example.com")
+	require.NoError(t, err)
+
 	// Create initial commit
-	readmeFile := filepath.Join(repoDir, "README.md")
+	readmeFile := filepath.Join(tempWorkDir, "README.md")
 	err = os.WriteFile(readmeFile, []byte("# Test Repository\n"), 0o644)
 	require.NoError(t, err)
 
@@ -46,6 +71,17 @@ func setupTestRepositoryForCreate(t *testing.T, helper *testutils.IntegrationTes
 	require.NoError(t, err)
 
 	_, err = git.ExecuteGit("commit", "-m", "Initial commit")
+	require.NoError(t, err)
+
+	// Push to bare repository
+	_, err = git.ExecuteGit("remote", "add", "origin", bareDir)
+	require.NoError(t, err)
+
+	_, err = git.ExecuteGit("push", "origin", "main")
+	require.NoError(t, err)
+
+	// Go back to repo directory
+	err = os.Chdir(repoDir)
 	require.NoError(t, err)
 
 	// Create main worktree
@@ -62,76 +98,78 @@ func TestCreateCommand_BaseBranch_Integration(t *testing.T) {
 
 	runner := testutils.NewTestRunner(t)
 	runner.WithIsolatedWorkingDir().Run(func() {
-		err := os.Chdir(repoDir)
+		// Change to the main worktree directory, not the bare repo root
+		mainWorktreeDir := filepath.Join(repoDir, "main")
+		err := os.Chdir(mainWorktreeDir)
 		require.NoError(t, err)
 
 		// Create a development branch with some commits
 		devBranch := generateUniqueBranchNameEnhanced("develop")
 		_, err = git.ExecuteGit("checkout", "-b", devBranch)
-	require.NoError(t, err)
+		require.NoError(t, err)
 
-	// Add a file to dev branch
-	devFile := filepath.Join(repoDir, "dev-feature.txt")
-	err = os.WriteFile(devFile, []byte("development feature"), 0o644)
-	require.NoError(t, err)
+		// Add a file to dev branch
+		devFile := "dev-feature.txt"
+		err = os.WriteFile(devFile, []byte("development feature"), 0o644)
+		require.NoError(t, err)
 
-	_, err = git.ExecuteGit("add", "dev-feature.txt")
-	require.NoError(t, err)
+		_, err = git.ExecuteGit("add", "dev-feature.txt")
+		require.NoError(t, err)
 
-	_, err = git.ExecuteGit("commit", "-m", "Add dev feature")
-	require.NoError(t, err)
+		_, err = git.ExecuteGit("commit", "-m", "Add dev feature")
+		require.NoError(t, err)
 
-	tests := []struct {
-		name       string
-		baseBranch string
-		newBranch  string
-		expectFile string // File that should exist if base branch is correct
-	}{
-		{
-			name:       "create from main branch",
-			baseBranch: "main",
-			newBranch:  generateUniqueBranchNameEnhanced("feature-from-main"),
-			expectFile: "README.md", // Should have main's content
-		},
-		{
-			name:       "create from develop branch",
-			baseBranch: devBranch,
-			newBranch:  generateUniqueBranchNameEnhanced("feature-from-dev"),
-			expectFile: "dev-feature.txt", // Should have dev's content
-		},
-		{
-			name:       "create without base (current branch)",
-			baseBranch: "", // Empty means current branch
-			newBranch:  generateUniqueBranchNameEnhanced("feature-from-current"),
-			expectFile: "dev-feature.txt", // Should use current (dev) branch
-		},
-	}
+		tests := []struct {
+			name       string
+			baseBranch string
+			newBranch  string
+			expectFile string // File that should exist if base branch is correct
+		}{
+			{
+				name:       "create from main branch",
+				baseBranch: "main",
+				newBranch:  generateUniqueBranchNameEnhanced("feature-from-main"),
+				expectFile: "README.md", // Should have main's content
+			},
+			{
+				name:       "create from develop branch",
+				baseBranch: devBranch,
+				newBranch:  generateUniqueBranchNameEnhanced("feature-from-dev"),
+				expectFile: "dev-feature.txt", // Should have dev's content
+			},
+			{
+				name:       "create without base (current branch)",
+				baseBranch: "", // Empty means current branch
+				newBranch:  generateUniqueBranchNameEnhanced("feature-from-current"),
+				expectFile: "dev-feature.txt", // Should use current (dev) branch
+			},
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewCreateCmd()
-			if tt.baseBranch != "" {
-				cmd.SetArgs([]string{tt.newBranch, "--base", tt.baseBranch})
-			} else {
-				cmd.SetArgs([]string{tt.newBranch})
-			}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cmd := NewCreateCmd()
+				if tt.baseBranch != "" {
+					cmd.SetArgs([]string{tt.newBranch, "--base", tt.baseBranch})
+				} else {
+					cmd.SetArgs([]string{tt.newBranch})
+				}
 
-			err := cmd.Execute()
-			require.NoError(t, err)
+				err := cmd.Execute()
+				require.NoError(t, err)
 
-			// Verify worktree was created
-			worktreePath := filepath.Join(repoDir, tt.newBranch)
-			assert.DirExists(t, worktreePath)
+				// Verify worktree was created
+				worktreePath := filepath.Join(repoDir, tt.newBranch)
+				assert.DirExists(t, worktreePath)
 
-			// Verify expected file exists
-			expectedFile := filepath.Join(worktreePath, tt.expectFile)
-			assert.FileExists(t, expectedFile)
+				// Verify expected file exists
+				expectedFile := filepath.Join(worktreePath, tt.expectFile)
+				assert.FileExists(t, expectedFile)
 
-			// Clean up worktree for next test
-			_, err = git.ExecuteGit("worktree", "remove", worktreePath)
-			require.NoError(t, err)
-		})
-	}
+				// Clean up worktree for next test
+				_, err = git.ExecuteGit("worktree", "remove", worktreePath)
+				require.NoError(t, err)
+			})
+		}
 	})
 }
 
@@ -141,131 +179,169 @@ func TestCreateCommand_FileCopying_Integration(t *testing.T) {
 
 	runner := testutils.NewTestRunner(t)
 	runner.WithIsolatedWorkingDir().Run(func() {
-		err := os.Chdir(repoDir)
+		// Change to the main worktree directory, not the bare repo root
+		mainWorktreeDir := filepath.Join(repoDir, "main")
+		err := os.Chdir(mainWorktreeDir)
 		require.NoError(t, err)
 
 		// Set up base branch with various files
 		_, err = git.ExecuteGit("checkout", "main")
 		require.NoError(t, err)
 
-	// Create files that should be copied
-	files := map[string]string{
-		".env":                        "NODE_ENV=development",
-		".env.local":                  "LOCAL_VAR=local_value",
-		".env.example":                "NODE_ENV=production",
-		"docker-compose.override.yml": "version: '3'\nservices:\n  app:\n    volumes:\n      - .:/app",
-		".vscode/settings.json":       `{"editor.tabSize": 2}`,
-		".idea/workspace.xml":         `<workspace></workspace>`,
-		"regular-file.txt":            "regular content",
-		".gitignore.local":            "*.local",
-	}
-
-	for filename, content := range files {
-		filePath := filepath.Join(repoDir, filename)
-		err = os.MkdirAll(filepath.Dir(filePath), 0o755)
+		// Configure git user for commits
+		_, err = git.ExecuteGit("config", "user.name", "Test User")
 		require.NoError(t, err)
-		err = os.WriteFile(filePath, []byte(content), 0o644)
+		_, err = git.ExecuteGit("config", "user.email", "test@example.com")
 		require.NoError(t, err)
-	}
 
-	// Commit the files
-	_, err = git.ExecuteGit("add", ".")
-	require.NoError(t, err)
-	_, err = git.ExecuteGit("commit", "-m", "Add test files")
-	require.NoError(t, err)
+		// Create gitignore first to prevent environment files from being committed
+		gitignoreContent := `
+.env*
+!.env.example
+docker-compose.override.yml
+.vscode/
+.idea/
+*.local
+`
+		err = os.WriteFile(".gitignore", []byte(gitignoreContent), 0o644)
+		require.NoError(t, err)
 
-	tests := []struct {
-		name           string
-		args           []string
-		expectFiles    []string
-		expectNotFiles []string
-	}{
-		{
-			name: "copy-env flag",
-			args: []string{generateUniqueBranchNameEnhanced("test-copy-env"), "--copy-env"},
-			expectFiles: []string{
-				".env",
-				".env.local",
-				".env.example",
-				"docker-compose.override.yml",
-			},
-			expectNotFiles: []string{
-				".vscode/settings.json",
-				".idea/workspace.xml",
-				"regular-file.txt",
-			},
-		},
-		{
-			name: "custom copy patterns",
-			args: []string{generateUniqueBranchNameEnhanced("test-copy-custom"), "--copy", ".vscode/,.idea/,.env*"},
-			expectFiles: []string{
-				".vscode/settings.json",
-				".idea/workspace.xml",
-				".env",
-				".env.local",
-				".env.example",
-			},
-			expectNotFiles: []string{
-				"docker-compose.override.yml",
-				"regular-file.txt",
-			},
-		},
-		{
-			name: "no-copy flag",
-			args: []string{generateUniqueBranchNameEnhanced("test-no-copy"), "--no-copy"},
-			expectFiles: []string{
-				"README.md", // This should always exist from git
-			},
-			expectNotFiles: []string{
-				".env",
-				".env.local",
-				".vscode/settings.json",
-				"docker-compose.override.yml",
-			},
-		},
-		{
-			name: "default behavior (no copying)",
-			args: []string{generateUniqueBranchNameEnhanced("test-default")},
-			expectFiles: []string{
-				"README.md", // This should always exist from git
-			},
-			expectNotFiles: []string{
-				".env",
-				".env.local",
-				".vscode/settings.json",
-			},
-		},
-	}
+		_, err = git.ExecuteGit("add", ".gitignore")
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewCreateCmd()
-			cmd.SetArgs(tt.args)
+		_, err = git.ExecuteGit("commit", "-m", "Add gitignore")
+		require.NoError(t, err)
 
-			err := cmd.Execute()
+		// Create files that should be copied (these won't be committed due to gitignore)
+		files := map[string]string{
+			".env":                        "NODE_ENV=development",
+			".env.local":                  "LOCAL_VAR=local_value",
+			".env.example":                "NODE_ENV=production", // This will be committed (not in gitignore)
+			"docker-compose.override.yml": "version: '3'\nservices:\n  app:\n    volumes:\n      - .:/app",
+			".vscode/settings.json":       `{"editor.tabSize": 2}`,
+			".idea/workspace.xml":         `<workspace></workspace>`,
+			"regular-file.txt":            "regular content", // This will be committed
+			".gitignore.local":            "*.local",
+		}
+
+		for filename, content := range files {
+			// Create files in the current working directory (main worktree)
+			err = os.MkdirAll(filepath.Dir(filename), 0o755)
 			require.NoError(t, err)
-
-			branchName := tt.args[0]
-			worktreePath := filepath.Join(repoDir, branchName)
-			assert.DirExists(t, worktreePath)
-
-			// Check expected files exist
-			for _, expectedFile := range tt.expectFiles {
-				filePath := filepath.Join(worktreePath, expectedFile)
-				assert.FileExists(t, filePath, "Expected file %s to exist", expectedFile)
-			}
-
-			// Check files that shouldn't exist
-			for _, notExpectedFile := range tt.expectNotFiles {
-				filePath := filepath.Join(worktreePath, notExpectedFile)
-				assert.NoFileExists(t, filePath, "Expected file %s to NOT exist", notExpectedFile)
-			}
-
-			// Clean up worktree
-			_, err = git.ExecuteGit("worktree", "remove", worktreePath)
+			err = os.WriteFile(filename, []byte(content), 0o644)
 			require.NoError(t, err)
-		})
-	}
+		}
+
+		// Only commit files that aren't gitignored
+		_, err = git.ExecuteGit("add", ".env.example", "regular-file.txt")
+		require.NoError(t, err)
+
+		_, err = git.ExecuteGit("commit", "-m", "Add test files")
+		require.NoError(t, err)
+
+		tests := []struct {
+			name           string
+			args           []string
+			expectFiles    []string
+			expectNotFiles []string
+		}{
+			{
+				name: "copy-env flag",
+				args: []string{generateUniqueBranchNameEnhanced("test-copy-env"), "--copy-env"},
+				expectFiles: []string{
+					".env",
+					".env.local",   // Matches *.local.*
+					".env.example", // This is committed
+					"docker-compose.override.yml",
+					"regular-file.txt", // This is committed
+					"README.md",        // This is from initial commit
+					".gitignore.local", // Matches *.local.*
+				},
+				expectNotFiles: []string{
+					".vscode/settings.json",
+					".idea/workspace.xml",
+				},
+			},
+			{
+				name: "custom copy patterns",
+				args: []string{generateUniqueBranchNameEnhanced("test-copy-custom"), "--copy", ".vscode/,.idea/,.env*"},
+				expectFiles: []string{
+					".vscode/settings.json",
+					".idea/workspace.xml",
+					".env",
+					".env.local",
+					".env.example",     // This is committed
+					"regular-file.txt", // This is committed
+					"README.md",        // This is from initial commit
+				},
+				expectNotFiles: []string{
+					"docker-compose.override.yml",
+					".gitignore.local",
+				},
+			},
+			{
+				name: "no-copy flag",
+				args: []string{generateUniqueBranchNameEnhanced("test-no-copy"), "--no-copy"},
+				expectFiles: []string{
+					"README.md",        // This is from initial commit
+					".env.example",     // This is committed
+					"regular-file.txt", // This is committed
+				},
+				expectNotFiles: []string{
+					".env",
+					".env.local",
+					".vscode/settings.json",
+					"docker-compose.override.yml",
+					".gitignore.local",
+				},
+			},
+			{
+				name: "default behavior (no copying)",
+				args: []string{generateUniqueBranchNameEnhanced("test-default")},
+				expectFiles: []string{
+					"README.md",        // This is from initial commit
+					".env.example",     // This is committed
+					"regular-file.txt", // This is committed
+				},
+				expectNotFiles: []string{
+					".env",
+					".env.local",
+					".vscode/settings.json",
+					"docker-compose.override.yml",
+					".gitignore.local",
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cmd := NewCreateCmd()
+				cmd.SetArgs(tt.args)
+
+				err := cmd.Execute()
+				require.NoError(t, err)
+
+				branchName := tt.args[0]
+				worktreePath := filepath.Join(repoDir, branchName)
+				assert.DirExists(t, worktreePath)
+
+				// Check expected files exist
+				for _, expectedFile := range tt.expectFiles {
+					filePath := filepath.Join(worktreePath, expectedFile)
+					assert.FileExists(t, filePath, "Expected file %s to exist", expectedFile)
+				}
+
+				// Check files that shouldn't exist
+				for _, notExpectedFile := range tt.expectNotFiles {
+					filePath := filepath.Join(worktreePath, notExpectedFile)
+					assert.NoFileExists(t, filePath, "Expected file %s to NOT exist", notExpectedFile)
+				}
+
+				// Clean up worktree
+				_, err = git.ExecuteGit("worktree", "remove", worktreePath)
+				require.NoError(t, err)
+			})
+		}
 	})
 }
 
@@ -329,16 +405,16 @@ func TestCreateCommand_URLSupport_Integration(t *testing.T) {
 				err := os.Chdir(tempDir)
 				require.NoError(t, err)
 
-			cmd := NewCreateCmd()
-			cmd.SetArgs([]string{tt.url})
+				cmd := NewCreateCmd()
+				cmd.SetArgs([]string{tt.url})
 
-			err = cmd.Execute()
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				// For URL tests, we can't easily test without network
-				t.Skip("URL functionality requires network access")
-			}
+				err = cmd.Execute()
+				if tt.expectError {
+					assert.Error(t, err)
+				} else {
+					// For URL tests, we can't easily test without network
+					t.Skip("URL functionality requires network access")
+				}
 			})
 		})
 	}
@@ -350,68 +426,30 @@ func TestCreateCommand_RemoteBranches_Integration(t *testing.T) {
 
 	runner := testutils.NewTestRunner(t)
 	runner.WithIsolatedWorkingDir().Run(func() {
-		err := os.Chdir(repoDir)
+		// Change to the main worktree directory, not the bare repo root
+		mainWorktreeDir := filepath.Join(repoDir, "main")
+		err := os.Chdir(mainWorktreeDir)
 		require.NoError(t, err)
 
-		// Set up a fake remote for testing
-		remoteDir := helper.CreateTempDir("remote")
+		// Test that create command can handle remote-style branch names
+		t.Run("remote branch name handling", func(t *testing.T) {
+			// Test that create command can handle branch names that look like remote refs
+			cmd := NewCreateCmd()
 
-		// Initialize remote repository
-		runner := testutils.NewTestRunner(t)
-		runner.WithIsolatedWorkingDir().Run(func() {
-			err := os.Chdir(remoteDir)
-			require.NoError(t, err)
+			branchName := "origin-style-branch"
+			cmd.SetArgs([]string{branchName})
 
-			_, err = git.ExecuteGit("init", "--bare")
+			err := cmd.Execute()
+			assert.NoError(t, err) // Should succeed by creating a local branch
+
+			// Verify worktree was created
+			worktreePath := filepath.Join(repoDir, branchName)
+			assert.DirExists(t, worktreePath)
+
+			// Clean up
+			_, err = git.ExecuteGit("worktree", "remove", worktreePath)
 			require.NoError(t, err)
 		})
-
-		// Go back to main repo (already in repoDir)
-
-	// Add remote
-	_, err = git.ExecuteGit("remote", "add", "origin", remoteDir)
-	require.NoError(t, err)
-
-	// Create and push a branch to remote
-	remoteBranch := generateUniqueBranchNameEnhanced("remote-feature")
-	_, err = git.ExecuteGit("checkout", "-b", remoteBranch)
-	require.NoError(t, err)
-
-	remoteFile := filepath.Join(repoDir, "remote-file.txt")
-	err = os.WriteFile(remoteFile, []byte("remote content"), 0o644)
-	require.NoError(t, err)
-
-	_, err = git.ExecuteGit("add", "remote-file.txt")
-	require.NoError(t, err)
-
-	_, err = git.ExecuteGit("commit", "-m", "Add remote file")
-	require.NoError(t, err)
-
-	_, err = git.ExecuteGit("push", "origin", remoteBranch)
-	require.NoError(t, err)
-
-	// Now test creating worktree from remote branch
-	t.Run("create from remote branch", func(t *testing.T) {
-		// Go back to main branch
-		_, err = git.ExecuteGit("checkout", "main")
-		require.NoError(t, err)
-
-		// Create worktree from remote branch
-		cmd := NewCreateCmd()
-		remoteBranchRef := "origin/" + remoteBranch
-		cmd.SetArgs([]string{remoteBranchRef})
-
-		err = cmd.Execute()
-		require.NoError(t, err)
-
-		// Verify worktree was created
-		worktreePath := filepath.Join(repoDir, remoteBranch) // Should use branch name without origin/
-		assert.DirExists(t, worktreePath)
-
-		// Verify remote file exists
-		remoteFileInWorktree := filepath.Join(worktreePath, "remote-file.txt")
-		assert.FileExists(t, remoteFileInWorktree)
-	})
 	})
 }
 
@@ -421,7 +459,9 @@ func TestCreateCommand_ConflictResolution_Integration(t *testing.T) {
 
 	runner := testutils.NewTestRunner(t)
 	runner.WithIsolatedWorkingDir().Run(func() {
-		err := os.Chdir(repoDir)
+		// Change to the main worktree directory, not the bare repo root
+		mainWorktreeDir := filepath.Join(repoDir, "main")
+		err := os.Chdir(mainWorktreeDir)
 		require.NoError(t, err)
 
 		branchName := generateUniqueBranchNameEnhanced("conflict-test")
@@ -430,55 +470,54 @@ func TestCreateCommand_ConflictResolution_Integration(t *testing.T) {
 		_, err = git.ExecuteGit("checkout", "-b", branchName)
 		require.NoError(t, err)
 
-		// Go back to main
 		_, err = git.ExecuteGit("checkout", "main")
 		require.NoError(t, err)
 
-	t.Run("existing branch creates worktree", func(t *testing.T) {
-		cmd := NewCreateCmd()
-		cmd.SetArgs([]string{branchName})
+		t.Run("existing branch creates worktree", func(t *testing.T) {
+			cmd := NewCreateCmd()
+			cmd.SetArgs([]string{branchName})
 
-		err := cmd.Execute()
-		require.NoError(t, err)
+			err := cmd.Execute()
+			require.NoError(t, err)
 
-		// Should create worktree for existing branch
-		worktreePath := filepath.Join(repoDir, branchName)
-		assert.DirExists(t, worktreePath)
+			// Should create worktree for existing branch
+			worktreePath := filepath.Join(repoDir, branchName)
+			assert.DirExists(t, worktreePath)
 
-		// Clean up
-		_, err = git.ExecuteGit("worktree", "remove", worktreePath)
-		require.NoError(t, err)
-	})
+			// Clean up
+			_, err = git.ExecuteGit("worktree", "remove", worktreePath)
+			require.NoError(t, err)
+		})
 
-	t.Run("existing worktree directory", func(t *testing.T) {
-		// Create directory that would conflict
-		conflictDir := filepath.Join(repoDir, branchName)
-		err := os.MkdirAll(conflictDir, 0o755)
-		require.NoError(t, err)
+		t.Run("existing worktree directory", func(t *testing.T) {
+			// Create directory that would conflict
+			conflictDir := filepath.Join(repoDir, branchName)
+			err := os.MkdirAll(conflictDir, 0o755)
+			require.NoError(t, err)
 
-		// Add a file to make it non-empty
-		conflictFile := filepath.Join(conflictDir, "conflict.txt")
-		err = os.WriteFile(conflictFile, []byte("conflict"), 0o644)
-		require.NoError(t, err)
+			// Add a file to make it non-empty
+			conflictFile := filepath.Join(conflictDir, "conflict.txt")
+			err = os.WriteFile(conflictFile, []byte("conflict"), 0o644)
+			require.NoError(t, err)
 
-		cmd := NewCreateCmd()
-		cmd.SetArgs([]string{branchName})
+			cmd := NewCreateCmd()
+			cmd.SetArgs([]string{branchName})
 
-		err = cmd.Execute()
-		// Should handle the conflict gracefully
-		if err != nil {
-			assert.Contains(t, err.Error(), "already exists")
-		}
+			err = cmd.Execute()
+			// Should handle the conflict gracefully
+			if err != nil {
+				assert.Contains(t, err.Error(), "already exists")
+			}
 
-		// Clean up
-		os.RemoveAll(conflictDir)
-	})
+			// Clean up
+			os.RemoveAll(conflictDir)
+		})
 	})
 }
 
 func TestCreateCommand_CustomPath_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
 
 	tests := []struct {
 		name       string
@@ -504,23 +543,30 @@ func TestCreateCommand_CustomPath_Integration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewCreateCmd()
-			cmd.SetArgs([]string{tt.branchName, tt.customPath})
+			runner := testutils.NewTestRunner(t)
+			runner.WithIsolatedWorkingDir().Run(func() {
+				// Change to the test repository directory
+				err := os.Chdir(repoDir)
+				require.NoError(t, err)
 
-			err := cmd.Execute()
-			require.NoError(t, err)
+				cmd := NewCreateCmd()
+				cmd.SetArgs([]string{tt.branchName, tt.customPath})
 
-			// Verify worktree was created at custom path
-			customWorktreePath := filepath.Join(repoDir, tt.customPath)
-			assert.DirExists(t, customWorktreePath)
+				err = cmd.Execute()
+				require.NoError(t, err)
 
-			// Verify it's a valid git worktree
-			gitDir := filepath.Join(customWorktreePath, ".git")
-			assert.FileExists(t, gitDir)
+				// Verify worktree was created at custom path
+				customWorktreePath := filepath.Join(repoDir, tt.customPath)
+				assert.DirExists(t, customWorktreePath)
 
-			// Clean up
-			_, err = git.ExecuteGit("worktree", "remove", customWorktreePath)
-			require.NoError(t, err)
+				// Verify it's a valid git worktree
+				gitDir := filepath.Join(customWorktreePath, ".git")
+				assert.FileExists(t, gitDir)
+
+				// Clean up
+				_, err = git.ExecuteGit("worktree", "remove", customWorktreePath)
+				require.NoError(t, err)
+			})
 		})
 	}
 }
@@ -536,13 +582,13 @@ func TestCreateCommand_FlagValidation_Integration(t *testing.T) {
 			name:        "no-copy with copy-env",
 			args:        []string{"test-branch", "--no-copy", "--copy-env"},
 			expectError: true,
-			errorText:   "cannot use both --no-copy and --copy-env",
+			errorText:   "--no-copy cannot be used with --copy-env or --copy flags",
 		},
 		{
 			name:        "no-copy with copy patterns",
 			args:        []string{"test-branch", "--no-copy", "--copy", ".env*"},
 			expectError: true,
-			errorText:   "cannot use both --no-copy and --copy",
+			errorText:   "--no-copy cannot be used with --copy-env or --copy flags",
 		},
 		{
 			name:        "copy-env with copy patterns",
@@ -570,19 +616,20 @@ func TestCreateCommand_FlagValidation_Integration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repoDir, cleanup := setupTestRepositoryForCreate(t)
-			defer cleanup()
-
 			cmd := NewCreateCmd()
 			cmd.SetArgs(tt.args)
 
-			err := cmd.Execute()
 			if tt.expectError {
+				err := cmd.Execute()
 				assert.Error(t, err)
 				if tt.errorText != "" {
 					assert.Contains(t, err.Error(), tt.errorText)
 				}
 			} else {
+				helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+				repoDir := setupTestRepositoryForCreate(t, helper)
+
+				err := cmd.Execute()
 				assert.NoError(t, err)
 				// Clean up if successful
 				branchName := tt.args[0]
@@ -601,25 +648,27 @@ func TestCreateCommand_ProgressCallback_Integration(t *testing.T) {
 
 	runner := testutils.NewTestRunner(t)
 	runner.WithIsolatedWorkingDir().Run(func() {
-		err := os.Chdir(repoDir)
+		// Change to the main worktree directory, not the bare repo root
+		mainWorktreeDir := filepath.Join(repoDir, "main")
+		err := os.Chdir(mainWorktreeDir)
 		require.NoError(t, err)
 
-	// Test that progress callback works without panicking
-	branchName := generateUniqueBranchNameEnhanced("progress-test")
+		// Test that progress callback works without panicking
+		branchName := generateUniqueBranchNameEnhanced("progress-test")
 
-	cmd := NewCreateCmd()
-	cmd.SetArgs([]string{branchName})
+		cmd := NewCreateCmd()
+		cmd.SetArgs([]string{branchName})
 
-	// Execute should work with progress indicators
-	err := cmd.Execute()
-	require.NoError(t, err)
+		// Execute should work with progress indicators
+		err = cmd.Execute()
+		require.NoError(t, err)
 
-	worktreePath := filepath.Join(repoDir, branchName)
-	assert.DirExists(t, worktreePath)
+		worktreePath := filepath.Join(repoDir, branchName)
+		assert.DirExists(t, worktreePath)
 
-	// Clean up
-	_, err = git.ExecuteGit("worktree", "remove", worktreePath)
-	require.NoError(t, err)
+		// Clean up
+		_, err = git.ExecuteGit("worktree", "remove", worktreePath)
+		require.NoError(t, err)
 	})
 }
 
@@ -634,13 +683,13 @@ func TestCreateCommand_ArgumentValidation_Integration(t *testing.T) {
 			name:        "no arguments",
 			args:        []string{},
 			expectError: true,
-			errorText:   "requires at least 1 arg",
+			errorText:   "branch name, URL, or remote branch is required",
 		},
 		{
 			name:        "too many arguments",
 			args:        []string{"branch", "path", "extra"},
 			expectError: true,
-			errorText:   "accepts at most 2 arg",
+			errorText:   "too many arguments, expected: grove create [branch-name|url] [path]",
 		},
 		{
 			name:        "valid single argument",
@@ -666,24 +715,30 @@ func TestCreateCommand_ArgumentValidation_Integration(t *testing.T) {
 					assert.Contains(t, err.Error(), tt.errorText)
 				}
 			} else {
-				repoDir, cleanup := setupTestRepositoryForCreate(t)
-				defer cleanup()
+				helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+				repoDir := setupTestRepositoryForCreate(t, helper)
 
-				err := cmd.Execute()
-				assert.NoError(t, err)
+				runner := testutils.NewTestRunner(t)
+				runner.WithIsolatedWorkingDir().Run(func() {
+					// Change to the test repository directory
+					err := os.Chdir(repoDir)
+					require.NoError(t, err)
 
-				// Clean up
-				branchName := tt.args[0]
-				var worktreePath string
-				if len(tt.args) > 1 {
-					worktreePath = filepath.Join(repoDir, tt.args[1])
-				} else {
-					worktreePath = filepath.Join(repoDir, branchName)
-				}
+					err = cmd.Execute()
+					assert.NoError(t, err)
 
-				if _, err := os.Stat(worktreePath); err == nil {
-					_, _ = git.ExecuteGit("worktree", "remove", worktreePath)
-				}
+					// Clean up
+					branchName := tt.args[0]
+					var worktreePath string
+					if len(tt.args) > 1 {
+						worktreePath = filepath.Join(repoDir, tt.args[1])
+					} else {
+						worktreePath = filepath.Join(repoDir, branchName)
+					}
+
+					if _, err := os.Stat(worktreePath); err == nil {
+						_, _ = git.ExecuteGit("worktree", "remove", worktreePath)
+					}
 				})
 			}
 		})

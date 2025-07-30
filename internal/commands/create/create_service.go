@@ -292,7 +292,7 @@ func (s *CreateServiceImpl) handleFileCopying(options *CreateOptions, targetWork
 	patterns := options.CopyPatterns
 	if len(patterns) == 0 {
 		if options.CopyEnv {
-			patterns = []string{".env*", "*.local", "local.*"}
+			patterns = []string{".env*", "*.local.*", "*.local", "docker-compose.override.yml"}
 		} else {
 			patterns = viper.GetStringSlice("worktree.copy_files.patterns")
 		}
