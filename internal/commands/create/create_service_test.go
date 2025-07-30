@@ -549,7 +549,7 @@ func TestCreateServiceImpl_classifyInput(t *testing.T) {
 				assert.Equal(t, tt.input, result.OriginalName)
 			}
 
-					mockBranchResolver.AssertExpectations(t)
+			mockBranchResolver.AssertExpectations(t)
 		})
 	}
 }

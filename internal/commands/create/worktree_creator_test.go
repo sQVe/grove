@@ -42,11 +42,11 @@ func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.
 	// TESTING STRATEGY: Simulate automatic conflict resolution for branch checkout conflicts.
 	// This test verifies the complete workflow when a branch is already checked out elsewhere:
 	// 1. Initial worktree creation fails with "branch already used" error
-	// 2. System detects conflict and locates the conflicting worktree 
+	// 2. System detects conflict and locates the conflicting worktree
 	// 3. System checks if conflicting worktree is clean (no uncommitted changes)
 	// 4. System detaches the conflicting worktree from the branch (checkout --detach)
 	// 5. System retries the original worktree creation and succeeds
-	// 
+	//
 	// Mock Setup: Uses SequentialMockGitExecutor to simulate the retry behavior
 	// where the same command returns different results on subsequent calls.
 	mockExecutor := testutils.NewSequentialMockGitExecutor()
@@ -84,7 +84,7 @@ func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.
 
 func TestWorktreeCreatorImpl_ConflictResolution_DirtyWorktreeFails(t *testing.T) {
 	// TESTING STRATEGY: Verify conflict resolution safety mechanisms.
-	// This test ensures automatic conflict resolution FAILS when the conflicting 
+	// This test ensures automatic conflict resolution FAILS when the conflicting
 	// worktree has uncommitted changes, preventing potential data loss.
 	//
 	// Safety Behavior: System detects uncommitted changes via 'git status --porcelain'
