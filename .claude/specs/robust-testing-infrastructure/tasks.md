@@ -173,22 +173,22 @@
     - Enhance path traversal test patterns
     - _Leverage: existing security validation_
 
-- [ ] **6.11** Migrate `internal/commands/create/worktree_creator_*_test.go` (4 files)
+- [x] **6.11** Migrate `internal/commands/create/worktree_creator_*_test.go` (4 files) ✅ COMPLETED
     - Use IntegrationTestHelper for worktree operations
     - Replace manual git setup with robust patterns
     - _Leverage: existing worktree test structure_
 
-- [ ] **6.12** Migrate `internal/commands/create/create_enhanced_integration_test.go`
+- [x] **6.12** Migrate `internal/commands/create/create_enhanced_integration_test.go` ✅ COMPLETED
     - Use IntegrationTestHelper for enhanced integration testing
     - Replace manual repository setup with robust patterns
     - _Leverage: existing enhanced test structure_
 
-- [ ] **6.13** Migrate `internal/commands/create/error_propagation_test.go`
+- [x] **6.13** Migrate `internal/commands/create/error_propagation_test.go` ✅ COMPLETED
     - Use UnitTestHelper for error propagation testing
     - Add proper error isolation patterns
     - _Leverage: existing error test structure_
 
-- [ ] **6.14** Migrate `internal/commands/create/path_generator_bench_test.go`
+- [x] **6.14** Migrate `internal/commands/create/path_generator_bench_test.go` ✅ COMPLETED
     - Use UnitTestHelper for benchmark testing
     - Maintain existing benchmark patterns
     - _Leverage: existing benchmark test structure_
