@@ -424,9 +424,62 @@ return fmt.Errorf("branch 'main' already exists. Use --force to overwrite or cho
 4. **Network/Remote Failures**: Log at debug level, provide user guidance
 5. **User Errors**: Return clear error messages, no logging needed
 
+# Robust Testing Guidelines
+
+**CRITICAL**: Use the robust testing infrastructure for all new tests.
+
+## Quick Reference
+
+### Integration Tests (Execute grove binary)
+
+```go
+func TestGroveCommand(t *testing.T) {
+    helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+    stdout, stderr, err := helper.ExecGrove("--version")
+    require.NoError(t, err)
+}
+```
+
+### Unit Tests (Filesystem operations)
+
+```go
+func TestFileOperations(t *testing.T) {
+    helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+    configFile := helper.CreateTempFile("config.toml", "key = 'value'")
+    testDir := helper.CreateTempDir("nested/test/dir")
+}
+```
+
+### Environment Isolation
+
+```go
+func TestWithCleanEnvironment(t *testing.T) {
+    runner := testutils.NewTestRunner(t)
+    runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
+        // Test logic with isolated environment
+    })
+}
+```
+
+## Migration Rules
+
+- **Replace** `t.TempDir()` → `helper.CreateTempDir()`
+- **Replace** `os.MkdirTemp()` → `helper.CreateTempDir()`
+- **Replace** manual cleanup → automatic with `WithCleanFilesystem()`
+- **Replace** `os.Chdir()` → `TestRunner.WithIsolatedWorkingDir()`
+- **Replace** environment variable changes → `TestRunner.WithCleanEnvironment()`
+
+## Key Benefits
+
+- **Performance**: Binary build caching (220,000x speedup)
+- **Reliability**: No race conditions, automatic cleanup
+- **Cross-platform**: Works on Windows, Linux, macOS
+- **Parallel-safe**: Tests don't interfere with each other
+
 # Important Development Reminders
 
 - **NEVER show technical debug information to users** - all logging should be at debug level unless it's user-actionable
+- **ALWAYS use robust testing patterns** - Use the testutils helpers for all new tests
 - Do what has been asked; nothing more, nothing less
 - NEVER create files unless absolutely necessary for achieving your goal
 - ALWAYS prefer editing an existing file to creating a new one
