@@ -94,7 +94,7 @@ func TestRunInitConvertAlreadyGrove(t *testing.T) {
 		require.NoError(t, err)
 
 		bareDir := filepath.Join(tempDir, ".bare")
-		err = os.MkdirAll(bareDir, 0o755)
+		err = os.Mkdir(bareDir, 0o755)
 		require.NoError(t, err)
 
 		mockExecutor := testutils.NewMockGitExecutor()

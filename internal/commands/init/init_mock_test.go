@@ -261,10 +261,10 @@ func TestParseBranches(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ParseBranches(tt.input)
-			assert.Equal(t, tt.expected, result)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := ParseBranches(testCase.input)
+			assert.Equal(t, testCase.expected, result)
 		})
 	}
 }
@@ -322,10 +322,10 @@ func TestIsValidBranchName(t *testing.T) {
 		{"contains control character", "branch\n", false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isValidBranchName(tt.branch)
-			assert.Equal(t, tt.expected, result, "Branch name: %q", tt.branch)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := isValidBranchName(testCase.branch)
+			assert.Equal(t, testCase.expected, result, "Branch name: %q", testCase.branch)
 		})
 	}
 }

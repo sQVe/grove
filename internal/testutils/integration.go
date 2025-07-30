@@ -207,6 +207,7 @@ func (h *IntegrationTestHelper) WithCleanFilesystem(patterns ...string) *Integra
 		"/tmp/create-cmd-*",
 		"/tmp/grove-list-*",
 		"/tmp/grove-test*",
+		"/tmp/test-*", // Clean up GitTestHelper artifacts
 	}
 
 	defaultPatterns = append(defaultPatterns, patterns...)
@@ -224,6 +225,69 @@ func (h *IntegrationTestHelper) WithCleanFilesystem(patterns ...string) *Integra
 	}
 
 	return h
+}
+
+// WithGitCleanup adds comprehensive git artifact cleanup to the test helper.
+func (h *IntegrationTestHelper) WithGitCleanup() *IntegrationTestHelper {
+	h.t.Helper()
+
+	h.t.Cleanup(func() {
+		h.cleanupGitArtifacts()
+	})
+
+	return h
+}
+
+// cleanupGitArtifacts performs aggressive cleanup of git worktrees and artifacts
+func (h *IntegrationTestHelper) cleanupGitArtifacts() {
+	// Force cleanup any worktrees in our temp directories
+	h.forceCleanupWorktrees()
+
+	// Clean up git-related patterns
+	gitPatterns := []string{
+		h.tempDir + "/**/.bare*",
+		h.tempDir + "/**/.git*",
+		"/tmp/**/grove-*",
+		"/tmp/**/test-*",
+		"/tmp/**/*-repo",
+	}
+
+	for _, pattern := range gitPatterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			continue
+		}
+
+		for _, match := range matches {
+			_ = os.RemoveAll(match)
+		}
+	}
+}
+
+// forceCleanupWorktrees attempts to force remove any git worktrees in temp directories
+func (h *IntegrationTestHelper) forceCleanupWorktrees() {
+	// Walk through temp directory looking for .git files (worktree indicators)
+	_ = filepath.Walk(h.tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Continue walking
+		}
+
+		// If we find a .git file, it might be a worktree
+		if info.Name() == ".git" && !info.IsDir() {
+			worktreeDir := filepath.Dir(path)
+			// Try to remove the worktree using git command
+			_ = h.executeGitCommand("worktree", "remove", "--force", worktreeDir)
+		}
+
+		return nil
+	})
+}
+
+// executeGitCommand is a helper to execute git commands during cleanup
+func (h *IntegrationTestHelper) executeGitCommand(args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = h.tempDir
+	return cmd.Run()
 }
 
 // CreateTempDir creates a temporary directory inside the helper's temp directory.

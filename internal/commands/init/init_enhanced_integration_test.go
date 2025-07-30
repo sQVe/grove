@@ -16,8 +16,6 @@ import (
 )
 
 func TestInitCommand_Convert_Integration(t *testing.T) {
-	// Test the --convert flag with various repository states
-
 	t.Run("convert traditional repo", func(t *testing.T) {
 		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
@@ -176,8 +174,6 @@ func TestInitCommand_Branches_Integration(t *testing.T) {
 }
 
 func TestInitCommand_URLParsing_Integration(t *testing.T) {
-	// Test smart URL parsing for different platforms
-
 	tests := []struct {
 		name        string
 		url         string
@@ -216,10 +212,10 @@ func TestInitCommand_URLParsing_Integration(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.skipReason != "" && !testing.Short() {
-				t.Skip(tt.skipReason)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.skipReason != "" && !testing.Short() {
+				t.Skip(testCase.skipReason)
 			}
 
 			helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
@@ -230,12 +226,12 @@ func TestInitCommand_URLParsing_Integration(t *testing.T) {
 				require.NoError(t, err)
 
 				cmd := NewInitCmd()
-				cmd.SetArgs([]string{tt.url})
+				cmd.SetArgs([]string{testCase.url})
 
 				err = cmd.Execute()
-				if tt.expectError {
+				if testCase.expectError {
 					assert.Error(t, err)
-				} else if tt.skipReason == "" {
+				} else if testCase.skipReason == "" {
 					assert.NoError(t, err)
 				}
 			})
@@ -265,7 +261,7 @@ func TestInitCommand_ErrorScenarios_Integration(t *testing.T) {
 		testDir := helper.CreateTempDir("grove-init-existing-git-dir")
 
 		gitDir := filepath.Join(testDir, ".git")
-		err := os.MkdirAll(gitDir, 0o755)
+		err := os.Mkdir(gitDir, 0o755)
 		require.NoError(t, err)
 
 		cmd := NewInitCmd()
@@ -281,7 +277,7 @@ func TestInitCommand_ErrorScenarios_Integration(t *testing.T) {
 		testDir := helper.CreateTempDir("grove-init-existing-bare")
 
 		bareDir := filepath.Join(testDir, ".bare")
-		err := os.MkdirAll(bareDir, 0o755)
+		err := os.Mkdir(bareDir, 0o755)
 		require.NoError(t, err)
 
 		cmd := NewInitCmd()
@@ -400,11 +396,11 @@ func TestInitCommand_BranchParsing_Integration(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ParseBranches(tt.branchesStr)
-			assert.Equal(t, tt.expectedCount, len(result))
-			assert.Equal(t, tt.expectedBranches, result)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := ParseBranches(testCase.branchesStr)
+			assert.Equal(t, testCase.expectedCount, len(result))
+			assert.Equal(t, testCase.expectedBranches, result)
 		})
 	}
 }
@@ -437,10 +433,10 @@ func TestInitCommand_BranchValidation_Integration(t *testing.T) {
 		{"valid complex", "feature/user-auth-v2", true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isValidBranchName(tt.branch)
-			assert.Equal(t, tt.expected, result, "Branch name: %q", tt.branch)
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := isValidBranchName(testCase.branch)
+			assert.Equal(t, testCase.expected, result, "Branch name: %q", testCase.branch)
 		})
 	}
 }
