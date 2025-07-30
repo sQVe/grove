@@ -16,216 +16,206 @@ import (
 )
 
 func TestRunInitFromRemoteWithExecutor_Success(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-remote-mock-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-remote-mock")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", nil)
-	mock.SetResponse("fetch", "", nil)
-	mock.SetResponse("for-each-ref", "main\nfeature", nil)
-	mock.SetResponse("branch", "", nil)
-	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	mock.SetResponse("config --bool core.bare true", "", nil)
-	mock.SetResponse("worktree add", "", nil)
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", nil)
+		mock.SetResponse("fetch", "", nil)
+		mock.SetResponse("for-each-ref", "main\nfeature", nil)
+		mock.SetResponse("branch", "", nil)
+		mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+		mock.SetResponse("config --bool core.bare true", "", nil)
+		mock.SetResponse("worktree add", "", nil)
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.NoError(t, err)
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.NoError(t, err)
 
-	bareDir := filepath.Join(tempDir, ".bare")
-	assert.DirExists(t, bareDir)
+		bareDir := filepath.Join(tempDir, ".bare")
+		assert.DirExists(t, bareDir)
 
-	gitFile := filepath.Join(tempDir, ".git")
-	assert.FileExists(t, gitFile)
+		gitFile := filepath.Join(tempDir, ".git")
+		assert.FileExists(t, gitFile)
 
-	content, err := os.ReadFile(gitFile)
-	require.NoError(t, err)
-	assert.Equal(t, "gitdir: .bare\n", string(content))
+		content, err := os.ReadFile(gitFile)
+		require.NoError(t, err)
+		assert.Equal(t, "gitdir: .bare\n", string(content))
 
-	assert.GreaterOrEqual(t, len(mock.Commands), 4)
+		assert.GreaterOrEqual(t, len(mock.Commands), 4)
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_CloneFailure(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-remote-fail-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-remote-fail")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", fmt.Errorf("authentication failed"))
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", fmt.Errorf("authentication failed"))
 
-	err = RunInitRemoteWithExecutor(mock, "https://private.com/repo.git", "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to clone repository")
+		err = RunInitRemoteWithExecutor(mock, "https://private.com/repo.git", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to clone repository")
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_ConfigFailure(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-config-fail-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-config-fail")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", fmt.Errorf("config write failed"))
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", fmt.Errorf("config write failed"))
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to configure remote tracking")
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to configure remote tracking")
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_FetchFailure(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-fetch-fail-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-fetch-fail")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", nil)
-	mock.SetResponse("fetch", "", fmt.Errorf("network timeout"))
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", nil)
+		mock.SetResponse("fetch", "", fmt.Errorf("network timeout"))
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to configure remote tracking")
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to configure remote tracking")
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_UpstreamWarning(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-upstream-warn-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-upstream-warn")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", nil)
-	mock.SetResponse("fetch", "", nil)
-	mock.SetResponse("for-each-ref", "", fmt.Errorf("no refs found"))
-	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	mock.SetResponse("config --bool core.bare true", "", nil)
-	mock.SetResponse("worktree add", "", nil)
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", nil)
+		mock.SetResponse("fetch", "", nil)
+		mock.SetResponse("for-each-ref", "", fmt.Errorf("no refs found"))
+		mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+		mock.SetResponse("config --bool core.bare true", "", nil)
+		mock.SetResponse("worktree add", "", nil)
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.NoError(t, err) // Should not fail even if upstream setup fails.
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.NoError(t, err)
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_NonEmptyDirectory(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-nonempty-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	testFile := filepath.Join(tempDir, "existing.txt")
-	err = os.WriteFile(testFile, []byte("content"), 0o600)
-	require.NoError(t, err)
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-nonempty")
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		// Create file in current directory to make it non-empty
+		err = os.WriteFile("existing.txt", []byte("content"), 0o644)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
+		mock := testutils.NewMockGitExecutor()
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not empty")
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not empty")
 
-	assert.Equal(t, 0, mock.CallCount)
+		assert.Equal(t, 0, mock.CallCount)
+	})
 }
 
 func TestRunInitFromRemoteWithExecutor_HiddenFilesAllowed(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-hidden-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	hiddenFile := filepath.Join(tempDir, ".gitignore")
-	err = os.WriteFile(hiddenFile, []byte("*.log"), 0o600)
-	require.NoError(t, err)
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-hidden")
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+		_ = helper.CreateTempFile(".gitignore", "*.log")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", nil)
-	mock.SetResponse("fetch", "", nil)
-	mock.SetResponse("for-each-ref", "", nil)
-	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	mock.SetResponse("config --bool core.bare true", "", nil)
-	mock.SetResponse("worktree add", "", nil)
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", nil)
+		mock.SetResponse("fetch", "", nil)
+		mock.SetResponse("for-each-ref", "", nil)
+		mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+		mock.SetResponse("config --bool core.bare true", "", nil)
+		mock.SetResponse("worktree add", "", nil)
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
-	require.NoError(t, err)
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "")
+		require.NoError(t, err)
 
-	assert.Positive(t, mock.CallCount)
+		assert.Positive(t, mock.CallCount)
+	})
 }
 
 func TestRunInitRemoteWithBranches(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-init-branches-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-init-branches")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("clone", "", nil)
-	mock.SetResponse("config", "", nil)
-	mock.SetResponse("fetch", "", nil)
-	mock.SetResponse("for-each-ref", "main\ndevelop\nfeature", nil)
-	mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
-	mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
-	mock.SetResponse("config --bool core.bare true", "", nil)
-	mock.SetResponse("worktree add", "", nil)
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("clone", "", nil)
+		mock.SetResponse("config", "", nil)
+		mock.SetResponse("fetch", "", nil)
+		mock.SetResponse("for-each-ref", "main\ndevelop\nfeature", nil)
+		mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
+		mock.SetResponse("symbolic-ref refs/remotes/origin/HEAD", "refs/remotes/origin/main", nil)
+		mock.SetResponse("config --bool core.bare true", "", nil)
+		mock.SetResponse("worktree add", "", nil)
 
-	err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "main,develop")
-	require.NoError(t, err)
+		err = RunInitRemoteWithExecutor(mock, "https://github.com/user/repo.git", "main,develop")
+		require.NoError(t, err)
 
-	bareDir := filepath.Join(tempDir, ".bare")
-	assert.DirExists(t, bareDir)
+		bareDir := filepath.Join(tempDir, ".bare")
+		assert.DirExists(t, bareDir)
 
-	assert.Positive(t, mock.CallCount)
+		assert.Positive(t, mock.CallCount)
+	})
 }
 
 func TestParseBranches(t *testing.T) {
@@ -280,26 +270,25 @@ func TestParseBranches(t *testing.T) {
 }
 
 func TestCreateAdditionalWorktrees(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-worktrees-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-worktrees")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	mock := testutils.NewMockGitExecutor()
-	mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
-	mock.SetResponse("worktree add", "", nil)
+		mock := testutils.NewMockGitExecutor()
+		mock.SetResponse("branch", "  origin/main\n  origin/develop\n  origin/feature", nil)
+		mock.SetResponse("worktree add", "", nil)
 
-	branches := []string{"main", "develop", "nonexistent"}
-	err = CreateAdditionalWorktrees(mock, tempDir, branches)
-	require.NoError(t, err)
+		branches := []string{"main", "develop", "nonexistent"}
+		err = CreateAdditionalWorktrees(mock, tempDir, branches)
+		require.NoError(t, err)
 
-	assert.Positive(t, mock.CallCount)
+		assert.Positive(t, mock.CallCount)
+	})
 }
 
 func TestIsValidBranchName(t *testing.T) {

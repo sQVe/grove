@@ -62,36 +62,35 @@ func TestInitCommandUsage(t *testing.T) {
 }
 
 func TestValidateAndPrepareDirectory(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner := testutils.NewTestRunner(t).WithIsolatedWorkingDir()
+	runner.Run(func() {
+		tempDir := helper.CreateTempDir("grove-test")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	result, err := validateAndPrepareDirectory()
-	require.NoError(t, err)
-	assert.Equal(t, tempDir, result)
+		result, err := validateAndPrepareDirectory()
+		require.NoError(t, err)
+		assert.Equal(t, tempDir, result)
 
-	hiddenFile := filepath.Join(tempDir, ".hidden")
-	err = os.WriteFile(hiddenFile, []byte("test"), 0o644)
-	require.NoError(t, err)
+		hiddenFile := filepath.Join(tempDir, ".hidden")
+		err = os.WriteFile(hiddenFile, []byte("test"), 0o644)
+		require.NoError(t, err)
 
-	result, err = validateAndPrepareDirectory()
-	require.NoError(t, err)
-	assert.Equal(t, tempDir, result)
+		result, err = validateAndPrepareDirectory()
+		require.NoError(t, err)
+		assert.Equal(t, tempDir, result)
 
-	visibleFile := filepath.Join(tempDir, "visible.txt")
-	err = os.WriteFile(visibleFile, []byte("test"), 0o644)
-	require.NoError(t, err)
+		visibleFile := filepath.Join(tempDir, "visible.txt")
+		err = os.WriteFile(visibleFile, []byte("test"), 0o644)
+		require.NoError(t, err)
 
-	_, err = validateAndPrepareDirectory()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not empty")
+		_, err = validateAndPrepareDirectory()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not empty")
+	})
 }
 
 func TestPrintSuccessMessage(t *testing.T) {
