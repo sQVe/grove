@@ -18,27 +18,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupTestRepositoryForCreate(t *testing.T) (string, func()) {
+func setupTestRepositoryForCreate(t *testing.T, helper *testutils.IntegrationTestHelper) string {
 	t.Helper()
 
-	tempDir := testutils.NewTestDirectory(t, "grove-create-enhanced-test")
-
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-
-	err = os.Chdir(tempDir.Path)
-	require.NoError(t, err)
+	// REPOSITORY SETUP STRATEGY: Create a realistic git repository structure for integration testing
+	// This setup creates a bare repository with git worktrees, simulating real-world grove usage:
+	// 1. Initialize bare repository (.bare directory) - central repository storage
+	// 2. Create .git file pointing to bare repo - enables worktree functionality  
+	// 3. Add initial commit with README - establishes history for branch operations
+	// 4. Create main worktree - provides base for branch creation and file operations
+	repoDir := helper.CreateTempDir("grove-create-enhanced-test")
 
 	// Initialize bare repository
-	bareDir := filepath.Join(tempDir.Path, ".bare")
-	err = git.InitBare(bareDir)
+	bareDir := filepath.Join(repoDir, ".bare")
+	err := git.InitBare(bareDir)
 	require.NoError(t, err)
 
-	err = git.CreateGitFile(tempDir.Path, bareDir)
+	err = git.CreateGitFile(repoDir, bareDir)
 	require.NoError(t, err)
 
 	// Create initial commit
-	readmeFile := filepath.Join(tempDir.Path, "README.md")
+	readmeFile := filepath.Join(repoDir, "README.md")
 	err = os.WriteFile(readmeFile, []byte("# Test Repository\n"), 0o644)
 	require.NoError(t, err)
 
@@ -49,25 +49,25 @@ func setupTestRepositoryForCreate(t *testing.T) (string, func()) {
 	require.NoError(t, err)
 
 	// Create main worktree
-	mainWorktreeDir := filepath.Join(tempDir.Path, "main")
+	mainWorktreeDir := filepath.Join(repoDir, "main")
 	_, err = git.ExecuteGit("worktree", "add", mainWorktreeDir, "main")
 	require.NoError(t, err)
 
-	cleanup := func() {
-		os.Chdir(originalDir)
-		tempDir.Cleanup()
-	}
-
-	return tempDir.Path, cleanup
+	return repoDir
 }
 
 func TestCreateCommand_BaseBranch_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
 
-	// Create a development branch with some commits
-	devBranch := generateUniqueBranchNameEnhanced("develop")
-	_, err := git.ExecuteGit("checkout", "-b", devBranch)
+	runner := testutils.NewTestRunner(t)
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(repoDir)
+		require.NoError(t, err)
+
+		// Create a development branch with some commits
+		devBranch := generateUniqueBranchNameEnhanced("develop")
+		_, err = git.ExecuteGit("checkout", "-b", devBranch)
 	require.NoError(t, err)
 
 	// Add a file to dev branch
@@ -132,15 +132,21 @@ func TestCreateCommand_BaseBranch_Integration(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+	})
 }
 
 func TestCreateCommand_FileCopying_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
 
-	// Set up base branch with various files
-	_, err := git.ExecuteGit("checkout", "main")
-	require.NoError(t, err)
+	runner := testutils.NewTestRunner(t)
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(repoDir)
+		require.NoError(t, err)
+
+		// Set up base branch with various files
+		_, err = git.ExecuteGit("checkout", "main")
+		require.NoError(t, err)
 
 	// Create files that should be copied
 	files := map[string]string{
@@ -260,6 +266,7 @@ func TestCreateCommand_FileCopying_Integration(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+	})
 }
 
 func TestCreateCommand_URLSupport_Integration(t *testing.T) {
@@ -314,15 +321,13 @@ func TestCreateCommand_URLSupport_Integration(t *testing.T) {
 				t.Skip(tt.skipReason)
 			}
 
-			tempDir := testutils.NewTestDirectory(t, "grove-create-url-test")
-			defer tempDir.Cleanup()
+			helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+			tempDir := helper.CreateTempDir("grove-create-url-test")
 
-			originalDir, err := os.Getwd()
-			require.NoError(t, err)
-			defer os.Chdir(originalDir)
-
-			err = os.Chdir(tempDir.Path)
-			require.NoError(t, err)
+			runner := testutils.NewTestRunner(t)
+			runner.WithIsolatedWorkingDir().Run(func() {
+				err := os.Chdir(tempDir)
+				require.NoError(t, err)
 
 			cmd := NewCreateCmd()
 			cmd.SetArgs([]string{tt.url})
@@ -334,33 +339,34 @@ func TestCreateCommand_URLSupport_Integration(t *testing.T) {
 				// For URL tests, we can't easily test without network
 				t.Skip("URL functionality requires network access")
 			}
+			})
 		})
 	}
 }
 
 func TestCreateCommand_RemoteBranches_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
 
-	// Set up a fake remote for testing
-	remoteDir := filepath.Join(repoDir, "..", "remote")
-	err := os.MkdirAll(remoteDir, 0o755)
-	require.NoError(t, err)
+	runner := testutils.NewTestRunner(t)
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(repoDir)
+		require.NoError(t, err)
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+		// Set up a fake remote for testing
+		remoteDir := helper.CreateTempDir("remote")
 
-	// Initialize remote repository
-	err = os.Chdir(remoteDir)
-	require.NoError(t, err)
+		// Initialize remote repository
+		runner := testutils.NewTestRunner(t)
+		runner.WithIsolatedWorkingDir().Run(func() {
+			err := os.Chdir(remoteDir)
+			require.NoError(t, err)
 
-	_, err = git.ExecuteGit("init", "--bare")
-	require.NoError(t, err)
+			_, err = git.ExecuteGit("init", "--bare")
+			require.NoError(t, err)
+		})
 
-	// Go back to main repo
-	err = os.Chdir(repoDir)
-	require.NoError(t, err)
+		// Go back to main repo (already in repoDir)
 
 	// Add remote
 	_, err = git.ExecuteGit("remote", "add", "origin", remoteDir)
@@ -406,21 +412,27 @@ func TestCreateCommand_RemoteBranches_Integration(t *testing.T) {
 		remoteFileInWorktree := filepath.Join(worktreePath, "remote-file.txt")
 		assert.FileExists(t, remoteFileInWorktree)
 	})
+	})
 }
 
 func TestCreateCommand_ConflictResolution_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
 
-	branchName := generateUniqueBranchNameEnhanced("conflict-test")
+	runner := testutils.NewTestRunner(t)
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(repoDir)
+		require.NoError(t, err)
 
-	// Create the branch first
-	_, err := git.ExecuteGit("checkout", "-b", branchName)
-	require.NoError(t, err)
+		branchName := generateUniqueBranchNameEnhanced("conflict-test")
 
-	// Go back to main
-	_, err = git.ExecuteGit("checkout", "main")
-	require.NoError(t, err)
+		// Create the branch first
+		_, err = git.ExecuteGit("checkout", "-b", branchName)
+		require.NoError(t, err)
+
+		// Go back to main
+		_, err = git.ExecuteGit("checkout", "main")
+		require.NoError(t, err)
 
 	t.Run("existing branch creates worktree", func(t *testing.T) {
 		cmd := NewCreateCmd()
@@ -460,6 +472,7 @@ func TestCreateCommand_ConflictResolution_Integration(t *testing.T) {
 
 		// Clean up
 		os.RemoveAll(conflictDir)
+	})
 	})
 }
 
@@ -583,8 +596,13 @@ func TestCreateCommand_FlagValidation_Integration(t *testing.T) {
 }
 
 func TestCreateCommand_ProgressCallback_Integration(t *testing.T) {
-	repoDir, cleanup := setupTestRepositoryForCreate(t)
-	defer cleanup()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	repoDir := setupTestRepositoryForCreate(t, helper)
+
+	runner := testutils.NewTestRunner(t)
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(repoDir)
+		require.NoError(t, err)
 
 	// Test that progress callback works without panicking
 	branchName := generateUniqueBranchNameEnhanced("progress-test")
@@ -602,6 +620,7 @@ func TestCreateCommand_ProgressCallback_Integration(t *testing.T) {
 	// Clean up
 	_, err = git.ExecuteGit("worktree", "remove", worktreePath)
 	require.NoError(t, err)
+	})
 }
 
 func TestCreateCommand_ArgumentValidation_Integration(t *testing.T) {
@@ -665,6 +684,7 @@ func TestCreateCommand_ArgumentValidation_Integration(t *testing.T) {
 				if _, err := os.Stat(worktreePath); err == nil {
 					_, _ = git.ExecuteGit("worktree", "remove", worktreePath)
 				}
+				})
 			}
 		})
 	}

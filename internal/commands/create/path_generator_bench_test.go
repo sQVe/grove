@@ -8,10 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sqve/grove/internal/testutils"
 )
 
 // BenchmarkPathGenerator_GeneratePath benchmarks path generation for worktrees.
+// BENCHMARK STRATEGY: Measures the performance of path generation across different branch name patterns
+// Tests include simple names, complex names with hyphens, and very long names to identify
+// performance bottlenecks in path sanitization and collision detection algorithms.
 func BenchmarkPathGenerator_GeneratePath(b *testing.B) {
+	// Create helper using proper benchmark context
+	helper := testutils.NewUnitTestHelper(b).WithCleanFilesystem()
 	generator := NewPathGenerator()
 
 	branchNames := []string{
@@ -24,7 +31,7 @@ func BenchmarkPathGenerator_GeneratePath(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		testDir := b.TempDir() // Fresh dir each time to avoid collisions
+		testDir := helper.GetUniqueTestPath(fmt.Sprintf("benchmark-test-%d", i)) // Fresh dir each time to avoid collisions
 		branchName := branchNames[i%len(branchNames)]
 		_, err := generator.GeneratePath(branchName, testDir)
 		if err != nil {
@@ -34,7 +41,12 @@ func BenchmarkPathGenerator_GeneratePath(b *testing.B) {
 }
 
 // BenchmarkPathGenerator_GeneratePathWithCollisions benchmarks path generation with collision handling.
+// COLLISION TESTING STRATEGY: Measures performance when paths already exist and require suffix generation
+// Pre-creates directories that match the target path to force the collision resolution algorithm
+// to find alternative paths with numeric suffixes (e.g., feature-branch-1, feature-branch-2, etc.)
 func BenchmarkPathGenerator_GeneratePathWithCollisions(b *testing.B) {
+	// Create helper using proper benchmark context
+	helper := testutils.NewUnitTestHelper(b).WithCleanFilesystem()
 	generator := NewPathGenerator()
 
 	// Create 10 collision attempts to test the collision resolution
@@ -43,7 +55,7 @@ func BenchmarkPathGenerator_GeneratePathWithCollisions(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		testDir := b.TempDir()
+		testDir := helper.GetUniqueTestPath(fmt.Sprintf("benchmark-collision-test-%d", i))
 
 		// Create some existing directories to simulate collisions
 		basePath := filepath.Join(testDir, branchName)

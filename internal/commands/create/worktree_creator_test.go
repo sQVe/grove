@@ -14,11 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testExistingWorktreePath = "/existing/worktree"
+// Note: Basic worktree creation tests moved to worktree_creator_basic_test.go.
+// Error handling tests moved to worktree_creator_errors_test.go.
+// Validation tests moved to worktree_creator_validation_test.go.
 
-// Note: Basic worktree creation tests moved to worktree_creator_basic_test.go
-// Error handling tests moved to worktree_creator_errors_test.go
-// Validation tests moved to worktree_creator_validation_test.go
+func getTestExistingWorktreePath(helper *testutils.UnitTestHelper) string {
+	return helper.GetUniqueTestPath("existing-worktree")
+}
 
 // Conflict Resolution Tests
 //
@@ -28,29 +30,35 @@ const testExistingWorktreePath = "/existing/worktree"
 // 2. Locates the conflicting worktree
 // 3. Checks if it's safe to resolve (no uncommitted changes)
 // 4. Switches the conflicting worktree to detached HEAD
-// 5. Retries the original worktree creation
+// 5. Retries the original worktree creation.
 
 func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.T) {
-	tmpDir := t.TempDir()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
-	// Create a sequential mock that simulates the conflict resolution workflow:
-	// 1st call: fails with "branch already used" error
-	// 2nd call: succeeds after conflict resolution
+	testExistingWorktreePath := getTestExistingWorktreePath(helper)
+
+	// TESTING STRATEGY: Simulate automatic conflict resolution for branch checkout conflicts.
+	// This test verifies the complete workflow when a branch is already checked out elsewhere:
+	// 1. Initial worktree creation fails with "branch already used" error
+	// 2. System detects conflict and locates the conflicting worktree 
+	// 3. System checks if conflicting worktree is clean (no uncommitted changes)
+	// 4. System detaches the conflicting worktree from the branch (checkout --detach)
+	// 5. System retries the original worktree creation and succeeds
+	// 
+	// Mock Setup: Uses SequentialMockGitExecutor to simulate the retry behavior
+	// where the same command returns different results on subsequent calls.
 	mockExecutor := testutils.NewSequentialMockGitExecutor()
 
-	// Set up sequential responses for worktree add command
 	mockExecutor.SetSequentialResponse(
 		fmt.Sprintf("worktree add %s feature-branch", worktreePath),
 		[]testutils.MockResponse{
-			// First call fails with conflict - simulates the initial error
 			{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
-			// Second call succeeds after resolution - simulates successful retry
 			{Output: "", Error: nil},
 		},
 	)
 
-	// Set up responses for conflict resolution workflow
 	mockExecutor.SetSingleResponse("show-ref --verify --quiet refs/heads/feature-branch", testutils.MockResponse{Output: "", Error: nil})                                                                                                                                   // Branch exists check
 	mockExecutor.SetSingleResponse("worktree list --porcelain", testutils.MockResponse{Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil}) // List existing worktrees
 	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" status --porcelain", testutils.MockResponse{Output: "", Error: nil})                                                                                                                                    // Check if conflicting worktree is clean
@@ -68,34 +76,35 @@ func TestWorktreeCreatorImpl_ConflictResolution_CleanWorktreeSuccess(t *testing.
 
 	require.NoError(t, err)
 
-	// Verify progress messages were provided
 	assert.Contains(t, progressMessages, "Branch 'feature-branch' is in use, attempting automatic resolution...")
 	assert.Contains(t, progressMessages, "Resolved conflict: switched previous worktree to detached HEAD")
 
-	// Verify the worktree add command was called twice (first fails, then succeeds)
 	assert.Equal(t, 2, mockExecutor.GetSpecificCounter("worktree_add"))
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_DirtyWorktreeFails(t *testing.T) {
-	// This test verifies that automatic conflict resolution fails when the
-	// conflicting worktree has uncommitted changes, preventing data loss
+	// TESTING STRATEGY: Verify conflict resolution safety mechanisms.
+	// This test ensures automatic conflict resolution FAILS when the conflicting 
+	// worktree has uncommitted changes, preventing potential data loss.
+	//
+	// Safety Behavior: System detects uncommitted changes via 'git status --porcelain'
+	// and aborts the automatic resolution, returning a clear error message to the user.
+	// This prevents accidentally losing work-in-progress in the conflicting worktree.
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
-	conflictingWorktreePath := testExistingWorktreePath
+	conflictingWorktreePath := getTestExistingWorktreePath(helper)
 
-	// Mock branch exists check
 	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
 
-	// Mock worktree creation failure with conflict error
 	conflictError := fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", conflictingWorktreePath)
 	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), conflictError)
 
-	// Mock worktree list to show conflicting worktree is not main
 	mockExecutor.SetSuccessResponse("worktree list --porcelain", "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree "+conflictingWorktreePath+"\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n")
 
-	// Mock status check showing dirty worktree - this prevents automatic resolution
-	// Format: " M" = modified, "??" = untracked (git status --porcelain format)
+	// Mock status check showing dirty worktree prevents automatic resolution.
+	// Format: " M" = modified, "??" = untracked (git status --porcelain format).
 	mockExecutor.SetSuccessResponse(fmt.Sprintf("-C %s status --porcelain", conflictingWorktreePath), " M modified_file.txt\n?? untracked_file.txt")
 
 	creator := NewWorktreeCreator(mockExecutor)
@@ -113,32 +122,28 @@ func TestWorktreeCreatorImpl_ConflictResolution_DirtyWorktreeFails(t *testing.T)
 	groveErr := err.(*groveErrors.GroveError)
 	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
 
-	// Verify progress messages were provided
 	assert.Contains(t, progressMessages, "Branch 'feature-branch' is in use, attempting automatic resolution...")
 	assert.Contains(t, progressMessages, "Cannot resolve automatically: conflicting worktree has uncommitted changes")
 
-	// Verify status check was performed but checkout was not attempted
 	assert.True(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "status", "--porcelain"))
 	assert.False(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "checkout", "--detach"))
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_StatusCheckFails(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
-	conflictingWorktreePath := testExistingWorktreePath
+	conflictingWorktreePath := getTestExistingWorktreePath(helper)
 
-	// Mock branch exists check
 	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
 
-	// Mock worktree creation failure with conflict error
 	conflictError := fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", conflictingWorktreePath)
 	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), conflictError)
 
-	// Mock worktree list to show conflicting worktree is not main
 	mockExecutor.SetSuccessResponse("worktree list --porcelain", "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree "+conflictingWorktreePath+"\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n")
 
-	// Mock status check failure (e.g., worktree doesn't exist anymore)
+	// Mock status check failure (worktree no longer exists).
 	mockExecutor.SetErrorResponse(fmt.Sprintf("-C %s status --porcelain", conflictingWorktreePath), fmt.Errorf("fatal: not a git repository"))
 
 	creator := NewWorktreeCreator(mockExecutor)
@@ -156,35 +161,29 @@ func TestWorktreeCreatorImpl_ConflictResolution_StatusCheckFails(t *testing.T) {
 	groveErr := err.(*groveErrors.GroveError)
 	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
 
-	// Verify progress messages were provided
 	assert.Contains(t, progressMessages, "Branch 'feature-branch' is in use, attempting automatic resolution...")
 	assert.Contains(t, progressMessages, "Automatic conflict resolution failed")
 
-	// Verify status check was performed but checkout was not attempted
 	assert.True(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "status", "--porcelain"))
 	assert.False(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "checkout", "--detach"))
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_CheckoutFails(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
-	conflictingWorktreePath := testExistingWorktreePath
+	conflictingWorktreePath := getTestExistingWorktreePath(helper)
 
-	// Mock branch exists check
 	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
 
-	// Mock worktree creation failure with conflict error
 	conflictError := fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", conflictingWorktreePath)
 	mockExecutor.SetErrorResponse(fmt.Sprintf("worktree add %s feature-branch", worktreePath), conflictError)
 
-	// Mock worktree list to show conflicting worktree is not main
 	mockExecutor.SetSuccessResponse("worktree list --porcelain", "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree "+conflictingWorktreePath+"\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n")
 
-	// Mock status check showing clean worktree
 	mockExecutor.SetSuccessResponse(fmt.Sprintf("-C %s status --porcelain", conflictingWorktreePath), "")
 
-	// Mock checkout --detach failure
 	mockExecutor.SetErrorResponse(fmt.Sprintf("-C %s checkout --detach", conflictingWorktreePath), fmt.Errorf("error: pathspec 'HEAD' did not match any file(s) known to git"))
 
 	creator := NewWorktreeCreator(mockExecutor)
@@ -202,36 +201,32 @@ func TestWorktreeCreatorImpl_ConflictResolution_CheckoutFails(t *testing.T) {
 	groveErr := err.(*groveErrors.GroveError)
 	assert.Equal(t, groveErrors.ErrCodeWorktreeCreation, groveErr.Code)
 
-	// Verify progress messages were provided
 	assert.Contains(t, progressMessages, "Branch 'feature-branch' is in use, attempting automatic resolution...")
 	assert.Contains(t, progressMessages, "Automatic conflict resolution failed")
 
-	// Verify both status check and checkout were attempted
 	assert.True(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "status", "--porcelain"))
 	assert.True(t, mockExecutor.HasCommand("-C", conflictingWorktreePath, "checkout", "--detach"))
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_BasicConflictError(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
-	conflictingWorktreePath := testExistingWorktreePath
+	conflictingWorktreePath := getTestExistingWorktreePath(helper)
 
-	// Mock branch exists check
 	mockExecutor.SetSuccessResponse("show-ref --verify --quiet refs/heads/feature-branch", "")
 
-	// Mock worktree creation failure with conflict error - without resolution
 	conflictError := fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", conflictingWorktreePath)
 	mockExecutor.SetErrorResponse("worktree add "+worktreePath+" feature-branch", conflictError)
 
-	// Don't mock the status check - this should cause the resolution to fail
+	// Don't mock the status check to cause resolution failure.
 
 	creator := NewWorktreeCreator(mockExecutor)
 
 	options := WorktreeOptions{TrackRemote: false}
 	err := creator.CreateWorktreeWithProgress("feature-branch", worktreePath, options, nil)
 
-	// Should return an error since we didn't mock the status check
 	require.Error(t, err)
 	assert.IsType(t, &groveErrors.GroveError{}, err)
 	groveErr := err.(*groveErrors.GroveError)
@@ -239,24 +234,22 @@ func TestWorktreeCreatorImpl_ConflictResolution_BasicConflictError(t *testing.T)
 }
 
 func TestWorktreeCreatorImpl_ConflictResolution_NoProgressCallback(t *testing.T) {
-	tmpDir := t.TempDir()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	tmpDir := helper.CreateTempDir("conflict-resolution-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
-	// Create a sequential mock that can handle different responses for the same command
+	testExistingWorktreePath := getTestExistingWorktreePath(helper)
+
 	mockExecutor := testutils.NewSequentialMockGitExecutor()
 
-	// Set up sequential responses for worktree add command
 	mockExecutor.SetSequentialResponse(
 		fmt.Sprintf("worktree add %s feature-branch", worktreePath),
 		[]testutils.MockResponse{
-			// First call fails with conflict
 			{Output: "", Error: fmt.Errorf("fatal: 'feature-branch' is already used by worktree at '%s'", testExistingWorktreePath)},
-			// Second call succeeds after resolution
 			{Output: "", Error: nil},
 		},
 	)
 
-	// Set up single responses for other commands
 	mockExecutor.SetSingleResponse("show-ref --verify --quiet refs/heads/feature-branch", testutils.MockResponse{Output: "", Error: nil})
 	mockExecutor.SetSingleResponse("worktree list --porcelain", testutils.MockResponse{Output: "worktree /main/repo\nHEAD abcd1234\nbranch refs/heads/main\n\nworktree " + testExistingWorktreePath + "\nHEAD efgh5678\nbranch refs/heads/feature-branch\n\n", Error: nil})
 	mockExecutor.SetSingleResponse("-C "+testExistingWorktreePath+" status --porcelain", testutils.MockResponse{Output: "", Error: nil})
@@ -269,6 +262,5 @@ func TestWorktreeCreatorImpl_ConflictResolution_NoProgressCallback(t *testing.T)
 
 	require.NoError(t, err)
 
-	// Verify the worktree add command was called twice (first fails, then succeeds)
 	assert.Equal(t, 2, mockExecutor.GetSpecificCounter("worktree_add"))
 }

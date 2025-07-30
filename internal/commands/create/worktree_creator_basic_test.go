@@ -16,9 +16,10 @@ import (
 // Basic worktree creation tests for standard scenarios
 
 func TestWorktreeCreatorImpl_CreateWorktree_ExistingBranchSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("worktree-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Mock branch exists check to return success (branch exists).
@@ -39,9 +40,10 @@ func TestWorktreeCreatorImpl_CreateWorktree_ExistingBranchSuccess(t *testing.T) 
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_NewBranchSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("worktree-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Mock branch exists check to return error (branch doesn't exist).
@@ -62,9 +64,10 @@ func TestWorktreeCreatorImpl_CreateWorktree_NewBranchSuccess(t *testing.T) {
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_TrackRemoteSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("worktree-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Mock branch exists check to return error (branch doesn't exist).
@@ -94,9 +97,10 @@ func TestWorktreeCreatorImpl_CreateWorktree_TrackRemoteSuccess(t *testing.T) {
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_ForceSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("worktree-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Mock branch exists check to return success (branch exists).
@@ -117,9 +121,10 @@ func TestWorktreeCreatorImpl_CreateWorktree_ForceSuccess(t *testing.T) {
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_ComplexOptionsSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("worktree-test")
 	worktreePath := filepath.Join(tmpDir, "worktree")
 
 	// Mock branch exists check to return error (branch doesn't exist).

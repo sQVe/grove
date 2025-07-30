@@ -64,9 +64,10 @@ func TestWorktreeCreatorImpl_CreateWorktree_ValidationErrors(t *testing.T) {
 }
 
 func TestWorktreeCreatorImpl_CreateWorktree_ValidationSuccess(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	mockExecutor := testutils.NewMockGitExecutor()
 
-	tmpDir := t.TempDir()
+	tmpDir := helper.CreateTempDir("validation-test")
 	worktreePath := filepath.Join(tmpDir, "valid")
 
 	// Mock branch exists check to return success (branch exists).

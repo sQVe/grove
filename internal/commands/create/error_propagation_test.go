@@ -47,8 +47,9 @@ func TestErrorPropagation_WorktreeCreation(t *testing.T) {
 			mockExecutor := testutils.NewMockGitExecutor()
 			creator := NewWorktreeCreator(mockExecutor)
 
+			helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 			// Use a temporary directory that actually exists
-			tmpDir := t.TempDir()
+			tmpDir := helper.CreateTempDir("error-propagation-test")
 			testPath := tmpDir + "/worktree"
 
 			// Setup mock responses based on test case
@@ -95,8 +96,9 @@ func TestErrorPropagation_NestedOperations(t *testing.T) {
 		mockExecutor := testutils.NewMockGitExecutor()
 		creator := NewWorktreeCreator(mockExecutor)
 
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 		// Use a temporary directory that actually exists
-		tmpDir := t.TempDir()
+		tmpDir := helper.CreateTempDir("nested-operations-test")
 		testPath := tmpDir + "/worktree"
 
 		// Branch exists but worktree creation fails
@@ -120,8 +122,9 @@ func TestErrorPropagation_ConflictResolution(t *testing.T) {
 		mockExecutor := testutils.NewMockGitExecutor()
 		creator := NewWorktreeCreator(mockExecutor)
 
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 		// Use a temporary directory that actually exists
-		tmpDir := t.TempDir()
+		tmpDir := helper.CreateTempDir("conflict-resolution-test")
 		testPath := tmpDir + "/worktree"
 
 		// Branch exists
@@ -161,8 +164,9 @@ func TestErrorPropagation_NetworkErrors(t *testing.T) {
 		mockExecutor := testutils.NewMockGitExecutor()
 		creator := NewWorktreeCreator(mockExecutor)
 
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 		// Use a temporary directory that actually exists
-		tmpDir := t.TempDir()
+		tmpDir := helper.CreateTempDir("network-errors-test")
 		testPath := tmpDir + "/worktree"
 
 		// Branch doesn't exist locally, try to create with remote tracking
