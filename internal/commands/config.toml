@@ -7,13 +7,13 @@ prompt_for_new_branch = true
 max_context_entries = 10
 
 [general]
-editor = 'test'
+editor = 'emacs'
 output_format = 'text'
 pager = 'less'
 
 [git]
 default_remote = 'origin'
-fetch_timeout = '123s'
+fetch_timeout = 120000000000
 max_retries = 3
 
 [logging]

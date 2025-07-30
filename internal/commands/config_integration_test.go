@@ -6,6 +6,7 @@ package commands
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -356,7 +357,7 @@ func TestConfigCommand_Integration_Validate(t *testing.T) {
 
 	t.Run("validate default config", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
@@ -369,7 +370,8 @@ func TestConfigCommand_Integration_Validate(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			var err error
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "Configuration is valid")
@@ -378,7 +380,7 @@ func TestConfigCommand_Integration_Validate(t *testing.T) {
 
 	t.Run("validate with custom valid config", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
@@ -394,7 +396,8 @@ func TestConfigCommand_Integration_Validate(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			var err error
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "Configuration is valid")
@@ -408,14 +411,25 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 
 	t.Run("reset single key", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
 			config.Initialize()
 
-			// Set a custom value
+			// Create a config file first by setting config directory
+			configFile := filepath.Join(configDir, "grove", "config.toml")
+			err := os.MkdirAll(filepath.Dir(configFile), 0o755)
+			require.NoError(t, err)
+
+			// Initialize config and set up config file
 			config.Set("general.editor", "custom-editor")
+			err = config.WriteConfigAs(configFile)
+			require.NoError(t, err)
+
+			// Re-initialize to pick up the config file
+			viper.Reset()
+			config.Initialize()
 			assert.Equal(t, "custom-editor", config.GetString("general.editor"))
 
 			cmd := NewConfigCmd()
@@ -425,7 +439,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "Reset general.editor to default value")
@@ -438,7 +452,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 
 	t.Run("reset invalid key", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
@@ -451,7 +465,8 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			var err error
+			err = cmd.Execute()
 
 			assert.Error(t, err)
 			assert.Contains(t, stderr.String(), "invalid configuration key")
@@ -460,15 +475,26 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 
 	t.Run("reset all with confirm", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
 			config.Initialize()
 
-			// Set custom values
+			// Create a config file first by setting config directory
+			configFile := filepath.Join(configDir, "grove", "config.toml")
+			err := os.MkdirAll(filepath.Dir(configFile), 0o755)
+			require.NoError(t, err)
+
+			// Set custom values and write config
 			config.Set("general.editor", "custom1")
 			config.Set("git.fetch_timeout", "123s")
+			err = config.WriteConfigAs(configFile)
+			require.NoError(t, err)
+
+			// Re-initialize to pick up the config file
+			viper.Reset()
+			config.Initialize()
 
 			cmd := NewConfigCmd()
 			cmd.SetArgs([]string{"reset", "--confirm"})
@@ -477,7 +503,7 @@ func TestConfigCommand_Integration_Reset(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "All configuration reset to defaults")
@@ -517,7 +543,7 @@ func TestConfigCommand_Integration_Path(t *testing.T) {
 
 		// Should mention if no config file is found or show the current one
 		if strings.Contains(stdout.String(), "Currently used config file:") {
-			assert.Contains(t, stdout.String(), ".yaml")
+			assert.Contains(t, stdout.String(), ".toml")
 		} else {
 			assert.Contains(t, stdout.String(), "No config file found, using defaults")
 		}
@@ -530,7 +556,7 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 
 	t.Run("init new config file", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
@@ -543,25 +569,36 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			var err error
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "Created configuration file:")
-			assert.Contains(t, stdout.String(), ".yaml")
+			assert.Contains(t, stdout.String(), ".toml")
 		})
 	})
 
 	t.Run("init with existing file", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
 			config.Initialize()
 
-			// Create a config file first
+			// Create a config file first by setting config directory
+			configFile := filepath.Join(configDir, "grove", "config.toml")
+			err := os.MkdirAll(filepath.Dir(configFile), 0o755)
+			require.NoError(t, err)
+
+			// Create config file with test value
 			config.Set("general.editor", "test")
-			config.WriteConfig()
+			err = config.WriteConfigAs(configFile)
+			require.NoError(t, err)
+
+			// Re-initialize to pick up the config file
+			viper.Reset()
+			config.Initialize()
 
 			cmd := NewConfigCmd()
 			cmd.SetArgs([]string{"init"})
@@ -570,7 +607,7 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			err = cmd.Execute()
 
 			assert.Error(t, err)
 			assert.Contains(t, stderr.String(), "configuration file already exists")
@@ -579,15 +616,25 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 
 	t.Run("init with force flag", func(t *testing.T) {
 		runner := testutils.NewTestRunner(t)
-		runner.WithCleanEnvironment().Run(func() {
+		runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
 			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
 			viper.Reset()
 			config.Initialize()
 
-			// Create a config file first
+			// Create a config file first by setting config directory
+			configFile := filepath.Join(configDir, "grove", "config.toml")
+			err := os.MkdirAll(filepath.Dir(configFile), 0o755)
+			require.NoError(t, err)
+
+			// Create config file with test value
 			config.Set("general.editor", "test")
-			config.WriteConfig()
+			err = config.WriteConfigAs(configFile)
+			require.NoError(t, err)
+
+			// Re-initialize to pick up the config file
+			viper.Reset()
+			config.Initialize()
 
 			cmd := NewConfigCmd()
 			cmd.SetArgs([]string{"init", "--force"})
@@ -596,7 +643,7 @@ func TestConfigCommand_Integration_Init(t *testing.T) {
 			cmd.SetOut(&stdout)
 			cmd.SetErr(&stderr)
 
-			err := cmd.Execute()
+			err = cmd.Execute()
 
 			assert.NoError(t, err)
 			assert.Contains(t, stdout.String(), "Created configuration file:")
