@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,10 +68,29 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 		"TMPDIR=" + r.t.TempDir(),
 	}
 
-	// Add Go-specific variables.
+	// Add Go-specific variables, but ensure GOROOT is always valid.
+	gorootSet := false
 	for _, env := range originalEnv {
 		if strings.HasPrefix(env, "GO") {
+			// Skip fake GOROOT values that might have been set by tests
+			if strings.HasPrefix(env, "GOROOT=") && strings.Contains(env, "/test/") {
+				continue
+			}
 			cleanEnv = append(cleanEnv, env)
+			if strings.HasPrefix(env, "GOROOT=") {
+				gorootSet = true
+			}
+		}
+	}
+
+	// Ensure GOROOT is always set to a valid value
+	if !gorootSet {
+		if cmd := exec.Command("go", "env", "GOROOT"); cmd != nil {
+			if output, err := cmd.Output(); err == nil {
+				if goroot := strings.TrimSpace(string(output)); goroot != "" {
+					cleanEnv = append(cleanEnv, "GOROOT="+goroot)
+				}
+			}
 		}
 	}
 
@@ -79,7 +99,9 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 	for _, env := range cleanEnv {
 		parts := strings.SplitN(env, "=", 2)
 		if len(parts) == 2 {
-			os.Setenv(parts[0], parts[1])
+			if err := os.Setenv(parts[0], parts[1]); err != nil {
+				r.t.Fatalf("Failed to set environment variable %s: %v", parts[0], err)
+			}
 		}
 	}
 
@@ -89,7 +111,9 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 		for _, env := range originalEnv {
 			parts := strings.SplitN(env, "=", 2)
 			if len(parts) == 2 {
-				os.Setenv(parts[0], parts[1])
+				if err := os.Setenv(parts[0], parts[1]); err != nil {
+					r.t.Logf("Warning: Failed to restore environment variable %s: %v", parts[0], err)
+				}
 			}
 		}
 	})
@@ -110,7 +134,8 @@ func (r *TestRunner) WithCleanFilesystem(patterns ...string) *TestRunner {
 		"/tmp/*-grove-*",
 	}
 
-	allPatterns := append(defaultPatterns, patterns...)
+	defaultPatterns = append(defaultPatterns, patterns...)
+	allPatterns := defaultPatterns
 
 	for _, pattern := range allPatterns {
 		matches, err := filepath.Glob(pattern)

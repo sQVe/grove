@@ -44,6 +44,24 @@ func SetDefaults() {
 	}
 }
 
+// ResetToDefaults clears all existing configuration and resets to default values
+func ResetToDefaults() {
+	// Clear all existing configuration
+	for key := range viper.AllSettings() {
+		viper.Set(key, nil)
+	}
+
+	// Set default values
+	for key, value := range defaultValues {
+		// Handle function values that need to be called.
+		if fn, ok := value.(func() string); ok {
+			viper.Set(key, fn())
+		} else {
+			viper.Set(key, value)
+		}
+	}
+}
+
 func getDefaultPager() string {
 	if pager := viper.GetString("PAGER"); pager != "" {
 		return pager

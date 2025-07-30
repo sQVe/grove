@@ -151,13 +151,13 @@ func TestIntegrationTestHelper_GetBinary(t *testing.T) {
 	require.NoError(t, err)
 
 	// On Unix systems, check executable bit
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != windowsOS {
 		mode := fileInfo.Mode()
 		assert.True(t, mode&0o111 != 0, "Binary should be executable")
 	}
 
 	// Verify binary name includes platform-specific extension
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		assert.True(t, strings.HasSuffix(binaryPath, ".exe"), "Windows binary should have .exe extension")
 	} else {
 		assert.False(t, strings.HasSuffix(binaryPath, ".exe"), "Non-Windows binary should not have .exe extension")
@@ -373,12 +373,16 @@ func TestTestRunner_WithIsolatedWorkingDir(t *testing.T) {
 func TestTestRunner_WithCleanEnvironment(t *testing.T) {
 	// Set a test environment variable
 	originalValue := os.Getenv("TEST_RUNNER_TEST_VAR")
-	os.Setenv("TEST_RUNNER_TEST_VAR", "original_value")
+	require.NoError(t, os.Setenv("TEST_RUNNER_TEST_VAR", "original_value"))
 	defer func() {
 		if originalValue == "" {
-			os.Unsetenv("TEST_RUNNER_TEST_VAR")
+			if err := os.Unsetenv("TEST_RUNNER_TEST_VAR"); err != nil {
+				t.Logf("Warning: Failed to unset environment variable: %v", err)
+			}
 		} else {
-			os.Setenv("TEST_RUNNER_TEST_VAR", originalValue)
+			if err := os.Setenv("TEST_RUNNER_TEST_VAR", originalValue); err != nil {
+				t.Logf("Warning: Failed to restore environment variable: %v", err)
+			}
 		}
 	}()
 

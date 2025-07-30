@@ -23,7 +23,7 @@ func TestCrossPlatformBinaryBuilding(t *testing.T) {
 
 	// Binary should have correct platform-specific extension
 	switch runtime.GOOS {
-	case "windows":
+	case windowsOS:
 		assert.True(t, strings.HasSuffix(binaryPath, ".exe"),
 			"Windows binary should have .exe extension")
 	case "linux", "darwin":
@@ -96,7 +96,7 @@ func TestCrossPlatformEnvironmentHandling(t *testing.T) {
 	var expectedValue string
 
 	switch runtime.GOOS {
-	case "windows":
+	case windowsOS:
 		platformTestVar = "USERPROFILE"
 		expectedValue = os.Getenv("USERPROFILE")
 	case "linux", "darwin":
@@ -109,12 +109,16 @@ func TestCrossPlatformEnvironmentHandling(t *testing.T) {
 	// Set up test environment
 	testVar := "CROSS_PLATFORM_TEST_VAR"
 	originalValue := os.Getenv(testVar)
-	os.Setenv(testVar, "test_value")
+	require.NoError(t, os.Setenv(testVar, "test_value"))
 	defer func() {
 		if originalValue == "" {
-			os.Unsetenv(testVar)
+			if err := os.Unsetenv(testVar); err != nil {
+				t.Logf("Warning: Failed to unset environment variable: %v", err)
+			}
 		} else {
-			os.Setenv(testVar, originalValue)
+			if err := os.Setenv(testVar, originalValue); err != nil {
+				t.Logf("Warning: Failed to restore environment variable: %v", err)
+			}
 		}
 	}()
 
@@ -219,7 +223,11 @@ func TestCrossPlatformProjectDiscovery(t *testing.T) {
 	// Test from different working directories
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Logf("Warning: Failed to restore working directory: %v", err)
+		}
+	}()
 
 	// Create and change to a subdirectory
 	testDir := filepath.Join(helper.GetTempDir(), "subdir", "nested")
@@ -356,7 +364,9 @@ func TestCrossPlatformGlobPatterns(t *testing.T) {
 
 	// Clean up test files
 	for _, filePath := range testFiles {
-		os.Remove(filePath)
+		if err := os.Remove(filePath); err != nil {
+			t.Logf("Warning: failed to remove test file %s: %v", filePath, err)
+		}
 	}
 }
 

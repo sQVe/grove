@@ -7,10 +7,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	windowsOS = "windows"
 )
 
 // IntegrationTestHelper provides robust integration testing utilities
@@ -65,7 +70,7 @@ func (h *IntegrationTestHelper) GetBinary() string {
 	return path
 }
 
-func (h *IntegrationTestHelper) ExecGrove(args ...string) (string, string, error) {
+func (h *IntegrationTestHelper) ExecGrove(args ...string) (stdout, stderr string, err error) {
 	h.t.Helper()
 
 	binaryPath := h.GetBinary()
@@ -76,15 +81,15 @@ func (h *IntegrationTestHelper) ExecGrove(args ...string) (string, string, error
 
 	cmd.Dir = h.tempDir
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 
-	err := cmd.Run()
-	return stdout.String(), stderr.String(), err
+	err = cmd.Run()
+	return outBuf.String(), errBuf.String(), err
 }
 
-func (h *IntegrationTestHelper) ExecGroveInDir(dir string, args ...string) (string, string, error) {
+func (h *IntegrationTestHelper) ExecGroveInDir(dir string, args ...string) (stdout, stderr string, err error) {
 	h.t.Helper()
 
 	binaryPath := h.GetBinary()
@@ -93,12 +98,12 @@ func (h *IntegrationTestHelper) ExecGroveInDir(dir string, args ...string) (stri
 	cmd.Env = h.getCleanEnvironment()
 	cmd.Dir = dir
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 
-	err := cmd.Run()
-	return stdout.String(), stderr.String(), err
+	err = cmd.Run()
+	return outBuf.String(), errBuf.String(), err
 }
 
 func (h *IntegrationTestHelper) GetTempDir() string {
@@ -113,7 +118,7 @@ func (h *IntegrationTestHelper) buildBinary() (string, error) {
 	}
 
 	binaryPath := filepath.Join(h.tempDir, "grove")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOS {
 		binaryPath += ".exe"
 	}
 
@@ -173,8 +178,14 @@ func (h *IntegrationTestHelper) getCleanEnvironment() []string {
 	if gopath := os.Getenv("GOPATH"); gopath != "" {
 		env = append(env, "GOPATH="+gopath)
 	}
-	if goroot := os.Getenv("GOROOT"); goroot != "" {
-		env = append(env, "GOROOT="+goroot)
+
+	// For GOROOT, use go env GOROOT to get the real value, not a test override
+	if cmd := exec.Command("go", "env", "GOROOT"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			if goroot := strings.TrimSpace(string(output)); goroot != "" {
+				env = append(env, "GOROOT="+goroot)
+			}
+		}
 	}
 
 	return env
@@ -198,7 +209,8 @@ func (h *IntegrationTestHelper) WithCleanFilesystem(patterns ...string) *Integra
 		"/tmp/grove-test*",
 	}
 
-	allPatterns := append(defaultPatterns, patterns...)
+	defaultPatterns = append(defaultPatterns, patterns...)
+	allPatterns := defaultPatterns
 
 	for _, pattern := range allPatterns {
 		matches, err := filepath.Glob(pattern)
@@ -212,4 +224,15 @@ func (h *IntegrationTestHelper) WithCleanFilesystem(patterns ...string) *Integra
 	}
 
 	return h
+}
+
+// CreateTempDir creates a temporary directory inside the helper's temp directory.
+func (h *IntegrationTestHelper) CreateTempDir(path string) string {
+	h.t.Helper()
+
+	fullPath := filepath.Join(h.tempDir, path)
+	err := os.MkdirAll(fullPath, 0o755)
+	require.NoError(h.t, err, "Failed to create temp directory %s for test %s", fullPath, h.t.Name())
+
+	return fullPath
 }

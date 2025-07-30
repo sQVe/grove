@@ -81,7 +81,8 @@ func (h *UnitTestHelper) WithCleanFilesystem(patterns ...string) *UnitTestHelper
 		"/tmp/grove_write_test_*",
 	}
 
-	allPatterns := append(defaultPatterns, patterns...)
+	defaultPatterns = append(defaultPatterns, patterns...)
+	allPatterns := defaultPatterns
 
 	for _, pattern := range allPatterns {
 		matches, err := filepath.Glob(pattern)
@@ -107,7 +108,7 @@ func (h *UnitTestHelper) WithIsolatedPath() *UnitTestHelper {
 
 	// Create a unique test path that won't conflict with other tests.
 	testID := time.Now().UnixNano()
-	testPath := filepath.Join("/tmp", "grove-unit-test", h.tb.Name(), fmt.Sprintf("%d", testID))
+	testPath := filepath.Join(os.TempDir(), "grove-unit-test", h.tb.Name(), fmt.Sprintf("%d", testID))
 
 	// Clean up the test path if it exists.
 	_ = os.RemoveAll(testPath)
@@ -127,7 +128,7 @@ func (h *UnitTestHelper) GetUniqueTestPath(suffix string) string {
 	testID := time.Now().UnixNano()
 	safeName := strings.ReplaceAll(h.tb.Name(), "/", "_")
 
-	return filepath.Join("/tmp", "grove-unit-test", safeName, fmt.Sprintf("%d", testID), suffix)
+	return filepath.Join(os.TempDir(), "grove-unit-test", safeName, fmt.Sprintf("%d", testID), suffix)
 }
 
 func (h *UnitTestHelper) AssertNoFileExists(path string) {

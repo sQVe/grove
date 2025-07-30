@@ -166,12 +166,16 @@ func TestEnvironmentIsolationCompatibility(t *testing.T) {
 	// Set up test environment variable
 	testVar := "BACKWARDS_COMPAT_TEST_VAR"
 	originalValue := os.Getenv(testVar)
-	os.Setenv(testVar, "original_value")
+	require.NoError(t, os.Setenv(testVar, "original_value"))
 	defer func() {
 		if originalValue == "" {
-			os.Unsetenv(testVar)
+			if err := os.Unsetenv(testVar); err != nil {
+				t.Logf("Warning: Failed to unset environment variable: %v", err)
+			}
 		} else {
-			os.Setenv(testVar, originalValue)
+			if err := os.Setenv(testVar, originalValue); err != nil {
+				t.Logf("Warning: Failed to restore environment variable: %v", err)
+			}
 		}
 	}()
 
@@ -243,7 +247,11 @@ func TestWorkingDirectoryCompatibility(t *testing.T) {
 
 		err := os.Chdir(tempDir)
 		require.NoError(t, err)
-		defer os.Chdir(originalDir)
+		defer func() {
+			if err := os.Chdir(originalDir); err != nil {
+				t.Logf("Warning: Failed to restore working directory: %v", err)
+			}
+		}()
 
 		currentDir, err := os.Getwd()
 		require.NoError(t, err)
@@ -461,12 +469,16 @@ func TestGlobalStateIsolation(t *testing.T) {
 
 	testEnvVar := "GLOBAL_STATE_TEST"
 	originalEnvValue := os.Getenv(testEnvVar)
-	os.Setenv(testEnvVar, "global_value")
+	require.NoError(t, os.Setenv(testEnvVar, "global_value"))
 	defer func() {
 		if originalEnvValue == "" {
-			os.Unsetenv(testEnvVar)
+			if err := os.Unsetenv(testEnvVar); err != nil {
+				t.Logf("Warning: Failed to unset environment variable: %v", err)
+			}
 		} else {
-			os.Setenv(testEnvVar, originalEnvValue)
+			if err := os.Setenv(testEnvVar, originalEnvValue); err != nil {
+				t.Logf("Warning: Failed to restore environment variable: %v", err)
+			}
 		}
 	}()
 

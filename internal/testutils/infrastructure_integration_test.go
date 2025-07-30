@@ -235,7 +235,7 @@ func TestFilesystemCleanup_Performance(t *testing.T) {
 	testFiles := make([]string, numFiles)
 
 	for i := 0; i < numFiles; i++ {
-		filename := filepath.Join("/tmp", fmt.Sprintf("cleanup-perf-test-%d", i))
+		filename := filepath.Join(os.TempDir(), fmt.Sprintf("cleanup-perf-test-%d", i))
 		err := os.WriteFile(filename, []byte("test"), 0o644)
 		require.NoError(t, err)
 		testFiles[i] = filename
@@ -284,19 +284,12 @@ func TestCrossPlatformBinaryNames(t *testing.T) {
 
 // TestEnvironmentIsolation_GoVariables tests that Go-specific variables are preserved
 func TestEnvironmentIsolation_GoVariables(t *testing.T) {
-	// Set up some Go environment variables
+	// Save original values
 	originalGopath := os.Getenv("GOPATH")
 	originalGoroot := os.Getenv("GOROOT")
 
-	// Set test values if not already set
-	if originalGopath == "" {
-		os.Setenv("GOPATH", "/test/gopath")
-		defer os.Unsetenv("GOPATH")
-	}
-	if originalGoroot == "" {
-		os.Setenv("GOROOT", "/test/goroot")
-		defer os.Unsetenv("GOROOT")
-	}
+	// Use TestRunner to isolate environment and set test values within the test
+	// This prevents global environment pollution
 
 	runner := NewTestRunner(t)
 
@@ -307,11 +300,14 @@ func TestEnvironmentIsolation_GoVariables(t *testing.T) {
 		isolatedGoroot = os.Getenv("GOROOT")
 	})
 
-	// Go variables should be preserved in clean environment
+	// Go variables should be preserved in clean environment if they were originally set
 	if originalGopath != "" {
 		assert.Equal(t, originalGopath, isolatedGopath, "GOPATH should be preserved")
 	}
 	if originalGoroot != "" {
 		assert.Equal(t, originalGoroot, isolatedGoroot, "GOROOT should be preserved")
+	} else {
+		// If no original GOROOT, should have the runtime GOROOT
+		assert.NotEmpty(t, isolatedGoroot, "GOROOT should be set to runtime value")
 	}
 }

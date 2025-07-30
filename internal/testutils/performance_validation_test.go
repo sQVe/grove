@@ -199,7 +199,7 @@ func TestCleanupEfficiency(t *testing.T) {
 
 	// Create files
 	for i := 0; i < numFiles; i++ {
-		filename := filepath.Join("/tmp", fmt.Sprintf("cleanup-efficiency-test-%d", i))
+		filename := filepath.Join(os.TempDir(), fmt.Sprintf("cleanup-efficiency-test-%d", i))
 		err := os.WriteFile(filename, []byte("test"), 0o644)
 		require.NoError(t, err)
 		testFiles[i] = filename
@@ -269,7 +269,9 @@ func TestResourceCleanupUnderLoad(t *testing.T) {
 
 	// Clean up any remaining files
 	for _, file := range matches {
-		os.Remove(file)
+		if err := os.Remove(file); err != nil {
+			t.Logf("Warning: failed to remove file %s: %v", file, err)
+		}
 	}
 
 	t.Logf("Successfully handled %d helpers creating %d files each",
