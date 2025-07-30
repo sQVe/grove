@@ -24,12 +24,11 @@ type IntegrationTestHelper struct {
 	t           *testing.T
 }
 
-// NewIntegrationTestHelper creates a new integration test helper
 func NewIntegrationTestHelper(t *testing.T) *IntegrationTestHelper {
 	t.Helper()
 
 	originalDir, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current working directory")
+	require.NoError(t, err, "Failed to get current working directory for test %s", t.Name())
 
 	helper := &IntegrationTestHelper{
 		t:           t,
@@ -37,7 +36,6 @@ func NewIntegrationTestHelper(t *testing.T) *IntegrationTestHelper {
 		tempDir:     t.TempDir(),
 	}
 
-	// Register cleanup
 	t.Cleanup(func() {
 		helper.cleanup()
 	})
@@ -45,7 +43,7 @@ func NewIntegrationTestHelper(t *testing.T) *IntegrationTestHelper {
 	return helper
 }
 
-// GetBinary builds the grove binary once and returns the path
+// GetBinary builds the grove binary once and returns the path.
 func (h *IntegrationTestHelper) GetBinary() string {
 	h.t.Helper()
 
@@ -63,11 +61,10 @@ func (h *IntegrationTestHelper) GetBinary() string {
 	path := h.binaryPath
 	h.buildMutex.RUnlock()
 
-	require.NoError(h.t, err, "Failed to build grove binary")
+	require.NoError(h.t, err, "Failed to build grove binary for test %s", h.t.Name())
 	return path
 }
 
-// ExecGrove executes the grove binary with given arguments in an isolated environment
 func (h *IntegrationTestHelper) ExecGrove(args ...string) (string, string, error) {
 	h.t.Helper()
 
@@ -75,10 +72,8 @@ func (h *IntegrationTestHelper) ExecGrove(args ...string) (string, string, error
 
 	cmd := exec.Command(binaryPath, args...)
 
-	// Set clean environment
 	cmd.Env = h.getCleanEnvironment()
 
-	// Use temporary directory as working directory
 	cmd.Dir = h.tempDir
 
 	var stdout, stderr bytes.Buffer
@@ -89,7 +84,6 @@ func (h *IntegrationTestHelper) ExecGrove(args ...string) (string, string, error
 	return stdout.String(), stderr.String(), err
 }
 
-// ExecGroveInDir executes grove in a specific directory
 func (h *IntegrationTestHelper) ExecGroveInDir(dir string, args ...string) (string, string, error) {
 	h.t.Helper()
 
@@ -107,14 +101,12 @@ func (h *IntegrationTestHelper) ExecGroveInDir(dir string, args ...string) (stri
 	return stdout.String(), stderr.String(), err
 }
 
-// GetTempDir returns a clean temporary directory for the test
 func (h *IntegrationTestHelper) GetTempDir() string {
 	return h.tempDir
 }
 
-// buildBinary builds the grove binary in a location-independent way
 func (h *IntegrationTestHelper) buildBinary() (string, error) {
-	// Find the project root by looking for go.mod
+	// Find the project root by looking for go.mod.
 	projectRoot, err := h.findProjectRoot()
 	if err != nil {
 		return "", fmt.Errorf("failed to find project root: %w", err)
@@ -125,7 +117,7 @@ func (h *IntegrationTestHelper) buildBinary() (string, error) {
 		binaryPath += ".exe"
 	}
 
-	// Build from the cmd/grove directory
+	// Build from the cmd/grove directory.
 	cmdDir := filepath.Join(projectRoot, "cmd", "grove")
 
 	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
@@ -135,15 +127,14 @@ func (h *IntegrationTestHelper) buildBinary() (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("build failed: %w\nStderr: %s", err, stderr.String())
+		return "", fmt.Errorf("build failed for test %s: %w\nStderr: %s", h.t.Name(), err, stderr.String())
 	}
 
 	return binaryPath, nil
 }
 
-// findProjectRoot finds the project root by looking for go.mod
 func (h *IntegrationTestHelper) findProjectRoot() (string, error) {
-	// Start from the current test file location
+	// Start from the current test file location.
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
 		return "", fmt.Errorf("could not determine caller location")
@@ -151,7 +142,7 @@ func (h *IntegrationTestHelper) findProjectRoot() (string, error) {
 
 	dir := filepath.Dir(filename)
 
-	// Walk up the directory tree looking for go.mod
+	// Walk up the directory tree looking for go.mod.
 	for {
 		goModPath := filepath.Join(dir, "go.mod")
 		if _, err := os.Stat(goModPath); err == nil {
@@ -160,7 +151,7 @@ func (h *IntegrationTestHelper) findProjectRoot() (string, error) {
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			// Reached filesystem root
+			// Reached filesystem root.
 			break
 		}
 		dir = parent
@@ -169,9 +160,8 @@ func (h *IntegrationTestHelper) findProjectRoot() (string, error) {
 	return "", fmt.Errorf("go.mod not found in any parent directory")
 }
 
-// getCleanEnvironment returns a clean environment for test execution
 func (h *IntegrationTestHelper) getCleanEnvironment() []string {
-	// Start with minimal environment
+	// Start with minimal environment.
 	env := []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + os.Getenv("HOME"),
@@ -179,7 +169,7 @@ func (h *IntegrationTestHelper) getCleanEnvironment() []string {
 		"TMPDIR=" + h.tempDir,
 	}
 
-	// Add Go-specific variables if present
+	// Add Go-specific variables if present.
 	if gopath := os.Getenv("GOPATH"); gopath != "" {
 		env = append(env, "GOPATH="+gopath)
 	}
@@ -190,21 +180,17 @@ func (h *IntegrationTestHelper) getCleanEnvironment() []string {
 	return env
 }
 
-// cleanup performs cleanup operations
 func (h *IntegrationTestHelper) cleanup() {
-	// Restore original working directory
 	if h.originalDir != "" {
 		_ = os.Chdir(h.originalDir)
 	}
-
-	// Additional cleanup can be added here
 }
 
-// WithCleanFilesystem ensures no leftover files from previous test runs
+// WithCleanFilesystem ensures no leftover files from previous test runs.
 func (h *IntegrationTestHelper) WithCleanFilesystem(patterns ...string) *IntegrationTestHelper {
 	h.t.Helper()
 
-	// Clean up common test artifacts
+	// Clean up common test artifacts.
 	defaultPatterns := []string{
 		"/tmp/grove-*",
 		"/tmp/create-cmd-*",

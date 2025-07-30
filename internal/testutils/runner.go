@@ -16,7 +16,6 @@ type TestRunner struct {
 	cleanupFns  []func()
 }
 
-// NewTestRunner creates a new test runner with proper isolation
 func NewTestRunner(t *testing.T) *TestRunner {
 	t.Helper()
 
@@ -29,7 +28,6 @@ func NewTestRunner(t *testing.T) *TestRunner {
 		cleanupFns:  make([]func(), 0),
 	}
 
-	// Register cleanup
 	t.Cleanup(func() {
 		runner.cleanup()
 	})
@@ -37,7 +35,7 @@ func NewTestRunner(t *testing.T) *TestRunner {
 	return runner
 }
 
-// WithIsolatedWorkingDir creates an isolated working directory for the test
+// WithIsolatedWorkingDir creates an isolated working directory for the test.
 func (r *TestRunner) WithIsolatedWorkingDir() *TestRunner {
 	r.t.Helper()
 
@@ -46,7 +44,7 @@ func (r *TestRunner) WithIsolatedWorkingDir() *TestRunner {
 	err := os.Chdir(tempDir)
 	require.NoError(r.t, err, "Failed to change to temp directory")
 
-	// Register cleanup to restore original directory
+	// Register cleanup to restore original directory.
 	r.addCleanup(func() {
 		_ = os.Chdir(r.originalDir)
 	})
@@ -54,14 +52,14 @@ func (r *TestRunner) WithIsolatedWorkingDir() *TestRunner {
 	return r
 }
 
-// WithCleanEnvironment ensures a clean environment for testing
+// WithCleanEnvironment ensures a clean environment for testing.
 func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 	r.t.Helper()
 
-	// Store original environment
+	// Store original environment.
 	originalEnv := os.Environ()
 
-	// Set minimal environment
+	// Set minimal environment.
 	cleanEnv := []string{
 		"PATH=" + os.Getenv("PATH"),
 		"HOME=" + os.Getenv("HOME"),
@@ -69,14 +67,14 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 		"TMPDIR=" + r.t.TempDir(),
 	}
 
-	// Add Go-specific variables
+	// Add Go-specific variables.
 	for _, env := range originalEnv {
 		if strings.HasPrefix(env, "GO") {
 			cleanEnv = append(cleanEnv, env)
 		}
 	}
 
-	// Clear and set clean environment
+	// Clear and set clean environment.
 	os.Clearenv()
 	for _, env := range cleanEnv {
 		parts := strings.SplitN(env, "=", 2)
@@ -85,7 +83,7 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 		}
 	}
 
-	// Register cleanup to restore original environment
+	// Register cleanup to restore original environment.
 	r.addCleanup(func() {
 		os.Clearenv()
 		for _, env := range originalEnv {
@@ -99,11 +97,11 @@ func (r *TestRunner) WithCleanEnvironment() *TestRunner {
 	return r
 }
 
-// WithCleanFilesystem removes leftover files from previous test runs
+// WithCleanFilesystem removes leftover files from previous test runs.
 func (r *TestRunner) WithCleanFilesystem(patterns ...string) *TestRunner {
 	r.t.Helper()
 
-	// Default patterns for common test artifacts
+	// Default patterns for common test artifacts.
 	defaultPatterns := []string{
 		"/tmp/grove-*",
 		"/tmp/create-cmd-*",
@@ -121,27 +119,24 @@ func (r *TestRunner) WithCleanFilesystem(patterns ...string) *TestRunner {
 		}
 
 		for _, match := range matches {
-			_ = os.RemoveAll(match) // Best effort cleanup
+			_ = os.RemoveAll(match) // Best effort cleanup.
 		}
 	}
 
 	return r
 }
 
-// Run executes the test function with all configured isolation
 func (r *TestRunner) Run(testFn func()) {
 	r.t.Helper()
 	testFn()
 }
 
-// addCleanup adds a cleanup function to be called at test end
 func (r *TestRunner) addCleanup(fn func()) {
 	r.cleanupFns = append(r.cleanupFns, fn)
 }
 
-// cleanup performs all registered cleanup operations
 func (r *TestRunner) cleanup() {
-	// Execute cleanup functions in reverse order
+	// Execute cleanup functions in reverse order.
 	for i := len(r.cleanupFns) - 1; i >= 0; i-- {
 		r.cleanupFns[i]()
 	}
