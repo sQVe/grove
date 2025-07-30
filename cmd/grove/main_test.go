@@ -83,26 +83,19 @@ func TestRootCommandDefault(t *testing.T) {
 }
 
 func TestInitConfig(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-test-config")
-	defer testDir.Cleanup()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-test-config")
 
 	t.Run("successful initialization", func(t *testing.T) {
-		// Reset Viper for clean test.
-		viper.Reset()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			viper.Reset()
 
-		oldConfigHome := os.Getenv("XDG_CONFIG_HOME")
-		defer func() {
-			if oldConfigHome != "" {
-				_ = os.Setenv("XDG_CONFIG_HOME", oldConfigHome)
-			} else {
-				_ = os.Unsetenv("XDG_CONFIG_HOME")
-			}
-		}()
-		_ = os.Setenv("XDG_CONFIG_HOME", testDir.Path)
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		// Test that initConfig doesn't panic or exit.
-		require.NotPanics(t, func() {
-			initConfig()
+			require.NotPanics(t, func() {
+				initConfig()
+			})
 		})
 	})
 }
@@ -132,7 +125,6 @@ func TestLogLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset Viper for clean test.
 			viper.Reset()
 
 			cmd := rootCmd
@@ -152,8 +144,7 @@ func TestLogLevel(t *testing.T) {
 }
 
 func TestMainFunction(t *testing.T) {
-	// Test that main function doesn't panic.
-	// We can't easily test the actual main() without causing os.Exit,.
+	// We can't easily test the actual main() without causing os.Exit,
 	// but we can test the core logic through rootCmd.Execute().
 	t.Run("help command execution", func(t *testing.T) {
 		cmd := rootCmd
@@ -178,7 +169,6 @@ func TestPersistentFlags(t *testing.T) {
 	assert.NotNil(t, flags.Lookup("log-format"))
 	assert.NotNil(t, flags.Lookup("debug"))
 
-	// Reset flags to defaults for clean test.
 	_ = flags.Set("log-level", "info")
 	_ = flags.Set("log-format", "text")
 	_ = flags.Set("debug", "false")

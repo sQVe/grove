@@ -29,10 +29,9 @@ func TestExecuteGit(t *testing.T) {
 }
 
 func TestInitBare(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-git-test-*")
-	defer testDir.Cleanup()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	bareDir := filepath.Join(testDir.Path, "test-bare.git")
+	bareDir := helper.CreateTempDir("test-bare.git")
 
 	err := InitBare(bareDir)
 	require.NoError(t, err)
@@ -53,20 +52,12 @@ func TestInitBare(t *testing.T) {
 }
 
 func TestCreateGitFile(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-gitfile-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	mainDir := filepath.Join(tempDir, "main")
-	bareDir := filepath.Join(tempDir, "main", ".bare")
+	mainDir := helper.CreateTempDir("main")
+	bareDir := helper.CreateTempDir("main/.bare")
 
-	err = os.MkdirAll(mainDir, 0o750)
-	require.NoError(t, err)
-
-	err = os.MkdirAll(bareDir, 0o750)
-	require.NoError(t, err)
-
-	err = CreateGitFile(mainDir, bareDir)
+	err := CreateGitFile(mainDir, bareDir)
 	require.NoError(t, err)
 
 	gitFile := filepath.Join(mainDir, ".git")
@@ -78,20 +69,12 @@ func TestCreateGitFile(t *testing.T) {
 }
 
 func TestCreateGitFileAbsolutePath(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-gitfile-abs-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	mainDir := filepath.Join(tempDir, "main")
-	bareDir := filepath.Join(tempDir, "separate", "bare")
+	mainDir := helper.CreateTempDir("main")
+	bareDir := helper.CreateTempDir("separate/bare")
 
-	err = os.MkdirAll(mainDir, 0o750)
-	require.NoError(t, err)
-
-	err = os.MkdirAll(bareDir, 0o750)
-	require.NoError(t, err)
-
-	err = CreateGitFile(mainDir, bareDir)
+	err := CreateGitFile(mainDir, bareDir)
 	require.NoError(t, err)
 
 	gitFile := filepath.Join(mainDir, ".git")
@@ -103,14 +86,14 @@ func TestCreateGitFileAbsolutePath(t *testing.T) {
 }
 
 func TestIsTraditionalRepo(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-traditional-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tempDir := helper.CreateTempDir("traditional-test")
 
 	assert.False(t, IsTraditionalRepo(tempDir))
 
 	gitDir := filepath.Join(tempDir, ".git")
-	err = os.Mkdir(gitDir, 0o750)
+	err := os.Mkdir(gitDir, 0o750)
 	require.NoError(t, err)
 
 	assert.True(t, IsTraditionalRepo(tempDir))
@@ -127,15 +110,15 @@ func TestIsTraditionalRepo(t *testing.T) {
 }
 
 func TestIsGroveRepo(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-grove-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tempDir := helper.CreateTempDir("grove-test")
 
 	assert.False(t, IsGroveRepo(tempDir))
 
 	// Create only .git file - should be false (no .bare).
 	gitFile := filepath.Join(tempDir, ".git")
-	err = os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o600)
+	err := os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o600)
 	require.NoError(t, err)
 
 	assert.False(t, IsGroveRepo(tempDir))
@@ -157,11 +140,11 @@ func TestIsGroveRepo(t *testing.T) {
 }
 
 func TestValidateGroveStructure(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-validate-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	err = ValidateGroveStructure(tempDir)
+	tempDir := helper.CreateTempDir("validate-test")
+
+	err := ValidateGroveStructure(tempDir)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), ".git file does not exist")
 
@@ -194,29 +177,28 @@ func TestValidateGroveStructure(t *testing.T) {
 }
 
 func TestConvertToGroveStructureSuccess(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-convert-success-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	runner := testutils.NewTestRunner(t)
 
-	_, err = ExecuteGit("init", tempDir)
+	tempDir := helper.CreateTempDir("convert-success")
+
+	_, err := ExecuteGit("init", tempDir)
 	require.NoError(t, err)
 
 	dummyFile := filepath.Join(tempDir, "README.md")
 	err = os.WriteFile(dummyFile, []byte("# Test\n"), 0o644)
 	require.NoError(t, err)
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	runner.WithIsolatedWorkingDir().Run(func() {
+		err := os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		_, err = ExecuteGit("add", ".")
+		require.NoError(t, err)
 
-	_, err = ExecuteGit("add", ".")
-	require.NoError(t, err)
-
-	_, err = ExecuteGit("commit", "-m", "Initial commit")
-	require.NoError(t, err)
+		_, err = ExecuteGit("commit", "-m", "Initial commit")
+		require.NoError(t, err)
+	})
 
 	assert.True(t, IsTraditionalRepo(tempDir))
 	assert.False(t, IsGroveRepo(tempDir))
@@ -247,22 +229,20 @@ func TestConvertToGroveStructureSuccess(t *testing.T) {
 
 func TestConvertToGroveStructureFailures(t *testing.T) {
 	t.Run("not a git repo", func(t *testing.T) {
-		tempDir, err := os.MkdirTemp("", "grove-convert-fail1-*")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(tempDir) }()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("convert-fail1")
 
-		err = ConvertToGroveStructure(tempDir)
+		err := ConvertToGroveStructure(tempDir)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not contain a traditional Git repository")
 	})
 
 	t.Run("already has .bare directory", func(t *testing.T) {
-		tempDir, err := os.MkdirTemp("", "grove-convert-fail2-*")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(tempDir) }()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("convert-fail2")
 
 		gitDir := filepath.Join(tempDir, ".git")
-		err = os.Mkdir(gitDir, 0o750)
+		err := os.Mkdir(gitDir, 0o750)
 		require.NoError(t, err)
 
 		bareDir := filepath.Join(tempDir, ".bare")
@@ -275,12 +255,11 @@ func TestConvertToGroveStructureFailures(t *testing.T) {
 	})
 
 	t.Run("already Grove repo", func(t *testing.T) {
-		tempDir, err := os.MkdirTemp("", "grove-convert-fail3-*")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(tempDir) }()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("convert-fail3")
 
 		gitFile := filepath.Join(tempDir, ".git")
-		err = os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o600)
+		err := os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o600)
 		require.NoError(t, err)
 
 		bareDir := filepath.Join(tempDir, ".bare")
@@ -295,43 +274,42 @@ func TestConvertToGroveStructureFailures(t *testing.T) {
 
 func TestCheckRepositorySafetyForConversion(t *testing.T) {
 	t.Run("unsafe repository with multiple issues", func(t *testing.T) {
-		tempDir, err := os.MkdirTemp("", "grove-safety-unsafe-*")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(tempDir) }()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		runner := testutils.NewTestRunner(t)
 
-		_, err = ExecuteGit("init", tempDir)
-		require.NoError(t, err)
+		tempDir := helper.CreateTempDir("safety-unsafe")
 
-		originalDir, err := os.Getwd()
-		require.NoError(t, err)
-		defer func() { _ = os.Chdir(originalDir) }()
-
-		err = os.Chdir(tempDir)
+		_, err := ExecuteGit("init", tempDir)
 		require.NoError(t, err)
 
-		testFile := filepath.Join(tempDir, "test.txt")
-		err = os.WriteFile(testFile, []byte("test content"), 0o644)
-		require.NoError(t, err)
+		runner.WithIsolatedWorkingDir().Run(func() {
+			err := os.Chdir(tempDir)
+			require.NoError(t, err)
 
-		untrackedFile := filepath.Join(tempDir, "untracked.txt")
-		err = os.WriteFile(untrackedFile, []byte("untracked"), 0o644)
-		require.NoError(t, err)
+			testFile := filepath.Join(tempDir, "test.txt")
+			err = os.WriteFile(testFile, []byte("test content"), 0o644)
+			require.NoError(t, err)
 
-		// Create a stash (need to commit first to have something to stash).
-		_, err = ExecuteGit("add", "test.txt")
-		require.NoError(t, err)
+			untrackedFile := filepath.Join(tempDir, "untracked.txt")
+			err = os.WriteFile(untrackedFile, []byte("untracked"), 0o644)
+			require.NoError(t, err)
 
-		_, err = ExecuteGit("commit", "-m", "Initial commit")
-		require.NoError(t, err)
+			// Create a stash (need to commit first to have something to stash).
+			_, err = ExecuteGit("add", "test.txt")
+			require.NoError(t, err)
 
-		err = os.WriteFile(testFile, []byte("modified content"), 0o644)
-		require.NoError(t, err)
+			_, err = ExecuteGit("commit", "-m", "Initial commit")
+			require.NoError(t, err)
 
-		_, err = ExecuteGit("stash")
-		require.NoError(t, err)
+			err = os.WriteFile(testFile, []byte("modified content"), 0o644)
+			require.NoError(t, err)
 
-		err = os.WriteFile(testFile, []byte("another change"), 0o644)
-		require.NoError(t, err)
+			_, err = ExecuteGit("stash")
+			require.NoError(t, err)
+
+			err = os.WriteFile(testFile, []byte("another change"), 0o644)
+			require.NoError(t, err)
+		})
 
 		issues, err := checkRepositorySafetyForConversion(DefaultExecutor, tempDir)
 		require.NoError(t, err)

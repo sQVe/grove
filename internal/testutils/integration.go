@@ -18,6 +18,7 @@ type IntegrationTestHelper struct {
 	binaryPath  string
 	buildOnce   sync.Once
 	buildErr    error
+	buildMutex  sync.RWMutex
 	originalDir string
 	tempDir     string
 	t           *testing.T
@@ -49,11 +50,21 @@ func (h *IntegrationTestHelper) GetBinary() string {
 	h.t.Helper()
 
 	h.buildOnce.Do(func() {
-		h.binaryPath, h.buildErr = h.buildBinary()
+		binaryPath, buildErr := h.buildBinary()
+
+		h.buildMutex.Lock()
+		h.binaryPath = binaryPath
+		h.buildErr = buildErr
+		h.buildMutex.Unlock()
 	})
 
-	require.NoError(h.t, h.buildErr, "Failed to build grove binary")
-	return h.binaryPath
+	h.buildMutex.RLock()
+	err := h.buildErr
+	path := h.binaryPath
+	h.buildMutex.RUnlock()
+
+	require.NoError(h.t, err, "Failed to build grove binary")
+	return path
 }
 
 // ExecGrove executes the grove binary with given arguments in an isolated environment

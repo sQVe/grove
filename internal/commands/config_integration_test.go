@@ -17,11 +17,8 @@ import (
 )
 
 func TestConfigCommand_Integration_Get(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-get-integration")
-	defer testDir.Cleanup()
-
-	// Set up clean environment
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-get-integration")
 
 	tests := []struct {
 		name        string
@@ -70,61 +67,69 @@ func TestConfigCommand_Integration_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset config for each test
-			viper.Reset()
-			config.Initialize()
+			runner := testutils.NewTestRunner(t)
+			runner.WithCleanEnvironment().Run(func() {
+				_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-			if tt.setup != nil {
-				tt.setup()
-			}
+				viper.Reset()
+				config.Initialize()
 
-			cmd := NewConfigCmd()
-			cmd.SetArgs([]string{"get", tt.key})
+				if tt.setup != nil {
+					tt.setup()
+				}
 
-			output := captureOutput(t, func() error {
-				return cmd.Execute()
+				cmd := NewConfigCmd()
+				cmd.SetArgs([]string{"get", tt.key})
+
+				var stdout, stderr strings.Builder
+				cmd.SetOut(&stdout)
+				cmd.SetErr(&stderr)
+
+				err := cmd.Execute()
+
+				if tt.expectError {
+					assert.Contains(t, stderr.String(), "invalid configuration key")
+				} else {
+					assert.NoError(t, err)
+					assert.NotEmpty(t, stdout.String())
+					assert.Empty(t, stderr.String())
+				}
 			})
-
-			if tt.expectError {
-				assert.Contains(t, output.stderr, "invalid configuration key")
-			} else {
-				assert.NoError(t, output.err)
-				assert.NotEmpty(t, output.stdout)
-				assert.Empty(t, output.stderr)
-			}
 		})
 	}
 }
 
 func TestConfigCommand_Integration_GetWithDefault(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-get-default-integration")
-	defer testDir.Cleanup()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-get-default-integration")
 
-	setupConfigTestEnvironment(t, testDir.Path)
+	runner := testutils.NewTestRunner(t)
+	runner.WithCleanEnvironment().Run(func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-	// Set a custom value
-	viper.Reset()
-	config.Initialize()
-	config.Set("general.editor", "custom-editor")
+		viper.Reset()
+		config.Initialize()
+		config.Set("general.editor", "custom-editor")
 
-	cmd := NewConfigCmd()
-	cmd.SetArgs([]string{"get", "--default", "general.editor"})
+		cmd := NewConfigCmd()
+		cmd.SetArgs([]string{"get", "--default", "general.editor"})
 
-	output := captureOutput(t, func() error {
-		return cmd.Execute()
+		var stdout, stderr strings.Builder
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+
+		err := cmd.Execute()
+
+		require.NoError(t, err)
+		// Should show default value, not the custom one
+		assert.Contains(t, stdout.String(), "vi") // default editor
+		assert.NotContains(t, stdout.String(), "custom-editor")
 	})
-
-	require.NoError(t, output.err)
-	// Should show default value, not the custom one
-	assert.Contains(t, output.stdout, "vim") // default editor
-	assert.NotContains(t, output.stdout, "custom-editor")
 }
 
 func TestConfigCommand_Integration_Set(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-set-integration")
-	defer testDir.Cleanup()
-
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-set-integration")
 
 	tests := []struct {
 		name        string
@@ -193,36 +198,40 @@ func TestConfigCommand_Integration_Set(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset config for each test
-			viper.Reset()
-			config.Initialize()
+			runner := testutils.NewTestRunner(t)
+			runner.WithCleanEnvironment().Run(func() {
+				_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-			cmd := NewConfigCmd()
-			cmd.SetArgs([]string{"set", tt.key, tt.value})
+				viper.Reset()
+				config.Initialize()
 
-			output := captureOutput(t, func() error {
-				return cmd.Execute()
-			})
+				cmd := NewConfigCmd()
+				cmd.SetArgs([]string{"set", tt.key, tt.value})
 
-			if tt.expectError {
-				assert.Error(t, output.err)
-			} else {
-				assert.NoError(t, output.err)
-				assert.Contains(t, output.stdout, "Set "+tt.key)
-				
-				if tt.validate != nil {
-					tt.validate(t)
+				var stdout, stderr strings.Builder
+				cmd.SetOut(&stdout)
+				cmd.SetErr(&stderr)
+
+				err := cmd.Execute()
+
+				if tt.expectError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					assert.Contains(t, stdout.String(), "Set "+tt.key)
+
+					if tt.validate != nil {
+						tt.validate(t)
+					}
 				}
-			}
+			})
 		})
 	}
 }
 
 func TestConfigCommand_Integration_List(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-list-integration")
-	defer testDir.Cleanup()
-
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-list-integration")
 
 	tests := []struct {
 		name   string
@@ -246,8 +255,8 @@ func TestConfigCommand_Integration_List(t *testing.T) {
 			format: "json",
 		},
 		{
-			name: "list with defaults flag",
-			args: []string{"list", "--defaults"},
+			name:   "list with defaults flag",
+			args:   []string{"list", "--defaults"},
 			format: "text",
 		},
 		{
@@ -256,8 +265,8 @@ func TestConfigCommand_Integration_List(t *testing.T) {
 			format: "json",
 		},
 		{
-			name: "list with custom values",
-			args: []string{"list"},
+			name:   "list with custom values",
+			args:   []string{"list"},
 			format: "text",
 			setup: func() {
 				config.Set("general.editor", "nano")
@@ -268,354 +277,329 @@ func TestConfigCommand_Integration_List(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset config for each test
-			viper.Reset()
-			config.Initialize()
+			runner := testutils.NewTestRunner(t)
+			runner.WithCleanEnvironment().Run(func() {
+				_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-			if tt.setup != nil {
-				tt.setup()
-			}
+				viper.Reset()
+				config.Initialize()
 
-			cmd := NewConfigCmd()
-			cmd.SetArgs(tt.args)
+				if tt.setup != nil {
+					tt.setup()
+				}
 
-			output := captureOutput(t, func() error {
-				return cmd.Execute()
-			})
+				cmd := NewConfigCmd()
+				cmd.SetArgs(tt.args)
 
-			require.NoError(t, output.err)
-			assert.NotEmpty(t, output.stdout)
+				var stdout, stderr strings.Builder
+				cmd.SetOut(&stdout)
+				cmd.SetErr(&stderr)
 
-			if tt.format == "json" {
-				// Validate JSON structure
-				var jsonData map[string]interface{}
-				err := json.Unmarshal([]byte(output.stdout), &jsonData)
+				err := cmd.Execute()
+
 				require.NoError(t, err)
+				assert.NotEmpty(t, stdout.String())
 
-				// Check expected sections
-				assert.Contains(t, jsonData, "general")
-				assert.Contains(t, jsonData, "git")
-				assert.Contains(t, jsonData, "logging")
-				assert.Contains(t, jsonData, "retry")
-				assert.Contains(t, jsonData, "worktree")
-			} else {
-				// Text format should contain section headers
-				assert.Contains(t, output.stdout, "[general]")
-				assert.Contains(t, output.stdout, "[git]")
-				assert.Contains(t, output.stdout, "[logging]")
-				assert.Contains(t, output.stdout, "[retry]")
-				assert.Contains(t, output.stdout, "[worktree]")
-			}
+				if tt.format == "json" {
+					// Validate JSON structure
+					var jsonData map[string]interface{}
+					err := json.Unmarshal([]byte(stdout.String()), &jsonData)
+					require.NoError(t, err)
+
+					// Check expected sections
+					assert.Contains(t, jsonData, "general")
+					assert.Contains(t, jsonData, "git")
+					assert.Contains(t, jsonData, "logging")
+					assert.Contains(t, jsonData, "retry")
+					assert.Contains(t, jsonData, "worktree")
+				} else {
+					// Text format should contain section headers
+					assert.Contains(t, stdout.String(), "[general]")
+					assert.Contains(t, stdout.String(), "[git]")
+					assert.Contains(t, stdout.String(), "[logging]")
+					assert.Contains(t, stdout.String(), "[retry]")
+					assert.Contains(t, stdout.String(), "[worktree]")
+				}
+			})
 		})
 	}
 }
 
 func TestConfigCommand_Integration_ListInvalidFormat(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-list-invalid")
-	defer testDir.Cleanup()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-list-invalid")
 
-	setupConfigTestEnvironment(t, testDir.Path)
+	runner := testutils.NewTestRunner(t)
+	runner.WithCleanEnvironment().Run(func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-	viper.Reset()
-	config.Initialize()
+		viper.Reset()
+		config.Initialize()
 
-	cmd := NewConfigCmd()
-	cmd.SetArgs([]string{"list", "--format=invalid"})
+		cmd := NewConfigCmd()
+		cmd.SetArgs([]string{"list", "--format=invalid"})
 
-	output := captureOutput(t, func() error {
-		return cmd.Execute()
+		var stdout, stderr strings.Builder
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+
+		err := cmd.Execute()
+
+		assert.Error(t, err)
+		assert.Contains(t, stderr.String(), "unsupported format")
 	})
-
-	assert.Error(t, output.err)
-	assert.Contains(t, output.stderr, "unsupported format")
 }
 
 func TestConfigCommand_Integration_Validate(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-validate-integration")
-	defer testDir.Cleanup()
-
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-validate-integration")
 
 	t.Run("validate default config", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"validate"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"validate"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "Configuration is valid")
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "Configuration is valid")
 	})
 
 	t.Run("validate with custom valid config", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
-		
-		config.Set("general.editor", "code")
-		config.Set("git.fetch_timeout", "60s")
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"validate"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			config.Set("general.editor", "code")
+			config.Set("git.fetch_timeout", "60s")
+
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"validate"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "Configuration is valid")
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "Configuration is valid")
 	})
 }
 
 func TestConfigCommand_Integration_Reset(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-reset-integration")
-	defer testDir.Cleanup()
-
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-reset-integration")
 
 	t.Run("reset single key", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
-		
-		// Set a custom value
-		config.Set("general.editor", "custom-editor")
-		assert.Equal(t, "custom-editor", config.GetString("general.editor"))
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"reset", "general.editor"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			// Set a custom value
+			config.Set("general.editor", "custom-editor")
+			assert.Equal(t, "custom-editor", config.GetString("general.editor"))
+
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"reset", "general.editor"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "Reset general.editor to default value")
+
+			// Should be back to default
+			defaultConfig := config.DefaultConfig()
+			assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "Reset general.editor to default value")
-		
-		// Should be back to default
-		defaultConfig := config.DefaultConfig()
-		assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
 	})
 
 	t.Run("reset invalid key", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"reset", "invalid.key"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"reset", "invalid.key"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.Contains(t, stderr.String(), "invalid configuration key")
 		})
-
-		assert.Error(t, output.err)
-		assert.Contains(t, output.stderr, "invalid configuration key")
 	})
 
 	t.Run("reset all with confirm", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
-		
-		// Set custom values
-		config.Set("general.editor", "custom1")
-		config.Set("git.fetch_timeout", "123s")
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"reset", "--confirm"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			// Set custom values
+			config.Set("general.editor", "custom1")
+			config.Set("git.fetch_timeout", "123s")
+
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"reset", "--confirm"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "All configuration reset to defaults")
+
+			// Should be back to defaults
+			defaultConfig := config.DefaultConfig()
+			assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
+			assert.Equal(t, defaultConfig.Git.FetchTimeout, config.GetDuration("git.fetch_timeout"))
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "All configuration reset to defaults")
-		
-		// Should be back to defaults
-		defaultConfig := config.DefaultConfig()
-		assert.Equal(t, defaultConfig.General.Editor, config.GetString("general.editor"))
-		assert.Equal(t, defaultConfig.Git.FetchTimeout, config.GetDuration("git.fetch_timeout"))
 	})
 }
 
 func TestConfigCommand_Integration_Path(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-path-integration")
-	defer testDir.Cleanup()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-path-integration")
 
-	setupConfigTestEnvironment(t, testDir.Path)
+	runner := testutils.NewTestRunner(t)
+	runner.WithCleanEnvironment().Run(func() {
+		_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-	viper.Reset()
-	config.Initialize()
+		viper.Reset()
+		config.Initialize()
 
-	cmd := NewConfigCmd()
-	cmd.SetArgs([]string{"path"})
+		cmd := NewConfigCmd()
+		cmd.SetArgs([]string{"path"})
 
-	output := captureOutput(t, func() error {
-		return cmd.Execute()
+		var stdout, stderr strings.Builder
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+
+		err := cmd.Execute()
+
+		assert.NoError(t, err)
+		assert.Contains(t, stdout.String(), "Configuration file search paths:")
+		assert.Contains(t, stdout.String(), "1.")
+		assert.Contains(t, stdout.String(), "2.")
+
+		// Should mention if no config file is found or show the current one
+		if strings.Contains(stdout.String(), "Currently used config file:") {
+			assert.Contains(t, stdout.String(), ".yaml")
+		} else {
+			assert.Contains(t, stdout.String(), "No config file found, using defaults")
+		}
 	})
-
-	assert.NoError(t, output.err)
-	assert.Contains(t, output.stdout, "Configuration file search paths:")
-	assert.Contains(t, output.stdout, "1.")
-	assert.Contains(t, output.stdout, "2.")
-
-	// Should mention if no config file is found or show the current one
-	if strings.Contains(output.stdout, "Currently used config file:") {
-		assert.Contains(t, output.stdout, ".yaml")
-	} else {
-		assert.Contains(t, output.stdout, "No config file found, using defaults")
-	}
 }
 
 func TestConfigCommand_Integration_Init(t *testing.T) {
-	testDir := testutils.NewTestDirectory(t, "grove-config-init-integration")
-	defer testDir.Cleanup()
-
-	setupConfigTestEnvironment(t, testDir.Path)
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	configDir := helper.CreateTempDir("grove-config-init-integration")
 
 	t.Run("init new config file", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"init"})
+			viper.Reset()
+			config.Initialize()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"init"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "Created configuration file:")
+			assert.Contains(t, stdout.String(), ".yaml")
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "Created configuration file:")
-		assert.Contains(t, output.stdout, ".yaml")
 	})
 
 	t.Run("init with existing file", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		// Create a config file first
-		config.Set("general.editor", "test")
-		config.WriteConfig()
+			viper.Reset()
+			config.Initialize()
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"init"})
+			// Create a config file first
+			config.Set("general.editor", "test")
+			config.WriteConfig()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"init"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.Contains(t, stderr.String(), "configuration file already exists")
 		})
-
-		assert.Error(t, output.err)
-		assert.Contains(t, output.stderr, "configuration file already exists")
 	})
 
 	t.Run("init with force flag", func(t *testing.T) {
-		viper.Reset()
-		config.Initialize()
+		runner := testutils.NewTestRunner(t)
+		runner.WithCleanEnvironment().Run(func() {
+			_ = os.Setenv("XDG_CONFIG_HOME", configDir)
 
-		// Create a config file first
-		config.Set("general.editor", "test")
-		config.WriteConfig()
+			viper.Reset()
+			config.Initialize()
 
-		cmd := NewConfigCmd()
-		cmd.SetArgs([]string{"init", "--force"})
+			// Create a config file first
+			config.Set("general.editor", "test")
+			config.WriteConfig()
 
-		output := captureOutput(t, func() error {
-			return cmd.Execute()
+			cmd := NewConfigCmd()
+			cmd.SetArgs([]string{"init", "--force"})
+
+			var stdout, stderr strings.Builder
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+
+			err := cmd.Execute()
+
+			assert.NoError(t, err)
+			assert.Contains(t, stdout.String(), "Created configuration file:")
 		})
-
-		assert.NoError(t, output.err)
-		assert.Contains(t, output.stdout, "Created configuration file:")
 	})
-}
-
-// Helper functions
-
-func setupConfigTestEnvironment(t *testing.T, configDir string) {
-	t.Helper()
-	
-	// Set XDG_CONFIG_HOME to test directory
-	oldConfigHome := os.Getenv("XDG_CONFIG_HOME")
-	t.Cleanup(func() {
-		if oldConfigHome != "" {
-			os.Setenv("XDG_CONFIG_HOME", oldConfigHome)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	})
-	
-	os.Setenv("XDG_CONFIG_HOME", configDir)
-}
-
-type commandOutput struct {
-	stdout string
-	stderr string
-	err    error
-}
-
-func captureOutput(t *testing.T, fn func() error) commandOutput {
-	t.Helper()
-	
-	// Create a new command instance to capture its output
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
-	
-	stdoutR, stdoutW, _ := os.Pipe()
-	stderrR, stderrW, _ := os.Pipe()
-	
-	os.Stdout = stdoutW
-	os.Stderr = stderrW
-	
-	// Create channels to capture output
-	stdoutCh := make(chan string, 1)
-	stderrCh := make(chan string, 1)
-	
-	go func() {
-		buf := make([]byte, 1024)
-		var output strings.Builder
-		for {
-			n, err := stdoutR.Read(buf)
-			if n > 0 {
-				output.Write(buf[:n])
-			}
-			if err != nil {
-				break
-			}
-		}
-		stdoutCh <- output.String()
-	}()
-	
-	go func() {
-		buf := make([]byte, 1024)
-		var output strings.Builder
-		for {
-			n, err := stderrR.Read(buf)
-			if n > 0 {
-				output.Write(buf[:n])
-			}
-			if err != nil {
-				break
-			}
-		}
-		stderrCh <- output.String()
-	}()
-	
-	// Execute the function
-	err := fn()
-	
-	// Restore original stdout/stderr
-	os.Stdout = oldStdout
-	os.Stderr = oldStderr
-	stdoutW.Close()
-	stderrW.Close()
-	
-	// Get captured output
-	stdout := <-stdoutCh
-	stderr := <-stderrCh
-	
-	return commandOutput{
-		stdout: stdout,
-		stderr: stderr,
-		err:    err,
-	}
 }

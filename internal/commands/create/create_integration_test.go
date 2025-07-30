@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,172 +29,158 @@ func generateUniqueBranchName(prefix string) string {
 }
 
 func TestCreateCommand_Integration_BasicWorktreeCreation(t *testing.T) {
-	// Set up test repository
-	testDir := setupTestRepository(t)
-	defer func() {
-		_ = os.RemoveAll(testDir)
-	}()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	runner := testutils.NewTestRunner(t)
 
-	// Change to test directory
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(testDir))
+	runner.WithIsolatedWorkingDir().Run(func() {
+		testDir := setupTestRepository(t)
+		require.NoError(t, os.Chdir(testDir))
 
-	// Set up git helper for unique branch names
-	gitExec := git.DefaultExecutor
-	uniqueBranch := generateUniqueBranchName("test-feature")
+		// Set up git helper for unique branch names
+		gitExec := git.DefaultExecutor
+		uniqueBranch := generateUniqueBranchName("test-feature")
 
-	// Create a feature branch
-	_, err = gitExec.Execute("checkout", "-b", uniqueBranch)
-	require.NoError(t, err)
+		// Create a feature branch
+		_, err := gitExec.Execute("checkout", "-b", uniqueBranch)
+		require.NoError(t, err)
 
-	// Switch back to main
-	_, err = gitExec.Execute("checkout", "main")
-	require.NoError(t, err)
+		// Switch back to main
+		_, err = gitExec.Execute("checkout", "main")
+		require.NoError(t, err)
 
-	// Set up create service components
-	branchResolver := NewBranchResolver(gitExec)
-	pathGenerator := NewPathGenerator()
-	worktreeCreator := NewWorktreeCreator(gitExec)
-	fileManager := NewFileManager(gitExec)
+		// Set up create service components
+		branchResolver := NewBranchResolver(gitExec)
+		pathGenerator := NewPathGenerator()
+		worktreeCreator := NewWorktreeCreator(gitExec)
+		fileManager := NewFileManager(gitExec)
 
-	service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
+		service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
-	// Test creating worktree for existing branch
-	options := &CreateOptions{
-		BranchName: uniqueBranch,
-		CopyFiles:  false,
-	}
+		// Test creating worktree for existing branch
+		options := &CreateOptions{
+			BranchName: uniqueBranch,
+			CopyFiles:  false,
+		}
 
-	result, err := service.Create(options)
+		result, err := service.Create(options)
 
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, uniqueBranch, result.BranchName)
-	assert.False(t, result.WasCreated)
-	assert.DirExists(t, result.WorktreePath)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, uniqueBranch, result.BranchName)
+		assert.False(t, result.WasCreated)
+		assert.DirExists(t, result.WorktreePath)
 
-	// Verify the worktree was created correctly
-	worktrees, err := gitExec.Execute("worktree", "list")
-	require.NoError(t, err)
-	assert.Contains(t, worktrees, result.WorktreePath)
-	assert.Contains(t, worktrees, uniqueBranch)
+		// Verify the worktree was created correctly
+		worktrees, err := gitExec.Execute("worktree", "list")
+		require.NoError(t, err)
+		assert.Contains(t, worktrees, result.WorktreePath)
+		assert.Contains(t, worktrees, uniqueBranch)
+	})
 }
 
 func TestCreateCommand_Integration_NewBranchCreation(t *testing.T) {
-	// Set up test repository
-	testDir := setupTestRepository(t)
-	defer func() {
-		_ = os.RemoveAll(testDir)
-	}()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	runner := testutils.NewTestRunner(t)
 
-	// Change to test directory
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(testDir))
+	runner.WithIsolatedWorkingDir().Run(func() {
+		testDir := setupTestRepository(t)
+		require.NoError(t, os.Chdir(testDir))
 
-	// Set up create service components
-	gitExec := git.DefaultExecutor
-	uniqueBranch := generateUniqueBranchName("new-feature")
-	
-	branchResolver := NewBranchResolver(gitExec)
-	pathGenerator := NewPathGenerator()
-	worktreeCreator := NewWorktreeCreator(gitExec)
-	fileManager := NewFileManager(gitExec)
+		gitExec := git.DefaultExecutor
+		uniqueBranch := generateUniqueBranchName("new-feature")
 
-	service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
+		branchResolver := NewBranchResolver(gitExec)
+		pathGenerator := NewPathGenerator()
+		worktreeCreator := NewWorktreeCreator(gitExec)
+		fileManager := NewFileManager(gitExec)
 
-	// Test creating worktree for new branch
-	options := &CreateOptions{
-		BranchName: uniqueBranch,
-		BaseBranch: "main",
-		CopyFiles:  false,
-	}
+		service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
-	result, err := service.Create(options)
+		// Test creating worktree for new branch
+		options := &CreateOptions{
+			BranchName: uniqueBranch,
+			BaseBranch: "main",
+			CopyFiles:  false,
+		}
 
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, uniqueBranch, result.BranchName)
-	assert.True(t, result.WasCreated)
-	assert.DirExists(t, result.WorktreePath)
+		result, err := service.Create(options)
 
-	// Verify the branch and worktree were created correctly
-	branches, err := gitExec.Execute("branch", "--list", uniqueBranch)
-	require.NoError(t, err)
-	assert.Contains(t, branches, uniqueBranch)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, uniqueBranch, result.BranchName)
+		assert.True(t, result.WasCreated)
+		assert.DirExists(t, result.WorktreePath)
 
-	worktrees, err := gitExec.Execute("worktree", "list")
-	require.NoError(t, err)
-	assert.Contains(t, worktrees, result.WorktreePath)
-	assert.Contains(t, worktrees, uniqueBranch)
+		// Verify the branch and worktree were created correctly
+		branches, err := gitExec.Execute("branch", "--list", uniqueBranch)
+		require.NoError(t, err)
+		assert.Contains(t, branches, uniqueBranch)
+
+		worktrees, err := gitExec.Execute("worktree", "list")
+		require.NoError(t, err)
+		assert.Contains(t, worktrees, result.WorktreePath)
+		assert.Contains(t, worktrees, uniqueBranch)
+	})
 }
 
 func TestCreateCommand_Integration_FileCopying(t *testing.T) {
-	// Set up test repository with files to copy
-	testDir := setupTestRepositoryWithFiles(t)
-	defer func() {
-		_ = os.RemoveAll(testDir)
-	}()
+	helper := testutils.NewIntegrationTestHelper(t).WithCleanFilesystem()
+	runner := testutils.NewTestRunner(t)
 
-	// Change to test directory
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(testDir))
+	runner.WithIsolatedWorkingDir().Run(func() {
+		testDir := setupTestRepositoryWithFiles(t)
+		require.NoError(t, os.Chdir(testDir))
 
-	// Set up create service components
-	gitExec := git.DefaultExecutor
-	uniqueBranch := generateUniqueBranchName("feature-with-files")
-	
-	branchResolver := NewBranchResolver(gitExec)
-	pathGenerator := NewPathGenerator()
-	worktreeCreator := NewWorktreeCreator(gitExec)
-	fileManager := NewFileManager(gitExec)
+		gitExec := git.DefaultExecutor
+		uniqueBranch := generateUniqueBranchName("feature-with-files")
 
-	service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
+		branchResolver := NewBranchResolver(gitExec)
+		pathGenerator := NewPathGenerator()
+		worktreeCreator := NewWorktreeCreator(gitExec)
+		fileManager := NewFileManager(gitExec)
 
-	// Create a feature branch first
-	_, err = gitExec.Execute("checkout", "-b", uniqueBranch)
-	require.NoError(t, err)
-	_, err = gitExec.Execute("checkout", "main")
-	require.NoError(t, err)
+		service := NewCreateService(branchResolver, pathGenerator, worktreeCreator, fileManager)
 
-	// Test creating worktree with file copying
-	options := &CreateOptions{
-		BranchName:   uniqueBranch,
-		CopyFiles:    true,
-		CopyPatterns: []string{".env*", ".vscode/*"}, // Specify patterns to copy
-	}
+		// Create a feature branch first
+		_, err := gitExec.Execute("checkout", "-b", uniqueBranch)
+		require.NoError(t, err)
+		_, err = gitExec.Execute("checkout", "main")
+		require.NoError(t, err)
 
-	result, err := service.Create(options)
+		// Test creating worktree with file copying
+		options := &CreateOptions{
+			BranchName:   uniqueBranch,
+			CopyFiles:    true,
+			CopyPatterns: []string{".env*", ".vscode/*"}, // Specify patterns to copy
+		}
 
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.DirExists(t, result.WorktreePath)
+		result, err := service.Create(options)
 
-	// Verify files were copied
-	envFile := filepath.Join(result.WorktreePath, ".env")
-	assert.FileExists(t, envFile)
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.DirExists(t, result.WorktreePath)
 
-	envLocalFile := filepath.Join(result.WorktreePath, ".env.local")
-	assert.FileExists(t, envLocalFile)
+		// Verify files were copied
+		envFile := filepath.Join(result.WorktreePath, ".env")
+		assert.FileExists(t, envFile)
 
-	vscodeSettings := filepath.Join(result.WorktreePath, ".vscode", "settings.json")
-	assert.FileExists(t, vscodeSettings)
+		envLocalFile := filepath.Join(result.WorktreePath, ".env.local")
+		assert.FileExists(t, envLocalFile)
 
-	// Verify that README.md exists (part of git branch) but wasn't copied from source worktree
-	// Git worktree creation includes all files from the branch, regardless of copy patterns
-	readmeFile := filepath.Join(result.WorktreePath, "README.md")
-	assert.FileExists(t, readmeFile) // It exists because it's part of the git branch
+		vscodeSettings := filepath.Join(result.WorktreePath, ".vscode", "settings.json")
+		assert.FileExists(t, vscodeSettings)
 
-	// Verify file contents match
-	expectedEnv := "DATABASE_URL=postgres://localhost"
-	actualEnv, err := os.ReadFile(envFile)
-	require.NoError(t, err)
-	assert.Equal(t, expectedEnv, string(actualEnv))
+		// Verify that README.md exists (part of git branch) but wasn't copied from source worktree
+		// Git worktree creation includes all files from the branch, regardless of copy patterns
+		readmeFile := filepath.Join(result.WorktreePath, "README.md")
+		assert.FileExists(t, readmeFile) // It exists because it's part of the git branch
+
+		// Verify file contents match
+		expectedEnv := "DATABASE_URL=postgres://localhost"
+		actualEnv, err := os.ReadFile(envFile)
+		require.NoError(t, err)
+		assert.Equal(t, expectedEnv, string(actualEnv))
+	})
 }
 
 func TestCreateCommand_Integration_PathGeneration(t *testing.T) {
@@ -291,7 +278,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("feature-branch")
-	
+
 	// Create a directory that would conflict
 	// Use git.BranchToDirectoryName to match what the path generator will do
 	dirName := git.BranchToDirectoryName(uniqueBranch)
@@ -329,7 +316,7 @@ func TestCreateCommand_Integration_CollisionResolution(t *testing.T) {
 
 	// Should contain a suffix like -2, -3, etc.
 	basename := filepath.Base(result.WorktreePath)
-	assert.True(t, strings.HasPrefix(basename, dirName+"-") || basename == dirName+"-1", 
+	assert.True(t, strings.HasPrefix(basename, dirName+"-") || basename == dirName+"-1",
 		"basename %s should have collision suffix starting with %s-", basename, dirName)
 	assert.NotEqual(t, dirName, basename)
 }
@@ -380,7 +367,7 @@ func TestCreateCommand_Integration_ConfigurationIntegration(t *testing.T) {
 	// Set up create service components
 	gitExec := git.DefaultExecutor
 	uniqueBranch := generateUniqueBranchName("config-test")
-	
+
 	branchResolver := NewBranchResolver(gitExec)
 	pathGenerator := NewPathGenerator()
 	worktreeCreator := NewWorktreeCreator(gitExec)
@@ -528,34 +515,29 @@ func TestCreateCommand_Integration_PerformanceRequirements(t *testing.T) {
 // Helper functions for integration tests
 
 func setupTestRepository(t *testing.T) string {
-	testDir := t.TempDir()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	testDir := helper.CreateTempDir("test-repo")
 
 	// Initialize git repository
 	gitExec := git.DefaultExecutor
 
-	// Change to test directory
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(testDir))
-
 	// Initialize repository
-	_, err = gitExec.Execute("init")
+	_, err := gitExec.Execute("init", testDir)
 	require.NoError(t, err)
 
 	// Configure git user (required for commits)
-	_, err = gitExec.Execute("config", "user.name", "Test User")
+	_, err = gitExec.Execute("-C", testDir, "config", "user.name", "Test User")
 	require.NoError(t, err)
-	_, err = gitExec.Execute("config", "user.email", "test@example.com")
+	_, err = gitExec.Execute("-C", testDir, "config", "user.email", "test@example.com")
 	require.NoError(t, err)
 
 	// Create initial commit
 	initialFile := filepath.Join(testDir, "README.md")
 	require.NoError(t, os.WriteFile(initialFile, []byte("# Test Repository"), 0o644))
 
-	_, err = gitExec.Execute("add", "README.md")
+	_, err = gitExec.Execute("-C", testDir, "add", "README.md")
 	require.NoError(t, err)
-	_, err = gitExec.Execute("commit", "-m", "Initial commit")
+	_, err = gitExec.Execute("-C", testDir, "commit", "-m", "Initial commit")
 	require.NoError(t, err)
 
 	return testDir
@@ -563,12 +545,6 @@ func setupTestRepository(t *testing.T) string {
 
 func setupTestRepositoryWithFiles(t *testing.T) string {
 	testDir := setupTestRepository(t)
-
-	// Change to test directory for file creation
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(originalDir)
-	require.NoError(t, os.Chdir(testDir))
 
 	// Create test files for copying
 	testFiles := map[string]string{
@@ -587,9 +563,9 @@ func setupTestRepositoryWithFiles(t *testing.T) string {
 
 	// Add files to git (but don't track .env files in real scenario)
 	gitExec := git.DefaultExecutor
-	_, err = gitExec.Execute("add", "src/")
+	_, err := gitExec.Execute("-C", testDir, "add", "src/")
 	require.NoError(t, err)
-	_, err = gitExec.Execute("commit", "-m", "Add source files")
+	_, err = gitExec.Execute("-C", testDir, "commit", "-m", "Add source files")
 	require.NoError(t, err)
 
 	return testDir

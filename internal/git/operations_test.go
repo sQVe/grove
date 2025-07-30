@@ -5,7 +5,6 @@ package git
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/sqve/grove/internal/testutils"
@@ -453,9 +452,8 @@ func TestParseGitStatusLine(t *testing.T) {
 
 func TestCheckRepositorySafetyForConversionWithMock(t *testing.T) {
 	t.Run("safe repository", func(t *testing.T) {
-		tempDir, err := os.MkdirTemp("", "grove-safety-mock-*")
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(tempDir) }()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("grove-safety-mock")
 
 		// Use mock executor to simulate a safe repository state.
 		mockExecutor := testutils.NewMockGitExecutor()
@@ -502,7 +500,8 @@ func TestFormatSafetyIssuesError(t *testing.T) {
 
 func TestValidatePaths(t *testing.T) {
 	t.Run("valid paths", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("validate-paths")
 		bareDir := tempDir + "/.bare"
 
 		err := validatePaths(tempDir, bareDir)
@@ -510,7 +509,8 @@ func TestValidatePaths(t *testing.T) {
 	})
 
 	t.Run("path with directory traversal", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("validate-paths")
 		maliciousPath := tempDir + "/../../../etc/passwd"
 
 		err := validatePaths(tempDir, maliciousPath)
@@ -519,7 +519,8 @@ func TestValidatePaths(t *testing.T) {
 	})
 
 	t.Run("bare directory with directory traversal", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("validate-paths")
 		maliciousPath := "../../../etc/passwd"
 
 		err := validatePaths(tempDir, maliciousPath)
@@ -530,7 +531,8 @@ func TestValidatePaths(t *testing.T) {
 
 func TestCreateGitFileWithSecurity(t *testing.T) {
 	t.Run("valid paths", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("create-git-file")
 		bareDir := tempDir + "/.bare"
 
 		err := CreateGitFile(tempDir, bareDir)
@@ -538,7 +540,8 @@ func TestCreateGitFileWithSecurity(t *testing.T) {
 	})
 
 	t.Run("path with directory traversal in bare directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("create-git-file")
 		maliciousPath := tempDir + "/../../../etc/passwd"
 
 		err := CreateGitFile(tempDir, maliciousPath)
@@ -547,7 +550,8 @@ func TestCreateGitFileWithSecurity(t *testing.T) {
 	})
 
 	t.Run("relative path with directory traversal", func(t *testing.T) {
-		tempDir := t.TempDir()
+		helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+		tempDir := helper.CreateTempDir("create-git-file")
 		// Create a path that would result in ../ in the relative path.
 		parentDir := tempDir + "/.."
 		bareDir := parentDir + "/malicious"

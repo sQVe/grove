@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,7 +113,7 @@ func (h *UnitTestHelper) WithIsolatedPath() *UnitTestHelper {
 
 	// Create a unique test path that won't conflict with other tests
 	testID := time.Now().UnixNano()
-	testPath := filepath.Join("/tmp", "grove-unit-test", h.t.Name(), string(rune(testID)))
+	testPath := filepath.Join("/tmp", "grove-unit-test", h.t.Name(), fmt.Sprintf("%d", testID))
 
 	// Clean up the test path if it exists
 	_ = os.RemoveAll(testPath)
@@ -133,7 +134,7 @@ func (h *UnitTestHelper) GetUniqueTestPath(suffix string) string {
 	testID := time.Now().UnixNano()
 	safeName := strings.ReplaceAll(h.t.Name(), "/", "_")
 
-	return filepath.Join("/tmp", "grove-unit-test", safeName, string(rune(testID)), suffix)
+	return filepath.Join("/tmp", "grove-unit-test", safeName, fmt.Sprintf("%d", testID), suffix)
 }
 
 // AssertNoFileExists asserts that a file or directory does not exist

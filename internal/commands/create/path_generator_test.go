@@ -7,16 +7,19 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/sqve/grove/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPathGenerator_GeneratePath(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	viper.Reset()
 	pg := NewPathGenerator()
 
 	t.Run("generates valid path from branch name", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("path-gen-test")
 		branchName := "feature/user-auth"
 
 		path, err := pg.GeneratePath(branchName, tempDir)
@@ -28,7 +31,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 	})
 
 	t.Run("uses configured base path when basePath is empty", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("config-base-path")
 		viper.Set("worktree.base_path", tempDir)
 		defer viper.Reset()
 
@@ -41,7 +44,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 	})
 
 	t.Run("handles collision with numeric suffix", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("collision-test")
 		branchName := "main"
 
 		// Create existing directory.
@@ -57,7 +60,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 	})
 
 	t.Run("handles multiple collisions", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("multiple-collision-test")
 		branchName := "test"
 
 		// Create multiple existing directories.
@@ -80,7 +83,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 	})
 
 	t.Run("sanitizes special characters in branch names", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("sanitize-test")
 		branchName := "feature/fix:issue#123"
 
 		path, err := pg.GeneratePath(branchName, tempDir)
@@ -91,7 +94,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 	})
 
 	t.Run("returns error for empty branch name", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("empty-branch-test")
 
 		_, err := pg.GeneratePath("", tempDir)
 
@@ -101,7 +104,7 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 
 	t.Run("converts relative base path to absolute", func(t *testing.T) {
 		// Use a temporary directory that exists to avoid parent validation issues.
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("absolute-path-test")
 		branchName := "feature"
 
 		path, err := pg.GeneratePath(branchName, tempDir)
@@ -134,10 +137,11 @@ func TestPathGenerator_GeneratePath(t *testing.T) {
 }
 
 func TestPathGenerator_ValidatePath(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
 
 	t.Run("accepts valid absolute path", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("valid-path-test")
 		validPath := filepath.Join(tempDir, "valid-directory")
 
 		err := pg.validatePath(validPath)
@@ -165,7 +169,7 @@ func TestPathGenerator_ValidatePath(t *testing.T) {
 	})
 
 	t.Run("rejects invalid directory names", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("invalid-name-test")
 		invalidPath := filepath.Join(tempDir, "invalid:name")
 
 		err := pg.validatePath(invalidPath)
@@ -186,10 +190,11 @@ func TestPathGenerator_ValidatePath(t *testing.T) {
 }
 
 func TestPathGenerator_ResolveCollisions(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
 
 	t.Run("returns original path when no collision", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("no-collision-test")
 		targetPath := filepath.Join(tempDir, "no-collision")
 
 		resolvedPath, err := pg.resolveCollisions(targetPath)
@@ -199,7 +204,7 @@ func TestPathGenerator_ResolveCollisions(t *testing.T) {
 	})
 
 	t.Run("adds suffix when collision exists", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("collision-suffix-test")
 		targetPath := filepath.Join(tempDir, "collision")
 
 		// Create existing directory.
@@ -214,7 +219,7 @@ func TestPathGenerator_ResolveCollisions(t *testing.T) {
 	})
 
 	t.Run("finds available suffix with multiple collisions", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := helper.CreateTempDir("multi-collision-test")
 		baseName := "multi-collision"
 		targetPath := filepath.Join(tempDir, baseName)
 

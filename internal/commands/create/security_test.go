@@ -14,6 +14,8 @@ import (
 )
 
 func TestSecurity_PathTraversalPrevention(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	tests := []struct {
 		name         string
 		branchName   string
@@ -59,7 +61,7 @@ func TestSecurity_PathTraversalPrevention(t *testing.T) {
 			// Use safe paths for tests that should succeed
 			testPath := tt.path
 			if !tt.shouldReject {
-				tmpDir := t.TempDir()
+				tmpDir := helper.CreateTempDir("path-traversal-test")
 				testPath = tmpDir + "/worktree"
 			}
 
@@ -81,6 +83,8 @@ func TestSecurity_PathTraversalPrevention(t *testing.T) {
 }
 
 func TestSecurity_GitCommandInjection(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	tests := []struct {
 		name        string
 		branchName  string
@@ -119,7 +123,7 @@ func TestSecurity_GitCommandInjection(t *testing.T) {
 			creator := NewWorktreeCreator(mockExecutor)
 
 			// Use safe temporary paths
-			tmpDir := t.TempDir()
+			tmpDir := helper.CreateTempDir("command-injection-test")
 			testPath := tmpDir + "/worktree"
 			if tt.path != "/safe/path" {
 				testPath = tmpDir + "/" + strings.ReplaceAll(tt.path, "/", "_")
@@ -150,6 +154,8 @@ func TestSecurity_GitCommandInjection(t *testing.T) {
 }
 
 func TestEdgeCases_BranchNames(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	tests := []struct {
 		name        string
 		branchName  string
@@ -199,7 +205,7 @@ func TestEdgeCases_BranchNames(t *testing.T) {
 			mockExecutor := testutils.NewMockGitExecutor()
 			creator := NewWorktreeCreator(mockExecutor)
 
-			tmpDir := t.TempDir()
+			tmpDir := helper.CreateTempDir("branch-names-test")
 			testPath := tmpDir + "/worktree"
 
 			// Mock git operations
@@ -218,6 +224,8 @@ func TestEdgeCases_BranchNames(t *testing.T) {
 }
 
 func TestEdgeCases_PathNames(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	tests := []struct {
 		name        string
 		path        string
@@ -258,7 +266,7 @@ func TestEdgeCases_PathNames(t *testing.T) {
 			// For tests that expect success, use safe temporary directories
 			testPath := tt.path
 			if !tt.expectError {
-				tmpDir := t.TempDir()
+				tmpDir := helper.CreateTempDir("path-names-test")
 				// Use part of the original path name for the test directory
 				safeName := strings.ReplaceAll(strings.ReplaceAll(tt.path, "/", "_"), ":", "_")
 				if len(safeName) > 50 {
@@ -283,11 +291,13 @@ func TestEdgeCases_PathNames(t *testing.T) {
 }
 
 func TestEdgeCases_ResourceConstraints(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
 	t.Run("disk space exhaustion simulation", func(t *testing.T) {
 		mockExecutor := testutils.NewMockGitExecutor()
 		creator := NewWorktreeCreator(mockExecutor)
 
-		tmpDir := t.TempDir()
+		tmpDir := helper.CreateTempDir("disk-space-test")
 		testPath := tmpDir + "/worktree"
 
 		// Simulate disk space error
@@ -310,7 +320,7 @@ func TestEdgeCases_ResourceConstraints(t *testing.T) {
 		mockExecutor := testutils.NewMockGitExecutor()
 		creator := NewWorktreeCreator(mockExecutor)
 
-		tmpDir := t.TempDir()
+		tmpDir := helper.CreateTempDir("memory-pressure-test")
 		testPath := tmpDir + "/worktree"
 
 		// Simulate memory allocation failure

@@ -17,7 +17,7 @@ import (
 
 func TestInitCommand_Convert_Integration(t *testing.T) {
 	// Test the --convert flag with various repository states
-	
+
 	t.Run("convert traditional repo", func(t *testing.T) {
 		tempDir := testutils.NewTestDirectory(t, "grove-init-convert-traditional")
 		defer tempDir.Cleanup()
@@ -185,33 +185,33 @@ func TestInitCommand_URLParsing_Integration(t *testing.T) {
 		skipReason  string
 	}{
 		{
-			name: "GitHub standard URL",
-			url:  "https://github.com/git/git.git",
+			name:       "GitHub standard URL",
+			url:        "https://github.com/git/git.git",
 			skipReason: "Requires network access",
 		},
 		{
-			name: "GitHub URL with branch",
-			url:  "https://github.com/git/git/tree/main",
+			name:       "GitHub URL with branch",
+			url:        "https://github.com/git/git/tree/main",
 			skipReason: "Requires network access",
 		},
 		{
-			name: "GitHub PR URL",
-			url:  "https://github.com/git/git/pull/123",
+			name:       "GitHub PR URL",
+			url:        "https://github.com/git/git/pull/123",
 			skipReason: "Requires network access",
 		},
 		{
-			name: "GitLab URL",
-			url:  "https://gitlab.com/gitlab-org/gitlab.git",
+			name:       "GitLab URL",
+			url:        "https://gitlab.com/gitlab-org/gitlab.git",
 			skipReason: "Requires network access",
 		},
 		{
-			name: "Invalid URL",
-			url:  "not-a-valid-url",
+			name:        "Invalid URL",
+			url:         "not-a-valid-url",
 			expectError: true,
 		},
 		{
-			name: "SSH URL",
-			url:  "git@github.com:git/git.git",
+			name:       "SSH URL",
+			url:        "git@github.com:git/git.git",
 			skipReason: "Requires SSH access",
 		},
 	}
@@ -392,45 +392,45 @@ func TestInitCommand_RemoteScenarios_Integration(t *testing.T) {
 
 func TestInitCommand_BranchParsing_Integration(t *testing.T) {
 	tests := []struct {
-		name           string
-		branchesStr    string
-		expectedCount  int
+		name             string
+		branchesStr      string
+		expectedCount    int
 		expectedBranches []string
 	}{
 		{
-			name:           "single branch",
-			branchesStr:    "main",
-			expectedCount:  1,
+			name:             "single branch",
+			branchesStr:      "main",
+			expectedCount:    1,
 			expectedBranches: []string{"main"},
 		},
 		{
-			name:           "multiple branches",
-			branchesStr:    "main,develop,feature/auth",
-			expectedCount:  3,
+			name:             "multiple branches",
+			branchesStr:      "main,develop,feature/auth",
+			expectedCount:    3,
 			expectedBranches: []string{"main", "develop", "feature/auth"},
 		},
 		{
-			name:           "branches with spaces",
-			branchesStr:    "main, develop , feature/auth",
-			expectedCount:  3,
+			name:             "branches with spaces",
+			branchesStr:      "main, develop , feature/auth",
+			expectedCount:    3,
 			expectedBranches: []string{"main", "develop", "feature/auth"},
 		},
 		{
-			name:           "empty string",
-			branchesStr:    "",
-			expectedCount:  0,
+			name:             "empty string",
+			branchesStr:      "",
+			expectedCount:    0,
 			expectedBranches: nil,
 		},
 		{
-			name:           "invalid branch names filtered",
-			branchesStr:    "main,invalid..branch,valid-branch,-invalid",
-			expectedCount:  2,
+			name:             "invalid branch names filtered",
+			branchesStr:      "main,invalid..branch,valid-branch,-invalid",
+			expectedCount:    2,
 			expectedBranches: []string{"main", "valid-branch"},
 		},
 		{
-			name:           "branch with slashes",
-			branchesStr:    "feature/user-auth,bugfix/critical-fix",
-			expectedCount:  2,
+			name:             "branch with slashes",
+			branchesStr:      "feature/user-auth,bugfix/critical-fix",
+			expectedCount:    2,
 			expectedBranches: []string{"feature/user-auth", "bugfix/critical-fix"},
 		},
 	}

@@ -296,12 +296,13 @@ func TestNewCreateCmd_HelpText_ContainsFilePatterns(t *testing.T) {
 }
 
 func TestNewCreateCmd_RunE_PlaceholderImplementation(t *testing.T) {
-	// Set up isolated test environment
-	testDir, cleanup := testutils.SetupTestEnvironment(t, "create-cmd-test-")
-	defer cleanup.Run()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Change to test directory
-	testutils.WithWorkingDirectory(t, testDir.Path, func() {
+	runner := testutils.NewTestRunner(t)
+	runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
+		testDir := helper.CreateTempDir("create-cmd-test")
+		require.NoError(t, os.Chdir(testDir))
+
 		// Initialize a git repository for the test
 		gitExec := git.DefaultExecutor
 		_, err := gitExec.Execute("init")
@@ -309,6 +310,8 @@ func TestNewCreateCmd_RunE_PlaceholderImplementation(t *testing.T) {
 		_, err = gitExec.Execute("config", "user.name", "Test User")
 		require.NoError(t, err)
 		_, err = gitExec.Execute("config", "user.email", "test@example.com")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "commit.gpgsign", "false")
 		require.NoError(t, err)
 
 		// Create initial commit
@@ -324,21 +327,21 @@ func TestNewCreateCmd_RunE_PlaceholderImplementation(t *testing.T) {
 		cmd := NewCreateCmd()
 		cmd.SetArgs([]string{uniqueBranch})
 
-		// The command should execute successfully in this test environment
 		err = cmd.Execute()
 
-		// The command should succeed - if it fails, that's a real issue
 		require.NoError(t, err, "Create command should execute successfully")
 	})
 }
 
 func TestNewCreateCmd_RunE_WithPath(t *testing.T) {
-	// Set up isolated test environment
-	testDir, cleanup := testutils.SetupTestEnvironment(t, "create-cmd-path-test-")
-	defer cleanup.Run()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Change to test directory
-	testutils.WithWorkingDirectory(t, testDir.Path, func() {
+	runner := testutils.NewTestRunner(t)
+	runner.WithCleanEnvironment().WithIsolatedWorkingDir().Run(func() {
+		// Create and change to test directory
+		testDir := helper.CreateTempDir("create-cmd-path-test")
+		require.NoError(t, os.Chdir(testDir))
+
 		// Initialize a git repository for the test
 		gitExec := git.DefaultExecutor
 		_, err := gitExec.Execute("init")
@@ -346,6 +349,8 @@ func TestNewCreateCmd_RunE_WithPath(t *testing.T) {
 		_, err = gitExec.Execute("config", "user.name", "Test User")
 		require.NoError(t, err)
 		_, err = gitExec.Execute("config", "user.email", "test@example.com")
+		require.NoError(t, err)
+		_, err = gitExec.Execute("config", "commit.gpgsign", "false")
 		require.NoError(t, err)
 
 		// Create initial commit

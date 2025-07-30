@@ -16,20 +16,18 @@ import (
 )
 
 // setupTestWorktree creates a directory with a .git folder to simulate a Git worktree.
-func setupTestWorktree(t *testing.T, basePath string) string {
-	require.NoError(t, os.MkdirAll(basePath, 0o755))
-	gitDir := filepath.Join(basePath, ".git")
+func setupTestWorktree(t *testing.T, helper *testutils.UnitTestHelper, name string) string {
+	worktreeDir := helper.CreateTempDir(name)
+	gitDir := filepath.Join(worktreeDir, ".git")
 	require.NoError(t, os.MkdirAll(gitDir, 0o755))
-	return basePath
+	return worktreeDir
 }
 
 func TestFileManagerImpl_CopyFiles_Success(t *testing.T) {
-	// Create temporary directories for testing.
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
-	targetDir := setupTestWorktree(t, filepath.Join(tmpDir, "target"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Create test files in source directory.
+	sourceDir := setupTestWorktree(t, helper, "source")
+	targetDir := setupTestWorktree(t, helper, "target")
 	testFiles := map[string]string{
 		".env":                  "DATABASE_URL=postgres://localhost",
 		".env.local":            "DEBUG=true",
@@ -55,30 +53,27 @@ func TestFileManagerImpl_CopyFiles_Success(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Verify files were copied.
 	copiedFiles := []string{".env", ".env.local", ".vscode/settings.json"}
 	for _, file := range copiedFiles {
 		targetPath := filepath.Join(targetDir, file)
 		assert.FileExists(t, targetPath)
 
-		// Verify content matches.
 		expectedContent := testFiles[file]
 		actualContent, err := os.ReadFile(targetPath)
 		require.NoError(t, err)
 		assert.Equal(t, expectedContent, string(actualContent))
 	}
 
-	// Verify excluded files were not copied.
 	excludedFile := filepath.Join(targetDir, "README.md")
 	assert.NoFileExists(t, excludedFile)
 }
 
 func TestFileManagerImpl_CopyFiles_ConflictOverwrite(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
-	targetDir := setupTestWorktree(t, filepath.Join(tmpDir, "target"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Create files in both directories with different content.
+	sourceDir := setupTestWorktree(t, helper, "source")
+	targetDir := setupTestWorktree(t, helper, "target")
+
 	sourceFile := filepath.Join(sourceDir, ".env")
 	targetFile := filepath.Join(targetDir, ".env")
 
@@ -97,18 +92,17 @@ func TestFileManagerImpl_CopyFiles_ConflictOverwrite(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Verify file was overwritten with source content.
 	content, err := os.ReadFile(targetFile)
 	require.NoError(t, err)
 	assert.Equal(t, "SOURCE_CONTENT", string(content))
 }
 
 func TestFileManagerImpl_CopyFiles_ConflictSkip(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
-	targetDir := setupTestWorktree(t, filepath.Join(tmpDir, "target"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Create files in both directories with different content.
+	sourceDir := setupTestWorktree(t, helper, "source")
+	targetDir := setupTestWorktree(t, helper, "target")
+
 	sourceFile := filepath.Join(sourceDir, ".env")
 	targetFile := filepath.Join(targetDir, ".env")
 
@@ -127,18 +121,17 @@ func TestFileManagerImpl_CopyFiles_ConflictSkip(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Verify file was not overwritten (target content preserved).
 	content, err := os.ReadFile(targetFile)
 	require.NoError(t, err)
 	assert.Equal(t, "TARGET_CONTENT", string(content))
 }
 
 func TestFileManagerImpl_CopyFiles_ConflictBackup(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
-	targetDir := setupTestWorktree(t, filepath.Join(tmpDir, "target"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	// Create files in both directories with different content.
+	sourceDir := setupTestWorktree(t, helper, "source")
+	targetDir := setupTestWorktree(t, helper, "target")
+
 	sourceFile := filepath.Join(sourceDir, ".env")
 	targetFile := filepath.Join(targetDir, ".env")
 
@@ -157,12 +150,10 @@ func TestFileManagerImpl_CopyFiles_ConflictBackup(t *testing.T) {
 
 	require.NoError(t, err)
 
-	// Verify original file was overwritten with source content.
 	content, err := os.ReadFile(targetFile)
 	require.NoError(t, err)
 	assert.Equal(t, "SOURCE_CONTENT", string(content))
 
-	// Verify backup file was created with original content
 	// Backup files use timestamp format: .backup.YYYYMMDD_HHMMSS.
 	files, err := filepath.Glob(targetFile + ".backup.*")
 	require.NoError(t, err)
@@ -184,8 +175,9 @@ func TestFileManagerImpl_CopyFiles_InvalidSourceDirectory(t *testing.T) {
 }
 
 func TestFileManagerImpl_CopyFiles_InvalidTargetDirectory(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	sourceDir := setupTestWorktree(t, helper, "source")
 
 	mockExecutor := testutils.NewMockGitExecutor()
 	manager := NewFileManager(mockExecutor)
@@ -198,9 +190,10 @@ func TestFileManagerImpl_CopyFiles_InvalidTargetDirectory(t *testing.T) {
 }
 
 func TestFileManagerImpl_CopyFiles_EmptyPatterns(t *testing.T) {
-	tmpDir := t.TempDir()
-	sourceDir := setupTestWorktree(t, filepath.Join(tmpDir, "source"))
-	targetDir := setupTestWorktree(t, filepath.Join(tmpDir, "target"))
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	sourceDir := setupTestWorktree(t, helper, "source")
+	targetDir := setupTestWorktree(t, helper, "target")
 
 	mockExecutor := testutils.NewMockGitExecutor()
 	manager := NewFileManager(mockExecutor)
