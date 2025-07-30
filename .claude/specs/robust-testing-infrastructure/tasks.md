@@ -195,27 +195,27 @@
 
 #### Init Command Tests Migration
 
-- [ ] **6.15** Migrate `internal/commands/init/init_integration_test.go`
+- [x] **6.15** Migrate `internal/commands/init/init_integration_test.go` ✅ COMPLETED
     - Use IntegrationTestHelper for git operations
     - Replace working directory changes with TestRunner
     - _Leverage: existing git initialization patterns_
 
-- [ ] **6.16** Migrate `internal/commands/init/init_enhanced_integration_test.go`
+- [x] **6.16** Migrate `internal/commands/init/init_enhanced_integration_test.go` ✅ COMPLETED
     - Use IntegrationTestHelper for enhanced git operations
     - Replace manual repository setup with robust patterns
     - _Leverage: existing enhanced integration test structure_
 
-- [ ] **6.17** Migrate `internal/commands/init/init_functions_integration_test.go`
+- [x] **6.17** Migrate `internal/commands/init/init_functions_integration_test.go` ✅ COMPLETED
     - Use IntegrationTestHelper for function-level integration testing
     - Replace working directory changes with TestRunner
     - _Leverage: existing function test patterns_
 
-- [ ] **6.18** Migrate `internal/commands/init/init_test.go`
+- [x] **6.18** Migrate `internal/commands/init/init_test.go` ✅ COMPLETED
     - Use UnitTestHelper for command testing
     - Maintain existing init logic validation
     - _Leverage: existing command test patterns_
 
-- [ ] **6.19** Migrate `internal/commands/init/init_mock_test.go`
+- [x] **6.19** Migrate `internal/commands/init/init_mock_test.go` ✅ COMPLETED
     - Enhance MockGitExecutor usage with robust patterns
     - Add proper test isolation
     - _Leverage: existing mock test structure_
