@@ -1,0 +1,203 @@
+# Test grove list command with multiple worktrees
+# This test verifies that grove list correctly displays multiple worktrees with proper formatting
+
+# Set up Grove repository
+exec grove init
+
+# Create initial worktree for main branch
+exec git worktree add main
+cd main
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial commit
+cp $devnull README.md
+exec sh -c 'echo "Main content" > README.md'
+exec git add README.md
+exec git commit -m 'Initial commit'
+cd ..
+
+# Update HEAD to point to main branch in bare repo
+exec git symbolic-ref HEAD refs/heads/main
+
+# Test 1: List single worktree (main only)
+exec grove list
+stdout 'WORKTREE'
+stdout 'BRANCH'
+stdout 'STATUS'
+stdout 'main'
+
+# Test 2: Create multiple worktrees
+exec grove create feature-1 worktrees/feature-1
+exec grove create feature-2 worktrees/feature-2
+exec grove create hotfix worktrees/hotfix
+
+# Verify worktrees were created
+exists worktrees/feature-1
+exists worktrees/feature-2
+exists worktrees/hotfix
+
+# Test 3: List all worktrees (should show main + 3 feature branches)
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+
+# Test 4: Verify git worktree list matches grove list
+exec git worktree list
+stdout 'main'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+
+# Test 5: Test listing from different working directories
+cd worktrees/feature-1
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+cd ../..
+
+# Test 6: Create worktrees with different statuses
+cd worktrees/feature-1
+cp $devnull feature1.txt
+exec sh -c 'echo "Feature 1 content" > feature1.txt'
+exec git add feature1.txt
+exec git commit -m 'Add feature 1 file'
+cd ../feature-2
+
+# Leave feature-2 with uncommitted changes
+cp $devnull feature2.txt
+exec sh -c 'echo "Uncommitted content" > feature2.txt'
+cd ../hotfix
+
+# Leave hotfix clean (no changes)
+cd ../..
+
+# Test 7: List with verbose output to see status details
+exec grove list --verbose
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+
+# Test 8: List with porcelain format for script parsing
+exec grove list --porcelain
+stdout 'main'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+
+# Test 9: Test sorting options
+exec grove list --sort=name
+stdout 'WORKTREE'
+stdout 'feature-1'
+stdout 'feature-2'
+stdout 'hotfix'
+stdout 'main'
+
+exec grove list --sort=status
+stdout 'WORKTREE'
+stdout 'main'
+
+# Test 10: List clean worktrees only
+exec grove list --clean
+stdout 'main'
+stdout 'feature-1'
+stdout 'hotfix'
+! stdout 'feature-2'
+
+# Test 11: List dirty worktrees only
+exec grove list --dirty
+stdout 'feature-2'
+! stdout 'main'
+! stdout 'feature-1'
+! stdout 'hotfix'
+
+# Test 12: Test with nested directories
+mkdir -p deep/nested/path
+exec grove create nested-feature deep/nested/path/nested-worktree
+
+# Verify nested worktree appears in list
+exec grove list
+stdout 'WORKTREE'
+stdout 'nested-feature'
+
+# Test 13: Remove a worktree and verify list updates
+exec git worktree remove worktrees/feature-2 --force
+
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+! stdout 'feature-2'
+stdout 'hotfix'
+stdout 'nested-feature'
+
+# Test 14: Test list ordering is consistent
+exec grove list
+# Should show worktrees in a predictable order
+
+# Test 15: Verify branch names are shown correctly
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+stdout 'hotfix'
+stdout 'nested-feature'
+
+# Test 16: Test list with many worktrees (performance)
+exec grove create perf-1 worktrees/perf-1
+exec grove create perf-2 worktrees/perf-2
+exec grove create perf-3 worktrees/perf-3
+exec grove create perf-4 worktrees/perf-4
+exec grove create perf-5 worktrees/perf-5
+
+exec grove list
+stdout 'WORKTREE'
+stdout 'perf-1'
+stdout 'perf-2'
+stdout 'perf-3'
+stdout 'perf-4'
+stdout 'perf-5'
+
+# Test 17: Verify listing doesn't show non-existent worktrees
+exec grove list
+! stdout 'non-existent-worktree'
+! stdout 'removed-worktree'
+
+# Test 18: Verify listing from subdirectory works correctly
+mkdir temp-subdir
+cd temp-subdir
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+stdout 'feature-1'
+cd ..
+rm -rf temp-subdir
+
+# Cleanup - Remove all worktrees
+exec git worktree remove worktrees/feature-1 --force
+exec git worktree remove worktrees/hotfix --force
+exec git worktree remove deep/nested/path/nested-worktree --force
+exec git worktree remove worktrees/perf-1 --force
+exec git worktree remove worktrees/perf-2 --force
+exec git worktree remove worktrees/perf-3 --force
+exec git worktree remove worktrees/perf-4 --force
+exec git worktree remove worktrees/perf-5 --force
+
+# Final verification - should only show main worktree
+exec grove list
+stdout 'WORKTREE'
+stdout 'main'
+! stdout 'feature-1'
+! stdout 'feature-2'
+! stdout 'hotfix'
+
+# Clean up
+rm -rf worktrees deep main .bare .git README.md

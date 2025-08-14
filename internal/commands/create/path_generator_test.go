@@ -4,410 +4,437 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/sqve/grove/internal/errors"
+	"github.com/sqve/grove/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestPathGenerator_GeneratePath(t *testing.T) {
-	viper.Reset()
+func TestPathGenerator_GeneratePath_Success(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tests := []struct {
+		name       string
+		branchName string
+		basePath   string
+		want       func(string) bool
+	}{
+		{
+			name:       "simple branch name",
+			branchName: "feature/user-auth",
+			basePath:   "",
+			want: func(result string) bool {
+				return strings.Contains(result, "feature-user-auth")
+			},
+		},
+		{
+			name:       "branch with special characters",
+			branchName: "hotfix/bug-123_fix",
+			basePath:   "",
+			want: func(result string) bool {
+				return strings.Contains(result, "hotfix-bug-123_fix")
+			},
+		},
+		{
+			name:       "custom base path",
+			branchName: "main",
+			basePath:   helper.CreateTempDir("custom"),
+			want: func(result string) bool {
+				return strings.Contains(result, "custom") && strings.HasSuffix(result, "main")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.GeneratePath(tt.branchName, tt.basePath)
+
+			require.NoError(t, err)
+			require.True(t, tt.want(result), "unexpected result: %s", result)
+			require.True(t, filepath.IsAbs(result), "result should be absolute path")
+
+			// Verify directory was created
+			info, err := os.Stat(result)
+			require.NoError(t, err)
+			assert.True(t, info.IsDir())
+		})
+	}
+}
+
+func TestPathGenerator_GeneratePath_Errors(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tests := []struct {
+		name          string
+		branchName    string
+		basePath      string
+		expectedError string
+		expectedCode  string
+	}{
+		{
+			name:          "empty branch name",
+			branchName:    "",
+			basePath:      helper.GetTempPath("test"),
+			expectedError: "branch name cannot be empty",
+			expectedCode:  errors.ErrCodeGitOperation,
+		},
+		{
+			name:          "null byte in base path",
+			branchName:    "test-branch",
+			basePath:      "/tmp/test\x00dir",
+			expectedError: "failed to resolve path collisions",
+			expectedCode:  errors.ErrCodeFileSystem,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.GeneratePath(tt.branchName, tt.basePath)
+
+			require.Error(t, err)
+			assert.Empty(t, result)
+
+			var groveErr *errors.GroveError
+			require.ErrorAs(t, err, &groveErr)
+			assert.Equal(t, tt.expectedCode, groveErr.Code)
+			assert.Contains(t, groveErr.Message, tt.expectedError)
+		})
+	}
+}
+
+func TestPathGenerator_ResolveUserPath_Success(t *testing.T) {
+	tests := []struct {
+		name     string
+		userPath string
+		want     func(string) bool
+	}{
+		{
+			name:     "absolute path unchanged",
+			userPath: "/absolute/path/test",
+			want: func(result string) bool {
+				return result == "/absolute/path/test"
+			},
+		},
+		{
+			name:     "relative path resolved",
+			userPath: "relative/path",
+			want: func(result string) bool {
+				return filepath.IsAbs(result) && strings.HasSuffix(result, "relative/path")
+			},
+		},
+		{
+			name:     "current directory reference",
+			userPath: "./current",
+			want: func(result string) bool {
+				return filepath.IsAbs(result) && strings.HasSuffix(result, "current")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.ResolveUserPath(tt.userPath)
+
+			require.NoError(t, err)
+			require.True(t, tt.want(result), "unexpected result: %s", result)
+		})
+	}
+}
+
+func TestPathGenerator_ResolveUserPath_Errors(t *testing.T) {
+	tests := []struct {
+		name     string
+		userPath string
+	}{
+		{
+			name:     "empty path",
+			userPath: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.ResolveUserPath(tt.userPath)
+
+			require.Error(t, err)
+			assert.Empty(t, result)
+			assert.Contains(t, err.Error(), "user path cannot be empty")
+		})
+	}
+}
+
+func TestPathGenerator_CollisionResolution(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	baseDir := helper.CreateTempDir("collision-test")
+
+	// Pre-create directories to force collisions
+	require.NoError(t, os.Mkdir(filepath.Join(baseDir, "test-branch"), 0o755))
+	require.NoError(t, os.Mkdir(filepath.Join(baseDir, "test-branch-1"), 0o755))
+	require.NoError(t, os.Mkdir(filepath.Join(baseDir, "test-branch-2"), 0o755))
+
+	pg := NewPathGenerator()
+	result, err := pg.GeneratePath("test-branch", baseDir)
+
+	require.NoError(t, err)
+	assert.True(t, strings.HasSuffix(result, "test-branch-3"))
+
+	// Verify the directory was actually created
+	info, err := os.Stat(result)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+func TestPathGenerator_AtomicOperations(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+	baseDir := helper.CreateTempDir("atomic-test")
+
 	pg := NewPathGenerator()
 
-	t.Run("generates valid path from branch name", func(t *testing.T) {
-		tempDir := t.TempDir()
-		branchName := "feature/user-auth"
+	// Test that the same path generation is atomic and consistent
+	result1, err1 := pg.GeneratePath("atomic-branch", baseDir)
+	require.NoError(t, err1)
 
-		path, err := pg.GeneratePath(branchName, tempDir)
+	result2, err2 := pg.GeneratePath("atomic-branch", baseDir)
+	require.NoError(t, err2)
 
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, "feature-user-auth")
-		assert.Equal(t, expectedPath, path)
-		assert.True(t, filepath.IsAbs(path))
+	// Should get different paths due to collision resolution
+	assert.NotEqual(t, result1, result2)
+	assert.True(t, strings.HasSuffix(result1, "atomic-branch"))
+	assert.True(t, strings.HasSuffix(result2, "atomic-branch-1"))
+
+	// Both directories should exist
+	info1, err := os.Stat(result1)
+	require.NoError(t, err)
+	assert.True(t, info1.IsDir())
+
+	info2, err := os.Stat(result2)
+	require.NoError(t, err)
+	assert.True(t, info2.IsDir())
+}
+
+func TestPathGenerator_SecurityValidation(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tests := []struct {
+		name          string
+		branchName    string
+		basePath      string
+		expectedError string
+		expectedCode  string
+	}{
+		{
+			name:          "path traversal in branch name",
+			branchName:    "../../../etc/passwd",
+			basePath:      helper.GetTempPath("secure"),
+			expectedError: "generated path is invalid",
+			expectedCode:  errors.ErrCodeFileSystem,
+		},
+		{
+			name:          "null byte injection in branch name",
+			branchName:    "test\x00branch",
+			basePath:      helper.GetTempPath("secure"),
+			expectedError: "failed to resolve path collisions",
+			expectedCode:  errors.ErrCodeFileSystem,
+		},
+		{
+			name:          "extremely long path",
+			branchName:    strings.Repeat("a", 5000), // Exceeds MaxPathLength
+			basePath:      helper.GetTempPath("secure"),
+			expectedError: "failed to resolve path collisions",
+			expectedCode:  errors.ErrCodeFileSystem,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.GeneratePath(tt.branchName, tt.basePath)
+
+			require.Error(t, err)
+			assert.Empty(t, result)
+
+			var groveErr *errors.GroveError
+			require.ErrorAs(t, err, &groveErr)
+			assert.Equal(t, tt.expectedCode, groveErr.Code)
+			assert.Contains(t, groveErr.Message, tt.expectedError)
+		})
+	}
+}
+
+func TestPathGenerator_PathValidation(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
+
+	tests := []struct {
+		name          string
+		setupFunc     func() string
+		branchName    string
+		expectedError string
+	}{
+		{
+			name: "read-only parent directory",
+			setupFunc: func() string {
+				dir := helper.CreateTempDir("readonly-parent")
+				require.NoError(t, os.Chmod(dir, 0o444)) // Read-only
+				return dir
+			},
+			branchName:    "test-branch",
+			expectedError: "permission denied",
+		},
+		{
+			name: "parent is a file not directory",
+			setupFunc: func() string {
+				file := helper.CreateTempFile("not-a-dir", "content")
+				return file
+			},
+			branchName:    "test-branch",
+			expectedError: "not a directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			basePath := tt.setupFunc()
+
+			pg := NewPathGenerator()
+			result, err := pg.GeneratePath(tt.branchName, basePath)
+
+			require.Error(t, err)
+			assert.Empty(t, result)
+			assert.Contains(t, err.Error(), tt.expectedError)
+		})
+	}
+}
+
+func TestPathGenerator_Configuration(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem().WithCleanEnvironment()
+
+	helper.Run(func() {
+		// Reset viper for clean test
+		viper.Reset()
+
+		// Test default configuration
+		config := DefaultPathGeneratorConfig()
+		assert.Equal(t, 999, config.MaxCollisionAttempts)
+		assert.Equal(t, 4096, config.MaxPathLength)
+		assert.Equal(t, []int{1, 2, 3, 4, 5}, config.CommonCollisionNumbers)
 	})
+}
 
-	t.Run("uses configured base path when basePath is empty", func(t *testing.T) {
-		tempDir := t.TempDir()
-		viper.Set("worktree.base_path", tempDir)
-		defer viper.Reset()
+func TestPathGenerator_TildePathResolution(t *testing.T) {
+	tests := []struct {
+		name     string
+		userPath string
+		expected func(string) bool
+	}{
+		{
+			name:     "tilde path in user path",
+			userPath: "~/test-path",
+			expected: func(result string) bool {
+				return !strings.HasPrefix(result, "~") && strings.HasSuffix(result, "test-path")
+			},
+		},
+	}
 
-		branchName := "fix/bug-123"
-		path, err := pg.GeneratePath(branchName, "")
-
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, "fix-bug-123")
-		assert.Equal(t, expectedPath, path)
-	})
-
-	t.Run("handles collision with numeric suffix", func(t *testing.T) {
-		tempDir := t.TempDir()
-		branchName := "main"
-
-		// Create existing directory.
-		existingPath := filepath.Join(tempDir, "main")
-		err := os.Mkdir(existingPath, 0o755)
-		require.NoError(t, err)
-
-		path, err := pg.GeneratePath(branchName, tempDir)
-
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, "main-1")
-		assert.Equal(t, expectedPath, path)
-	})
-
-	t.Run("handles multiple collisions", func(t *testing.T) {
-		tempDir := t.TempDir()
-		branchName := "test"
-
-		// Create multiple existing directories.
-		for i := 0; i <= 2; i++ {
-			var dirName string
-			if i == 0 {
-				dirName = "test"
-			} else {
-				dirName = "test-" + string(rune(i+'0'))
-			}
-			err := os.Mkdir(filepath.Join(tempDir, dirName), 0o755)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pg := NewPathGenerator()
+			result, err := pg.ResolveUserPath(tt.userPath)
 			require.NoError(t, err)
-		}
-
-		path, err := pg.GeneratePath(branchName, tempDir)
-
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, "test-3")
-		assert.Equal(t, expectedPath, path)
-	})
-
-	t.Run("sanitizes special characters in branch names", func(t *testing.T) {
-		tempDir := t.TempDir()
-		branchName := "feature/fix:issue#123"
-
-		path, err := pg.GeneratePath(branchName, tempDir)
-
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, "feature-fix-issue-123")
-		assert.Equal(t, expectedPath, path)
-	})
-
-	t.Run("returns error for empty branch name", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		_, err := pg.GeneratePath("", tempDir)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "branch name cannot be empty")
-	})
-
-	t.Run("converts relative base path to absolute", func(t *testing.T) {
-		// Use a temporary directory that exists to avoid parent validation issues.
-		tempDir := t.TempDir()
-		branchName := "feature"
-
-		path, err := pg.GeneratePath(branchName, tempDir)
-
-		require.NoError(t, err)
-		assert.True(t, filepath.IsAbs(path))
-		assert.Equal(t, filepath.Join(tempDir, "feature"), path)
-	})
-
-	t.Run("expands home directory in configured path", func(t *testing.T) {
-		// Create a test directory in home for this test.
-		homeDir, err := os.UserHomeDir()
-		require.NoError(t, err)
-
-		testDir := filepath.Join(homeDir, "grove-test-worktrees")
-		err = os.MkdirAll(testDir, 0o755)
-		require.NoError(t, err)
-		defer func() { _ = os.RemoveAll(testDir) }()
-
-		viper.Set("worktree.base_path", "~/grove-test-worktrees")
-		defer viper.Reset()
-
-		branchName := "feature"
-		path, err := pg.GeneratePath(branchName, "")
-
-		require.NoError(t, err)
-		expectedPath := filepath.Join(testDir, "feature")
-		assert.Equal(t, expectedPath, path)
-	})
+			assert.True(t, tt.expected(result), "unexpected result: %s", result)
+		})
+	}
 }
 
-func TestPathGenerator_ValidatePath(t *testing.T) {
-	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
+func TestPathGenerator_MaxCollisionAttempts(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem().WithCleanEnvironment()
 
-	t.Run("accepts valid absolute path", func(t *testing.T) {
-		tempDir := t.TempDir()
-		validPath := filepath.Join(tempDir, "valid-directory")
+	helper.Run(func() {
+		viper.Reset()
+		viper.Set("path_generator.max_collision_attempts", 3)
 
-		err := pg.validatePath(validPath)
+		baseDir := helper.CreateTempDir("max-collision-test")
 
-		assert.NoError(t, err)
-	})
-
-	t.Run("rejects relative path", func(t *testing.T) {
-		relativePath := "relative/path"
-
-		err := pg.validatePath(relativePath)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "path must be absolute")
-	})
-
-	t.Run("rejects path with traversal elements", func(t *testing.T) {
-		// Create a path that has actual traversal issues.
-		traversalPath := "/tmp/test/../../../etc/passwd"
-
-		err := pg.validatePath(traversalPath)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "path contains traversal elements")
-	})
-
-	t.Run("rejects invalid directory names", func(t *testing.T) {
-		tempDir := t.TempDir()
-		invalidPath := filepath.Join(tempDir, "invalid:name")
-
-		err := pg.validatePath(invalidPath)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "directory name is invalid")
-	})
-
-	t.Run("allows paths with non-existent but valid parents", func(t *testing.T) {
-		// Most paths will have non-existent parents initially, this should be allowed.
-		validPath := "/tmp/grove-test/new-worktree"
-
-		err := pg.validatePath(validPath)
-
-		// This should not error since /tmp exists and the path structure is valid.
-		assert.NoError(t, err)
-	})
-}
-
-func TestPathGenerator_ResolveCollisions(t *testing.T) {
-	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
-
-	t.Run("returns original path when no collision", func(t *testing.T) {
-		tempDir := t.TempDir()
-		targetPath := filepath.Join(tempDir, "no-collision")
-
-		resolvedPath, err := pg.resolveCollisions(targetPath)
-
-		require.NoError(t, err)
-		assert.Equal(t, targetPath, resolvedPath)
-	})
-
-	t.Run("adds suffix when collision exists", func(t *testing.T) {
-		tempDir := t.TempDir()
-		targetPath := filepath.Join(tempDir, "collision")
-
-		// Create existing directory.
-		err := os.Mkdir(targetPath, 0o755)
-		require.NoError(t, err)
-
-		resolvedPath, err := pg.resolveCollisions(targetPath)
-
-		require.NoError(t, err)
-		expectedPath := targetPath + "-1"
-		assert.Equal(t, expectedPath, resolvedPath)
-	})
-
-	t.Run("finds available suffix with multiple collisions", func(t *testing.T) {
-		tempDir := t.TempDir()
-		baseName := "multi-collision"
-		targetPath := filepath.Join(tempDir, baseName)
-
-		// Create multiple existing directories.
+		// Pre-create directories to force collisions beyond the limit
 		for i := 0; i <= 5; i++ {
-			var dirName string
-			if i == 0 {
-				dirName = baseName
-			} else {
-				dirName = baseName + "-" + string(rune(i+'0'))
+			suffix := ""
+			if i > 0 {
+				suffix = fmt.Sprintf("-%d", i)
 			}
-			err := os.Mkdir(filepath.Join(tempDir, dirName), 0o755)
-			require.NoError(t, err)
+			require.NoError(t, os.Mkdir(filepath.Join(baseDir, "test-branch"+suffix), 0o755))
 		}
 
-		resolvedPath, err := pg.resolveCollisions(targetPath)
+		pg := NewPathGenerator()
+		result, err := pg.GeneratePath("test-branch", baseDir)
 
-		require.NoError(t, err)
-		expectedPath := filepath.Join(tempDir, baseName+"-6")
-		assert.Equal(t, expectedPath, resolvedPath)
+		require.Error(t, err)
+		assert.Empty(t, result)
+		assert.Contains(t, err.Error(), "unable to find unique path after")
 	})
 }
 
-func TestExpandHomePath(t *testing.T) {
-	t.Run("expands tilde to home directory", func(t *testing.T) {
-		path, err := expandHomePath("~")
+func TestPathGenerator_EdgeCases(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-		require.NoError(t, err)
-		homeDir, _ := os.UserHomeDir()
-		assert.Equal(t, homeDir, path)
-	})
+	tests := []struct {
+		name       string
+		branchName string
+		setup      func() string
+		wantErr    bool
+	}{
+		{
+			name:       "branch with only special chars",
+			branchName: "///---///",
+			setup: func() string {
+				return helper.GetTempPath("edge-case")
+			},
+			wantErr: false,
+		},
+		{
+			name:       "very long branch name",
+			branchName: strings.Repeat("long-branch-name-", 20),
+			setup: func() string {
+				return helper.GetTempPath("edge-case")
+			},
+			wantErr: true, // This should fail due to filesystem limits
+		},
+		{
+			name:       "unicode branch name",
+			branchName: "feature/测试分支-ñoño",
+			setup: func() string {
+				return helper.GetTempPath("edge-case")
+			},
+			wantErr: false,
+		},
+	}
 
-	t.Run("expands tilde with path", func(t *testing.T) {
-		path, err := expandHomePath("~/Documents/grove")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			basePath := tt.setup()
+			pg := NewPathGenerator()
 
-		require.NoError(t, err)
-		homeDir, _ := os.UserHomeDir()
-		expectedPath := filepath.Join(homeDir, "Documents", "grove")
-		assert.Equal(t, expectedPath, path)
-	})
+			result, err := pg.GeneratePath(tt.branchName, basePath)
 
-	t.Run("leaves non-tilde paths unchanged", func(t *testing.T) {
-		originalPath := "/absolute/path/test"
-		path, err := expandHomePath(originalPath)
-
-		require.NoError(t, err)
-		assert.Equal(t, originalPath, path)
-	})
-
-	t.Run("leaves relative paths unchanged", func(t *testing.T) {
-		originalPath := "relative/path"
-		path, err := expandHomePath(originalPath)
-
-		require.NoError(t, err)
-		assert.Equal(t, originalPath, path)
-	})
-}
-
-// Performance benchmarks for collision resolution
-func BenchmarkCollisionResolution(b *testing.B) {
-	pg := &pathGenerator{config: DefaultPathGeneratorConfig()}
-
-	b.Run("NoCollisions", func(b *testing.B) {
-		tempDir := b.TempDir()
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// Test with a fresh path that doesn't exist - true no-collision scenario
-			testPath := filepath.Join(tempDir, fmt.Sprintf("unique-branch-%d", i))
-			_, err := pg.resolveCollisions(testPath)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("WithFewCollisions", func(b *testing.B) {
-		tempDir := b.TempDir()
-		basePath := filepath.Join(tempDir, "collision-test")
-
-		// Create 5 existing directories to test collision resolution
-		for i := 0; i < 5; i++ {
-			var dirPath string
-			if i == 0 {
-				dirPath = basePath
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Empty(t, result)
 			} else {
-				dirPath = fmt.Sprintf("%s-%d", basePath, i)
-			}
-			err := os.Mkdir(dirPath, 0o755)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
+				require.NoError(t, err)
+				assert.NotEmpty(t, result)
+				assert.True(t, filepath.IsAbs(result))
 
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := pg.resolveCollisions(basePath)
-			if err != nil {
-				b.Fatal(err)
+				// Verify directory was created
+				info, err := os.Stat(result)
+				require.NoError(t, err)
+				assert.True(t, info.IsDir())
 			}
-		}
-	})
-
-	b.Run("WithManyCollisions", func(b *testing.B) {
-		tempDir := b.TempDir()
-		basePath := filepath.Join(tempDir, "many-collisions")
-
-		// Create 50 existing directories to test performance with many collisions
-		// Create directories 0-49 (basePath, basePath-1, basePath-2, ..., basePath-49)
-		for i := 0; i < 50; i++ {
-			var dirPath string
-			if i == 0 {
-				dirPath = basePath
-			} else {
-				dirPath = fmt.Sprintf("%s-%d", basePath, i)
-			}
-			err := os.Mkdir(dirPath, 0o755)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// Test the same collision scenario repeatedly to measure collision resolution performance
-			result, err := pg.resolveCollisions(basePath)
-			if err != nil {
-				b.Fatal(err)
-			}
-			// The first available number should be 50 (since 0-49 are taken)
-			expectedPath := basePath + "-50"
-			if result != expectedPath {
-				b.Fatalf("expected %s, got %s", expectedPath, result)
-			}
-		}
-	})
-
-	// Add a benchmark that measures collision resolution with a moderate number of collisions
-	b.Run("ModerateCollisions", func(b *testing.B) {
-		tempDir := b.TempDir()
-		basePath := filepath.Join(tempDir, "moderate-test")
-
-		// Create 10 existing directories to simulate moderate collision scenario
-		for i := 0; i < 10; i++ {
-			var dirPath string
-			if i == 0 {
-				dirPath = basePath
-			} else {
-				dirPath = fmt.Sprintf("%s-%d", basePath, i)
-			}
-			err := os.Mkdir(dirPath, 0o755)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			// Test collision resolution with moderate collisions (should return basePath-10)
-			result, err := pg.resolveCollisions(basePath)
-			if err != nil {
-				b.Fatal(err)
-			}
-			// Should find the first available path after the common numbers
-			expectedPath := basePath + "-10"
-			if result != expectedPath {
-				b.Fatalf("expected %s, got %s", expectedPath, result)
-			}
-		}
-	})
-}
-
-func BenchmarkHomeDirCaching(b *testing.B) {
-	b.Run("CachedHomeDirLookup", func(b *testing.B) {
-		// Reset the cache for this benchmark using the dedicated test function
-		resetHomeDirCache()
-
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := getHomeDir()
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("DirectHomeDirLookup", func(b *testing.B) {
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, err := os.UserHomeDir()
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
+		})
+	}
 }

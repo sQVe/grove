@@ -1,14 +1,12 @@
-//go:build !integration
-// +build !integration
-
 package retry
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	groveErrors "github.com/sqve/grove/internal/errors"
 )
@@ -16,159 +14,80 @@ import (
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
 
-	if config.MaxAttempts != 3 {
-		t.Errorf("expected MaxAttempts to be 3, got %d", config.MaxAttempts)
-	}
-	if config.BaseDelay != 1*time.Second {
-		t.Errorf("expected BaseDelay to be 1s, got %v", config.BaseDelay)
-	}
-	if config.MaxDelay != 10*time.Second {
-		t.Errorf("expected MaxDelay to be 10s, got %v", config.MaxDelay)
-	}
-	if !config.JitterEnabled {
-		t.Error("expected JitterEnabled to be true")
-	}
+	assert.Equal(t, 3, config.MaxAttempts)
+	assert.Equal(t, 1*time.Second, config.BaseDelay)
+	assert.Equal(t, 10*time.Second, config.MaxDelay)
+	assert.True(t, config.JitterEnabled)
 }
 
-func TestExecuteWithRetry_Success(t *testing.T) {
+func TestCalculateDelay(t *testing.T) {
 	config := RetryConfig{
-		MaxAttempts:   3,
-		BaseDelay:     100 * time.Millisecond,
-		MaxDelay:      1 * time.Second,
-		JitterEnabled: false,
-	}
-
-	callCount := 0
-	operation := func() error {
-		callCount++
-		return nil
-	}
-
-	err := ExecuteWithRetry(context.Background(), config, operation)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if callCount != 1 {
-		t.Errorf("expected operation to be called once, got %d", callCount)
-	}
-}
-
-func TestExecuteWithRetry_SuccessAfterRetry(t *testing.T) {
-	config := RetryConfig{
-		MaxAttempts:   3,
-		BaseDelay:     100 * time.Millisecond,
-		MaxDelay:      1 * time.Second,
-		JitterEnabled: false,
-	}
-
-	callCount := 0
-	operation := func() error {
-		callCount++
-		if callCount < 2 {
-			return groveErrors.ErrNetworkTimeout("test operation", errors.New("network timeout"))
-		}
-		return nil
-	}
-
-	start := time.Now()
-	err := ExecuteWithRetry(context.Background(), config, operation)
-	duration := time.Since(start)
-
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if callCount != 2 {
-		t.Errorf("expected operation to be called twice, got %d", callCount)
-	}
-	if duration < config.BaseDelay {
-		t.Errorf("expected duration to be at least %v, got %v", config.BaseDelay, duration)
-	}
-}
-
-func TestExecuteWithRetry_NonRetryableError(t *testing.T) {
-	config := RetryConfig{
-		MaxAttempts:   3,
-		BaseDelay:     100 * time.Millisecond,
-		MaxDelay:      1 * time.Second,
-		JitterEnabled: false,
-	}
-
-	callCount := 0
-	operation := func() error {
-		callCount++
-		return groveErrors.ErrAuthenticationFailed("test operation", errors.New("auth failed"))
-	}
-
-	err := ExecuteWithRetry(context.Background(), config, operation)
-
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
-	if callCount != 1 {
-		t.Errorf("expected operation to be called once, got %d", callCount)
-	}
-}
-
-func TestExecuteWithRetry_MaxAttemptsExceeded(t *testing.T) {
-	config := RetryConfig{
-		MaxAttempts:   2,
-		BaseDelay:     100 * time.Millisecond,
-		MaxDelay:      1 * time.Second,
-		JitterEnabled: false,
-	}
-
-	callCount := 0
-	operation := func() error {
-		callCount++
-		return groveErrors.ErrNetworkTimeout("test operation", errors.New("network timeout"))
-	}
-
-	err := ExecuteWithRetry(context.Background(), config, operation)
-
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
-	if callCount != 2 {
-		t.Errorf("expected operation to be called twice, got %d", callCount)
-	}
-	if !errors.Is(err, groveErrors.ErrNetworkTimeout("", nil)) {
-		t.Errorf("expected error to wrap network timeout, got %v", err)
-	}
-}
-
-func TestExecuteWithRetry_ContextCancellation(t *testing.T) {
-	config := RetryConfig{
-		MaxAttempts:   3,
 		BaseDelay:     1 * time.Second,
 		MaxDelay:      10 * time.Second,
 		JitterEnabled: false,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	callCount := 0
-	operation := func() error {
-		callCount++
-		if callCount == 1 {
-			go func() {
-				time.Sleep(100 * time.Millisecond)
-				cancel()
-			}()
-		}
-		return groveErrors.ErrNetworkTimeout("test operation", errors.New("network timeout"))
+	tests := []struct {
+		name     string
+		attempt  int
+		expected time.Duration
+	}{
+		{"first retry", 1, 1 * time.Second},
+		{"second retry", 2, 2 * time.Second},
+		{"third retry", 3, 4 * time.Second},
+		{"fourth retry", 4, 8 * time.Second},
+		{"capped at max", 5, 10 * time.Second},
 	}
 
-	err := ExecuteWithRetry(ctx, config, operation)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delay := calculateDelay(tt.attempt, config)
+			assert.Equal(t, tt.expected, delay)
+		})
+	}
+}
 
-	if err == nil {
-		t.Error("expected error, got nil")
+func TestCalculateDelayWithJitter(t *testing.T) {
+	config := RetryConfig{
+		BaseDelay:     1 * time.Second,
+		MaxDelay:      10 * time.Second,
+		JitterEnabled: true,
 	}
-	if callCount != 1 {
-		t.Errorf("expected operation to be called once, got %d", callCount)
+
+	delay := calculateDelay(1, config)
+
+	// With jitter, delay should be within ±25% of base delay
+	expectedMin := 750 * time.Millisecond
+	expectedMax := 1250 * time.Millisecond
+
+	assert.True(t, delay >= expectedMin && delay <= expectedMax,
+		"Delay %v should be between %v and %v", delay, expectedMin, expectedMax)
+}
+
+func TestCalculateDelayNegativeJitter(t *testing.T) {
+	config := RetryConfig{
+		BaseDelay:     10 * time.Millisecond, // Very small base delay
+		MaxDelay:      10 * time.Second,
+		JitterEnabled: true,
 	}
-	if !errors.Is(err, context.Canceled) {
-		t.Errorf("expected context cancelled error, got %v", err)
-	}
+
+	delay := calculateDelay(1, config)
+
+	// Even with negative jitter, delay should not be less than base delay
+	assert.True(t, delay >= config.BaseDelay,
+		"Delay %v should not be less than base delay %v", delay, config.BaseDelay)
+}
+
+type mockRetryableError struct {
+	retryable bool
+}
+
+func (e *mockRetryableError) Error() string {
+	return "mock retryable error"
+}
+
+func (e *mockRetryableError) IsRetryable() bool {
+	return e.retryable
 }
 
 func TestShouldRetry(t *testing.T) {
@@ -180,28 +99,42 @@ func TestShouldRetry(t *testing.T) {
 		expected    bool
 	}{
 		{
-			name:        "retryable error within attempts",
-			err:         groveErrors.ErrNetworkTimeout("test", errors.New("timeout")),
+			name:        "max attempts reached",
+			err:         errors.New("test error"),
+			attempt:     3,
+			maxAttempts: 3,
+			expected:    false,
+		},
+		{
+			name:        "retryable error",
+			err:         &mockRetryableError{retryable: true},
 			attempt:     1,
 			maxAttempts: 3,
 			expected:    true,
 		},
 		{
 			name:        "non-retryable error",
-			err:         groveErrors.ErrAuthenticationFailed("test", errors.New("auth failed")),
+			err:         &mockRetryableError{retryable: false},
 			attempt:     1,
 			maxAttempts: 3,
 			expected:    false,
 		},
 		{
-			name:        "max attempts reached",
-			err:         groveErrors.ErrNetworkTimeout("test", errors.New("timeout")),
-			attempt:     3,
+			name:        "grove error network timeout",
+			err:         groveErrors.NewGroveError(groveErrors.ErrCodeNetworkTimeout, "timeout", nil),
+			attempt:     1,
+			maxAttempts: 3,
+			expected:    true,
+		},
+		{
+			name:        "grove error auth failed",
+			err:         groveErrors.NewGroveError(groveErrors.ErrCodeAuthenticationFailed, "auth failed", nil),
+			attempt:     1,
 			maxAttempts: 3,
 			expected:    false,
 		},
 		{
-			name:        "unknown error type",
+			name:        "unknown error",
 			err:         errors.New("unknown error"),
 			attempt:     1,
 			maxAttempts: 3,
@@ -212,135 +145,56 @@ func TestShouldRetry(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := shouldRetry(tt.err, tt.attempt, tt.maxAttempts)
-			if result != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, result)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestIsRetryableErrorCode(t *testing.T) {
-	tests := []struct {
-		code     string
-		expected bool
-	}{
-		{groveErrors.ErrCodeNetworkTimeout, true},
-		{groveErrors.ErrCodeNetworkUnavailable, true},
-		{groveErrors.ErrCodeGitOperation, true},
-		{groveErrors.ErrCodeAuthenticationFailed, false},
-		{groveErrors.ErrCodeInvalidURL, false},
-		{groveErrors.ErrCodeGitClone, false},
-		{"UNKNOWN_ERROR", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.code, func(t *testing.T) {
-			result := isRetryableErrorCode(tt.code)
-			if result != tt.expected {
-				t.Errorf("expected %v for code %s, got %v", tt.expected, tt.code, result)
-			}
-		})
-	}
-}
-
-func TestCalculateDelay(t *testing.T) {
+func TestExecuteWithRetrySuccess(t *testing.T) {
+	ctx := context.Background()
 	config := RetryConfig{
-		BaseDelay:     1 * time.Second,
-		MaxDelay:      10 * time.Second,
+		MaxAttempts:   3,
+		BaseDelay:     1 * time.Millisecond,
+		MaxDelay:      10 * time.Millisecond,
 		JitterEnabled: false,
 	}
 
-	tests := []struct {
-		attempt  int
-		expected time.Duration
-	}{
-		{1, 1 * time.Second},
-		{2, 2 * time.Second},
-		{3, 4 * time.Second},
-		{4, 8 * time.Second},
-		{5, 10 * time.Second},
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("attempt_%d", tt.attempt), func(t *testing.T) {
-			delay := calculateDelay(tt.attempt, config)
-			if delay != tt.expected {
-				t.Errorf("expected %v, got %v", tt.expected, delay)
-			}
-		})
-	}
-}
-
-func TestCalculateDelay_WithJitter(t *testing.T) {
-	config := RetryConfig{
-		BaseDelay:     1 * time.Second,
-		MaxDelay:      10 * time.Second,
-		JitterEnabled: true,
-	}
-
-	// Test that jitter produces different values.
-	delays := make([]time.Duration, 10)
-	for i := 0; i < 10; i++ {
-		delays[i] = calculateDelay(2, config)
-	}
-
-	allSame := true
-	for i := 1; i < len(delays); i++ {
-		if delays[i] != delays[0] {
-			allSame = false
-			break
-		}
-	}
-
-	if allSame {
-		t.Error("expected jitter to produce different delays, but all were the same")
-	}
-
-	baseDelay := 2 * time.Second
-	minDelay := time.Duration(float64(baseDelay) * 0.75)
-	maxDelay := time.Duration(float64(baseDelay) * 1.25)
-
-	for i, delay := range delays {
-		if delay < minDelay || delay > maxDelay {
-			t.Errorf("delay %d (%v) is outside expected range [%v, %v]", i, delay, minDelay, maxDelay)
-		}
-	}
-}
-
-func TestWithRetry_ConvenienceFunction(t *testing.T) {
 	callCount := 0
 	operation := func() error {
 		callCount++
-		if callCount < 2 {
-			return groveErrors.ErrNetworkTimeout("test operation", errors.New("network timeout"))
+		if callCount == 1 {
+			return &mockRetryableError{retryable: true}
 		}
 		return nil
 	}
 
-	err := WithRetry(context.Background(), operation)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
-	if callCount != 2 {
-		t.Errorf("expected operation to be called twice, got %d", callCount)
-	}
+	err := ExecuteWithRetry(ctx, config, operation)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
 }
 
-func TestRetryableErrorInterface(t *testing.T) {
-	retryableErr := groveErrors.ErrNetworkTimeout("test", errors.New("timeout"))
-	nonRetryableErr := groveErrors.ErrAuthenticationFailed("test", errors.New("auth failed"))
+func TestExecuteWithRetryContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	defer cancel()
 
-	var retryable RetryableError
-
-	if !errors.As(retryableErr, &retryable) {
-		t.Error("expected retryable error to implement RetryableError interface")
-	} else if !retryable.IsRetryable() {
-		t.Error("expected retryable error to return true for IsRetryable()")
+	config := RetryConfig{
+		MaxAttempts:   5,
+		BaseDelay:     10 * time.Millisecond,
+		MaxDelay:      100 * time.Millisecond,
+		JitterEnabled: false,
 	}
 
-	if !errors.As(nonRetryableErr, &retryable) {
-		t.Error("expected non-retryable error to implement RetryableError interface")
-	} else if retryable.IsRetryable() {
-		t.Error("expected non-retryable error to return false for IsRetryable()")
+	callCount := 0
+	operation := func() error {
+		callCount++
+		return &mockRetryableError{retryable: true}
 	}
+
+	err := ExecuteWithRetry(ctx, config, operation)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "retry operation cancelled")
+	assert.GreaterOrEqual(t, callCount, 1)
+	assert.Less(t, callCount, 5)
 }

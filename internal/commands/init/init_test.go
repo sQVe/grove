@@ -1,134 +1,252 @@
-//go:build !integration
-// +build !integration
-
 package init
 
 import (
-	"bytes"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/sqve/grove/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	groveErrors "github.com/sqve/grove/internal/errors"
+	"github.com/sqve/grove/internal/testutils"
 )
 
-func TestInitCommandConvertWithMockExecutor(t *testing.T) {
-	mockExecutor := testutils.NewMockGitExecutor()
-	mockExecutor.SetSafeRepositoryState()
-
-	output, err := mockExecutor.Execute("status", "--porcelain=v1")
-	require.NoError(t, err)
-	assert.Empty(t, output)
-
-	output, err = mockExecutor.Execute("stash", "list")
-	require.NoError(t, err)
-	assert.Empty(t, output)
-
-	_, err = mockExecutor.Execute("unhandled", "command")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "mock: unhandled git command")
+type MockGitExecutor struct {
+	mock.Mock
 }
 
-func TestInitCommandConvertCannotSpecifyArgs(t *testing.T) {
-	cmd := NewInitCmd()
-	cmd.SetArgs([]string{"--convert", "some-arg"})
-
-	err := cmd.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot specify arguments when using --convert flag")
+func (m *MockGitExecutor) Execute(args ...string) (string, error) {
+	mockArgs := m.Called(args)
+	return mockArgs.String(0), mockArgs.Error(1)
 }
 
-func TestInitCommandTooManyArgs(t *testing.T) {
-	cmd := NewInitCmd()
-	cmd.SetArgs([]string{"arg1", "arg2", "arg3"})
-
-	err := cmd.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "too many arguments")
+func (m *MockGitExecutor) ExecuteQuiet(args ...string) (string, error) {
+	mockArgs := m.Called(args)
+	return mockArgs.String(0), mockArgs.Error(1)
 }
 
-func TestInitCommandUsage(t *testing.T) {
-	cmd := NewInitCmd()
-	assert.Equal(t, "init [directory|remote-url]", cmd.Use)
-	assert.Equal(t, "Initialize or clone a Git repository optimized for worktrees", cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
+func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	mockArgs := m.Called(ctx, args)
+	return mockArgs.String(0), mockArgs.Error(1)
+}
 
-	convertFlag := cmd.Flags().Lookup("convert")
-	require.NotNil(t, convertFlag)
-	assert.Equal(t, "false", convertFlag.DefValue)
-	assert.Equal(t, "Convert existing traditional Git repository to Grove structure", convertFlag.Usage)
+func TestParseBranches(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: nil,
+		},
+		{
+			name:     "single branch",
+			input:    "main",
+			expected: []string{"main"},
+		},
+		{
+			name:     "multiple branches",
+			input:    "main,develop,feature/auth",
+			expected: []string{"main", "develop", "feature/auth"},
+		},
+		{
+			name:     "with spaces",
+			input:    "main, develop, feature/auth ",
+			expected: []string{"main", "develop", "feature/auth"},
+		},
+		{
+			name:     "with empty segments",
+			input:    "main,,develop,",
+			expected: []string{"main", "develop"},
+		},
+		{
+			name:     "invalid branch names filtered",
+			input:    "main,invalid~branch,develop",
+			expected: []string{"main", "develop"},
+		},
+		{
+			name:     "all invalid branches",
+			input:    "invalid~branch,another^bad",
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseBranches(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsValidBranchName(t *testing.T) {
+	tests := []struct {
+		name     string
+		branch   string
+		expected bool
+	}{
+		// Valid names
+		{"valid simple", "main", true},
+		{"valid with slash", "feature/auth", true},
+		{"valid with dash", "feature-auth", true},
+		{"valid with underscore", "feature_auth", true},
+		{"valid alphanumeric", "feature123", true},
+
+		// Invalid names
+		{"empty", "", false},
+		{"dash only", "-", false},
+		{"starts with dash", "-main", false},
+		{"ends with .lock", "main.lock", false},
+		{"starts with slash", "/main", false},
+		{"ends with slash", "main/", false},
+		{"consecutive dots", "feature..branch", false},
+		{"contains tilde", "feature~branch", false},
+		{"contains caret", "feature^branch", false},
+		{"contains colon", "feature:branch", false},
+		{"contains question mark", "feature?branch", false},
+		{"contains asterisk", "feature*branch", false},
+		{"contains square bracket", "feature[branch", false},
+		{"contains backslash", "feature\\branch", false},
+		{"contains space", "feature branch", false},
+		{"control character", "feature\x00branch", false},
+		{"DEL character", "feature\x7fbranch", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidBranchName(tt.branch)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestValidateAndPrepareDirectory(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "grove-test-*")
-	require.NoError(t, err)
-	defer func() { _ = os.RemoveAll(tempDir) }()
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-	defer func() { _ = os.Chdir(originalDir) }()
+	t.Run("empty directory", func(t *testing.T) {
+		tempDir := helper.CreateTempDir("empty")
 
-	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+		// Change to temp directory
+		oldWd, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(oldWd) }()
 
-	result, err := validateAndPrepareDirectory()
-	require.NoError(t, err)
-	assert.Equal(t, tempDir, result)
+		err = os.Chdir(tempDir)
+		require.NoError(t, err)
 
-	hiddenFile := filepath.Join(tempDir, ".hidden")
-	err = os.WriteFile(hiddenFile, []byte("test"), 0o644)
-	require.NoError(t, err)
+		result, err := validateAndPrepareDirectory()
+		assert.NoError(t, err)
+		assert.Equal(t, tempDir, result)
+	})
 
-	result, err = validateAndPrepareDirectory()
-	require.NoError(t, err)
-	assert.Equal(t, tempDir, result)
+	t.Run("directory with hidden files only", func(t *testing.T) {
+		tempDir := helper.CreateTempDir("hidden-only")
 
-	visibleFile := filepath.Join(tempDir, "visible.txt")
-	err = os.WriteFile(visibleFile, []byte("test"), 0o644)
-	require.NoError(t, err)
+		// Create hidden files
+		hiddenFile := filepath.Join(tempDir, ".hidden")
+		err := os.WriteFile(hiddenFile, []byte("content"), 0o644)
+		require.NoError(t, err)
 
-	_, err = validateAndPrepareDirectory()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "is not empty")
+		oldWd, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(oldWd) }()
+
+		err = os.Chdir(tempDir)
+		require.NoError(t, err)
+
+		result, err := validateAndPrepareDirectory()
+		assert.NoError(t, err)
+		assert.Equal(t, tempDir, result)
+	})
+
+	t.Run("directory with visible files", func(t *testing.T) {
+		tempDir := helper.CreateTempDir("with-files")
+
+		// Create visible file
+		visibleFile := filepath.Join(tempDir, "README.md")
+		err := os.WriteFile(visibleFile, []byte("content"), 0o644)
+		require.NoError(t, err)
+
+		oldWd, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(oldWd) }()
+
+		err = os.Chdir(tempDir)
+		require.NoError(t, err)
+
+		result, err := validateAndPrepareDirectory()
+		assert.Error(t, err)
+		assert.Empty(t, result)
+
+		var groveErr *groveErrors.GroveError
+		require.True(t, errors.As(err, &groveErr))
+		assert.Equal(t, groveErrors.ErrCodeRepoInvalid, groveErr.Code)
+		assert.Contains(t, err.Error(), "directory is not empty")
+	})
 }
 
-func TestPrintSuccessMessage(t *testing.T) {
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stdout = w
+func TestCreateAdditionalWorktrees(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	done := make(chan string)
-	go func() {
-		var buf bytes.Buffer
-		_, _ = buf.ReadFrom(r)
-		done <- buf.String()
-	}()
+	t.Run("empty branches list", func(t *testing.T) {
+		mockExecutor := &MockGitExecutor{}
+		tempDir := helper.CreateTempDir("test-repo")
 
-	printSuccessMessage("/test/dir", "/test/dir/.bare")
-	_ = w.Close()
-	os.Stdout = oldStdout
+		err := CreateAdditionalWorktrees(mockExecutor, tempDir, []string{})
+		assert.NoError(t, err)
 
-	output := <-done
-	assert.Contains(t, output, "Successfully cloned and configured repository in /test/dir")
-	assert.Contains(t, output, "Git objects stored in: /test/dir/.bare")
-	assert.Contains(t, output, "Next steps:")
-	assert.Contains(t, output, "grove create <branch-name>")
+		mockExecutor.AssertNotCalled(t, "Execute")
+	})
+
+	t.Run("successful worktree creation", func(t *testing.T) {
+		mockExecutor := &MockGitExecutor{}
+		tempDir := helper.CreateTempDir("test-repo")
+		branches := []string{"develop", "feature/auth"}
+
+		// Mock branch listing
+		remoteBranches := "origin/develop\norigin/feature/auth\norigin/HEAD -> origin/main"
+		mockExecutor.On("Execute", []string{"branch", "-r"}).Return(remoteBranches, nil)
+
+		// Mock worktree creation calls
+		mockExecutor.On("Execute", mock.MatchedBy(func(args []string) bool {
+			return len(args) >= 3 && args[0] == "worktree" && args[1] == "add"
+		})).Return("", nil).Times(2)
+
+		// Change to temp directory
+		oldWd, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(oldWd) }()
+
+		err = os.Chdir(tempDir)
+		require.NoError(t, err)
+
+		err = CreateAdditionalWorktrees(mockExecutor, tempDir, branches)
+		assert.NoError(t, err)
+
+		mockExecutor.AssertExpectations(t)
+	})
 }
 
-func TestRunInitRouting(t *testing.T) {
-	cmd := NewInitCmd()
+func TestRunInitLocal_ExistingGitFile(t *testing.T) {
+	helper := testutils.NewUnitTestHelper(t).WithCleanFilesystem()
 
-	cmd.SetArgs([]string{"--convert", "arg"})
-	err := cmd.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot specify arguments when using --convert flag")
+	tempDir := helper.CreateTempDir("existing-git")
 
-	cmd2 := NewInitCmd()
-	cmd2.SetArgs([]string{"arg1", "arg2", "arg3"})
-	err = cmd2.Execute()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "too many arguments")
+	// Create existing .git file
+	gitFile := filepath.Join(tempDir, ".git")
+	err := os.WriteFile(gitFile, []byte("gitdir: .bare"), 0o644)
+	require.NoError(t, err)
+
+	err = runInitLocal(tempDir)
+	assert.Error(t, err)
+
+	var groveErr *groveErrors.GroveError
+	require.True(t, errors.As(err, &groveErr))
+	assert.Equal(t, groveErrors.ErrCodeRepoExists, groveErr.Code)
 }

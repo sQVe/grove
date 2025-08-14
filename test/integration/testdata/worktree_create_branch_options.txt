@@ -1,0 +1,112 @@
+# Test grove create command with specific branch selection
+# This test verifies that grove can create worktrees with explicit branch specification
+
+# Set up a repository with multiple branches
+exec git init .
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial commit and rename to main
+[unix] exec sh -c 'echo "Main branch content" > README.md'
+[windows] exec cmd /C "echo Main branch content > README.md"
+exec git add README.md
+exec git commit -m 'Initial commit'
+exec git branch -m master main
+
+# Create multiple feature branches
+exec git checkout -b feature-alpha
+[unix] exec sh -c 'echo "Alpha feature content" > alpha.txt'
+[windows] exec cmd /C "echo Alpha feature content > alpha.txt"
+exec git add alpha.txt
+exec git commit -m 'Add alpha feature'
+
+exec git checkout -b feature-beta
+[unix] exec sh -c 'echo "Beta feature content" > beta.txt'
+[windows] exec cmd /C "echo Beta feature content > beta.txt"
+exec git add beta.txt
+exec git commit -m 'Add beta feature'
+
+exec git checkout main
+exec git checkout -b release/v1.0
+[unix] exec sh -c 'echo "v1.0.0" > version.txt'
+[windows] exec cmd /C "echo v1.0.0 > version.txt"
+exec git add version.txt
+exec git commit -m 'Prepare v1.0 release'
+
+# Switch back to main for testing
+exec git checkout main
+
+# Test 1: Create worktree with explicit branch - feature branch
+mkdir worktrees
+exec grove create feature-alpha worktrees/alpha-work
+exists worktrees/alpha-work
+
+# Verify correct branch and content
+cd worktrees/alpha-work
+exec git status
+stdout 'On branch feature-alpha'
+exists alpha.txt
+exec cat alpha.txt
+stdout 'Alpha feature content'
+cd ../..
+
+# Test 2: Create worktree with explicit branch - different feature branch
+exec grove create feature-beta worktrees/beta-work
+exists worktrees/beta-work
+
+cd worktrees/beta-work
+exec git status
+stdout 'On branch feature-beta'
+exists beta.txt
+exec cat beta.txt
+stdout 'Beta feature content'
+cd ../..
+
+# Test 3: Create worktree with release branch
+exec grove create release/v1.0 worktrees/release-work
+exists worktrees/release-work
+
+cd worktrees/release-work
+exec git status
+stdout 'On branch release/v1.0'
+exists version.txt
+exec cat version.txt
+stdout 'v1.0.0'
+cd ../..
+
+# Test 4: Verify worktree list shows all branches correctly
+exec git worktree list
+stdout 'worktrees/alpha-work.*feature-alpha'
+stdout 'worktrees/beta-work.*feature-beta'
+stdout 'worktrees/release-work.*release/v1.0'
+
+# Test 5: Create worktree with non-existent branch (Grove creates new branch)
+exec grove create nonexistent-branch worktrees/new-branch-test
+exists worktrees/new-branch-test
+stdout '(created)'
+
+cd worktrees/new-branch-test
+exec git status
+stdout 'On branch nonexistent-branch'
+cd ../..
+
+# Test 6: Create worktree for branch that's already checked out (Grove resolves automatically)
+exec grove create feature-alpha worktrees/alpha-duplicate
+exists worktrees/alpha-duplicate
+stderr 'Resolved conflict: switched previous worktree to detached HEAD'
+
+cd worktrees/alpha-duplicate
+exec git status
+stdout 'On branch feature-alpha'
+cd ../..
+
+# Clean up all worktrees
+exec git worktree remove worktrees/alpha-work --force
+exec git worktree remove worktrees/beta-work --force
+exec git worktree remove worktrees/release-work --force
+exec git worktree remove worktrees/new-branch-test --force
+exec git worktree remove worktrees/alpha-duplicate --force
+
+# Verify cleanup
+exec git worktree list
+! stdout 'worktrees/'

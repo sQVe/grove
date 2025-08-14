@@ -1,0 +1,179 @@
+# Test worktree removal with various types of uncommitted changes
+# This test verifies proper handling of staged, unstaged, and untracked changes
+
+# Set up Grove repository
+exec grove init
+
+# Create initial worktree for main branch
+exec git worktree add main
+cd main
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial commit
+cp $devnull README.md
+exec sh -c 'echo "Main content" > README.md'
+exec git add README.md
+exec git commit -m 'Initial commit'
+cd ..
+
+# Update HEAD to point to main branch in bare repo
+exec git symbolic-ref HEAD refs/heads/main
+
+# Test 1: Remove worktree with untracked files (should fail without --force)
+exec grove create feature-untracked worktrees/untracked
+cd worktrees/untracked
+cp $devnull untracked-file.txt
+exec sh -c 'echo "Untracked content" > untracked-file.txt'
+cd ../..
+
+# This should fail without --force
+! exec git worktree remove worktrees/untracked
+exists worktrees/untracked
+
+# Should work with --force
+exec git worktree remove worktrees/untracked --force
+! exists worktrees/untracked
+
+# Test 2: Remove worktree with unstaged changes (should fail without --force)
+exec grove create feature-unstaged worktrees/unstaged
+cd worktrees/unstaged
+cp $devnull unstaged-file.txt
+exec sh -c 'echo "Initial content" > unstaged-file.txt'
+exec git add unstaged-file.txt
+exec git commit -m 'Add file to modify'
+
+# Modify the file without staging
+exec sh -c 'echo "Modified content" > unstaged-file.txt'
+cd ../..
+
+# This should fail without --force
+! exec git worktree remove worktrees/unstaged
+exists worktrees/unstaged
+
+# Should work with --force
+exec git worktree remove worktrees/unstaged --force
+! exists worktrees/unstaged
+
+# Test 3: Remove worktree with staged changes (should fail without --force)
+exec grove create feature-staged worktrees/staged
+cd worktrees/staged
+cp $devnull staged-file.txt
+exec sh -c 'echo "Content to stage" > staged-file.txt'
+exec git add staged-file.txt
+cd ../..
+
+# This should fail without --force
+! exec git worktree remove worktrees/staged
+exists worktrees/staged
+
+# Should work with --force
+exec git worktree remove worktrees/staged --force
+! exists worktrees/staged
+
+# Test 4: Remove worktree with mixed changes (staged + unstaged + untracked)
+exec grove create feature-mixed worktrees/mixed
+cd worktrees/mixed
+
+# Create a committed file
+cp $devnull committed-file.txt
+exec sh -c 'echo "Committed content" > committed-file.txt'
+exec git add committed-file.txt
+exec git commit -m 'Add committed file'
+
+# Create staged changes
+cp $devnull staged-file.txt
+exec sh -c 'echo "Staged content" > staged-file.txt'
+exec git add staged-file.txt
+
+# Create unstaged changes
+exec sh -c 'echo "Modified committed content" > committed-file.txt'
+
+# Create untracked file
+cp $devnull untracked-file.txt
+exec sh -c 'echo "Untracked content" > untracked-file.txt'
+
+cd ../..
+
+# This should fail without --force
+! exec git worktree remove worktrees/mixed
+exists worktrees/mixed
+
+# Should work with --force
+exec git worktree remove worktrees/mixed --force
+! exists worktrees/mixed
+
+# Test 5: Remove worktree with only committed changes (should work without --force)
+exec grove create feature-clean worktrees/clean
+cd worktrees/clean
+cp $devnull clean-file.txt
+exec sh -c 'echo "Clean content" > clean-file.txt'
+exec git add clean-file.txt
+exec git commit -m 'Add clean file'
+cd ../..
+
+# This should work without --force since there are no uncommitted changes
+exec git worktree remove worktrees/clean
+! exists worktrees/clean
+
+# Test 6: Test removal with .gitignore files and ignored content
+exec grove create feature-gitignore worktrees/gitignore
+cd worktrees/gitignore
+
+# Create .gitignore
+cp $devnull .gitignore
+exec sh -c 'echo "*.tmp" > .gitignore'
+exec sh -c 'echo "build/" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'Add gitignore'
+
+# Create ignored files
+cp $devnull ignored.tmp
+exec sh -c 'echo "Ignored content" > ignored.tmp'
+mkdir build
+cp $devnull build/output.txt
+exec sh -c 'echo "Build output" > build/output.txt'
+
+cd ../..
+
+# This should work without --force since ignored files don't count as changes
+exec git worktree remove worktrees/gitignore
+! exists worktrees/gitignore
+
+# Test 7: Remove worktree with submodules (if any exist)
+exec grove create feature-submodule worktrees/submodule
+cd worktrees/submodule
+
+# Just test basic removal of worktree that could contain submodules
+cp $devnull submodule-test.txt
+exec sh -c 'echo "Submodule test" > submodule-test.txt'
+exec git add submodule-test.txt
+exec git commit -m 'Add submodule test file'
+
+cd ../..
+
+# Clean removal
+exec git worktree remove worktrees/submodule
+! exists worktrees/submodule
+
+# Test 8: Test error messages are informative
+exec grove create feature-error-message worktrees/error-test
+cd worktrees/error-test
+cp $devnull error-test.txt
+exec sh -c 'echo "Content for error test" > error-test.txt'
+cd ../..
+
+# Test that error message is helpful
+! exec git worktree remove worktrees/error-test
+stderr 'contains modified or untracked files'
+
+# Clean up with force
+exec git worktree remove worktrees/error-test --force
+
+# Test 9: Verify final state is clean
+exec git worktree list
+stdout 'main'
+! stdout 'worktrees'
+
+# Cleanup
+rm -rf worktrees main .bare .git README.md

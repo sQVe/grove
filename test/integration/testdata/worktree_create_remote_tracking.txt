@@ -1,0 +1,94 @@
+# Test grove create command with remote branches
+# This test verifies that grove can create worktrees from remote branches
+
+# Set up initial Git repository
+exec git init .
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial content and commit
+cp $devnull README.md
+exec sh -c 'echo "Initial content" > README.md'
+exec git add README.md
+exec git commit -m 'Initial commit'
+
+# Rename master to main for consistency
+exec git branch -m master main
+
+# Set up a "remote" repository to simulate working with remotes
+mkdir remote-repo
+exec git init --bare remote-repo
+
+# Add the remote repository using absolute path
+exec git remote add origin $WORK/remote-repo
+
+# Push main branch to remote
+exec git push origin main
+
+# Create and push a remote feature branch
+exec git checkout -b feature/remote-branch
+cp $devnull feature.txt
+exec sh -c 'echo "Feature from remote branch" > feature.txt'
+exec git add feature.txt
+exec git commit -m 'Add feature from remote branch'
+exec git push origin feature/remote-branch
+
+# Create another remote branch
+exec git checkout -b develop
+cp $devnull develop.txt
+exec sh -c 'echo "Development branch content" > develop.txt'
+exec git add develop.txt
+exec git commit -m 'Add development content'
+exec git push origin develop
+
+# Switch back to main and simulate a fresh clone scenario by removing local branches
+exec git checkout main
+exec git branch -D feature/remote-branch
+exec git branch -D develop
+
+# Fetch remote branches to ensure they're available for worktree creation
+exec git fetch origin
+
+# Test 1: Create worktree from remote branch (should create local tracking branch)
+exec grove create origin/feature/remote-branch worktrees/remote-feature
+exists worktrees/remote-feature
+
+# Verify the worktree contains the remote branch content
+cd worktrees/remote-feature
+exec git status
+stdout 'On branch feature/remote-branch'
+# Sync with remote branch content (grove creates tracking branch but doesn't auto-pull)
+exec git pull
+# Verify files from remote branch are now present
+exists feature.txt
+exec cat feature.txt
+stdout 'Feature from remote branch'
+cd $WORK
+
+# Test 2: Create worktree from another remote branch
+exec grove create origin/develop worktrees/develop-work
+exists worktrees/develop-work
+
+# Verify the develop branch content
+cd worktrees/develop-work
+exec git status
+stdout 'On branch develop'
+# Sync with remote branch content
+exec git pull
+exists develop.txt
+exec cat develop.txt
+stdout 'Development branch content'
+cd $WORK
+
+# Test 3: Verify worktree list shows remote-based worktrees
+exec git worktree list
+stdout 'worktrees/remote-feature.*feature/remote-branch'
+stdout 'worktrees/develop-work.*develop'
+
+# Test 4: Error handling - try to create from non-existent remote branch
+! exec grove create origin/nonexistent-branch worktrees/should-fail
+stderr 'not found'
+
+# Clean up worktrees
+exec git worktree remove worktrees/remote-feature --force
+exec git worktree remove worktrees/develop-work --force

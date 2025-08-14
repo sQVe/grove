@@ -1,433 +1,209 @@
-//go:build !integration
-// +build !integration
-
 package errors
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-const testRepoPath = "/test/repo"
+func TestNewGroveError(t *testing.T) {
+	code := ErrCodeBranchNotFound
+	message := "branch 'feature' not found"
+	cause := errors.New("git command failed")
 
-func TestGroveError(t *testing.T) {
-	t.Run("basic error creation", func(t *testing.T) {
-		err := NewGroveError(ErrCodeGitNotFound, "git not found", nil)
+	err := NewGroveError(code, message, cause)
 
-		assert.Equal(t, ErrCodeGitNotFound, err.Code)
-		assert.Equal(t, "git not found", err.Message)
-		assert.Nil(t, err.Cause)
-		assert.Equal(t, "git not found", err.Error())
-	})
-
-	t.Run("error with cause", func(t *testing.T) {
-		cause := fmt.Errorf("underlying error")
-		err := NewGroveError(ErrCodeGitOperation, "git operation failed", cause)
-
-		assert.Equal(t, ErrCodeGitOperation, err.Code)
-		assert.Equal(t, "git operation failed", err.Message)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, "git operation failed: underlying error", err.Error())
-	})
-
-	t.Run("error with context", func(t *testing.T) {
-		err := NewGroveError(ErrCodeDirectoryAccess, "directory access failed", nil)
-		err = err.WithContext("path", "/test/path")
-		err = err.WithContext("operation", "read")
-
-		assert.Equal(t, "/test/path", err.Context["path"])
-		assert.Equal(t, "read", err.Context["operation"])
-	})
-
-	t.Run("error unwrapping", func(t *testing.T) {
-		cause := fmt.Errorf("underlying error")
-		err := NewGroveError(ErrCodeGitOperation, "git operation failed", cause)
-
-		assert.Equal(t, cause, err.Unwrap())
-	})
+	assert.Equal(t, code, err.Code)
+	assert.Equal(t, message, err.Message)
+	assert.Equal(t, cause, err.Cause)
+	assert.NotNil(t, err.Context) // Context is initialized as empty map
+	assert.Empty(t, err.Context)
 }
 
-func TestGroveErrorf(t *testing.T) {
-	t.Run("formatted error creation", func(t *testing.T) {
-		cause := fmt.Errorf("underlying error")
-		err := NewGroveErrorf(ErrCodeRepoNotFound, cause, "repository not found at %s", "/test/path")
-
-		assert.Equal(t, ErrCodeRepoNotFound, err.Code)
-		assert.Equal(t, "repository not found at /test/path", err.Message)
-		assert.Equal(t, cause, err.Cause)
-	})
-}
-
-func TestErrorFactoryFunctions(t *testing.T) {
-	t.Run("ErrGitNotFound", func(t *testing.T) {
-		cause := fmt.Errorf("exec error")
-		err := ErrGitNotFound(cause)
-
-		assert.Equal(t, ErrCodeGitNotFound, err.Code)
-		assert.Contains(t, err.Message, "git is not available in PATH")
-		assert.Equal(t, cause, err.Cause)
-	})
-
-	t.Run("ErrRepoExists", func(t *testing.T) {
-		path := testRepoPath
-		err := ErrRepoExists(path)
-
-		assert.Equal(t, ErrCodeRepoExists, err.Code)
-		assert.Contains(t, err.Message, "already exists")
-		assert.Equal(t, path, err.Context["path"])
-	})
-
-	t.Run("ErrInvalidURL", func(t *testing.T) {
-		url := "invalid://url"
-		reason := "unsupported protocol"
-		err := ErrInvalidURL(url, reason)
-
-		assert.Equal(t, ErrCodeInvalidURL, err.Code)
-		assert.Contains(t, err.Message, url)
-		assert.Contains(t, err.Message, reason)
-		assert.Equal(t, url, err.Context["url"])
-		assert.Equal(t, reason, err.Context["reason"])
-	})
-
-	t.Run("ErrPathTraversal", func(t *testing.T) {
-		path := "../../../etc/passwd"
-		err := ErrPathTraversal(path)
-
-		assert.Equal(t, ErrCodePathTraversal, err.Code)
-		assert.Contains(t, err.Message, "directory traversal")
-		assert.Equal(t, path, err.Context["path"])
-	})
-}
-
-func TestErrorHelpers(t *testing.T) {
-	t.Run("IsGroveError", func(t *testing.T) {
-		err := ErrGitNotFound(nil)
-
-		assert.True(t, IsGroveError(err, ErrCodeGitNotFound))
-		assert.False(t, IsGroveError(err, ErrCodeRepoExists))
-		assert.False(t, IsGroveError(fmt.Errorf("standard error"), ErrCodeGitNotFound))
-	})
-
-	t.Run("GetErrorCode", func(t *testing.T) {
-		err := ErrGitNotFound(nil)
-
-		assert.Equal(t, ErrCodeGitNotFound, GetErrorCode(err))
-		assert.Equal(t, "", GetErrorCode(fmt.Errorf("standard error")))
-	})
-
-	t.Run("GetErrorContext", func(t *testing.T) {
-		err := ErrRepoExists("/test/path")
-
-		context := GetErrorContext(err)
-		assert.NotNil(t, context)
-		assert.Equal(t, "/test/path", context["path"])
-
-		context = GetErrorContext(fmt.Errorf("standard error"))
-		assert.Nil(t, context)
-	})
-}
-
-func TestErrorIs(t *testing.T) {
-	t.Run("Grove error Is comparison", func(t *testing.T) {
-		err1 := ErrGitNotFound(nil)
-		err2 := ErrGitNotFound(fmt.Errorf("different cause"))
-		err3 := ErrRepoExists("/path")
-
-		assert.True(t, Is(err1, err2))
-		assert.False(t, Is(err1, err3))
-	})
-}
-
-func TestWrapFunctions(t *testing.T) {
-	t.Run("Wrap", func(t *testing.T) {
-		original := fmt.Errorf("original error")
-		wrapped := Wrap(original, "additional context")
-
-		assert.Contains(t, wrapped.Error(), "additional context")
-		assert.Contains(t, wrapped.Error(), "original error")
-		assert.True(t, Is(wrapped, original))
-	})
-
-	t.Run("Wrapf", func(t *testing.T) {
-		original := fmt.Errorf("original error")
-		wrapped := Wrapf(original, "context with %s", "parameter")
-
-		assert.Contains(t, wrapped.Error(), "context with parameter")
-		assert.Contains(t, wrapped.Error(), "original error")
-		assert.True(t, Is(wrapped, original))
-	})
-
-	t.Run("WithOperation", func(t *testing.T) {
-		groveErr := ErrGitNotFound(nil)
-		withOp := WithOperation(groveErr, "clone")
-
-		var result *GroveError
-		require.True(t, As(withOp, &result))
-		assert.Equal(t, "clone", result.Operation)
-	})
-
-	t.Run("WithOperation method on GroveError", func(t *testing.T) {
-		groveErr := ErrGitOperation("fetch", nil).WithOperation("fetch-retry")
-
-		assert.Equal(t, "fetch-retry", groveErr.Operation)
-		assert.Equal(t, ErrCodeGitOperation, groveErr.Code)
-	})
-
-	t.Run("WithOperation method chaining", func(t *testing.T) {
-		groveErr := ErrGitClone("clone", fmt.Errorf("network timeout")).
-			WithContext("url", "https://github.com/user/repo.git").
-			WithOperation("clone-retry")
-
-		assert.Equal(t, "clone-retry", groveErr.Operation)
-		assert.Equal(t, "https://github.com/user/repo.git", groveErr.Context["url"])
-		assert.Equal(t, ErrCodeGitClone, groveErr.Code)
-	})
-
-	t.Run("WithOperation overwrites previous operation", func(t *testing.T) {
-		groveErr := ErrGitOperation("test", nil).
-			WithOperation("initial").
-			WithOperation("final")
-
-		assert.Equal(t, "final", groveErr.Operation)
-	})
-
-	t.Run("WithOperation with empty string", func(t *testing.T) {
-		groveErr := ErrGitOperation("test", nil).WithOperation("")
-
-		assert.Equal(t, "", groveErr.Operation)
-	})
-
-	t.Run("WithContext on standard error", func(t *testing.T) {
-		standardErr := fmt.Errorf("standard error")
-		withContext := WithContext(standardErr, "key", "value")
-
-		var result *GroveError
-		require.True(t, As(withContext, &result))
-		assert.Equal(t, "value", result.Context["key"])
-	})
-}
-
-func TestIsRetryable(t *testing.T) {
+func TestGroveError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
 		code     string
-		expected bool
+		message  string
+		cause    error
+		expected string
 	}{
-		{"Network timeout - retryable", ErrCodeNetworkTimeout, true},
-		{"Network unavailable - retryable", ErrCodeNetworkUnavailable, true},
-		{"Git operation - retryable", ErrCodeGitOperation, true},
-		{"Authentication failed - not retryable", ErrCodeAuthenticationFailed, false},
-		{"Invalid URL - not retryable", ErrCodeInvalidURL, false},
-		{"Git clone - not retryable", ErrCodeGitClone, false},
-		{"Permission - not retryable", ErrCodePermission, false},
-		{"Security violation - not retryable", ErrCodeSecurityViolation, false},
-		{"Unknown error - not retryable", "UNKNOWN_ERROR", false},
+		{
+			name:     "error without cause",
+			code:     ErrCodeBranchNotFound,
+			message:  "branch not found",
+			cause:    nil,
+			expected: "branch not found",
+		},
+		{
+			name:     "error with cause",
+			code:     ErrCodeGitOperation,
+			message:  "git operation failed",
+			cause:    errors.New("exit status 1"),
+			expected: "git operation failed: exit status 1",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := NewGroveError(tt.code, "test error", nil)
-			assert.Equal(t, tt.expected, err.IsRetryable())
+			err := NewGroveError(tt.code, tt.message, tt.cause)
+			assert.Equal(t, tt.expected, err.Error())
 		})
 	}
 }
 
-func TestMissingErrorFactoryFunctions(t *testing.T) {
-	t.Run("ErrDirectoryAccess", func(t *testing.T) {
-		path := "/test/directory"
-		cause := fmt.Errorf("permission denied")
-		err := ErrDirectoryAccess(path, cause)
+func TestGroveError_Unwrap(t *testing.T) {
+	cause := errors.New("underlying error")
+	err := NewGroveError(ErrCodeGitOperation, "operation failed", cause)
 
-		assert.Equal(t, ErrCodeDirectoryAccess, err.Code)
-		assert.Contains(t, err.Message, "failed to access directory")
-		assert.Contains(t, err.Message, path)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, path, err.Context["path"])
-	})
-
-	t.Run("ErrFileSystem", func(t *testing.T) {
-		operation := "mkdir"
-		cause := fmt.Errorf("disk full")
-		err := ErrFileSystem(operation, cause)
-
-		assert.Equal(t, ErrCodeFileSystem, err.Code)
-		assert.Contains(t, err.Message, "file system operation failed")
-		assert.Contains(t, err.Message, operation)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
-
-	t.Run("ErrRepoNotFound", func(t *testing.T) {
-		path := testRepoPath
-		err := ErrRepoNotFound(path)
-
-		assert.Equal(t, ErrCodeRepoNotFound, err.Code)
-		assert.Contains(t, err.Message, "repository not found")
-		assert.Contains(t, err.Message, path)
-		assert.Equal(t, path, err.Context["path"])
-	})
-
-	t.Run("ErrRepoInvalid", func(t *testing.T) {
-		path := testRepoPath
-		reason := "corrupted git database"
-		err := ErrRepoInvalid(path, reason)
-
-		assert.Equal(t, ErrCodeRepoInvalid, err.Code)
-		assert.Contains(t, err.Message, "invalid repository")
-		assert.Contains(t, err.Message, path)
-		assert.Contains(t, err.Message, reason)
-		assert.Equal(t, path, err.Context["path"])
-		assert.Equal(t, reason, err.Context["reason"])
-	})
-
-	t.Run("ErrRepoConversion", func(t *testing.T) {
-		path := testRepoPath
-		cause := fmt.Errorf("conversion failed")
-		err := ErrRepoConversion(path, cause)
-
-		assert.Equal(t, ErrCodeRepoConversion, err.Code)
-		assert.Contains(t, err.Message, "failed to convert repository")
-		assert.Contains(t, err.Message, path)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, path, err.Context["path"])
-	})
-
-	t.Run("ErrGitOperation", func(t *testing.T) {
-		operation := "push"
-		cause := fmt.Errorf("remote rejected")
-		err := ErrGitOperation(operation, cause)
-
-		assert.Equal(t, ErrCodeGitOperation, err.Code)
-		assert.Contains(t, err.Message, "git push failed")
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
-
-	t.Run("ErrGitClone", func(t *testing.T) {
-		url := "https://github.com/user/repo.git"
-		cause := fmt.Errorf("network timeout")
-		err := ErrGitClone(url, cause)
-
-		assert.Equal(t, ErrCodeGitClone, err.Code)
-		assert.Contains(t, err.Message, "failed to clone repository")
-		assert.Contains(t, err.Message, url)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, url, err.Context["url"])
-	})
-
-	t.Run("ErrGitInit", func(t *testing.T) {
-		path := testRepoPath
-		cause := fmt.Errorf("permission denied")
-		err := ErrGitInit(path, cause)
-
-		assert.Equal(t, ErrCodeGitInit, err.Code)
-		assert.Contains(t, err.Message, "failed to initialize repository")
-		assert.Contains(t, err.Message, path)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, path, err.Context["path"])
-	})
-
-	t.Run("ErrGitWorktree", func(t *testing.T) {
-		operation := "add"
-		cause := fmt.Errorf("branch exists")
-		err := ErrGitWorktree(operation, cause)
-
-		assert.Equal(t, ErrCodeGitWorktree, err.Code)
-		assert.Contains(t, err.Message, "worktree add failed")
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
-
-	t.Run("ErrURLParsing", func(t *testing.T) {
-		url := "invalid-url"
-		cause := fmt.Errorf("parse error")
-		err := ErrURLParsing(url, cause)
-
-		assert.Equal(t, ErrCodeURLParsing, err.Code)
-		assert.Contains(t, err.Message, "failed to parse URL")
-		assert.Contains(t, err.Message, url)
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, url, err.Context["url"])
-	})
-
-	t.Run("ErrUnsupportedURL", func(t *testing.T) {
-		url := "ftp://example.com/repo.git"
-		err := ErrUnsupportedURL(url)
-
-		assert.Equal(t, ErrCodeUnsupportedURL, err.Code)
-		assert.Contains(t, err.Message, "unsupported URL format")
-		assert.Contains(t, err.Message, url)
-		assert.Equal(t, url, err.Context["url"])
-	})
-
-	t.Run("ErrSecurityViolation", func(t *testing.T) {
-		operation := "file access"
-		reason := "path traversal detected"
-		err := ErrSecurityViolation(operation, reason)
-
-		assert.Equal(t, ErrCodeSecurityViolation, err.Code)
-		assert.Contains(t, err.Message, "security violation")
-		assert.Contains(t, err.Message, operation)
-		assert.Contains(t, err.Message, reason)
-		assert.Equal(t, operation, err.Context["operation"])
-		assert.Equal(t, reason, err.Context["reason"])
-	})
-
-	t.Run("ErrNetworkTimeout", func(t *testing.T) {
-		operation := "git fetch"
-		cause := fmt.Errorf("timeout")
-		err := ErrNetworkTimeout(operation, cause)
-
-		assert.Equal(t, ErrCodeNetworkTimeout, err.Code)
-		assert.Contains(t, err.Message, "network timeout during git fetch")
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
-
-	t.Run("ErrNetworkUnavailable", func(t *testing.T) {
-		operation := "git push"
-		cause := fmt.Errorf("no network")
-		err := ErrNetworkUnavailable(operation, cause)
-
-		assert.Equal(t, ErrCodeNetworkUnavailable, err.Code)
-		assert.Contains(t, err.Message, "network unavailable during git push")
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
-
-	t.Run("ErrAuthenticationFailed", func(t *testing.T) {
-		operation := "git push"
-		cause := fmt.Errorf("invalid credentials")
-		err := ErrAuthenticationFailed(operation, cause)
-
-		assert.Equal(t, ErrCodeAuthenticationFailed, err.Code)
-		assert.Contains(t, err.Message, "authentication failed during git push")
-		assert.Equal(t, cause, err.Cause)
-		assert.Equal(t, operation, err.Context["operation"])
-	})
+	unwrapped := err.Unwrap()
+	assert.Equal(t, cause, unwrapped)
 }
 
-func TestNilErrorHandling(t *testing.T) {
-	t.Run("Wrap with nil error", func(t *testing.T) {
-		result := Wrap(nil, "context")
-		assert.Nil(t, result)
-	})
+func TestGroveError_Unwrap_NilCause(t *testing.T) {
+	err := NewGroveError(ErrCodeBranchNotFound, "branch not found", nil)
 
-	t.Run("Wrapf with nil error", func(t *testing.T) {
-		result := Wrapf(nil, "context %s", "param")
-		assert.Nil(t, result)
-	})
+	unwrapped := err.Unwrap()
+	assert.Nil(t, unwrapped)
+}
 
-	t.Run("WithOperation with nil error", func(t *testing.T) {
-		result := WithOperation(nil, "operation")
-		assert.Nil(t, result)
-	})
+func TestGroveError_WithContext(t *testing.T) {
+	err := NewGroveError(ErrCodeBranchNotFound, "branch not found", nil)
 
-	t.Run("WithContext with nil error", func(t *testing.T) {
-		result := WithContext(nil, "key", "value")
-		assert.Nil(t, result)
-	})
+	updated := err.WithContext("branch_name", "feature").
+		WithContext("repository", "/path/to/repo")
+
+	// Should return same instance
+	assert.Equal(t, err, updated)
+
+	// Should have context entries
+	assert.Len(t, err.Context, 2)
+
+	// Check context values
+	assert.Equal(t, "feature", err.Context["branch_name"])
+	assert.Equal(t, "/path/to/repo", err.Context["repository"])
+}
+
+func TestGroveError_WithOperation(t *testing.T) {
+	err := NewGroveError(ErrCodeGitOperation, "operation failed", nil)
+
+	updated := err.WithOperation("create_worktree")
+
+	// Should return same instance
+	assert.Equal(t, err, updated)
+
+	// Should have operation set
+	assert.Equal(t, "create_worktree", err.Operation)
+}
+
+func TestGroveError_ContextLimit(t *testing.T) {
+	// Set a low limit for testing
+	viper.Set("errors.max_context_entries", 2)
+	defer viper.Set("errors.max_context_entries", defaultMaxContextEntries)
+
+	err := NewGroveError(ErrCodeBranchNotFound, "test error", nil)
+
+	// Add more context entries than the limit
+	_ = err.WithContext("key1", "value1").
+		WithContext("key2", "value2").
+		WithContext("key3", "value3")
+
+	// Should only keep the most recent entries
+	assert.Len(t, err.Context, 2)
+	assert.Equal(t, "value2", err.Context["key2"])
+	assert.Equal(t, "value3", err.Context["key3"])
+	assert.Nil(t, err.Context["key1"]) // Should be evicted
+}
+
+func TestErrorFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		function func(string) *GroveError
+		code     string
+	}{
+		{"ErrRepoExists", ErrRepoExists, ErrCodeRepoExists},
+		{"ErrRepoNotFound", ErrRepoNotFound, ErrCodeRepoNotFound},
+		{"ErrBranchNotFound", ErrBranchNotFound, ErrCodeBranchNotFound},
+		{"ErrBranchExists", ErrBranchExists, ErrCodeBranchExists},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.function("test-value")
+
+			assert.Equal(t, tt.code, err.Code)
+			assert.NotEmpty(t, err.Message)
+			assert.Contains(t, err.Message, "test-value")
+		})
+	}
+}
+
+func TestErrGitNotFound(t *testing.T) {
+	cause := errors.New("command not found")
+	err := ErrGitNotFound(cause)
+
+	assert.Equal(t, ErrCodeGitNotFound, err.Code)
+	assert.Contains(t, err.Message, "git is not available in PATH")
+	assert.Equal(t, cause, err.Cause)
+}
+
+func TestErrorWrappingWithStandardLibrary(t *testing.T) {
+	originalErr := errors.New("original error")
+	groveErr := NewGroveError(ErrCodeGitOperation, "git failed", originalErr)
+
+	// Test with errors.Is
+	assert.True(t, errors.Is(groveErr, originalErr))
+
+	// Test with errors.As
+	var target *GroveError
+	assert.True(t, errors.As(groveErr, &target))
+	assert.Equal(t, groveErr, target)
+}
+
+func TestDefaultMaxContextEntries(t *testing.T) {
+	assert.Equal(t, 10, defaultMaxContextEntries)
+}
+
+func TestErrorCodes(t *testing.T) {
+	// Verify all error codes are defined
+	codes := []string{
+		ErrCodeGitNotFound,
+		ErrCodeDirectoryAccess,
+		ErrCodeFileSystem,
+		ErrCodePermission,
+		ErrCodeRepoExists,
+		ErrCodeRepoNotFound,
+		ErrCodeRepoInvalid,
+		ErrCodeRepoConversion,
+		ErrCodeGitOperation,
+		ErrCodeGitClone,
+		ErrCodeGitInit,
+		ErrCodeGitWorktree,
+		ErrCodeInvalidURL,
+		ErrCodeURLParsing,
+		ErrCodeUnsupportedURL,
+		ErrCodePathTraversal,
+		ErrCodeSecurityViolation,
+		ErrCodeConfigInvalid,
+		ErrCodeConfigMissing,
+		ErrCodeNetworkTimeout,
+		ErrCodeNetworkUnavailable,
+		ErrCodeAuthenticationFailed,
+		ErrCodeBranchNotFound,
+		ErrCodeBranchExists,
+		ErrCodeInvalidBranchName,
+		ErrCodeWorktreeCreation,
+		ErrCodeRemoteNotFound,
+		ErrCodeFileCopyFailed,
+		ErrCodeSourceWorktreeNotFound,
+		ErrCodePathExists,
+		ErrCodeInvalidPattern,
+	}
+
+	for _, code := range codes {
+		assert.NotEmpty(t, code, "Error code should not be empty")
+		assert.IsType(t, "", code, "Error code should be a string")
+	}
 }

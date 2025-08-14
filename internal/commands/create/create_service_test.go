@@ -1,24 +1,26 @@
-//go:build !integration
-// +build !integration
-
 package create
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
-	"github.com/sqve/grove/internal/errors"
-	"github.com/sqve/grove/internal/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sqve/grove/internal/errors"
+	"github.com/sqve/grove/internal/testutils"
 )
 
-const (
-	testWorktreePath = "/repo/worktrees/feature-branch"
-	testSourcePath   = "/repo/main"
+// MockBranchResolver implements BranchResolver interface for testing
+// Test constants to avoid linting issues
+var (
+	testMainBranch  = "main"
+	testFeaturePath = testutils.NormalizePath("/path/to/worktree/feature-branch")
+	testRepoPath    = testutils.NormalizePath("/path/to/worktree/repo")
 )
 
-// Mock implementations for testing.
 type MockBranchResolver struct {
 	mock.Mock
 }
@@ -52,6 +54,7 @@ func (m *MockBranchResolver) RemoteExists(remoteName string) bool {
 	return args.Bool(0)
 }
 
+// MockPathGenerator implements PathGenerator interface for testing
 type MockPathGenerator struct {
 	mock.Mock
 }
@@ -66,6 +69,7 @@ func (m *MockPathGenerator) ResolveUserPath(userPath string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+// MockWorktreeCreator implements WorktreeCreator interface for testing
 type MockWorktreeCreator struct {
 	mock.Mock
 }
@@ -80,6 +84,7 @@ func (m *MockWorktreeCreator) CreateWorktreeWithProgress(branchName, path string
 	return args.Error(0)
 }
 
+// MockFileManager implements FileManager interface for testing
 type MockFileManager struct {
 	mock.Mock
 }
@@ -94,6 +99,11 @@ func (m *MockFileManager) DiscoverSourceWorktree() (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockFileManager) FindWorktreeByBranch(branchName string) (string, error) {
+	args := m.Called(branchName)
+	return args.String(0), args.Error(1)
+}
+
 func (m *MockFileManager) GetCurrentWorktreePath() (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
@@ -104,489 +114,1129 @@ func (m *MockFileManager) ResolveConflicts(conflicts []FileConflict, strategy Co
 	return args.Error(0)
 }
 
-func (m *MockFileManager) FindWorktreeByBranch(branchName string) (string, error) {
-	args := m.Called(branchName)
-	return args.String(0), args.Error(1)
+// Test helper functions
+func assertGroveError(t *testing.T, err error, expectedCode string) {
+	t.Helper()
+	require.Error(t, err)
+	var groveErr *errors.GroveError
+	require.ErrorAs(t, err, &groveErr, "Expected GroveError but got %T", err)
+	assert.Equal(t, expectedCode, groveErr.Code)
 }
 
-func TestCreateServiceImpl_Create_Success(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
+func mockRemoteExistsForSlashBranch(deps *TestDependencies, branchName string) {
+	if strings.Contains(branchName, "/") {
+		parts := strings.SplitN(branchName, "/", 2)
+		deps.BranchResolver.On("RemoteExists", parts[0]).Return(false).Once()
+	}
+}
 
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
+// TestDependencies holds all mocked dependencies for create service tests
+type TestDependencies struct {
+	Service         *CreateServiceImpl
+	GitCommander    *testutils.MockGitCommander
+	BranchResolver  *MockBranchResolver
+	PathGenerator   *MockPathGenerator
+	WorktreeCreator *MockWorktreeCreator
+	FileManager     *MockFileManager
+}
 
-	// Set up test data.
+// Test fixtures
+func setupCreateServiceTest(t *testing.T) *TestDependencies {
+	// Use the centralized mock creation for consistency
+	gitCommander := testutils.CreateMockGitCommander()
+	branchResolver := &MockBranchResolver{}
+	pathGenerator := &MockPathGenerator{}
+	worktreeCreator := &MockWorktreeCreator{}
+	fileManager := &MockFileManager{}
+
+	service := NewCreateService(
+		gitCommander,
+		branchResolver,
+		pathGenerator,
+		worktreeCreator,
+		fileManager,
+	)
+
+	return &TestDependencies{
+		Service:         service,
+		GitCommander:    gitCommander,
+		BranchResolver:  branchResolver,
+		PathGenerator:   pathGenerator,
+		WorktreeCreator: worktreeCreator,
+		FileManager:     fileManager,
+	}
+}
+
+func TestCreateService_Create_Success(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
 	options := &CreateOptions{
 		BranchName:   "feature-branch",
 		WorktreePath: "",
-		CopyFiles:    true,
-		CopyPatterns: []string{".env*", "*.local"}, // Provide patterns so CopyFiles is called.
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
 	}
 
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: true,
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
 	}
 
-	generatedPath := testWorktreePath
-	sourceWorktree := testSourcePath
+	expectedPath := testFeaturePath
 
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
-	// When CopyFiles is true, the service calls handleFileCopying which calls DiscoverSourceWorktree and CopyFiles.
-	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
-	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", "*.local"}, CopyOptions{
-		ConflictStrategy: ConflictPrompt,
-		DryRun:           false,
-	}).Return(nil)
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
 
-	// Execute the test.
-	result, err := service.Create(options)
+	result, err := deps.Service.Create(options)
 
-	// Verify results.
 	require.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, generatedPath, result.WorktreePath)
+	assert.Equal(t, expectedPath, result.WorktreePath)
 	assert.Equal(t, "feature-branch", result.BranchName)
-	assert.False(t, result.WasCreated)
+	assert.True(t, result.WasCreated)
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+	assert.Equal(t, 0, result.CopiedFiles)
 
-	// Verify all mock expectations were met.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
-	mockFileManager.AssertExpectations(t)
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
 }
 
-func TestCreateServiceImpl_Create_BranchResolutionFailure(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName: "nonexistent-branch",
-	}
-
-	expectedError := &errors.GroveError{
-		Code:    errors.ErrCodeBranchNotFound,
-		Message: "branch not found",
-	}
-
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "nonexistent-branch", "", true).Return(nil, expectedError)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results.
-	assert.Nil(t, result)
-	require.Error(t, err)
-	assert.IsType(t, &errors.GroveError{}, err)
-
-	// Verify mock expectations.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertNotCalled(t, "GeneratePath")
-	mockWorktreeCreator.AssertNotCalled(t, "CreateWorktree")
-}
-
-func TestCreateServiceImpl_Create_PathGenerationFailure(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName: "feature-branch",
-	}
-
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: true,
-	}
-
-	pathError := &errors.GroveError{
-		Code:    errors.ErrCodeFileSystem,
-		Message: "failed to generate path",
-	}
-
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return("", pathError)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results.
-	assert.Nil(t, result)
-	require.Error(t, err)
-	assert.IsType(t, &errors.GroveError{}, err)
-
-	// Verify mock expectations.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertNotCalled(t, "CreateWorktree")
-}
-
-func TestCreateServiceImpl_Create_WorktreeCreationFailure(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName: "feature-branch",
-	}
-
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: true,
-	}
-
-	generatedPath := testWorktreePath
-	worktreeError := &errors.GroveError{
-		Code:    errors.ErrCodeWorktreeCreation,
-		Message: "failed to create worktree",
-	}
-
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(worktreeError)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results.
-	assert.Nil(t, result)
-	require.Error(t, err)
-	assert.IsType(t, &errors.GroveError{}, err)
-
-	// Verify mock expectations.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
-	mockFileManager.AssertNotCalled(t, "CopyFiles")
-}
-
-func TestCreateServiceImpl_Create_FileCopyingSuccess(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
+func TestCreateService_Create_WithUserPath(t *testing.T) {
+	deps := setupCreateServiceTest(t)
 
 	options := &CreateOptions{
 		BranchName:   "feature-branch",
+		WorktreePath: "./custom-path",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   true,
+		IsRemote: false,
+	}
+
+	expectedPath := testutils.NormalizePath("/path/to/custom-path")
+
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("ResolveUserPath", "./custom-path").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.False(t, result.WasCreated) // Branch already existed
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+	assert.Equal(t, 0, result.CopiedFiles)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_Create_WithFileCopying(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
 		CopyFiles:    true,
 		CopyPatterns: []string{".env*", ".vscode/"},
 	}
 
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: true,
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
 	}
 
-	generatedPath := testWorktreePath
-	sourceWorktree := testSourcePath
+	expectedPath := testFeaturePath
+	sourceWorktree := testutils.NormalizePath("/path/to/main/worktree")
 
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
-	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
-	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", ".vscode/"}, CopyOptions{
-		ConflictStrategy: ConflictPrompt,
-		DryRun:           false,
-	}).Return(nil)
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
 
-	// Execute the test.
-	result, err := service.Create(options)
+	// File copying mocks
+	deps.FileManager.On("FindWorktreeByBranch", testMainBranch).Return(sourceWorktree, nil)
+	deps.FileManager.On("CopyFiles", sourceWorktree, expectedPath, []string{".env*", ".vscode/"}, mock.MatchedBy(func(opts CopyOptions) bool {
+		return !opts.DryRun
+	})).Return(nil)
 
-	// Verify results.
+	result, err := deps.Service.Create(options)
+
 	require.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, generatedPath, result.WorktreePath)
-
-	// Verify all mock expectations were met.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
-	mockFileManager.AssertExpectations(t)
-}
-
-func TestCreateServiceImpl_Create_FileCopyingFailure(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName:   "feature-branch",
-		CopyFiles:    true,
-		CopyPatterns: []string{".env*", "*.local"}, // Provide patterns so CopyFiles is called.
-	}
-
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: true,
-	}
-
-	generatedPath := testWorktreePath
-	sourceWorktree := testSourcePath
-	copyError := &errors.GroveError{
-		Code:    errors.ErrCodeFileCopyFailed,
-		Message: "failed to copy files",
-	}
-
-	// Set up mock expectations.
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
-	mockFileManager.On("DiscoverSourceWorktree").Return(sourceWorktree, nil)
-	mockFileManager.On("CopyFiles", sourceWorktree, generatedPath, []string{".env*", "*.local"}, CopyOptions{
-		ConflictStrategy: ConflictPrompt,
-		DryRun:           false,
-	}).Return(copyError)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results - service should still succeed even if file copying fails.
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, generatedPath, result.WorktreePath)
-
-	// Verify all mock expectations were met.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
-	mockFileManager.AssertExpectations(t)
-}
-
-func TestCreateServiceImpl_Create_URLInput(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
-
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName: "https://github.com/owner/repo/pull/123",
-	}
-
-	urlInfo := &URLBranchInfo{
-		BranchName: "feature-branch",
-		Platform:   "github",
-	}
-
-	branchInfo := &BranchInfo{
-		Name:   "feature-branch",
-		Exists: false,
-	}
-
-	generatedPath := testWorktreePath
-
-	// Set up mock expectations for URL resolution.
-	mockBranchResolver.On("ResolveURL", "https://github.com/owner/repo/pull/123").Return(urlInfo, nil)
-	mockBranchResolver.On("ResolveBranch", "feature-branch", "", true).Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results.
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, generatedPath, result.WorktreePath)
+	assert.Equal(t, expectedPath, result.WorktreePath)
 	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.True(t, result.WasCreated)
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+	assert.Equal(t, 2, result.CopiedFiles) // Estimated from patterns count
 
-	// Verify all mock expectations were met.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+	deps.FileManager.AssertExpectations(t)
 }
 
-func TestCreateServiceImpl_Create_RemoteBranchInput(t *testing.T) {
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
+func TestCreateService_Create_InvalidOptions(t *testing.T) {
+	deps := setupCreateServiceTest(t)
 
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
-
-	options := &CreateOptions{
-		BranchName: "origin/feature-branch",
-	}
-
-	branchInfo := &BranchInfo{
-		Name:           "feature-branch",
-		Exists:         true,
-		IsRemote:       true,
-		RemoteName:     "origin",
-		TrackingBranch: "origin/feature-branch",
-	}
-
-	generatedPath := testWorktreePath
-
-	// Set up mock expectations for remote branch resolution.
-	mockBranchResolver.On("RemoteExists", "origin").Return(true)
-	mockBranchResolver.On("ResolveRemoteBranch", "origin/feature-branch").Return(branchInfo, nil)
-	mockPathGenerator.On("GeneratePath", "feature-branch", "").Return(generatedPath, nil)
-	mockWorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", generatedPath, WorktreeOptions{TrackRemote: true}, mock.AnythingOfType("create.ProgressCallback")).Return(nil)
-
-	// Execute the test.
-	result, err := service.Create(options)
-
-	// Verify results.
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, generatedPath, result.WorktreePath)
-	assert.Equal(t, "feature-branch", result.BranchName)
-
-	// Verify all mock expectations were met.
-	mockBranchResolver.AssertExpectations(t)
-	mockPathGenerator.AssertExpectations(t)
-	mockWorktreeCreator.AssertExpectations(t)
-}
-
-func TestCreateServiceImpl_validateOptions(t *testing.T) {
-	service := &CreateServiceImpl{
-		logger: logger.WithComponent("test"),
-	}
-
-	tests := []struct {
-		name        string
-		options     *CreateOptions
-		expectError bool
-		errorMsg    string
+	testCases := []struct {
+		name    string
+		options *CreateOptions
+		wantErr string
 	}{
 		{
-			name: "valid options",
-			options: &CreateOptions{
-				BranchName: "feature-branch",
-			},
-			expectError: false,
+			name:    "nil options",
+			options: nil,
+			wantErr: "options cannot be nil",
 		},
 		{
 			name: "empty branch name",
 			options: &CreateOptions{
 				BranchName: "",
 			},
-			expectError: true,
-			errorMsg:    "branch name cannot be empty",
+			wantErr: "branch name cannot be empty",
 		},
 		{
-			name: "whitespace only branch name",
+			name: "path traversal attempt",
 			options: &CreateOptions{
-				BranchName: "   ",
+				BranchName:   "feature-branch",
+				WorktreePath: "../../../etc/passwd",
 			},
-			expectError: true,
-			errorMsg:    "branch name cannot be empty",
-		},
-		{
-			name:        "nil options",
-			options:     nil,
-			expectError: true,
-			errorMsg:    "options cannot be nil",
+			wantErr: "path cannot contain '..' components",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := service.validateOptions(tt.options)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := deps.Service.Create(tc.options)
 
-			if tt.expectError {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				require.NoError(t, err)
-			}
+			assert.Nil(t, result)
+			require.Error(t, err)
+
+			var groveErr *errors.GroveError
+			require.ErrorAs(t, err, &groveErr)
+			assert.Equal(t, errors.ErrCodeConfigInvalid, groveErr.Code)
+			assert.Contains(t, groveErr.Cause.Error(), tc.wantErr)
 		})
 	}
 }
 
-func TestCreateServiceImpl_classifyInput(t *testing.T) {
-	// Mock dependencies for the service.
-	mockBranchResolver := new(MockBranchResolver)
-	mockPathGenerator := new(MockPathGenerator)
-	mockWorktreeCreator := new(MockWorktreeCreator)
-	mockFileManager := new(MockFileManager)
+func TestCreateService_Create_BranchResolutionFailure(t *testing.T) {
+	deps := setupCreateServiceTest(t)
 
-	service := NewCreateService(mockBranchResolver, mockPathGenerator, mockWorktreeCreator, mockFileManager)
+	options := &CreateOptions{
+		BranchName: "invalid-branch",
+		BaseBranch: testMainBranch,
+		CopyFiles:  false,
+	}
 
-	tests := []struct {
-		name         string
-		input        string
-		expectedType InputType
-		setupMocks   func()
-		expectError  bool
+	expectedError := fmt.Errorf("branch does not exist and cannot be created")
+	deps.BranchResolver.On("ResolveBranch", "invalid-branch", testMainBranch, true).Return(nil, expectedError)
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+
+	var groveErr *errors.GroveError
+	require.ErrorAs(t, err, &groveErr)
+	assert.Equal(t, errors.ErrCodeGitOperation, groveErr.Code)
+	assert.Equal(t, "failed to resolve branch information", groveErr.Message)
+	assert.Equal(t, expectedError, groveErr.Cause)
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_Create_PathGenerationFailure(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
+	}
+
+	expectedError := fmt.Errorf("cannot generate path: workspace not configured")
+
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return("", expectedError)
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+
+	var groveErr *errors.GroveError
+	require.ErrorAs(t, err, &groveErr)
+	assert.Equal(t, errors.ErrCodeFileSystem, groveErr.Code)
+	assert.Equal(t, "failed to generate worktree path", groveErr.Message)
+	assert.Equal(t, expectedError, groveErr.Cause)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+}
+
+func TestCreateService_Create_WorktreeCreationFailure(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
+	}
+
+	expectedPath := testFeaturePath
+	expectedError := fmt.Errorf("failed to create worktree: permission denied")
+
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(expectedError)
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+
+	var groveErr *errors.GroveError
+	require.ErrorAs(t, err, &groveErr)
+	assert.Equal(t, errors.ErrCodeGitOperation, groveErr.Code)
+	assert.Equal(t, "failed to create worktree", groveErr.Message)
+	assert.Equal(t, expectedError, groveErr.Cause)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_Create_FileCopyingFailure_NotCritical(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    true,
+		CopyPatterns: []string{".env*"},
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
+	}
+
+	expectedPath := testFeaturePath
+	sourceWorktree := testutils.NormalizePath("/path/to/main/worktree")
+	copyError := fmt.Errorf("file not found")
+
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
+
+	// File copying fails but is not critical
+	deps.FileManager.On("FindWorktreeByBranch", testMainBranch).Return(sourceWorktree, nil)
+	deps.FileManager.On("CopyFiles", sourceWorktree, expectedPath, []string{".env*"}, mock.MatchedBy(func(opts CopyOptions) bool {
+		return !opts.DryRun
+	})).Return(copyError)
+
+	result, err := deps.Service.Create(options)
+
+	// Assert - should succeed despite file copying failure
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.True(t, result.WasCreated)
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+	assert.Equal(t, 0, result.CopiedFiles) // No files copied due to error
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+	deps.FileManager.AssertExpectations(t)
+}
+
+func TestCreateService_Create_URLInput(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "https://github.com/owner/repo/tree/feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
+	}
+
+	expectedURLInfo := &URLBranchInfo{
+		BranchName: "feature-branch",
+		RepoURL:    "https://github.com/owner/repo",
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: true,
+	}
+
+	expectedPath := testFeaturePath
+
+	deps.BranchResolver.On("ResolveURL", "https://github.com/owner/repo/tree/feature-branch").Return(expectedURLInfo, nil)
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch && opts.TrackRemote
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.True(t, result.WasCreated)
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_Create_RemoteBranchInput(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName:   "origin/feature-branch",
+		WorktreePath: "",
+		BaseBranch:   testMainBranch,
+		CopyFiles:    false,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   true,
+		IsRemote: true,
+	}
+
+	expectedPath := testFeaturePath
+
+	deps.BranchResolver.On("RemoteExists", "origin").Return(true)
+	deps.BranchResolver.On("ResolveRemoteBranch", "origin/feature-branch").Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch && opts.TrackRemote
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.False(t, result.WasCreated) // Branch already existed
+	assert.Equal(t, testMainBranch, result.BaseBranch)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+// ============================================================================
+// Branch Creation Tests
+// ============================================================================
+
+func TestCreateService_CreateBranch_ExistingBranch(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "existing-branch",
+		BaseBranch: testMainBranch,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "existing-branch",
+		Exists:   true,
+		IsRemote: false,
+	}
+
+	expectedPath := testutils.NormalizePath("/path/to/worktree/existing-branch")
+
+	deps.BranchResolver.On("ResolveBranch", "existing-branch", testMainBranch, true).Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "existing-branch", "").Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "existing-branch", expectedPath, mock.MatchedBy(func(opts WorktreeOptions) bool {
+		return opts.BaseBranch == testMainBranch
+	}), mock.AnythingOfType("ProgressCallback")).Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "existing-branch", result.BranchName)
+	assert.False(t, result.WasCreated) // Branch already existed
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_CreateBranch_InvalidName(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	testCases := []struct {
+		name       string
+		branchName string
+		wantErr    string
 	}{
 		{
-			name:         "regular branch name",
-			input:        "feature-branch",
-			expectedType: InputTypeBranch,
-			setupMocks:   func() {}, // No mocks needed for simple branch names.
-			expectError:  false,
+			name:       "contains spaces",
+			branchName: "feature branch",
+			wantErr:    "invalid branch name",
 		},
 		{
-			name:         "GitHub PR URL",
-			input:        "https://github.com/owner/repo/pull/123",
-			expectedType: InputTypeURL,
-			setupMocks: func() {
-				urlInfo := &URLBranchInfo{
-					BranchName: "pr-123",
-					Platform:   "github",
-				}
-				mockBranchResolver.On("ResolveURL", "https://github.com/owner/repo/pull/123").Return(urlInfo, nil)
-			},
-			expectError: false,
+			name:       "starts with hyphen",
+			branchName: "-feature",
+			wantErr:    "invalid branch name",
 		},
 		{
-			name:         "remote branch reference",
-			input:        "origin/feature-branch",
-			expectedType: InputTypeRemoteBranch,
-			setupMocks:   func() { mockBranchResolver.On("RemoteExists", "origin").Return(true) },
-			expectError:  false,
+			name:       "contains double dots",
+			branchName: "feature..branch",
+			wantErr:    "invalid branch name",
+		},
+		{
+			name:       "ends with slash",
+			branchName: "feature/",
+			wantErr:    "invalid branch name",
+		},
+		{
+			name:       "contains backslash",
+			branchName: "feature\\branch",
+			wantErr:    "invalid branch name",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Reset mocks.
-			mockBranchResolver.ExpectedCalls = nil
-
-			// Setup test-specific mocks.
-			tt.setupMocks()
-
-			result, err := service.classifyInput(tt.input)
-
-			if tt.expectError {
-				require.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				require.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, tt.expectedType, result.Type)
-				assert.Equal(t, tt.input, result.OriginalName)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName: tc.branchName,
+				BaseBranch: testMainBranch,
 			}
 
-			// Verify mock expectations.
-			mockBranchResolver.AssertExpectations(t)
+			deps.BranchResolver.On("ResolveBranch", tc.branchName, testMainBranch, true).
+				Return(nil, fmt.Errorf("%s", tc.wantErr)).Once()
+
+			result, err := deps.Service.Create(options)
+
+			assert.Nil(t, result)
+			assertGroveError(t, err, errors.ErrCodeGitOperation)
 		})
 	}
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_CreateBranch_ReservedNames(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	reservedNames := []string{
+		"HEAD",
+		"FETCH_HEAD",
+		"ORIG_HEAD",
+		"MERGE_HEAD",
+		"CHERRY_PICK_HEAD",
+	}
+
+	for _, name := range reservedNames {
+		t.Run(name, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName: name,
+				BaseBranch: testMainBranch,
+			}
+
+			deps.BranchResolver.On("ResolveBranch", name, testMainBranch, true).
+				Return(nil, fmt.Errorf("reserved name")).Once()
+
+			result, err := deps.Service.Create(options)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+		})
+	}
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_CreateBranch_UnicodeNames(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	unicodeNames := []string{
+		"feature-日本語",
+		"функция-branch",
+		"功能-分支",
+		"특징-브랜치",
+	}
+
+	for _, name := range unicodeNames {
+		t.Run(name, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName: name,
+				BaseBranch: testMainBranch,
+			}
+
+			expectedBranchInfo := &BranchInfo{
+				Name:     name,
+				Exists:   false,
+				IsRemote: false,
+			}
+
+			expectedPath := testutils.NormalizePath(fmt.Sprintf("/path/to/worktree/%s", name))
+
+			deps.BranchResolver.On("ResolveBranch", name, testMainBranch, true).
+				Return(expectedBranchInfo, nil).Once()
+			deps.PathGenerator.On("GeneratePath", name, "").
+				Return(expectedPath, nil).Once()
+			deps.WorktreeCreator.On("CreateWorktreeWithProgress", name, expectedPath,
+				mock.Anything, mock.AnythingOfType("ProgressCallback")).
+				Return(nil).Once()
+
+			result, err := deps.Service.Create(options)
+
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.Equal(t, name, result.BranchName)
+		})
+	}
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_CreateBranch_LongNames(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	// Test branch name length limits
+	const (
+		maxBranchNameLength = 255
+		branchPrefix        = "feature/"
+	)
+
+	testCases := []struct {
+		name       string
+		branchName string
+		shouldFail bool
+	}{
+		{
+			name:       "exactly 255 chars",
+			branchName: branchPrefix + strings.Repeat("a", maxBranchNameLength-len(branchPrefix)),
+			shouldFail: false,
+		},
+		{
+			name:       "over 255 chars",
+			branchName: branchPrefix + strings.Repeat("a", maxBranchNameLength-len(branchPrefix)+1),
+			shouldFail: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName: tc.branchName,
+				BaseBranch: testMainBranch,
+			}
+
+			if tc.shouldFail {
+				// Mock RemoteExists check for branch names with slashes
+				mockRemoteExistsForSlashBranch(deps, tc.branchName)
+
+				deps.BranchResolver.On("ResolveBranch", tc.branchName, testMainBranch, true).
+					Return(nil, fmt.Errorf("name too long")).Once()
+
+				result, err := deps.Service.Create(options)
+
+				assert.Nil(t, result)
+				require.Error(t, err)
+			} else {
+				expectedBranchInfo := &BranchInfo{
+					Name:     tc.branchName,
+					Exists:   false,
+					IsRemote: false,
+				}
+
+				expectedPath := testutils.NormalizePath("/path/to/worktree/longname")
+
+				// Mock RemoteExists check for branch names with slashes
+				mockRemoteExistsForSlashBranch(deps, tc.branchName)
+
+				deps.BranchResolver.On("ResolveBranch", tc.branchName, testMainBranch, true).
+					Return(expectedBranchInfo, nil).Once()
+				deps.PathGenerator.On("GeneratePath", tc.branchName, "").
+					Return(expectedPath, nil).Once()
+				deps.WorktreeCreator.On("CreateWorktreeWithProgress", tc.branchName, expectedPath,
+					mock.Anything, mock.AnythingOfType("ProgressCallback")).
+					Return(nil).Once()
+
+				result, err := deps.Service.Create(options)
+
+				require.NoError(t, err)
+				assert.NotNil(t, result)
+			}
+		})
+	}
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+// ============================================================================
+// Remote Repository Tests
+// ============================================================================
+
+func TestCreateService_CloneRepository_Success(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "https://github.com/owner/repo",
+		BaseBranch: testMainBranch,
+	}
+
+	expectedURLInfo := &URLBranchInfo{
+		BranchName: testMainBranch,
+		RepoURL:    "https://github.com/owner/repo",
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     testMainBranch,
+		Exists:   false,
+		IsRemote: true,
+	}
+
+	expectedPath := testRepoPath
+
+	deps.BranchResolver.On("ResolveURL", "https://github.com/owner/repo").
+		Return(expectedURLInfo, nil)
+	deps.BranchResolver.On("ResolveBranch", testMainBranch, testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", testMainBranch, "").
+		Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", testMainBranch, expectedPath,
+		mock.MatchedBy(func(opts WorktreeOptions) bool {
+			// Note: CloneURL would need to be added to WorktreeOptions for full clone support
+			return opts.TrackRemote
+		}), mock.AnythingOfType("ProgressCallback")).
+		Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_InvalidURL_NotAURL(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "not-a-url",
+		BaseBranch: testMainBranch,
+	}
+
+	// Since it doesn't look like a URL, it should be treated as a branch name
+	deps.BranchResolver.On("ResolveBranch", "not-a-url", testMainBranch, true).
+		Return(nil, fmt.Errorf("invalid branch name")).Once()
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	assertGroveError(t, err, errors.ErrCodeGitOperation)
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_InvalidURL_UnsupportedScheme(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "ftp://invalid.com/repo",
+		BaseBranch: testMainBranch,
+	}
+
+	// Mock the URL resolution to fail with unsupported scheme
+	deps.BranchResolver.On("ResolveURL", "ftp://invalid.com/repo").
+		Return(nil, fmt.Errorf("unsupported scheme")).Once()
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	assertGroveError(t, err, errors.ErrCodeConfigInvalid)
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_InvalidURL_MalformedURL(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "://missing-scheme.com/repo",
+		BaseBranch: testMainBranch,
+	}
+
+	// Mock the URL resolution to fail with malformed URL
+	deps.BranchResolver.On("ResolveURL", "://missing-scheme.com/repo").
+		Return(nil, fmt.Errorf("malformed URL")).Once()
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	assertGroveError(t, err, errors.ErrCodeConfigInvalid)
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_AuthenticationFailed(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "https://github.com/private/repo",
+		BaseBranch: testMainBranch,
+	}
+
+	expectedURLInfo := &URLBranchInfo{
+		BranchName: testMainBranch,
+		RepoURL:    "https://github.com/private/repo",
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     testMainBranch,
+		Exists:   false,
+		IsRemote: true,
+	}
+
+	expectedPath := testRepoPath
+
+	deps.BranchResolver.On("ResolveURL", "https://github.com/private/repo").
+		Return(expectedURLInfo, nil)
+	deps.BranchResolver.On("ResolveBranch", testMainBranch, testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", testMainBranch, "").
+		Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", testMainBranch, expectedPath,
+		mock.Anything, mock.AnythingOfType("ProgressCallback")).
+		Return(fmt.Errorf("authentication required"))
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	assertGroveError(t, err, errors.ErrCodeGitOperation)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_NetworkError(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "https://github.com/owner/repo",
+		BaseBranch: testMainBranch,
+	}
+
+	expectedURLInfo := &URLBranchInfo{
+		BranchName: testMainBranch,
+		RepoURL:    "https://github.com/owner/repo",
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     testMainBranch,
+		Exists:   false,
+		IsRemote: true,
+	}
+
+	expectedPath := testRepoPath
+
+	deps.BranchResolver.On("ResolveURL", "https://github.com/owner/repo").
+		Return(expectedURLInfo, nil)
+	deps.BranchResolver.On("ResolveBranch", testMainBranch, testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", testMainBranch, "").
+		Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", testMainBranch, expectedPath,
+		mock.Anything, mock.AnythingOfType("ProgressCallback")).
+		Return(fmt.Errorf("network unreachable"))
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create worktree")
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+func TestCreateService_CloneRepository_LargeRepository(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "https://github.com/torvalds/linux",
+		BaseBranch: testMainBranch,
+		// Note: Shallow clone option would need to be added to CreateOptions for optimization
+	}
+
+	expectedURLInfo := &URLBranchInfo{
+		BranchName: "master",
+		RepoURL:    "https://github.com/torvalds/linux",
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "master",
+		Exists:   false,
+		IsRemote: true,
+	}
+
+	expectedPath := testutils.NormalizePath("/path/to/worktree/linux")
+
+	deps.BranchResolver.On("ResolveURL", "https://github.com/torvalds/linux").
+		Return(expectedURLInfo, nil)
+	deps.BranchResolver.On("ResolveBranch", "master", testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "master", "").
+		Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "master", expectedPath,
+		mock.MatchedBy(func(opts WorktreeOptions) bool {
+			// Would check for shallow clone option if it existed
+			return opts.TrackRemote
+		}), mock.AnythingOfType("ProgressCallback")).
+		Return(nil)
+
+	result, err := deps.Service.Create(options)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+}
+
+// ============================================================================
+// Non-Critical Failure Tests
+// ============================================================================
+
+func TestCreateService_Create_FileCopyFailureIsNonCritical(t *testing.T) {
+	// Test verifies that worktree creation succeeds even when optional file copying fails
+	deps := setupCreateServiceTest(t)
+
+	options := &CreateOptions{
+		BranchName: "feature-branch",
+		BaseBranch: testMainBranch,
+		CopyFiles:  true,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature-branch",
+		Exists:   false,
+		IsRemote: false,
+	}
+
+	expectedPath := testFeaturePath
+
+	deps.BranchResolver.On("ResolveBranch", "feature-branch", testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("GeneratePath", "feature-branch", "").
+		Return(expectedPath, nil)
+	deps.WorktreeCreator.On("CreateWorktreeWithProgress", "feature-branch", expectedPath,
+		mock.Anything, mock.AnythingOfType("ProgressCallback")).
+		Return(nil)
+
+	// File copying fails but this is non-critical
+	// First try to find by base branch
+	deps.FileManager.On("FindWorktreeByBranch", testMainBranch).
+		Return("", fmt.Errorf("base branch worktree not found")).Once()
+	// Then try to discover current source worktree
+	deps.FileManager.On("DiscoverSourceWorktree").
+		Return("", fmt.Errorf("source worktree not found")).Once()
+
+	result, err := deps.Service.Create(options)
+
+	// Should succeed even if file copying fails (non-critical)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 0, result.CopiedFiles)
+	assert.Equal(t, "feature-branch", result.BranchName)
+	assert.Equal(t, expectedPath, result.WorktreePath)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
+	deps.WorktreeCreator.AssertExpectations(t)
+	deps.FileManager.AssertExpectations(t)
+}
+
+// ============================================================================
+// Validation Tests
+// ============================================================================
+
+func TestCreateService_ValidateInput_RequiredFields(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	testCases := []struct {
+		name    string
+		options *CreateOptions
+		wantErr string
+	}{
+		{
+			name:    "nil options",
+			options: nil,
+			wantErr: "options cannot be nil",
+		},
+		{
+			name: "empty branch name",
+			options: &CreateOptions{
+				BranchName: "",
+				BaseBranch: testMainBranch,
+			},
+			wantErr: "branch name cannot be empty",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := deps.Service.Create(tc.options)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+func TestCreateService_ValidateInput_PathTraversal(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	pathTraversalAttempts := []string{
+		"../../../etc/passwd",
+		"..\\..\\windows\\system32",
+		"./../../sensitive",
+		"path/../../../etc",
+	}
+
+	for _, path := range pathTraversalAttempts {
+		t.Run(path, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName:   "feature",
+				WorktreePath: path,
+				BaseBranch:   testMainBranch,
+			}
+
+			result, err := deps.Service.Create(options)
+
+			assert.Nil(t, result)
+			assertGroveError(t, err, errors.ErrCodeConfigInvalid)
+			assert.Contains(t, err.Error(), "path cannot contain '..' components")
+		})
+	}
+}
+
+func TestCreateService_ValidateInput_SpecialCharacters(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	specialCharBranches := []string{
+		"feature*branch",
+		"feature?branch",
+		"feature[branch]",
+		"feature~branch",
+		"feature^branch",
+		"feature:branch",
+	}
+
+	for _, name := range specialCharBranches {
+		t.Run(name, func(t *testing.T) {
+			options := &CreateOptions{
+				BranchName: name,
+				BaseBranch: testMainBranch,
+			}
+
+			deps.BranchResolver.On("ResolveBranch", name, testMainBranch, true).
+				Return(nil, fmt.Errorf("invalid characters")).Once()
+
+			result, err := deps.Service.Create(options)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+		})
+	}
+
+	deps.BranchResolver.AssertExpectations(t)
+}
+
+func TestCreateService_ValidateInput_MaxLengths(t *testing.T) {
+	deps := setupCreateServiceTest(t)
+
+	// Test maximum path length
+	const typicalPathMax = 4096
+	veryLongPath := strings.Repeat("a", typicalPathMax+1) // Over typical PATH_MAX
+
+	options := &CreateOptions{
+		BranchName:   "feature",
+		WorktreePath: veryLongPath,
+		BaseBranch:   testMainBranch,
+	}
+
+	expectedBranchInfo := &BranchInfo{
+		Name:     "feature",
+		Exists:   false,
+		IsRemote: false,
+	}
+
+	deps.BranchResolver.On("ResolveBranch", "feature", testMainBranch, true).
+		Return(expectedBranchInfo, nil)
+	deps.PathGenerator.On("ResolveUserPath", veryLongPath).
+		Return("", fmt.Errorf("path too long"))
+
+	result, err := deps.Service.Create(options)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+
+	deps.BranchResolver.AssertExpectations(t)
+	deps.PathGenerator.AssertExpectations(t)
 }

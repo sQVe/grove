@@ -1,0 +1,53 @@
+# Test basic grove create command functionality
+# This test verifies that grove can create a basic worktree from an existing branch
+
+# Set up a basic Git repository with initial commit
+exec git init .
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create a README file for initial commit
+cp $devnull README.md
+exec sh -c 'echo "Initial content" > README.md'
+
+# Create initial commit on master branch
+exec git add README.md
+exec git commit -m 'Initial commit'
+
+# Rename master to main
+exec git branch -m master main
+
+# Create a feature branch to work with
+exec git checkout -b feature-branch
+
+# Create some content in the feature branch
+cp $devnull feature.txt
+exec sh -c 'echo "Feature content" > feature.txt'
+exec git add feature.txt
+exec git commit -m 'Add feature content'
+
+# Switch back to main for testing
+exec git checkout main
+
+# Verify initial state
+exec git status
+stdout 'On branch main'
+
+# Test grove create with basic branch to subdirectory
+mkdir worktrees
+exec grove create feature-branch worktrees/feature-worktree
+
+# Verify the worktree was created
+exists worktrees/feature-worktree
+exec git worktree list
+stdout 'worktrees/feature-worktree'
+stdout 'feature-branch'
+
+# Verify the new worktree is on the correct branch
+cd worktrees/feature-worktree
+exec git status
+stdout 'On branch feature-branch'
+
+# Clean up by removing the worktree
+cd ../..
+exec git worktree remove worktrees/feature-worktree

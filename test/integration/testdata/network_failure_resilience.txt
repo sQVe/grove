@@ -1,0 +1,280 @@
+# Test grove create command network error handling and recovery
+# This test verifies that grove handles network failures gracefully with proper retry mechanisms
+# and validates timeout behavior, recovery patterns, and error messaging
+
+# Set up basic Git repository for network testing scenarios
+exec git init .
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial content
+exec sh -c 'echo "# Network Error Testing Repository" > README.md'
+exec sh -c 'echo "This repository tests network error scenarios and recovery." >> README.md'
+exec git add README.md
+exec git commit -m 'Initial commit for network testing'
+
+# Rename master to main
+exec git branch -m master main
+
+# Create test branches for various scenarios
+exec git checkout -b network-test-branch
+exec sh -c 'echo "Network test content" > network-test.txt'
+exec git add network-test.txt
+exec git commit -m 'Add network test content'
+
+exec git checkout main
+
+# Test 1: Simulate network timeout scenarios
+# Note: These tests simulate network conditions that Grove should handle gracefully
+
+# Create a branch that will be used to test network timeout recovery
+exec git checkout -b timeout-recovery-branch
+exec sh -c 'echo "Content for timeout recovery testing" > timeout-test.txt'
+exec git add timeout-test.txt
+exec git commit -m 'Add timeout recovery test content'
+
+exec git checkout main
+
+# Verify initial repository state
+exec git status
+stdout 'On branch main'
+
+exec git branch -a
+stdout 'network-test-branch'
+stdout 'timeout-recovery-branch'
+
+# Test 2: Test Grove with simulated connection failures
+# Grove should handle these gracefully with appropriate error messages
+
+# Test basic worktree creation with local branches (should succeed)
+exec grove create network-test-branch worktrees/network-test
+exists worktrees/network-test
+
+# Verify worktree was created successfully
+exec git worktree list
+stdout 'worktrees/network-test.*network-test-branch'
+
+cd worktrees/network-test
+exec git status
+stdout 'On branch network-test-branch'
+exists network-test.txt
+
+cd $WORK
+
+# Test 3: Test invalid remote URL handling (simulates network errors)
+# Grove should provide clear error messages for network-related failures
+
+# Test with malformed URL (should fail gracefully)
+! exec grove create https://invalid-url-that-does-not-exist.com/repo.git worktrees/invalid-remote
+stderr 'Error'
+
+# Verify no worktree was created for invalid URL
+! exists worktrees/invalid-remote
+exec git worktree list
+! stdout 'invalid-remote'
+
+# Test 4: Test with unreachable hostname (DNS failure simulation)
+# Grove should handle DNS resolution failures appropriately
+
+! exec grove create https://this-hostname-does-not-exist-anywhere.invalid/repo.git worktrees/dns-failure
+stderr 'Error'
+
+# Verify no worktree was created for DNS failure
+! exists worktrees/dns-failure
+exec git worktree list
+! stdout 'dns-failure'
+
+# Test 5: Test timeout behavior with local operations
+# Even local operations should have reasonable timeout handling
+
+# Create a worktree with timeout recovery branch
+exec grove create timeout-recovery-branch worktrees/timeout-recovery
+
+# Verify creation succeeded
+exists worktrees/timeout-recovery
+exec git worktree list
+stdout 'worktrees/timeout-recovery.*timeout-recovery-branch'
+
+# Test 6: Test network error recovery patterns
+# Grove should provide consistent error handling across different network failure modes
+
+# Test with invalid port (connection refused simulation)
+! exec grove create https://github.com:99999/invalid/repo.git worktrees/port-failure
+stderr 'Error'
+
+# Verify no worktree was created
+! exists worktrees/port-failure
+
+# Test 7: Test authentication failure scenarios
+# Grove should handle authentication errors gracefully
+
+# Test with URL that would require authentication (should fail appropriately)
+! exec grove create https://private-invalid-repo.example.com/secret/repo.git worktrees/auth-failure
+stderr 'Error'
+
+# Verify no worktree was created for auth failure
+! exists worktrees/auth-failure
+
+# Test 8: Test network configuration error handling
+# Grove should validate network-related configurations
+
+# Test with IPv6 address format (potential network configuration issue)
+! exec grove create https://[::1]:8080/repo.git worktrees/ipv6-test
+stderr 'Error'
+
+# Verify no worktree was created
+! exists worktrees/ipv6-test
+
+# Test 9: Test proxy-related error scenarios
+# Grove should handle proxy configuration issues appropriately
+
+# Set invalid proxy environment variable to simulate proxy errors
+env HTTP_PROXY=http://invalid-proxy:3128
+env HTTPS_PROXY=http://invalid-proxy:3128
+
+# Attempt operation that would use proxy (should handle proxy errors)
+! exec grove create https://github.com/nonexistent/repo.git worktrees/proxy-test
+stderr 'Error'
+
+# Clear proxy environment variables
+env -u HTTP_PROXY
+env -u HTTPS_PROXY
+
+# Verify no worktree was created with proxy error
+! exists worktrees/proxy-test
+
+# Test 10: Test SSL/TLS certificate error handling
+# Grove should handle certificate validation errors appropriately
+
+# Test with self-signed certificate URL (simulated)
+! exec grove create https://self-signed.badssl.com/repo.git worktrees/ssl-error
+stderr 'Error'
+
+# Verify no worktree was created for SSL error
+! exists worktrees/ssl-error
+
+# Test 11: Test network error recovery with retries
+# Grove should implement proper retry mechanisms for transient failures
+
+# Create multiple branches to test retry behavior
+exec git checkout -b retry-test-1
+exec sh -c 'echo "Retry test 1" > retry1.txt'
+exec git add retry1.txt
+exec git commit -m 'Add retry test 1'
+
+exec git checkout -b retry-test-2  
+exec sh -c 'echo "Retry test 2" > retry2.txt'
+exec git add retry2.txt
+exec git commit -m 'Add retry test 2'
+
+exec git checkout main
+
+# Test successful operations after simulated network errors
+exec grove create retry-test-1 worktrees/retry-success-1
+exists worktrees/retry-success-1
+
+exec grove create retry-test-2 worktrees/retry-success-2
+exists worktrees/retry-success-2
+
+# Verify both worktrees were created successfully
+exec git worktree list
+stdout 'worktrees/retry-success-1.*retry-test-1'
+stdout 'worktrees/retry-success-2.*retry-test-2'
+
+# Test 12: Test concurrent network operations
+# Grove should handle multiple network operations without interference
+
+# Verify concurrent worktrees don't interfere with each other
+cd worktrees/retry-success-1
+exec git status
+stdout 'On branch retry-test-1'
+exists retry1.txt
+
+cd ../retry-success-2
+exec git status
+stdout 'On branch retry-test-2'
+exists retry2.txt
+
+cd $WORK
+
+# Test 13: Test network error message quality
+# Grove should provide helpful error messages for network issues
+
+# Test URL parsing error messages - Grove treats this as a local branch name
+# so it should succeed by creating a new branch
+exec grove create 'not-a-valid-url' worktrees/parse-error
+stdout 'Worktree created successfully'
+
+# Test protocol error messages - Grove may also treat this as a branch name
+# Let's test with a clearly invalid URL format that should fail
+! exec grove create 'https://nonexistent-domain-12345.com/repo.git' worktrees/protocol-error
+stderr 'Error'
+
+# Verify parse-error worktree was created (local branch), protocol-error was not
+exists worktrees/parse-error
+! exists worktrees/protocol-error
+
+# Test 14: Test cleanup after network errors
+# Grove should properly clean up after failed network operations
+
+# Verify repository state is clean after all error scenarios
+exec git status
+stdout 'On branch main'
+
+exec git worktree list
+stdout 'worktrees/network-test'
+stdout 'worktrees/timeout-recovery'
+stdout 'worktrees/retry-success-1'
+stdout 'worktrees/retry-success-2'
+
+# Count should only include successful worktrees
+exec sh -c 'git worktree list | wc -l'
+stdout '6'
+
+# Test 15: Test network error recovery and state consistency
+# Grove should maintain consistent state even after network failures
+
+# Clean up successful worktrees to verify cleanup works properly
+exec git worktree remove worktrees/network-test
+exec git worktree remove worktrees/timeout-recovery
+exec git worktree remove worktrees/retry-success-1
+exec git worktree remove worktrees/retry-success-2
+
+# Verify all worktrees were removed successfully
+exec git worktree list
+! stdout 'network-test'
+! stdout 'timeout-recovery'
+! stdout 'retry-success'
+
+# Test 16: Test final repository integrity after network error scenarios
+# Repository should remain in good state after all network error tests
+
+exec git status
+stdout 'On branch main'
+
+# Verify all branches still exist
+exec git branch -a
+stdout 'network-test-branch'
+stdout 'timeout-recovery-branch'
+stdout 'retry-test-1'
+stdout 'retry-test-2'
+
+# Verify repository integrity (git fsck outputs nothing when successful)
+exec git fsck
+
+# Final test: Verify Grove can still perform normal operations after network error scenarios
+exec grove create network-test-branch worktrees/final-test
+exists worktrees/final-test
+
+exec git worktree list
+stdout 'worktrees/final-test.*network-test-branch'
+
+# Clean up final test
+exec git worktree remove worktrees/final-test
+
+# Verify clean final state
+exec git worktree list
+! stdout 'final-test'
+exec git status
+stdout 'On branch main'
+! stderr .

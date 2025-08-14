@@ -1,0 +1,136 @@
+# Test cross-platform path handling and compatibility
+# This test verifies that grove handles paths correctly across Windows, Linux, and macOS
+
+# Clean up any artifacts from previous failed runs
+rm -rf test-paths worktrees .bare .git
+[unix] rm -rf /tmp/grove-path-test
+[windows] rm -rf C:/temp/grove
+
+# Set up Grove repository
+exec grove init
+stdout 'Initialized bare Git repository'
+
+# Create initial worktree for main branch
+exec git worktree add main
+cd main
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+
+# Create initial commit
+[unix] exec sh -c 'echo "Main content" > README.md'
+[windows] exec cmd /C "echo Main content > README.md"
+exec git add README.md
+exec git commit -m 'Initial commit'
+cd ..
+
+# Update HEAD to point to main branch in bare repo
+exec git symbolic-ref HEAD refs/heads/main
+
+# Test 1: Test basic path creation with forward slashes (should work on all platforms)
+exec grove create feature-forward-slash worktrees/feature-test
+exists worktrees/feature-test
+
+# Test 2: Test nested directory creation
+exec grove create feature-nested worktrees/nested/deep/path
+exists worktrees/nested/deep/path
+
+# Test 3: Test path with spaces (cross-platform compatibility)
+[unix] exec sh -c 'grove create feature-spaces "worktrees/path with spaces"'
+[unix] exec sh -c 'test -d "worktrees/path with spaces"'
+[windows] exec cmd /C "grove create feature-spaces \"worktrees\\path with spaces\""
+[windows] exists "worktrees/path with spaces"
+
+# Test 4: Windows-specific path tests
+[windows] exec grove create feature-windows worktrees\\windows\\style
+[windows] exists worktrees/windows/style
+[windows] exec grove create feature-drive C:/temp/grove/test-drive
+[windows] exists C:/temp/grove/test-drive
+
+# Test 5: Unix-specific path tests  
+[unix] exec grove create feature-unix /tmp/grove-path-test/unix-test
+[unix] exists /tmp/grove-path-test/unix-test
+[unix] exec grove create feature-home-relative ~/grove-home-test
+[unix] exists ~/grove-home-test
+
+# Test 6: Test that grove list shows paths in platform-appropriate format
+exec grove list
+stdout 'feature-test'
+stdout 'path'
+stdout 'feature-nested'
+
+# Test 7: Test path normalization - different input formats should work
+[windows] exec grove create feature-mixed worktrees/mixed\\path
+[windows] exists worktrees/mixed/path
+[unix] exec grove create feature-mixed worktrees/mixed/path  
+[unix] exists worktrees/mixed/path
+
+# Test 8: Test absolute vs relative path handling
+mkdir absolute-test
+cd absolute-test
+exec grove init
+exec git worktree add main-abs
+cd main-abs
+exec git config --local user.name 'Test User'
+exec git config --local user.email 'test@example.com'
+[unix] exec sh -c 'echo "Absolute test" > README.md'
+[windows] exec cmd /C "echo Absolute test > README.md"
+exec git add README.md
+exec git commit -m 'Absolute test commit'
+cd ..
+exec git symbolic-ref HEAD refs/heads/main-abs
+
+# Test absolute path creation
+[unix] exec grove create feature-absolute $WORK/absolute-test/abs-worktree
+[unix] exists $WORK/absolute-test/abs-worktree
+[windows] exec grove create feature-absolute %CD%/abs-worktree
+[windows] exists abs-worktree
+cd ..
+
+# Test 9: Test very long paths (platform limits)
+[unix] exec grove create feature-long worktrees/very/long/path/with/many/nested/directories/to/test/path/length/limits
+[unix] exists worktrees/very/long/path/with/many/nested/directories/to/test/path/length/limits
+[windows] exec grove create feature-long worktrees/long/windows/path/test
+[windows] exists worktrees/long/windows/path/test
+
+# Test 10: Test current directory and parent directory references
+exec grove create feature-current ./worktrees/current-dir
+exists worktrees/current-dir
+# Test that parent directory references are rejected for security
+! exec grove create feature-parent ../worktrees/parent-dir
+stderr 'path cannot contain'
+
+# Test 11: Error handling - invalid path characters (skipped - platform-specific)
+
+# Test 12: Test that grove handles path separators consistently in output
+exec grove list
+# All paths should be displayed consistently regardless of input format
+stdout 'feature-test'
+stdout 'path'
+stdout 'current-dir'
+
+# Test 13: Test worktree removal works with all path formats
+exec git worktree remove worktrees/feature-test --force
+! exists worktrees/feature-test
+exec git worktree remove worktrees/nested/deep/path --force
+! exists worktrees/nested/deep/path
+
+# Clean up
+[windows] exec git worktree remove worktrees\\windows\\style --force
+[windows] exec git worktree remove C:/temp/grove/test-drive --force
+[unix] exec git worktree remove /tmp/grove-path-test/unix-test --force
+[unix] exec git worktree remove ~/grove-home-test --force
+exec sh -c 'git worktree remove "worktrees/path with spaces" --force'
+exec git worktree remove worktrees/mixed/path --force
+exec git worktree remove worktrees/current-dir --force
+[unix] exec git worktree remove worktrees/very/long/path/with/many/nested/directories/to/test/path/length/limits --force
+[windows] exec git worktree remove worktrees/long/windows/path/test --force
+
+# Final verification - no worktrees should remain except main
+exec grove list
+stdout 'main'
+! stdout 'feature-'
+
+# Cleanup
+rm -rf absolute-test worktrees main .bare .git README.md
+[unix] rm -rf /tmp/grove-path-test ~/grove-home-test
+[windows] rm -rf C:/temp/grove
