@@ -6,11 +6,13 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/sqve/grove/internal/errors"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/validation"
 )
 
 type CreateServiceImpl struct {
+	gitCommander    git.Commander
 	branchResolver  BranchResolver
 	pathGenerator   PathGenerator
 	worktreeCreator WorktreeCreator
@@ -19,12 +21,14 @@ type CreateServiceImpl struct {
 }
 
 func NewCreateService(
+	gitCommander git.Commander,
 	branchResolver BranchResolver,
 	pathGenerator PathGenerator,
 	worktreeCreator WorktreeCreator,
 	fileManager FileManager,
 ) *CreateServiceImpl {
 	return &CreateServiceImpl{
+		gitCommander:    gitCommander,
 		branchResolver:  branchResolver,
 		pathGenerator:   pathGenerator,
 		worktreeCreator: worktreeCreator,
@@ -34,22 +38,21 @@ func NewCreateService(
 }
 
 func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error) {
+	if err := s.validateOptions(options); err != nil {
+		return nil, &errors.GroveError{
+			Code:    errors.ErrCodeConfigInvalid,
+			Message: "invalid create options",
+			Cause:   err,
+		}
+	}
+
 	s.logger.DebugOperation("starting create workflow",
 		"branch", options.BranchName,
 		"path", options.WorktreePath,
 		"copy_files", options.CopyFiles,
 	)
 
-	if err := s.validateOptions(options); err != nil {
-		return nil, &errors.GroveError{
-			Code:      errors.ErrCodeConfigInvalid,
-			Message:   "invalid create options",
-			Cause:     err,
-			Operation: "option_validation",
-		}
-	}
-
-	// Notify about input processing
+	// Notify about input processing.
 	inputInfo, err := s.classifyInput(options.BranchName)
 	if err != nil {
 		return nil, &errors.GroveError{
@@ -63,7 +66,7 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 		}
 	}
 
-	// Provide informative progress for different input types
+	// Provide informative progress for different input types.
 	if options.ProgressCallback != nil {
 		switch inputInfo.Type {
 		case InputTypeURL:
@@ -87,7 +90,7 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 
 	var worktreePath string
 	if options.WorktreePath == "" {
-		// Generate path from branch name
+		// Generate path from branch name.
 		if options.ProgressCallback != nil {
 			options.ProgressCallback("Generating worktree path")
 		}
@@ -101,7 +104,7 @@ func (s *CreateServiceImpl) Create(options *CreateOptions) (*CreateResult, error
 			}
 		}
 	} else {
-		// Resolve user-provided path against bare root
+		// Resolve user-provided path against bare root.
 		if options.ProgressCallback != nil {
 			options.ProgressCallback(fmt.Sprintf("Resolving worktree path: %s", options.WorktreePath))
 		}
@@ -238,8 +241,8 @@ func (s *CreateServiceImpl) classifyInput(input string) (*InputInfo, error) {
 }
 
 func (s *CreateServiceImpl) resolveBranchInfo(inputInfo *InputInfo, options *CreateOptions) (*BranchInfo, error) {
-	// For worktree creation, default to creating missing branches automatically
-	// The --create flag is now optional - we always attempt to create missing branches
+	// For worktree creation, default to creating missing branches automatically.
+	// The --create flag is now optional - we always attempt to create missing branches.
 	shouldCreateBranch := true
 
 	switch inputInfo.Type {
@@ -272,7 +275,7 @@ func (s *CreateServiceImpl) handleFileCopying(options *CreateOptions, targetWork
 	var sourceWorktree string
 	var err error
 
-	// If base branch is specified, try to find worktree for that branch first
+	// If base branch is specified, try to find worktree for that branch first.
 	if options.BaseBranch != "" {
 		sourceWorktree, err = s.fileManager.FindWorktreeByBranch(options.BaseBranch)
 		if err != nil {
@@ -281,7 +284,7 @@ func (s *CreateServiceImpl) handleFileCopying(options *CreateOptions, targetWork
 		}
 	}
 
-	// Fall back to default branch worktree if base branch worktree not found
+	// Fall back to default branch worktree if base branch worktree not found.
 	if sourceWorktree == "" {
 		sourceWorktree, err = s.fileManager.DiscoverSourceWorktree()
 		if err != nil {
@@ -292,7 +295,7 @@ func (s *CreateServiceImpl) handleFileCopying(options *CreateOptions, targetWork
 	patterns := options.CopyPatterns
 	if len(patterns) == 0 {
 		if options.CopyEnv {
-			patterns = []string{".env*", "*.local", "local.*"}
+			patterns = []string{".env*", "*.local.*", "*.local", "docker-compose.override.yml"}
 		} else {
 			patterns = viper.GetStringSlice("worktree.copy_files.patterns")
 		}

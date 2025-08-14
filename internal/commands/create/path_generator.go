@@ -76,12 +76,6 @@ func getHomeDir() (string, error) {
 	return homeDir, err
 }
 
-// resetHomeDirCache should only be called from test code to ensure test isolation.
-func resetHomeDirCache() {
-	homeDir = ""
-	homeDirOnce = sync.Once{}
-}
-
 func NewPathGenerator() PathGenerator {
 	return &pathGenerator{
 		config: getConfigFromViper(),

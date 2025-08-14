@@ -11,6 +11,10 @@ import (
 func ParseCreateOptions(cmd *cobra.Command, args []string) (CreateOptions, error) {
 	options := CreateOptions{
 		BranchName: args[0],
+		// Set a dummy progress callback for testing.
+		ProgressCallback: func(message string) {
+			// Do nothing in test context.
+		},
 	}
 
 	if len(args) > 1 {
@@ -54,6 +58,11 @@ func parseCopyFlags(cmd *cobra.Command, options *CreateOptions) error {
 	noCopy, err := cmd.Flags().GetBool("no-copy")
 	if err != nil {
 		return errors.Wrap(err, "failed to get no-copy flag")
+	}
+
+	// Set default patterns for copy-env if no explicit patterns were provided.
+	if options.CopyEnv && len(options.CopyPatterns) == 0 {
+		options.CopyPatterns = []string{".env*", "*.local.*", "docker-compose.override.yml"}
 	}
 
 	options.CopyFiles = determineCopyBehavior(noCopy, options.CopyEnv, len(options.CopyPatterns) > 0)

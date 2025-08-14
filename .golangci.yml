@@ -5,6 +5,7 @@ run:
   modules-download-mode: readonly
   skip-dirs:
     - testdata
+    - test-archive
 
 issues:
   max-issues-per-linter: 0

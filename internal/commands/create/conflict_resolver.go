@@ -12,14 +12,14 @@ import (
 // conflictResolver handles worktree branch conflicts by managing
 // detachment of conflicting branches.
 type conflictResolver struct {
-	executor git.GitExecutor
-	logger   *logger.Logger
+	commander git.Commander
+	logger    *logger.Logger
 }
 
-func newConflictResolver(executor git.GitExecutor) *conflictResolver {
+func newConflictResolver(commander git.Commander) *conflictResolver {
 	return &conflictResolver{
-		executor: executor,
-		logger:   logger.WithComponent("conflict_resolver"),
+		commander: commander,
+		logger:    logger.WithComponent("conflict_resolver"),
 	}
 }
 
@@ -56,7 +56,7 @@ func (cr *conflictResolver) resolveWorktreeConflict(branchName, conflictingWorkt
 		"branch", branchName,
 		"worktree_path", conflictingWorktreePath)
 
-	_, err := cr.executor.Execute("-C", conflictingWorktreePath, "checkout", "--detach")
+	_, _, err := cr.commander.Run(conflictingWorktreePath, "checkout", "--detach")
 	if err != nil {
 		return groveErrors.ErrGitOperation("checkout --detach", err).
 			WithContext("worktree_path", conflictingWorktreePath).
@@ -73,7 +73,8 @@ func (cr *conflictResolver) resolveWorktreeConflict(branchName, conflictingWorkt
 
 func (cr *conflictResolver) isMainWorktree(worktreePath string) (bool, error) {
 	// Works with both regular worktrees and bare repositories.
-	output, err := cr.executor.ExecuteQuiet("worktree", "list", "--porcelain")
+	stdout, _, err := cr.commander.Run(".", "worktree", "list", "--porcelain")
+	output := strings.TrimSpace(string(stdout))
 	if err != nil {
 		return false, err
 	}
@@ -107,7 +108,8 @@ func (cr *conflictResolver) isMainWorktree(worktreePath string) (bool, error) {
 }
 
 func (cr *conflictResolver) worktreeHasUncommittedChanges(worktreePath string) (bool, error) {
-	output, err := cr.executor.ExecuteQuiet("-C", worktreePath, "status", "--porcelain")
+	stdout, _, err := cr.commander.Run(worktreePath, "status", "--porcelain")
+	output := strings.TrimSpace(string(stdout))
 	if err != nil {
 		return false, err
 	}

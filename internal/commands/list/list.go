@@ -107,24 +107,48 @@ func runListCommandWithExecutor(executor git.GitExecutor, options *ListOptions) 
 }
 
 func validateListOptions(options *ListOptions) error {
-	filterCount := 0
-	if options.DirtyOnly {
-		filterCount++
-	}
-	if options.StaleOnly {
-		filterCount++
-	}
-	if options.CleanOnly {
-		filterCount++
-	}
-	if filterCount > 1 {
+	// Check for conflicting filters with specific error messages
+	if options.DirtyOnly && options.CleanOnly {
 		return errors.NewGroveError(
 			errors.ErrCodeConfigInvalid,
-			"Cannot specify multiple filters (--dirty, --stale, --clean) simultaneously",
+			"cannot use --dirty and --clean flags together",
+			nil,
+		)
+	}
+	if options.DirtyOnly && options.StaleOnly {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"cannot use --dirty and --stale flags together",
+			nil,
+		)
+	}
+	if options.CleanOnly && options.StaleOnly {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"cannot use --clean and --stale flags together",
 			nil,
 		)
 	}
 
+	// Check for conflicting output formats
+	if options.Porcelain && options.Verbose {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"cannot use --porcelain and --verbose flags together",
+			nil,
+		)
+	}
+
+	// Validate stale days is positive when stale filter is used
+	if options.StaleOnly && options.StaleDays < 0 {
+		return errors.NewGroveError(
+			errors.ErrCodeConfigInvalid,
+			"stale days must be positive",
+			nil,
+		)
+	}
+
+	// Validate sort option
 	validSorts := []ListSortOption{SortByActivity, SortByName, SortByStatus}
 	validSort := false
 	for _, valid := range validSorts {
@@ -136,7 +160,7 @@ func validateListOptions(options *ListOptions) error {
 	if !validSort {
 		return errors.NewGroveError(
 			errors.ErrCodeConfigInvalid,
-			fmt.Sprintf("Invalid sort option: %s", options.Sort),
+			"invalid sort option",
 			nil,
 		)
 	}

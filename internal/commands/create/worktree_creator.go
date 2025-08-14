@@ -11,6 +11,10 @@ import (
 	"github.com/sqve/grove/internal/logger"
 )
 
+const (
+	defaultRemoteName = "origin"
+)
+
 // worktreeOperation encapsulates atomic worktree creation with rollback
 type worktreeOperation struct {
 	worktree         *WorktreeCreatorImpl
@@ -18,23 +22,23 @@ type worktreeOperation struct {
 	path             string
 	options          WorktreeOptions
 	progressCallback ProgressCallback
-	createdDirs      []string // Track created directories for cleanup
-	createdFiles     []string // Track created files for cleanup
+	createdDirs      []string // Track created directories for cleanup.
+	createdFiles     []string // Track created files for cleanup.
 }
 
 // WorktreeCreatorImpl implements the WorktreeCreator interface.
 type WorktreeCreatorImpl struct {
-	executor         git.GitExecutor
+	commander        git.Commander
 	logger           *logger.Logger
 	conflictResolver *conflictResolver
 }
 
-// NewWorktreeCreator creates a new WorktreeCreator with the provided GitExecutor.
-func NewWorktreeCreator(executor git.GitExecutor) *WorktreeCreatorImpl {
+// NewWorktreeCreator creates a new WorktreeCreator with the provided GitCommander.
+func NewWorktreeCreator(commander git.Commander) *WorktreeCreatorImpl {
 	return &WorktreeCreatorImpl{
-		executor:         executor,
+		commander:        commander,
 		logger:           logger.WithComponent("worktree_creator"),
-		conflictResolver: newConflictResolver(executor),
+		conflictResolver: newConflictResolver(commander),
 	}
 }
 
@@ -130,7 +134,6 @@ func (op *worktreeOperation) ensureParentDirectory() error {
 		return groveErrors.ErrDirectoryAccess(parentDir, err)
 	}
 
-	// Track in reverse order for proper cleanup.
 	for i := len(dirsToCreate) - 1; i >= 0; i-- {
 		op.createdDirs = append(op.createdDirs, dirsToCreate[i])
 	}
@@ -138,14 +141,13 @@ func (op *worktreeOperation) ensureParentDirectory() error {
 	return nil
 }
 
-// Returns directories that need creation in parent-to-child order.
 func (op *worktreeOperation) identifyDirectoriesToCreate(targetDir string) []string {
 	var dirsToCreate []string
 	currentPath := targetDir
 
 	for currentPath != "." && currentPath != "/" {
 		if _, err := os.Stat(currentPath); os.IsNotExist(err) {
-			// Prepend to maintain parent-to-child order.
+
 			dirsToCreate = append([]string{currentPath}, dirsToCreate...)
 			currentPath = filepath.Dir(currentPath)
 		} else {
@@ -157,7 +159,7 @@ func (op *worktreeOperation) identifyDirectoriesToCreate(targetDir string) []str
 }
 
 func (op *worktreeOperation) createFromExistingBranch() error {
-	_, err := op.worktree.executor.Execute("worktree", "add", op.path, op.branchName)
+	_, _, err := op.worktree.commander.Run(".", "worktree", "add", op.path, op.branchName)
 	if err != nil {
 		if op.isBranchInUseError(err) {
 			return op.handleBranchConflict(err)
@@ -174,7 +176,7 @@ func (op *worktreeOperation) createWithNewBranch() error {
 		args = append(args, op.options.BaseBranch)
 	}
 
-	_, err := op.worktree.executor.Execute(args...)
+	_, _, err := op.worktree.commander.Run(".", args...)
 	if err != nil {
 		if op.isBranchInUseError(err) {
 			return op.handleBranchConflict(err)
@@ -184,7 +186,7 @@ func (op *worktreeOperation) createWithNewBranch() error {
 
 	if op.options.TrackRemote {
 		if err := op.setupRemoteTracking(); err != nil {
-			// Remote tracking failure is not critical but should be cleaned up
+			// Remote tracking failure is not critical but should be cleaned up.
 			return groveErrors.ErrWorktreeCreation("remote-tracking", err)
 		}
 	}
@@ -194,7 +196,9 @@ func (op *worktreeOperation) createWithNewBranch() error {
 
 // isBranchInUseError checks if the error indicates a branch is already in use by another worktree
 func (op *worktreeOperation) isBranchInUseError(err error) bool {
-	return strings.Contains(err.Error(), "already used by worktree")
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "already used by worktree") ||
+		strings.Contains(errMsg, "already checked out in another worktree")
 }
 
 // handleBranchConflict attempts to resolve branch conflicts using Grove error patterns
@@ -242,6 +246,18 @@ func (op *worktreeOperation) handleBranchConflict(err error) error {
 
 // extractWorktreePath extracts the worktree path from error message
 func (op *worktreeOperation) extractWorktreePath(errorStr string) string {
+	// Handle both old format "at 'path'" and new format "at: path"
+	if idx := strings.Index(errorStr, "at: "); idx != -1 {
+		start := idx + 4
+		// For new format, path goes to end of line or newline
+		end := len(errorStr)
+		if newlineIdx := strings.Index(errorStr[start:], "\n"); newlineIdx != -1 {
+			end = start + newlineIdx
+		}
+		return strings.TrimSpace(errorStr[start:end])
+	}
+
+	// Fallback to old format "at 'path'"
 	if idx := strings.Index(errorStr, "at '"); idx != -1 {
 		start := idx + 4
 		if end := strings.Index(errorStr[start:], "'"); end != -1 {
@@ -253,23 +269,25 @@ func (op *worktreeOperation) extractWorktreePath(errorStr string) string {
 
 // setupRemoteTracking configures remote tracking for the new branch
 func (op *worktreeOperation) setupRemoteTracking() error {
-	remote, err := op.worktree.executor.ExecuteQuiet("config", "--get", "clone.defaultRemoteName")
+	stdout, _, err := op.worktree.commander.Run(".", "config", "--get", "clone.defaultRemoteName")
+	remote := strings.TrimSpace(string(stdout))
 	if err != nil || remote == "" {
-		remote = "origin" // Fallback to standard default
+		remote = defaultRemoteName
 	}
 
 	remoteBranch := remote + "/" + op.branchName
 
 	// Check if the remote branch exists before setting upstream
-	output, err := op.worktree.executor.ExecuteQuiet("branch", "-r", "--list", remoteBranch)
-	if err != nil || strings.TrimSpace(output) == "" {
-		// Remote branch doesn't exist, skip upstream setup
-		op.worktree.logger.Debug("skipping upstream setup - remote branch does not exist",
+	stdout, _, err = op.worktree.commander.Run(".", "branch", "-r", "--list", remoteBranch)
+	output := strings.TrimSpace(string(stdout))
+	if err != nil || output == "" {
+		// Remote branch doesn't exist, skip upstream setup.
+		op.worktree.logger.Debug("skipping upstream setup - remote branch does not exist.",
 			"remote_branch", remoteBranch)
 		return nil
 	}
 
-	_, err = op.worktree.executor.Execute("-C", op.path, "branch", "--set-upstream-to="+remoteBranch, op.branchName)
+	_, _, err = op.worktree.commander.Run(op.path, "branch", "--set-upstream-to="+remoteBranch, op.branchName)
 	if err != nil {
 		return groveErrors.ErrWorktreeCreation("set-upstream", err)
 	}
@@ -282,10 +300,9 @@ func (op *worktreeOperation) rollback() {
 	// Remove Git worktree if it was created
 	if _, err := os.Stat(op.path); err == nil {
 		// Try git worktree remove first
-		if _, gitErr := op.worktree.executor.ExecuteQuiet("worktree", "remove", "--force", op.path); gitErr != nil {
+		if gitErr := op.worktree.commander.RunQuiet(".", "worktree", "remove", "--force", op.path); gitErr != nil {
 			// If git worktree remove fails, try manual cleanup
 			if fsErr := os.RemoveAll(op.path); fsErr != nil {
-				// Log rollback failures at debug level to avoid cluttering user output
 				op.worktree.logger.DebugOperation("failed to remove worktree directory during rollback",
 					"path", op.path,
 					"error", fsErr.Error())
@@ -293,17 +310,12 @@ func (op *worktreeOperation) rollback() {
 		}
 	}
 
-	// Clean up any directories we created (in reverse order)
-	// Use RemoveAll instead of Remove to handle non-empty directories
+	// Clean up any directories we created (in reverse order).
 	for i := len(op.createdDirs) - 1; i >= 0; i-- {
 		dir := op.createdDirs[i]
 		// Check if directory exists before attempting removal
 		if _, err := os.Stat(dir); err == nil {
-			// Only attempt to remove if it's empty or we created nested structure
 			if err := os.Remove(dir); err != nil {
-				// If Remove fails (directory not empty), that's expected for existing directories
-				// We only created the path, not necessarily all contents
-				// Log rollback failures at debug level to avoid cluttering user output
 				op.worktree.logger.DebugOperation("could not remove directory during rollback (may contain user files)",
 					"directory", dir,
 					"error", err.Error())
@@ -311,10 +323,9 @@ func (op *worktreeOperation) rollback() {
 		}
 	}
 
-	// Clean up any files we created
+	// Clean up any files we created.
 	for _, file := range op.createdFiles {
 		if err := os.Remove(file); err != nil {
-			// Log rollback failures at debug level to avoid cluttering user output
 			op.worktree.logger.DebugOperation("failed to remove created file during rollback",
 				"file", file,
 				"error", err.Error())
@@ -343,20 +354,20 @@ func (op *worktreeOperation) retryWorktreeCreation() error {
 	// Track remote if specified
 	if op.options.TrackRemote && exists {
 		// Add tracking after worktree creation for existing branches
-		if _, trackErr := op.worktree.executor.Execute("-C", op.path, "branch", "--set-upstream-to", "origin/"+op.branchName); trackErr != nil {
+		if _, _, trackErr := op.worktree.commander.Run(op.path, "branch", "--set-upstream-to", defaultRemoteName+"/"+op.branchName); trackErr != nil {
 			op.worktree.logger.DebugOperation("failed to set upstream tracking",
 				"branch", op.branchName,
 				"error", trackErr.Error())
 		}
 	}
 
-	_, err = op.worktree.executor.Execute(args...)
+	_, _, err = op.worktree.commander.Run(".", args...)
 	return err
 }
 
 // branchExists checks if a branch exists locally.
 func (w *WorktreeCreatorImpl) branchExists(branchName string) (bool, error) {
-	_, err := w.executor.ExecuteQuiet("show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
+	err := w.commander.RunQuiet(".", "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
 	if err != nil {
 		return false, nil
 	}

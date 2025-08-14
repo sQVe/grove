@@ -37,6 +37,67 @@ func (e *DefaultGitExecutor) ExecuteWithContext(ctx context.Context, args ...str
 
 var DefaultExecutor GitExecutor = &DefaultGitExecutor{}
 
+// CommanderAdapter bridges the gap between legacy GitExecutor code and the newer Commander interface.
+// This adapter prevents breaking changes while migrating from GitExecutor to Commander architecture.
+type CommanderAdapter struct {
+	commander Commander
+	workDir   string
+}
+
+// NewCommanderAdapter creates a new adapter that wraps a Commander to implement GitExecutor.
+func NewCommanderAdapter(commander Commander) *CommanderAdapter {
+	return &CommanderAdapter{
+		commander: commander,
+		workDir:   "",
+	}
+}
+
+// NewCommanderAdapterWithWorkDir creates a new adapter with a specific working directory.
+func NewCommanderAdapterWithWorkDir(commander Commander, workDir string) *CommanderAdapter {
+	return &CommanderAdapter{
+		commander: commander,
+		workDir:   workDir,
+	}
+}
+
+// Execute implements GitExecutor.Execute by delegating to Commander.Run.
+func (a *CommanderAdapter) Execute(args ...string) (string, error) {
+	stdout, _, err := a.commander.Run(a.workDir, args...)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(stdout)), nil
+}
+
+// ExecuteQuiet implements GitExecutor.ExecuteQuiet by delegating to Commander.RunQuiet.
+func (a *CommanderAdapter) ExecuteQuiet(args ...string) (string, error) {
+	err := a.commander.RunQuiet(a.workDir, args...)
+	if err != nil {
+		return "", err
+	}
+	// For quiet operations, we don't return output, but GitExecutor interface expects it.
+	// So we call the regular Run method but don't log failures.
+	stdout, _, runErr := a.commander.Run(a.workDir, args...)
+	if runErr != nil {
+		return "", runErr
+	}
+	return strings.TrimSpace(string(stdout)), nil
+}
+
+// ExecuteWithContext implements GitExecutor.ExecuteWithContext.
+// Note: Commander interface doesn't support context, so this falls back to regular execution.
+func (a *CommanderAdapter) ExecuteWithContext(ctx context.Context, args ...string) (string, error) {
+	// Check if context is already cancelled.
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	// Commander doesn't support context, so we execute normally.
+	return a.Execute(args...)
+}
+
 func isNetworkError(err error) bool {
 	if err == nil {
 		return false

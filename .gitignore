@@ -28,11 +28,12 @@ vendor/
 go.work
 
 # IDE and editor files
-.vscode/
-.idea/
-*.swp
 *.swo
+*.swp
 *~
+.idea/
+.serena/
+.vscode/
 
 # OS generated files
 .DS_Store
@@ -52,3 +53,8 @@ Thumbs.db
 dist/
 build/
 bin/
+test-archive/
+
+# AI related files
+.claude.backup-*/
+.spec-workflow/session.json

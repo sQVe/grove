@@ -47,7 +47,7 @@ func BranchToDirectoryName(branchName string) string {
 	return dirName
 }
 
-// This function validates that the name doesn't contain problematic characters.
+// This function validates that the name doesn't contain problematic characters
 // that could cause issues on various filesystems.
 func IsValidDirectoryName(name string) bool {
 	if name == "" {

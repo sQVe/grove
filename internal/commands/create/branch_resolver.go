@@ -12,14 +12,14 @@ import (
 )
 
 type branchResolver struct {
-	executor git.GitExecutor
-	logger   *logger.Logger
+	gitCommander git.Commander
+	logger       *logger.Logger
 }
 
-func NewBranchResolver(executor git.GitExecutor) BranchResolver {
+func NewBranchResolver(gitCommander git.Commander) BranchResolver {
 	return &branchResolver{
-		executor: executor,
-		logger:   logger.WithComponent("branch_resolver"),
+		gitCommander: gitCommander,
+		logger:       logger.WithComponent("branch_resolver"),
 	}
 }
 
@@ -223,12 +223,12 @@ func (r *branchResolver) ResolveRemoteBranch(remoteBranch string) (*BranchInfo, 
 }
 
 func (r *branchResolver) branchExistsLocally(branchName string) (bool, error) {
-	output, err := r.executor.ExecuteQuiet("branch", "-a", "--list")
+	stdout, _, err := r.gitCommander.Run("", "branch", "-a", "--list")
 	if err != nil {
 		return false, err
 	}
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
+	lines := strings.Split(strings.TrimSpace(string(stdout)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		line = strings.TrimPrefix(line, "* ")
@@ -242,12 +242,12 @@ func (r *branchResolver) branchExistsLocally(branchName string) (bool, error) {
 }
 
 func (r *branchResolver) checkRemoteBranch(branchName string) (*BranchInfo, error) {
-	output, err := r.executor.ExecuteQuiet("branch", "-r", "--list", "*/"+branchName)
+	stdout, _, err := r.gitCommander.Run("", "branch", "-r", "--list", "*/"+branchName)
 	if err != nil {
 		return nil, err
 	}
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
+	lines := strings.Split(strings.TrimSpace(string(stdout)), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -270,12 +270,12 @@ func (r *branchResolver) checkRemoteBranch(branchName string) (*BranchInfo, erro
 }
 
 func (r *branchResolver) requiresRemoteSetup(repoURL string) bool {
-	output, err := r.executor.ExecuteQuiet("remote", "-v")
+	stdout, _, err := r.gitCommander.Run("", "remote", "-v")
 	if err != nil {
-		return true // Assume we need setup if we can't check.
+		return true
 	}
 
-	return !strings.Contains(output, repoURL)
+	return !strings.Contains(string(stdout), repoURL)
 }
 
 func (r *branchResolver) RemoteExists(remoteName string) bool {
@@ -283,12 +283,12 @@ func (r *branchResolver) RemoteExists(remoteName string) bool {
 }
 
 func (r *branchResolver) remoteExists(remoteName string) bool {
-	output, err := r.executor.ExecuteQuiet("remote")
+	stdout, _, err := r.gitCommander.Run("", "remote")
 	if err != nil {
 		return false
 	}
 
-	remotes := strings.Split(strings.TrimSpace(output), "\n")
+	remotes := strings.Split(strings.TrimSpace(string(stdout)), "\n")
 	for _, remote := range remotes {
 		if strings.TrimSpace(remote) == remoteName {
 			return true
@@ -298,17 +298,17 @@ func (r *branchResolver) remoteExists(remoteName string) bool {
 }
 
 func (r *branchResolver) fetchRemote(remoteName string) error {
-	_, err := r.executor.Execute("fetch", remoteName)
+	_, _, err := r.gitCommander.Run("", "fetch", remoteName)
 	return err
 }
 
 func (r *branchResolver) remoteBranchExists(remoteName, branchName string) (bool, error) {
 	remoteBranch := remoteName + "/" + branchName
-	output, err := r.executor.ExecuteQuiet("branch", "-r", "--list", remoteBranch)
+	stdout, _, err := r.gitCommander.Run("", "branch", "-r", "--list", remoteBranch)
 	if err != nil {
 		return false, err
 	}
-	return strings.TrimSpace(output) != "", nil
+	return strings.TrimSpace(string(stdout)) != "", nil
 }
 
 func validateBranchName(name string) error {

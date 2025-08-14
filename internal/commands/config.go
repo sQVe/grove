@@ -3,6 +3,7 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -353,7 +354,7 @@ func runConfigReset(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		config.SetDefaults()
+		config.ResetToDefaults()
 		if err := config.WriteConfig(); err != nil {
 			return fmt.Errorf("failed to write config: %w", err)
 		}
@@ -433,13 +434,20 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 
 	config.SetDefaults()
 
+	var newFile string
 	if err := config.SafeWriteConfig(); err != nil {
 		if err := config.WriteConfig(); err != nil {
 			return fmt.Errorf("failed to write config: %w", err)
 		}
+		newFile = config.ConfigFileUsed()
+	} else {
+		// SafeWriteConfig succeeded, get the path from config paths
+		configPaths := config.GetConfigPaths()
+		if len(configPaths) > 0 {
+			newFile = filepath.Join(configPaths[0], "config.toml")
+		}
 	}
 
-	newFile := config.ConfigFileUsed()
 	cmd.Printf("Created configuration file: %s\n", newFile)
 
 	return nil

@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/magefile/mage/mg"
@@ -14,25 +14,17 @@ import (
 
 type Test mg.Namespace
 
-// Unit runs fast unit tests (excluding integration tests).
 func (Test) Unit() error {
 	fmt.Println("Running unit tests...")
-	return sh.RunV("go", "test", "-tags=!integration", "-short", "./...")
+	return sh.RunV("go", "run", "gotest.tools/gotestsum@latest", "--format", "testname", "--", "-tags=!integration", "-short", "./...")
 }
 
-// Integration runs slow integration tests only.
 func (Test) Integration() error {
 	fmt.Println("Running integration tests...")
-	return sh.RunV("go", "test", "-tags=integration", "./...")
+	return sh.RunV("go", "run", "gotest.tools/gotestsum@latest", "--format", "testname", "--", "-tags=integration", "-timeout=300s", "./test/integration/...")
 }
 
-// All runs both unit and integration tests.
-func (Test) All() error {
-	fmt.Println("Running all tests...")
-	return sh.RunV("go", "test", "./...")
-}
-
-// Coverage runs unit tests with coverage reporting.
+// Coverage runs unit tests with coverage reporting and optional CI validation.
 func (Test) Coverage() error {
 	fmt.Println("Running unit tests with coverage...")
 
@@ -40,49 +32,63 @@ func (Test) Coverage() error {
 		return err
 	}
 
-	if err := sh.RunV("go", "test", "-tags=!integration", "-short", "-coverprofile=coverage/coverage.out", "./..."); err != nil {
+	// Determine if we're in CI environment
+	isCI := os.Getenv("CI") != ""
+
+	// Build coverage command
+	args := []string{"test", "-v", "-tags=!integration", "-short", "-coverprofile=coverage/coverage.out", "-coverpkg=./internal/...", "-covermode=atomic"}
+	if isCI {
+		args = append(args, "-race") // Add race detection for CI
+	}
+	args = append(args, "./...")
+
+	if err := sh.RunV("go", args...); err != nil {
 		return err
 	}
 
-	if err := sh.RunV("go", "tool", "cover", "-html=coverage/coverage.out", "-o=coverage/coverage.html"); err != nil {
-		return err
+	// Generate HTML coverage report (skip in CI)
+	if !isCI {
+		if err := sh.RunV("go", "tool", "cover", "-html=coverage/coverage.out", "-o=coverage/coverage.html"); err != nil {
+			return err
+		}
+		fmt.Println("Coverage report generated at coverage/coverage.html")
 	}
 
-	fmt.Println("Coverage report generated at coverage/coverage.html")
+	// Get and display coverage percentage
+	if output, err := sh.Output("go", "tool", "cover", "-func=coverage/coverage.out"); err == nil {
+		lines := strings.Split(strings.TrimSpace(output), "\n")
+		if len(lines) > 0 {
+			totalLine := lines[len(lines)-1]
+			if strings.Contains(totalLine, "total:") {
+				coverageStr := strings.TrimPrefix(totalLine, "total:")
+				fmt.Printf("Total %s\n", coverageStr)
+
+				// In CI, validate coverage meets 90% threshold
+				if isCI {
+					parts := strings.Fields(coverageStr)
+					if len(parts) >= 1 {
+						// Extract the percentage from the last field
+						lastField := parts[len(parts)-1]
+						percentage := strings.TrimSuffix(lastField, "%")
+						if percentageFloat, err := strconv.ParseFloat(percentage, 64); err == nil {
+							if percentageFloat < 90.0 {
+								return fmt.Errorf("coverage %.1f%% is below required 90%% threshold", percentageFloat)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if isCI {
+		fmt.Println("Coverage requirement (90%+) met successfully!")
+	}
 	return nil
-}
-
-// Watch runs unit tests in watch mode (requires entr).
-func (Test) Watch() error {
-	fmt.Println("Running unit tests in watch mode...")
-	fmt.Println("Press Ctrl+C to stop watching...")
-
-	if err := sh.Run("which", "entr"); err != nil {
-		return fmt.Errorf("entr is required for watch mode. Install with: brew install entr (macOS) or apt-get install entr (Linux)")
-	}
-
-	return sh.RunV("sh", "-c", "find . -name '*.go' | entr -c -n mage test:unit")
-}
-
-// Clean removes test artifacts.
-func (Test) Clean() error {
-	fmt.Println("Cleaning test artifacts...")
-
-	if err := os.RemoveAll("coverage"); err != nil {
-		return err
-	}
-
-	return sh.RunV("go", "clean", "-testcache")
-}
-
-// Default test target runs unit tests.
-func (Test) Default() error {
-	return Test{}.Unit()
 }
 
 type Build mg.Namespace
 
-// All builds the application for the current platform.
 func (Build) All() error {
 	fmt.Println("Building Grove...")
 	return sh.RunV("go", "build", "-o", "bin/grove", "./cmd/grove")
@@ -125,12 +131,6 @@ func (Build) Release() error {
 	return nil
 }
 
-// Clean removes build artifacts from bin directory.
-func (Build) Clean() error {
-	fmt.Println("Cleaning build artifacts...")
-	return os.RemoveAll("bin")
-}
-
 // Lint runs golangci-lint (with --fix unless in CI).
 func Lint() error {
 	fmt.Println("Running golangci-lint...")
@@ -142,27 +142,27 @@ func Lint() error {
 	return sh.RunV("golangci-lint", "run", "--fix")
 }
 
-// CI runs the full CI pipeline.
 func CI() error {
 	fmt.Println("Running CI pipeline...")
 
-	test := Test{}
-	build := Build{}
-
-	mg.Deps(test.Clean, build.Clean)
+	if err := Clean(); err != nil {
+		return fmt.Errorf("cleanup failed: %w", err)
+	}
 
 	if err := Lint(); err != nil {
 		return fmt.Errorf("linting failed: %w", err)
 	}
 
-	if err := test.Unit(); err != nil {
-		return fmt.Errorf("unit tests failed: %w", err)
+	test := Test{}
+	if err := test.Coverage(); err != nil {
+		return fmt.Errorf("unit tests with coverage failed: %w", err)
 	}
 
 	if err := test.Integration(); err != nil {
 		return fmt.Errorf("integration tests failed: %w", err)
 	}
 
+	build := Build{}
 	if err := build.All(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -171,86 +171,19 @@ func CI() error {
 	return nil
 }
 
-// Dev runs a development environment setup.
-func Dev() error {
-	fmt.Println("Setting up development environment...")
-
-	tools := []string{
-		"github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
-	}
-
-	for _, tool := range tools {
-		fmt.Printf("Installing %s...\n", tool)
-		if err := sh.RunV("go", "install", tool); err != nil {
-			fmt.Printf("Warning: failed to install %s: %v\n", tool, err)
-		}
-	}
-
-	fmt.Println("Development environment setup complete!")
-	return nil
-}
-
 // Clean removes all generated artifacts.
 func Clean() error {
 	fmt.Println("Cleaning all artifacts...")
 
-	test := Test{}
-	build := Build{}
-
-	mg.Deps(test.Clean, build.Clean)
-
-	return nil
-}
-
-// Info displays environment information.
-func Info() error {
-	fmt.Printf("Go version: %s\n", runtime.Version())
-	fmt.Printf("Go OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
-
-	if output, err := sh.Output("git", "rev-parse", "--short", "HEAD"); err == nil {
-		fmt.Printf("Git commit: %s\n", strings.TrimSpace(output))
+	if err := os.RemoveAll("coverage"); err != nil {
+		return err
 	}
 
-	if output, err := sh.Output("git", "branch", "--show-current"); err == nil {
-		fmt.Printf("Git branch: %s\n", strings.TrimSpace(output))
+	if err := os.RemoveAll("bin"); err != nil {
+		return err
 	}
 
-	if output, err := sh.Output("go", "list", "-m"); err == nil {
-		fmt.Printf("Module: %s\n", strings.TrimSpace(output))
-	}
-
-	return nil
-}
-
-// Help displays available targets.
-func Help() error {
-	fmt.Println("Available targets:")
-	fmt.Println("")
-	fmt.Println("Test targets:")
-	fmt.Println("  mage test:unit        - Run fast unit tests (default)")
-	fmt.Println("  mage test:integration - Run slow integration tests")
-	fmt.Println("  mage test:all         - Run all tests")
-	fmt.Println("  mage test:coverage    - Run unit tests with coverage")
-	fmt.Println("  mage test:watch       - Watch for changes and run unit tests")
-	fmt.Println("  mage test:clean       - Clean test artifacts")
-	fmt.Println("")
-	fmt.Println("Build targets:")
-	fmt.Println("  mage build:all        - Build the application")
-	fmt.Println("  mage build:release    - Build release binaries")
-	fmt.Println("  mage build:clean      - Clean build artifacts")
-	fmt.Println("")
-	fmt.Println("Lint targets:")
-	fmt.Println("  mage lint             - Run golangci-lint (with --fix unless in CI)")
-	fmt.Println("")
-	fmt.Println("Other targets:")
-	fmt.Println("  mage ci               - Run full CI pipeline")
-	fmt.Println("  mage dev              - Setup development environment")
-	fmt.Println("  mage clean            - Clean all artifacts")
-	fmt.Println("  mage info             - Display environment information")
-	fmt.Println("")
-	fmt.Println("For faster development, use 'mage test:unit' or just 'mage'")
-
-	return nil
+	return sh.RunV("go", "clean", "-testcache")
 }
 
 // Default target runs unit tests.

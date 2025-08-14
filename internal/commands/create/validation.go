@@ -41,6 +41,9 @@ func ValidateFlags(noCopy, copyEnv bool, copyPatterns string) error {
 	if noCopy && (copyEnv || copyPatterns != "") {
 		return errors.NewGroveError(errors.ErrCodeConfigInvalid, "--no-copy cannot be used with --copy-env or --copy flags", nil)
 	}
+	if copyEnv && copyPatterns != "" {
+		return errors.NewGroveError(errors.ErrCodeConfigInvalid, "cannot use both --copy-env and --copy", nil)
+	}
 	return nil
 }
 

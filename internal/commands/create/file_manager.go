@@ -15,13 +15,13 @@ import (
 
 // FileManagerImpl implements the FileManager interface for copying files between worktrees.
 type FileManagerImpl struct {
-	executor git.GitExecutor
+	commander git.Commander
 }
 
-// NewFileManager creates a new FileManager with the provided GitExecutor.
-func NewFileManager(executor git.GitExecutor) *FileManagerImpl {
+// NewFileManager creates a new FileManager with the provided Commander.
+func NewFileManager(commander git.Commander) *FileManagerImpl {
 	return &FileManagerImpl{
-		executor: executor,
+		commander: commander,
 	}
 }
 
@@ -94,7 +94,8 @@ func (f *FileManagerImpl) GetCurrentWorktreePath() (string, error) {
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	output, err := f.executor.ExecuteQuiet("-C", cwd, "rev-parse", "--show-toplevel")
+	stdout, _, err := f.commander.Run(cwd, "rev-parse", "--show-toplevel")
+	output := string(stdout)
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("rev-parse --show-toplevel", err)
 	}
@@ -107,7 +108,9 @@ func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
 	// First, try to detect the default branch with any available remote
 	remoteName := f.getFirstRemote()
 	if remoteName != "" {
-		defaultBranch, err := git.DetectDefaultBranch(f.executor, remoteName)
+		// Create a temporary adapter to use the existing DetectDefaultBranch function
+		adapter := git.NewCommanderAdapter(f.commander)
+		defaultBranch, err := git.DetectDefaultBranch(adapter, remoteName)
 		if err == nil {
 			// Look for a worktree that has the default branch
 			worktreePath, err := f.FindWorktreeByBranch(defaultBranch)
@@ -132,7 +135,8 @@ func (f *FileManagerImpl) DiscoverSourceWorktree() (string, error) {
 
 // getFirstRemote returns the name of the first available remote, or empty string if none
 func (f *FileManagerImpl) getFirstRemote() string {
-	output, err := f.executor.ExecuteQuiet("remote")
+	stdout, _, err := f.commander.Run(".", "remote")
+	output := string(stdout)
 	if err != nil {
 		return ""
 	}
@@ -146,7 +150,8 @@ func (f *FileManagerImpl) getFirstRemote() string {
 
 // getCurrentBranch returns the name of the current branch
 func (f *FileManagerImpl) getCurrentBranch() (string, error) {
-	output, err := f.executor.ExecuteQuiet("branch", "--show-current")
+	stdout, _, err := f.commander.Run(".", "branch", "--show-current")
+	output := string(stdout)
 	if err != nil {
 		return "", err
 	}
@@ -156,7 +161,8 @@ func (f *FileManagerImpl) getCurrentBranch() (string, error) {
 // discoverSourceWorktreeFallback uses the original logic as fallback
 func (f *FileManagerImpl) discoverSourceWorktreeFallback() (string, error) {
 	// Check if we're in a bare repository first
-	isBare, err := f.executor.ExecuteQuiet("rev-parse", "--is-bare-repository")
+	stdout, _, err := f.commander.Run(".", "rev-parse", "--is-bare-repository")
+	isBare := string(stdout)
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("rev-parse --is-bare-repository", err)
 	}
@@ -164,21 +170,24 @@ func (f *FileManagerImpl) discoverSourceWorktreeFallback() (string, error) {
 	var repoRoot string
 	if strings.TrimSpace(isBare) == "true" {
 		// In bare repository, get the git directory path
-		gitDir, err := f.executor.ExecuteQuiet("rev-parse", "--git-dir")
+		stdout, _, err := f.commander.Run(".", "rev-parse", "--git-dir")
+		gitDir := string(stdout)
 		if err != nil {
 			return "", groveErrors.ErrGitOperation("rev-parse --git-dir", err)
 		}
 		repoRoot = strings.TrimSpace(gitDir)
 	} else {
 		// In regular repository, get the working tree root
-		root, err := f.executor.ExecuteQuiet("rev-parse", "--show-toplevel")
+		stdout, _, err := f.commander.Run(".", "rev-parse", "--show-toplevel")
+		root := string(stdout)
 		if err != nil {
 			return "", groveErrors.ErrGitOperation("rev-parse --show-toplevel", err)
 		}
 		repoRoot = strings.TrimSpace(root)
 	}
 
-	worktreeList, err := f.executor.ExecuteQuiet("worktree", "list", "--porcelain")
+	stdout, _, err = f.commander.Run(".", "worktree", "list", "--porcelain")
+	worktreeList := string(stdout)
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("worktree list --porcelain", err)
 	}
@@ -218,7 +227,8 @@ func (f *FileManagerImpl) discoverSourceWorktreeFallback() (string, error) {
 
 // FindWorktreeByBranch finds the worktree path for a specific branch name.
 func (f *FileManagerImpl) FindWorktreeByBranch(branchName string) (string, error) {
-	worktreeList, err := f.executor.ExecuteQuiet("worktree", "list", "--porcelain")
+	stdout, _, err := f.commander.Run(".", "worktree", "list", "--porcelain")
+	worktreeList := string(stdout)
 	if err != nil {
 		return "", groveErrors.ErrGitOperation("worktree list --porcelain", err)
 	}

@@ -9,13 +9,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 )
 
 var (
-	primaryColor = lipgloss.Color("#8B5CF6") // Purple - for highlights.
-	successColor = lipgloss.Color("#059669") // Green - for success messages.
-	mutedColor   = lipgloss.Color("#9CA3AF") // Gray - for progress messages.
+	primaryColor = lipgloss.Color("#8B5CF6")
+	successColor = lipgloss.Color("#059669")
+	mutedColor   = lipgloss.Color("#9CA3AF")
 )
+
+// App contains the dependencies needed for create command operations.
+// This enables dependency injection for testing and production use.
+type App struct {
+	GitCommander git.Commander
+	Logger       *logger.Logger
+}
+
+// NewApp creates a new App instance with production dependencies.
+func NewApp() *App {
+	return &App{
+		GitCommander: git.DefaultCommander,
+		Logger:       logger.WithComponent("create_app"),
+	}
+}
 
 var (
 	successStyle = lipgloss.NewStyle().Foreground(successColor).Bold(true)
@@ -46,7 +62,7 @@ func (p *progressIndicator) complete() {
 
 func (p *progressIndicator) fail() {
 	elapsed := time.Since(p.start)
-	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true) // Red.
+	errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true)
 	// Move cursor up one line and clear it, then write failure message.
 	fmt.Fprintf(os.Stderr, "\033[1A\033[2K")
 	if elapsed > time.Second {
@@ -101,10 +117,11 @@ func displaySuccess(result *CreateResult) {
 	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
 }
 
-func NewCreateCmd() *cobra.Command {
+func NewCreateCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create [branch-name|url] [path]",
-		Short: "Create a new Git worktree from a branch or URL",
+		Use:          "create [branch-name|url] [path]",
+		Short:        "Create a new Git worktree from a branch or URL",
+		SilenceUsage: true,
 		Long: `Create a new Git worktree from an existing or new branch with intelligent automation.
 
 Basic usage:
@@ -164,40 +181,36 @@ environment setup, or --copy with custom patterns for specific files.`,
 				currentProgress = startProgress(message)
 			}
 
-			// Create service with dependencies.
+			// Create service with injected dependencies from app.
 			service := NewCreateService(
-				NewBranchResolver(git.DefaultExecutor),
+				app.GitCommander,
+				NewBranchResolver(app.GitCommander),
 				NewPathGenerator(),
-				NewWorktreeCreator(git.DefaultExecutor),
-				NewFileManager(git.DefaultExecutor),
+				NewWorktreeCreator(app.GitCommander),
+				NewFileManager(app.GitCommander),
 			)
 
-			// Execute the create operation.
 			result, err := service.Create(&options)
 			if err != nil {
-				// Mark current progress as failed.
+
 				if currentProgress != nil {
 					currentProgress.fail()
 				}
-				// Show error immediately after the failed step.
+
 				fmt.Fprintf(os.Stderr, "\n%s %s\n",
 					lipgloss.NewStyle().Foreground(lipgloss.Color("#DC2626")).Bold(true).Render("Error:"),
 					err.Error())
 
-				// Add space after error (tip is already included in error message for some errors).
 				fmt.Fprintf(os.Stderr, "\n")
 
-				// Don't show usage for operational errors (command was correct).
 				cmd.SilenceUsage = true
 				return err
 			}
 
-			// Mark final progress as completed.
 			if currentProgress != nil {
 				currentProgress.complete()
 			}
 
-			// Display success information.
 			displaySuccess(result)
 
 			return nil

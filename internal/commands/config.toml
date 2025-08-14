@@ -1,0 +1,38 @@
+[create]
+auto_create_parents = true
+default_base_branch = 'main'
+prompt_for_new_branch = true
+
+[errors]
+max_context_entries = 10
+
+[general]
+editor = 'emacs'
+output_format = 'text'
+pager = 'less'
+
+[git]
+default_remote = 'origin'
+fetch_timeout = 120000000000
+max_retries = 3
+
+[logging]
+format = 'text'
+level = 'info'
+
+[retry]
+base_delay = 1000000000
+jitter_enabled = false
+max_attempts = 5
+max_delay = 10000000000
+
+[worktree]
+auto_track_remote = true
+base_path = ''
+cleanup_threshold = 2592000000000000
+naming_pattern = 'branch'
+
+[worktree.copy_files]
+on_conflict = 'prompt'
+patterns = []
+source_worktree = 'main'
