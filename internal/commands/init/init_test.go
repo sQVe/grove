@@ -34,6 +34,67 @@ func (m *MockGitExecutor) ExecuteWithContext(ctx context.Context, args ...string
 	return mockArgs.String(0), mockArgs.Error(1)
 }
 
+func TestExtractRepositoryName(t *testing.T) {
+	tests := []struct {
+		name     string
+		repoURL  string
+		expected string
+	}{
+		{
+			name:     "HTTPS URL with .git",
+			repoURL:  "https://github.com/user/repo.git",
+			expected: "repo",
+		},
+		{
+			name:     "HTTPS URL without .git",
+			repoURL:  "https://github.com/user/repo",
+			expected: "repo",
+		},
+		{
+			name:     "SSH URL with .git",
+			repoURL:  "git@github.com:user/repo.git",
+			expected: "repo",
+		},
+		{
+			name:     "SSH URL without .git",
+			repoURL:  "git@github.com:user/repo",
+			expected: "repo",
+		},
+		{
+			name:     "complex path",
+			repoURL:  "https://gitlab.com/group/subgroup/project.git",
+			expected: "project",
+		},
+		{
+			name:     "single name",
+			repoURL:  "myrepo",
+			expected: "myrepo",
+		},
+		{
+			name:     "empty string",
+			repoURL:  "",
+			expected: "",
+		},
+		{
+			name:     "just .git",
+			repoURL:  ".git",
+			expected: "",
+		},
+		{
+			name:     "platform url",
+			repoURL:  "git@github.com:hups-co/platform.git",
+			expected: "platform",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractRepositoryName(tt.repoURL)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestParseBranches(t *testing.T) {
 	tests := []struct {
 		name     string

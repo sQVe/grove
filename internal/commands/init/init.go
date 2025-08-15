@@ -17,67 +17,108 @@ import (
 
 func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init [directory|remote-url]",
+		Use:   "init",
 		Short: "Initialize or clone a Git repository optimized for worktrees",
-		Long: `Initialize a new bare Git repository or clone an existing one with worktree-optimized structure.
+		Long: `Initialize or clone a Git repository with worktree-optimized structure.
 
-Basic usage:
-  grove init                    # Initialize new bare repository in current directory
-  grove init <directory>        # Initialize new bare repository in specified directory
-  grove init <remote-url>       # Clone existing repository with worktree setup
-  grove init --convert          # Convert existing traditional repo to Grove structure
-
-Multi-branch setup:
-  grove init <remote-url> --branches=main,develop,feature/auth
-
-Smart URL parsing supports:
-  - GitHub: github.com/owner/repo, github.com/owner/repo/tree/branch, github.com/owner/repo/pull/123
-  - GitLab: gitlab.com/owner/repo, gitlab.com/owner/repo/-/tree/branch
-  - Bitbucket: bitbucket.org/owner/repo, bitbucket.org/owner/repo/src/branch
-  - Azure DevOps: dev.azure.com/org/project/_git/repo
-  - Codeberg: codeberg.org/owner/repo, codeberg.org/owner/repo/src/branch/branch
-  - And standard Git URLs (.git suffix, SSH format)
+Subcommands:
+  new      Create a new empty repository
+  clone    Clone an existing repository with worktree setup
+  convert  Convert existing traditional Git repository to Grove structure
 
 Examples:
-  grove init https://github.com/owner/repo
-  grove init https://github.com/owner/repo/tree/main --branches=develop,staging
-  grove init https://gitlab.com/owner/repo --branches=main,feature/auth
-  grove init git@github.com:owner/repo.git --branches=main
+  grove init new                          # Create repository in current directory
+  grove init new myproject                # Create repository in myproject/ directory
+  grove init clone <url>                  # Clone repository
+  grove init clone <url> --branches=main,develop  # Clone and create worktrees
+  grove init convert                      # Convert current repo to Grove structure`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Error: unknown command %q for %q\n\nRun 'grove init --help' for usage information\n", args[0], cmd.CommandPath())
+			return nil
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
 
-The repository structure uses a .bare/ subdirectory for git objects and a .git file
-pointing to it, allowing the main directory to function as a working directory.`,
+	cmd.AddCommand(newNewCmd())
+	cmd.AddCommand(newCloneCmd())
+	cmd.AddCommand(newConvertCmd())
+
+	return cmd
+}
+
+func newNewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "new [directory]",
+		Short: "Create a new empty repository",
+		Long: `Create a new empty Git repository optimized for worktrees.
+
+If no directory is specified, initializes in the current directory.
+If a directory is specified, creates it and initializes the repository there.
+
+Git objects are stored in .bare/ subdirectory.`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			convert, _ := cmd.Flags().GetBool("convert")
-			branches, _ := cmd.Flags().GetString("branches")
-
-			if convert && len(args) > 0 {
-				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "cannot specify arguments when using --convert flag", nil)
-			}
-			if convert && branches != "" {
-				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "cannot use --branches flag with --convert", nil)
-			}
-			if branches != "" && len(args) == 0 {
-				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "--branches flag requires a remote URL", nil)
-			}
-			if !convert && len(args) > 1 {
-				return errors.NewGroveError(errors.ErrCodeConfigInvalid, "too many arguments", nil)
+			if len(args) > 1 {
+				return fmt.Errorf("accepts at most 1 arg(s), received %d\n\nRun 'grove init new --help' for usage information", len(args))
 			}
 			return nil
 		},
-		RunE: runInit,
+		SilenceUsage: true,
+		RunE:         runInitNew,
+	}
+}
+
+func newCloneCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "clone <url>",
+		Short: "Clone an existing repository with worktree setup",
+		Long: `Clone an existing Git repository with worktree-optimized structure.
+
+Creates a directory based on the repository name and clones into it.
+Supports GitHub, GitLab, Bitbucket, Azure DevOps URLs with branch detection.
+
+Git objects are stored in .bare/ subdirectory.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return fmt.Errorf("accepts 1 arg(s), received %d\n\nRun 'grove init clone --help' for usage information", len(args))
+			}
+			return nil
+		},
+		SilenceUsage: true,
+		RunE:         runInitClone,
 	}
 
-	cmd.Flags().Bool("convert", false, "Convert existing traditional Git repository to Grove structure")
 	cmd.Flags().String("branches", "", "Comma-separated list of branches to create worktrees for (e.g., 'main,develop,feature/auth')")
 
 	return cmd
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
-	log := logger.WithComponent("init_command")
-	start := time.Now()
+func newConvertCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "convert",
+		Short: "Convert existing traditional Git repository to Grove structure",
+		Long: `Convert an existing traditional Git repository to Grove's worktree-optimized structure.
 
-	log.DebugOperation("starting grove init", "args", args)
+Must be run from within a traditional Git repository (with .git directory).
+Moves existing .git directory to .bare/ and sets up worktree structure.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("accepts 0 arg(s), received %d\n\nRun 'grove init convert --help' for usage information", len(args))
+			}
+			return nil
+		},
+		SilenceUsage: true,
+		RunE:         runInitConvert,
+	}
+}
+
+func runInitNew(cmd *cobra.Command, args []string) error {
+	log := logger.WithComponent("init_new")
+
+	log.DebugOperation("starting new repository creation", "args", args)
 
 	if !utils.IsGitAvailable() {
 		err := errors.ErrGitNotFound(nil)
@@ -86,87 +127,100 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	convert, _ := cmd.Flags().GetBool("convert")
-	log.Debug("init mode determined", "convert", convert, "args_count", len(args))
-
-	if convert {
-		log.DebugOperation("running init convert", "duration", time.Since(start))
-		if err := runInitConvert(); err != nil {
-			cmd.SilenceUsage = true
-			return err
-		}
-		return nil
-	}
-
-	var targetArg string
+	var targetDir string
 	if len(args) > 0 {
-		targetArg = args[0]
+		targetDir = args[0]
 	}
 
-	if targetArg != "" {
-		// First check if it's a URL (either smart platform URL or standard Git URL).
-		urlInfo, err := utils.ParseGitPlatformURL(targetArg)
-		switch {
-		case err == nil:
-			branches, _ := cmd.Flags().GetString("branches")
+	if err := runInitLocal(targetDir); err != nil {
+		cmd.SilenceUsage = true
+		return err
+	}
 
-			// If URL contains branch information, add it to branches list.
-			if urlInfo.BranchName != "" {
-				if branches == "" {
-					branches = urlInfo.BranchName
-				} else {
-					branchList := strings.Split(branches, ",")
-					found := false
-					for _, b := range branchList {
-						if strings.TrimSpace(b) == urlInfo.BranchName {
-							found = true
-							break
-						}
-					}
-					if !found {
-						branches = urlInfo.BranchName + "," + branches
+	return nil
+}
+
+func runInitClone(cmd *cobra.Command, args []string) error {
+	log := logger.WithComponent("init_clone")
+	start := time.Now()
+
+	repoURL := args[0]
+	log.DebugOperation("starting repository clone", "repo_url", repoURL)
+
+	if !utils.IsGitAvailable() {
+		err := errors.ErrGitNotFound(nil)
+		log.ErrorOperation("git availability check failed", err)
+		cmd.SilenceUsage = true
+		return err
+	}
+
+	branches, _ := cmd.Flags().GetString("branches")
+
+	// Parse smart URLs and extract branch information
+	urlInfo, err := utils.ParseGitPlatformURL(repoURL)
+	if err == nil {
+		// If URL contains branch information, add it to branches list
+		if urlInfo.BranchName != "" {
+			if branches == "" {
+				branches = urlInfo.BranchName
+			} else {
+				branchList := strings.Split(branches, ",")
+				found := false
+				for _, b := range branchList {
+					if strings.TrimSpace(b) == urlInfo.BranchName {
+						found = true
+						break
 					}
 				}
+				if !found {
+					branches = urlInfo.BranchName + "," + branches
+				}
 			}
-
-			log.DebugOperation("running init remote with smart URL", "original_url", targetArg, "repo_url", urlInfo.RepoURL, "platform", urlInfo.Platform, "branch", urlInfo.BranchName, "pr", urlInfo.PRNumber, "branches", branches, "duration", time.Since(start))
-
-			if urlInfo.PRNumber != "" {
-				fmt.Printf("Detected %s pull request #%s\n", urlInfo.Platform, urlInfo.PRNumber)
-			}
-			if urlInfo.BranchName != "" {
-				fmt.Printf("Detected %s branch: %s\n", urlInfo.Platform, urlInfo.BranchName)
-			}
-
-			if err := runInitRemote(urlInfo.RepoURL, branches); err != nil {
-				cmd.SilenceUsage = true
-				return err
-			}
-			return nil
-		case utils.IsGitURL(targetArg):
-			branches, _ := cmd.Flags().GetString("branches")
-			log.DebugOperation("running init remote", "repo_url", targetArg, "branches", branches, "duration", time.Since(start))
-			if err := runInitRemote(targetArg, branches); err != nil {
-				cmd.SilenceUsage = true
-				return err
-			}
-			return nil
-		default:
-			log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
-			if err := runInitLocal(targetArg); err != nil {
-				cmd.SilenceUsage = true
-				return err
-			}
-			return nil
 		}
-	} else {
-		log.DebugOperation("running init local", "target_dir", targetArg, "duration", time.Since(start))
-		if err := runInitLocal(targetArg); err != nil {
-			cmd.SilenceUsage = true
-			return err
+
+		log.DebugOperation("using smart URL", "original_url", repoURL, "repo_url", urlInfo.RepoURL, "platform", urlInfo.Platform, "branch", urlInfo.BranchName, "pr", urlInfo.PRNumber, "branches", branches, "duration", time.Since(start))
+
+		if urlInfo.PRNumber != "" {
+			fmt.Printf("Detected %s pull request #%s\n", urlInfo.Platform, urlInfo.PRNumber)
 		}
-		return nil
+		if urlInfo.BranchName != "" {
+			fmt.Printf("Detected %s branch: %s\n", urlInfo.Platform, urlInfo.BranchName)
+		}
+
+		repoURL = urlInfo.RepoURL
+	} else if !utils.IsGitURL(repoURL) {
+		err := errors.NewGroveError(errors.ErrCodeConfigInvalid, fmt.Sprintf("invalid Git URL: %s", repoURL), nil)
+		log.ErrorOperation("URL validation failed", err)
+		cmd.SilenceUsage = true
+		return err
 	}
+
+	if err := runInitRemoteWithDirectory(repoURL, branches); err != nil {
+		cmd.SilenceUsage = true
+		return err
+	}
+
+	return nil
+}
+
+func runInitConvert(cmd *cobra.Command, args []string) error {
+	log := logger.WithComponent("init_convert")
+
+	log.DebugOperation("starting repository conversion")
+
+	if !utils.IsGitAvailable() {
+		err := errors.ErrGitNotFound(nil)
+		log.ErrorOperation("git availability check failed", err)
+		cmd.SilenceUsage = true
+		return err
+	}
+
+	if err := runInitConvertWithExecutor(shared.DefaultExecutorProvider.GetExecutor()); err != nil {
+		cmd.SilenceUsage = true
+		return err
+	}
+
+	return nil
 }
 
 func runInitLocal(targetDir string) error {
@@ -239,8 +293,84 @@ func runInitLocal(targetDir string) error {
 	return nil
 }
 
-func runInitRemote(repoURL, branches string) error {
-	return RunInitRemoteWithExecutor(shared.DefaultExecutorProvider.GetExecutor(), repoURL, branches)
+func runInitRemoteWithDirectory(repoURL, branches string) error {
+	return RunInitRemoteWithDirectoryAndExecutor(shared.DefaultExecutorProvider.GetExecutor(), repoURL, branches)
+}
+
+func RunInitRemoteWithDirectoryAndExecutor(executor git.GitExecutor, repoURL, branches string) error {
+	log := logger.WithComponent("init_remote_with_dir")
+	start := time.Now()
+
+	log.DebugOperation("starting remote repository initialization with directory creation", "repo_url", repoURL)
+
+	// Extract repository name from URL
+	repoName := extractRepositoryName(repoURL)
+	if repoName == "" {
+		err := errors.NewGroveError(errors.ErrCodeConfigInvalid, "unable to extract repository name from URL", nil)
+		log.ErrorOperation("repository name extraction failed", err, "repo_url", repoURL)
+		return err
+	}
+
+	// Get current directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.ErrorOperation("failed to get current directory", err)
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Create target directory
+	targetDir := filepath.Join(currentDir, repoName)
+	log.Debug("creating target directory", "target_dir", targetDir)
+
+	// Check if directory already exists
+	if _, err := os.Stat(targetDir); err == nil {
+		err := errors.ErrRepoExists(targetDir).
+			WithContext("conflict", "directory already exists")
+		log.Debug("target directory already exists", "target_dir", targetDir, "error", err)
+		return err
+	}
+
+	// Create the directory
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		log.ErrorOperation("failed to create target directory", err, "target_dir", targetDir)
+		return fmt.Errorf("failed to create directory %s: %w", targetDir, err)
+	}
+
+	bareDir := filepath.Join(targetDir, ".bare")
+	log.Debug("determined bare directory path", "bare_dir", bareDir)
+
+	log.Debug("cloning and setting up repository")
+	if err := cloneAndSetupRepository(executor, repoURL, targetDir, bareDir); err != nil {
+		log.ErrorOperation("clone and setup failed", err, "repo_url", repoURL, "target_dir", targetDir)
+		return err
+	}
+
+	log.Debug("configuring remote tracking")
+	if err := configureRemoteTracking(executor, targetDir); err != nil {
+		log.ErrorOperation("remote tracking configuration failed", err, "target_dir", targetDir)
+		return err
+	}
+
+	fmt.Println("Creating default worktree...")
+	log.Debug("creating default worktree", "target_dir", targetDir)
+	if err := git.CreateDefaultWorktreeWithExecutor(executor, targetDir); err != nil {
+		log.Warn("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
+		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
+	}
+
+	if branches != "" {
+		fmt.Println("Creating additional worktrees...")
+		branchList := ParseBranches(branches)
+		log.Debug("creating additional worktrees", "branches", branchList)
+		if err := CreateAdditionalWorktrees(executor, targetDir, branchList); err != nil {
+			log.Warn("additional worktree creation failed but continuing", "error", err, "branches", branchList)
+			fmt.Printf("Warning: failed to create additional worktrees: %v\n", err)
+		}
+	}
+
+	log.DebugOperation("remote repository initialization completed", "repo_url", repoURL, "target_dir", targetDir, "duration", time.Since(start))
+	printSuccessMessage(targetDir, bareDir)
+	return nil
 }
 
 func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches string) error {
@@ -363,10 +493,6 @@ func printSuccessMessage(targetDir, bareDir string) {
 	fmt.Println("  grove list                  # List all worktrees")
 }
 
-func runInitConvert() error {
-	return runInitConvertWithExecutor(shared.DefaultExecutorProvider.GetExecutor())
-}
-
 func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	log := logger.WithComponent("init_convert")
 	start := time.Now()
@@ -422,6 +548,37 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	fmt.Println("  grove list                  # List all worktrees")
 
 	return nil
+}
+
+func extractRepositoryName(repoURL string) string {
+	// Remove .git suffix if present
+	url := strings.TrimSuffix(repoURL, ".git")
+
+	// Extract the last part of the path
+	parts := strings.Split(url, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	repoName := parts[len(parts)-1]
+
+	// Handle SSH URLs like git@github.com:owner/repo
+	if strings.Contains(repoName, ":") {
+		colonParts := strings.Split(repoName, ":")
+		if len(colonParts) > 1 {
+			pathParts := strings.Split(colonParts[len(colonParts)-1], "/")
+			if len(pathParts) > 0 {
+				repoName = pathParts[len(pathParts)-1]
+			}
+		}
+	}
+
+	// Validate the repository name
+	if repoName == "" || repoName == "." || repoName == ".." {
+		return ""
+	}
+
+	return repoName
 }
 
 func ParseBranches(branchesStr string) []string {
