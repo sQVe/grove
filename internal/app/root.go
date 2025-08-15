@@ -24,8 +24,7 @@ func NewRootCommand() *cobra.Command {
 		Long: `Grove transforms Git worktrees from a power-user feature into an essential productivity tool.
 Manage multiple working directories effortlessly with smart cleanup and seamless integration.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Grove - Git worktree management")
-			fmt.Println("Run 'grove --help' for usage information")
+			_ = cmd.Help()
 		},
 	}
 
@@ -42,6 +41,7 @@ func setupRootCommand(rootCmd *cobra.Command) {
 	setupInitialization(rootCmd)
 	registerCommands(rootCmd)
 	setupCompletion(rootCmd)
+	setupErrorHandling(rootCmd)
 }
 
 // setupFlags adds persistent flags to the root command
@@ -68,6 +68,25 @@ func registerCommands(rootCmd *cobra.Command) {
 func setupCompletion(rootCmd *cobra.Command) {
 	completion.CreateCompletionCommands(rootCmd)
 	completion.RegisterCompletionFunctions(rootCmd, git.DefaultExecutor)
+}
+
+// setupErrorHandling configures custom error messages for consistent UX
+func setupErrorHandling(rootCmd *cobra.Command) {
+	flagErrorFunc := func(cmd *cobra.Command, err error) error {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nRun '%s --help' for usage information\n", cmd.CommandPath())
+		return nil
+	}
+
+	// Apply to root command and disable automatic usage printing
+	rootCmd.SetFlagErrorFunc(flagErrorFunc)
+	rootCmd.SilenceUsage = true
+
+	// Apply to all subcommands recursively
+	for _, cmd := range rootCmd.Commands() {
+		cmd.SetFlagErrorFunc(flagErrorFunc)
+		cmd.SilenceUsage = true
+	}
 }
 
 // InitializeConfig initializes application configuration and logging
