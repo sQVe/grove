@@ -26,7 +26,7 @@ func TestPathGenerator_GeneratePath_Success(t *testing.T) {
 		{
 			name:       "simple branch name",
 			branchName: "feature/user-auth",
-			basePath:   "",
+			basePath:   helper.CreateTempDir("test-base"),
 			want: func(result string) bool {
 				return strings.Contains(result, "feature-user-auth")
 			},
@@ -34,7 +34,7 @@ func TestPathGenerator_GeneratePath_Success(t *testing.T) {
 		{
 			name:       "branch with special characters",
 			branchName: "hotfix/bug-123_fix",
-			basePath:   "",
+			basePath:   helper.CreateTempDir("test-base2"),
 			want: func(result string) bool {
 				return strings.Contains(result, "hotfix-bug-123_fix")
 			},
