@@ -12,7 +12,15 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-type Test mg.Namespace
+type (
+	Test  mg.Namespace
+	Build mg.Namespace
+)
+
+var Aliases = map[string]interface{}{
+	"build": Build.Dev,
+	"test":  Test.Unit,
+}
 
 func (Test) Unit() error {
 	fmt.Println("Running unit tests...")
@@ -87,9 +95,8 @@ func (Test) Coverage() error {
 	return nil
 }
 
-type Build mg.Namespace
-
-func (Build) All() error {
+// Dev builds the main Grove binary for development.
+func (Build) Dev() error {
 	fmt.Println("Building Grove...")
 	return sh.RunV("go", "build", "-o", "bin/grove", "./cmd/grove")
 }
@@ -163,7 +170,7 @@ func CI() error {
 	}
 
 	build := Build{}
-	if err := build.All(); err != nil {
+	if err := build.Dev(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
