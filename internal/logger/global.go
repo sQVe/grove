@@ -51,10 +51,6 @@ func DebugOperation(operation string, attrs ...any) {
 	GetGlobalLogger().DebugOperation(operation, attrs...)
 }
 
-func InfoOperation(operation string, attrs ...any) {
-	GetGlobalLogger().InfoOperation(operation, attrs...)
-}
-
 func ErrorOperation(operation string, err error, attrs ...any) {
 	GetGlobalLogger().ErrorOperation(operation, err, attrs...)
 }
@@ -65,10 +61,6 @@ func GitCommand(command string, args []string, attrs ...any) {
 
 func GitResult(command string, success bool, output string, attrs ...any) {
 	GetGlobalLogger().GitResult(command, success, output, attrs...)
-}
-
-func Performance(operation string, duration interface{}, attrs ...any) {
-	GetGlobalLogger().Performance(operation, duration, attrs...)
 }
 
 func WithOperation(operation string) *Logger {
