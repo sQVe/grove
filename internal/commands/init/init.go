@@ -351,7 +351,7 @@ func RunInitRemoteWithDirectoryAndExecutor(executor git.GitExecutor, repoURL, br
 	fmt.Println("Creating default worktree...")
 	log.Debug("creating default worktree", "target_dir", targetDir)
 	if err := git.CreateDefaultWorktreeWithExecutor(executor, targetDir); err != nil {
-		log.Warn("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
+		log.Debug("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
 		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
 	}
 
@@ -360,7 +360,7 @@ func RunInitRemoteWithDirectoryAndExecutor(executor git.GitExecutor, repoURL, br
 		branchList := ParseBranches(branches)
 		log.Debug("creating additional worktrees", "branches", branchList)
 		if err := CreateAdditionalWorktrees(executor, targetDir, branchList); err != nil {
-			log.Warn("additional worktree creation failed but continuing", "error", err, "branches", branchList)
+			log.Debug("additional worktree creation failed but continuing", "error", err, "branches", branchList)
 			fmt.Printf("Warning: failed to create additional worktrees: %v\n", err)
 		}
 	}
@@ -402,7 +402,7 @@ func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches strin
 	fmt.Println("Creating default worktree...")
 	log.Debug("creating default worktree", "target_dir", targetDir)
 	if err := git.CreateDefaultWorktreeWithExecutor(executor, targetDir); err != nil {
-		log.Warn("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
+		log.Debug("default worktree creation failed but continuing", "error", err, "target_dir", targetDir)
 		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
 	}
 
@@ -411,7 +411,7 @@ func RunInitRemoteWithExecutor(executor git.GitExecutor, repoURL, branches strin
 		branchList := ParseBranches(branches)
 		log.Debug("creating additional worktrees", "branches", branchList)
 		if err := CreateAdditionalWorktrees(executor, targetDir, branchList); err != nil {
-			log.Warn("additional worktree creation failed but continuing", "error", err, "branches", branchList)
+			log.Debug("additional worktree creation failed but continuing", "error", err, "branches", branchList)
 			fmt.Printf("Warning: failed to create additional worktrees: %v\n", err)
 		}
 	}
@@ -527,7 +527,7 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 	log.Debug("creating default worktree", "current_dir", currentDir)
 	if err := git.CreateDefaultWorktreeWithExecutor(executor, currentDir); err != nil {
 		// Don't fail the conversion if worktree creation fails.
-		log.Warn("default worktree creation failed but continuing", "error", err, "current_dir", currentDir)
+		log.Debug("default worktree creation failed but continuing", "error", err, "current_dir", currentDir)
 		fmt.Printf("Warning: failed to create default worktree: %v\n", err)
 	}
 
@@ -647,7 +647,7 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 
 	output, err := executor.Execute("branch", "-r")
 	if err != nil {
-		log.Warn("failed to get remote branches", "error", err)
+		log.Debug("failed to get remote branches", "error", err)
 		return fmt.Errorf("failed to get remote branches: %w", err)
 	}
 
@@ -667,7 +667,7 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 
 	for _, branch := range branches {
 		if !availableBranches[branch] {
-			log.Warn("branch not found on remote", "branch", branch)
+			log.Debug("branch not found on remote", "branch", branch)
 			fmt.Printf("Warning: branch '%s' not found on remote, skipping\n", branch)
 			continue
 		}
@@ -685,7 +685,7 @@ func CreateAdditionalWorktrees(executor git.GitExecutor, targetDir string, branc
 
 		_, err := git.CreateWorktreeFromExistingBranch(executor, branch, targetDir)
 		if err != nil {
-			log.Warn("failed to create worktree", "branch", branch, "error", err)
+			log.Debug("failed to create worktree", "branch", branch, "error", err)
 			fmt.Printf("Warning: failed to create worktree for branch '%s': %v\n", branch, err)
 			continue
 		}

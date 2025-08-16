@@ -112,7 +112,7 @@ func DetectDefaultBranch(executor GitExecutor, remoteName string) (string, error
 
 	// Tier 4: Hard-coded default.
 	log.Debug("tier 4: using hard-coded default fallback")
-	log.Warn("default branch detection exhausted all methods, using fallback",
+	log.Debug("default branch detection exhausted all methods, using fallback",
 		"branch", "main",
 		"remote", remoteName,
 		"method", "fallback",

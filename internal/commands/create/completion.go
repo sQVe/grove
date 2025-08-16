@@ -51,7 +51,7 @@ func RegisterCreateCompletion(cmd *cobra.Command) {
 	if err := cmd.RegisterFlagCompletionFunc("base", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return completion.BranchCompletion(completion.NewCompletionContext(git.DefaultExecutor), cmd, args, toComplete)
 	}); err != nil {
-		log.Warn("Failed to register base flag completion", "error", err)
+		log.Debug("Failed to register base flag completion", "error", err)
 	}
 
 	if err := cmd.RegisterFlagCompletionFunc("copy", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -77,6 +77,6 @@ func RegisterCreateCompletion(cmd *cobra.Command) {
 		}
 		return suggestions, cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
-		log.Warn("Failed to register copy flag completion", "error", err)
+		log.Debug("Failed to register copy flag completion", "error", err)
 	}
 }
