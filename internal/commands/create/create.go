@@ -112,9 +112,6 @@ func displaySuccess(result *CreateResult) {
 	}
 
 	fmt.Println()
-
-	fmt.Printf("%s Next steps:\n", boldStyle.Render("→"))
-	fmt.Printf("  %s\n", fmt.Sprintf("cd %s", mutedStyle.Render(result.WorktreePath)))
 }
 
 func NewCreateCmd(app *App) *cobra.Command {

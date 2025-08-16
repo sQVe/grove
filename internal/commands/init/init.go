@@ -286,9 +286,6 @@ func runInitLocal(targetDir string) error {
 
 	fmt.Printf("Initialized bare Git repository in %s\n", absPath)
 	fmt.Printf("Git objects stored in: %s\n", bareDir)
-	fmt.Println("\nNext steps:")
-	fmt.Println("  grove create <branch-name>  # Create your first worktree")
-	fmt.Println("  grove list                  # List all worktrees")
 
 	return nil
 }
@@ -487,10 +484,6 @@ func configureRemoteTracking(executor git.GitExecutor, targetDir string) error {
 func printSuccessMessage(targetDir, bareDir string) {
 	fmt.Printf("Successfully cloned and configured repository in %s\n", targetDir)
 	fmt.Printf("Git objects stored in: %s\n", bareDir)
-	fmt.Println("\nNext steps:")
-	fmt.Println("  cd <worktree-name>          # Switch to the created worktree")
-	fmt.Println("  grove create <branch-name>  # Create a worktree for a branch")
-	fmt.Println("  grove list                  # List all worktrees")
 }
 
 func runInitConvertWithExecutor(executor git.GitExecutor) error {
@@ -543,9 +536,6 @@ func runInitConvertWithExecutor(executor git.GitExecutor) error {
 
 	fmt.Printf("Successfully converted repository to Grove structure in %s\n", currentDir)
 	fmt.Printf("Git objects moved to: %s\n", bareDir)
-	fmt.Println("\nNext steps:")
-	fmt.Println("  grove create <branch-name>  # Create a worktree for a branch")
-	fmt.Println("  grove list                  # List all worktrees")
 
 	return nil
 }
