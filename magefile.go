@@ -25,22 +25,22 @@ var Aliases = map[string]interface{}{
 	"test":  Test.Unit,
 }
 
-func (Test) TDD() error {
+func (Test) Unit() error {
+	fmt.Println("Running unit tests...")
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	return sh.RunV("sh", "-c", fmt.Sprintf("go test -json ./... 2>&1 | tdd-guard-go -project-root %s", wd))
-}
-
-func (Test) Unit() error {
-	fmt.Println("Running unit tests...")
-	return sh.RunV("go", "run", "gotest.tools/gotestsum@latest", "--format", "testname", "--", "-tags=!integration", "-short", "./...")
+	return sh.RunV("sh", "-c", fmt.Sprintf("go test -json -tags=!integration -short ./... 2>&1 | tdd-guard-go -project-root %s", wd))
 }
 
 func (Test) Integration() error {
 	fmt.Println("Running integration tests...")
-	return sh.RunV("go", "run", "gotest.tools/gotestsum@latest", "--format", "testname", "--", "-tags=integration", "-timeout=300s", "./test/integration/...")
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	return sh.RunV("sh", "-c", fmt.Sprintf("go test -json -tags=integration -timeout=300s ./test/integration/... 2>&1 | tdd-guard-go -project-root %s", wd))
 }
 
 // Coverage runs unit tests with coverage reporting and optional CI validation.
