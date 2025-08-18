@@ -50,7 +50,7 @@ func TestGroveInitExecution(t *testing.T) {
 	}
 
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "Initializing Grove") {
+	if !strings.Contains(outputStr, "Initialized Grove") {
 		t.Errorf("init should output initialization message, got: %s", outputStr)
 	}
 }
