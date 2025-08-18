@@ -1,0 +1,69 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      module-path: "github.com/sqve/grove"
+      extra-rules: true
+
+linters:
+  enable:
+    # Essential Go checks
+    - errcheck # Check for unchecked errors
+    - govet # Vet examines Go source code
+    - ineffassign # Detect ineffective assignments
+    - staticcheck # Static analysis checks
+    - unused # Check for unused code
+
+    # Bug prevention
+    - bodyclose # Check HTTP response body is closed
+    - copyloopvar # Check loop variable copying (Go 1.22+)
+
+    # Code quality
+    - goconst # Find repeated strings for constants
+    - gocritic # Comprehensive diagnostics
+    - gocyclo # Cyclomatic complexity
+
+    # Comprehensive unused code detection
+    - unparam # Unused function parameters
+    - unconvert # Unnecessary type conversions
+    - wastedassign # Wasted assignments
+    
+    # Security and error handling
+    - gosec # Security vulnerabilities
+    - errorlint # Error wrapping and handling issues
+    - nilerr # nil error return issues
+    - nilnil # Check for simultaneous nil return
+    - contextcheck # Context usage validation
+    - testifylint # Testify best practices
+
+  settings:
+    # Configure unused linter for comprehensive detection
+    unused:
+      exported-fields-are-used: false
+      local-variables-are-used: true
+      parameters-are-used: true
+
+    # Configure unparam for unused parameters
+    unparam:
+      check-exported: true # Check exported functions for unused params
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - dupImport
+        - whyNoLint

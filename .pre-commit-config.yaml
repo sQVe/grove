@@ -1,0 +1,10 @@
+repos:
+    - repo: local
+      hooks:
+          - id: golangci-lint
+            name: golangci-lint
+            description: Fast Multi-Linter for Go
+            entry: bash -c 'golangci-lint run --fix || [ $? -eq 1 ]'
+            language: system
+            types: [go]
+            pass_filenames: false
