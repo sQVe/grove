@@ -1,13 +1,3 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-grove
-grove.exe
-grove-*
-
 # Go build cache
 .cache/
 go.work
@@ -21,28 +11,8 @@ go.work.sum
 coverage.out
 coverage.html
 
-# Dependency directories (remove the comment below to include it)
-vendor/
-
 # Go workspace file
 go.work
-
-# IDE and editor files
-*.swo
-*.swp
-*~
-.idea/
-.serena/
-.vscode/
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
 # Temporary files
 *.tmp
@@ -59,7 +29,6 @@ test-archive/
 /.env
 .env.*
 !.env*.example
-
 
 # AI related files
 .claude.backup-*/
