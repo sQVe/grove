@@ -1,0 +1,36 @@
+# Test init command help
+exec grove init --help
+stdout 'init'
+
+# Test init command execution
+exec grove init
+stdout 'Initialized Grove'
+
+# Test init rejects arguments
+! exec grove init invalid
+stderr 'unknown command'
+
+# Test init new command help
+exec grove init new --help
+stdout 'new'
+
+# Test init new creates workspace in temp directory
+mkdir temp1
+exec grove init new temp1
+exists temp1/.bare
+exists temp1/.git
+
+# Test init new creates workspace with directory name
+mkdir temp2
+exec grove init new temp2/myproject
+exists temp2/myproject/.bare
+exists temp2/myproject/.git
+
+# Test init new fails when directory is not empty
+mkdir temp3
+cp existing.txt temp3/existing.txt
+! exec grove init new temp3
+stderr 'not empty'
+
+-- existing.txt --
+content
