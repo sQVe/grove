@@ -6,7 +6,7 @@ Grove is a Git worktree management CLI that makes worktrees as simple as switchi
 
 **Essential reading:**
 
-- [Contributing Guide](.spec-workflow/CONTRIBUTING.md) - How to contribute
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute
 - [Product Vision](.spec-workflow/steering/product.md) - Mission and user value
 - [Technical Standards](.spec-workflow/steering/tech.md) - Architecture and patterns
 - [Project Structure](.spec-workflow/steering/structure.md) - File organization
