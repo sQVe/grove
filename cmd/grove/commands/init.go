@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/logger"
@@ -37,6 +38,12 @@ func NewInitCmd() *cobra.Command {
 				}
 			} else {
 				targetDir = args[0]
+				var err error
+				targetDir, err = filepath.Abs(targetDir)
+				if err != nil {
+					logger.Error("Failed to get absolute path: %v", err)
+					os.Exit(1)
+				}
 			}
 
 			logger.Debug("Initializing grove workspace in: %s", targetDir)
@@ -82,6 +89,12 @@ func NewInitCmd() *cobra.Command {
 				}
 			} else {
 				targetDir = args[1]
+				var err error
+				targetDir, err = filepath.Abs(targetDir)
+				if err != nil {
+					logger.Error("Failed to get absolute path: %v", err)
+					os.Exit(1)
+				}
 			}
 
 			logger.Debug("Cloning and initializing grove workspace in: %s", targetDir)
