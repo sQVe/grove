@@ -13,3 +13,11 @@ func InitBare(path string) error {
 	cmd.Dir = path
 	return cmd.Run()
 }
+
+// IsInsideGitRepo checks if the given path is inside an existing git repository
+func IsInsideGitRepo(path string) bool {
+	logger.Debug("Checking if %s is inside git repository", path)
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd.Dir = path
+	return cmd.Run() == nil
+}

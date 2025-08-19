@@ -13,16 +13,12 @@ import (
 
 // Initialize creates a new grove workspace in the specified directory
 func Initialize(path string) error {
-	if validation.DirectoryExists(path) {
-		logger.Debug("Directory %s exists, checking if git repository", path)
+	if git.IsInsideGitRepo(path) {
+		return fmt.Errorf("cannot initialize grove inside existing git repository")
+	}
 
-		// Check if this is already a git repository before checking if empty
-		gitPath := filepath.Join(path, ".git")
-		if info, err := os.Stat(gitPath); err == nil {
-			if info.IsDir() || !info.IsDir() { // .git directory or .git file
-				return fmt.Errorf("directory %s is already a git repository", path)
-			}
-		}
+	if validation.DirectoryExists(path) {
+		logger.Debug("Directory %s exists, checking if empty", path)
 
 		isEmpty, err := validation.IsEmptyDir(path)
 		if err != nil {

@@ -2,11 +2,14 @@ package workspace
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
 )
+
+const errInsideGitRepo = "cannot initialize grove inside existing git repository"
 
 func TestInitialize(t *testing.T) {
 	tempDir := t.TempDir()
@@ -130,35 +133,77 @@ func TestInitializeNoCleanupOnExistingDirectory(t *testing.T) {
 func TestInitializeDetectExistingGitDirectory(t *testing.T) {
 	tempDir := t.TempDir()
 
-	gitDir := filepath.Join(tempDir, ".git")
-	if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create .git directory: %v", err)
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
 	}
 
 	err := Initialize(tempDir)
 	if err == nil {
-		t.Fatal("Initialize should fail when .git directory already exists")
+		t.Fatal("Initialize should fail when git repository already exists")
 	}
 
-	if !os.IsExist(err) && err.Error() != "directory "+tempDir+" is already a git repository" {
-		t.Errorf("expected 'already a git repository' error, got: %v", err)
+	if !os.IsExist(err) && err.Error() != errInsideGitRepo {
+		t.Errorf("expected 'inside existing git repository' error, got: %v", err)
 	}
 }
 
 func TestInitializeDetectExistingGitFile(t *testing.T) {
 	tempDir := t.TempDir()
 
-	gitFile := filepath.Join(tempDir, ".git")
-	if err := os.WriteFile(gitFile, []byte("gitdir: ../main/.git"), fs.FileGit); err != nil {
-		t.Fatalf("failed to create .git file: %v", err)
+	mainRepo := filepath.Join(tempDir, "main")
+	if err := os.Mkdir(mainRepo, fs.DirGit); err != nil {
+		t.Fatalf("failed to create main repo directory: %v", err)
 	}
 
-	err := Initialize(tempDir)
+	cmd := exec.Command("git", "init")
+	cmd.Dir = mainRepo
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize main git repository: %v", err)
+	}
+
+	worktreeDir := filepath.Join(tempDir, "worktree")
+	if err := os.Mkdir(worktreeDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create worktree directory: %v", err)
+	}
+
+	cmd = exec.Command("git", "worktree", "add", "../worktree")
+	cmd.Dir = mainRepo
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create git worktree: %v", err)
+	}
+
+	err := Initialize(worktreeDir)
 	if err == nil {
-		t.Fatal("Initialize should fail when .git file already exists")
+		t.Fatal("Initialize should fail when git worktree already exists")
 	}
 
-	if !os.IsExist(err) && err.Error() != "directory "+tempDir+" is already a git repository" {
-		t.Errorf("expected 'already a git repository' error, got: %v", err)
+	if !os.IsExist(err) && err.Error() != errInsideGitRepo {
+		t.Errorf("expected 'inside existing git repository' error, got: %v", err)
+	}
+}
+
+func TestInitializeInsideGitRepository(t *testing.T) {
+	tempDir := t.TempDir()
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+
+	subDir := filepath.Join(tempDir, "subproject")
+	if err := os.Mkdir(subDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create subdirectory: %v", err)
+	}
+
+	err := Initialize(subDir)
+	if err == nil {
+		t.Fatal("Initialize should fail when inside an existing git repository")
+	}
+
+	if !os.IsExist(err) && err.Error() != errInsideGitRepo {
+		t.Errorf("expected 'inside existing git repository' error, got: %v", err)
 	}
 }
