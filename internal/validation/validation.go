@@ -16,7 +16,7 @@ func DirectoryExists(path string) bool {
 
 // IsEmptyDir checks if a directory is empty
 func IsEmptyDir(path string) (bool, error) {
-	f, err := os.Open(path) //nolint:gosec // Controlled path for workspace validation
+	f, err := os.Open(path) // nolint:gosec // Controlled path for workspace validation
 	if err != nil {
 		return false, err
 	}

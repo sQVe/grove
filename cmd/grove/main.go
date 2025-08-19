@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -31,7 +30,7 @@ func main() {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := cmd.Help(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error displaying help: %v\n", err)
+				logger.Error("Failed to display help: %v", err)
 			}
 		},
 	}
@@ -41,9 +40,18 @@ func main() {
 
 	rootCmd.AddCommand(commands.NewInitCmd())
 
+	if err := rootCmd.ParseFlags(os.Args[1:]); err == nil {
+		if plain, _ := rootCmd.Flags().GetBool("plain"); plain {
+			config.Global.Plain = true
+		}
+		if debug, _ := rootCmd.Flags().GetBool("debug"); debug {
+			config.Global.Debug = true
+		}
+	}
+
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		fmt.Fprintln(os.Stderr, "Run 'grove --help' for usage.")
+		logger.Error("%s", err)
+		logger.Dimmed("Run 'grove --help' for usage.")
 		os.Exit(1)
 	}
 }

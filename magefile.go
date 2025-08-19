@@ -11,6 +11,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/sqve/grove/internal/fs"
 )
 
 type (
@@ -47,7 +48,7 @@ func (Test) Integration() error {
 func (Test) Coverage() error {
 	fmt.Println("Running unit tests with coverage...")
 
-	if err := os.MkdirAll("coverage", 0o755); err != nil {
+	if err := os.MkdirAll("coverage", fs.DirGit); err != nil {
 		return err
 	}
 
@@ -323,7 +324,7 @@ func (Deps) Audit() error {
 }
 
 func init() {
-	if err := os.MkdirAll("bin", 0o755); err != nil {
+	if err := os.MkdirAll("bin", fs.DirGit); err != nil {
 		fmt.Printf("Warning: failed to create bin directory: %v\n", err)
 	}
 }
