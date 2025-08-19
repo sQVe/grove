@@ -2,9 +2,9 @@
 exec grove init --help
 stdout 'init'
 
-# Test init command execution
+# Test init command execution shows help
 exec grove init
-stdout 'Initialized Grove'
+stdout 'Usage:'
 
 # Test init rejects arguments
 ! exec grove init invalid

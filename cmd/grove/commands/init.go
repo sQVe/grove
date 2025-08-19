@@ -15,8 +15,7 @@ func NewInitCmd() *cobra.Command {
 		Long:  `Initialize grove in current repository`,
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			logger.Debug("Starting initialization process")
-			logger.Success("Initialized Grove in current repository")
+			_ = cmd.Help()
 		},
 	}
 
@@ -44,7 +43,7 @@ func NewInitCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			logger.Success("Initialized Grove workspace in %s", targetDir)
+			logger.Success("Initialized Grove workspace in: %s", targetDir)
 		},
 	}
 	initCmd.AddCommand(newCmd)
