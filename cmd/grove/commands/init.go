@@ -11,6 +11,57 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+// getBranchCompletions provides completion suggestions for comma-separated branches
+func getBranchCompletions(toComplete string, allBranches []string) []string {
+	rawParts := strings.Split(toComplete, ",")
+	parts := make([]string, 0, len(rawParts))
+
+	for i, p := range rawParts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" || i == len(rawParts)-1 {
+			parts = append(parts, trimmed)
+		}
+	}
+
+	if len(parts) == 0 {
+		parts = []string{""}
+	}
+
+	lastPart := parts[len(parts)-1]
+	prefixParts := parts[:len(parts)-1]
+
+	// Track already selected branches
+	selected := make(map[string]bool)
+	for _, p := range prefixParts {
+		if p != "" {
+			selected[p] = true
+		}
+	}
+
+	prefix := ""
+	if len(prefixParts) > 0 {
+		prefix = strings.Join(prefixParts, ",") + ","
+	}
+
+	var completions []string
+	seen := make(map[string]bool) // Prevent duplicates in output
+
+	for _, branch := range allBranches {
+		if selected[branch] {
+			continue
+		}
+		if strings.HasPrefix(branch, lastPart) {
+			completion := prefix + branch
+			if !seen[completion] {
+				completions = append(completions, completion)
+				seen[completion] = true
+			}
+		}
+	}
+
+	return completions
+}
+
 func NewInitCmd() *cobra.Command {
 	initCmd := &cobra.Command{
 		Use:   "init",
@@ -127,27 +178,8 @@ func NewInitCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
 
-		if strings.Contains(toComplete, ",") {
-			parts := strings.Split(toComplete, ",")
-			prefix := strings.Join(parts[:len(parts)-1], ",") + ","
-			lastPart := parts[len(parts)-1]
-
-			var completions []string
-			for _, branch := range remoteBranches {
-				if strings.HasPrefix(branch, lastPart) {
-					completions = append(completions, prefix+branch)
-				}
-			}
-			return completions, cobra.ShellCompDirectiveNoSpace
-		}
-
-		var completions []string
-		for _, branch := range remoteBranches {
-			if strings.HasPrefix(branch, toComplete) {
-				completions = append(completions, branch)
-			}
-		}
-		return completions, cobra.ShellCompDirectiveNoSpace
+		completions := getBranchCompletions(toComplete, remoteBranches)
+		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 	})
 	initCmd.AddCommand(cloneCmd)
 
