@@ -61,16 +61,37 @@ func TestLoadFromEnv(t *testing.T) {
 		t.Error("Expected debug mode to be true with GROVE_DEBUG=1")
 	}
 
-	// Test non-"1" values don't enable flags
 	Global = struct {
 		Plain bool
 		Debug bool
 	}{}
+	_ = os.Unsetenv("GROVE_DEBUG")
 	_ = os.Setenv("GROVE_PLAIN", "true")
-	_ = os.Setenv("GROVE_DEBUG", "yes")
+	LoadFromEnv()
+	if !IsPlain() {
+		t.Error("Expected plain mode to be true with GROVE_PLAIN=true")
+	}
+
+	Global = struct {
+		Plain bool
+		Debug bool
+	}{}
+	_ = os.Unsetenv("GROVE_PLAIN")
+	_ = os.Setenv("GROVE_DEBUG", "true")
+	LoadFromEnv()
+	if !IsDebug() {
+		t.Error("Expected debug mode to be true with GROVE_DEBUG=true")
+	}
+
+	Global = struct {
+		Plain bool
+		Debug bool
+	}{}
+	_ = os.Setenv("GROVE_PLAIN", "yes")
+	_ = os.Setenv("GROVE_DEBUG", "on")
 	LoadFromEnv()
 	if IsPlain() || IsDebug() {
-		t.Error("Expected both modes to be false with non-'1' env values")
+		t.Error("Expected both modes to be false with invalid env values")
 	}
 
 	// Cleanup

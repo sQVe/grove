@@ -20,10 +20,12 @@ func IsDebug() bool {
 
 // LoadFromEnv loads configuration from environment variables
 func LoadFromEnv() {
-	if os.Getenv("GROVE_PLAIN") == "1" {
+	plain := os.Getenv("GROVE_PLAIN")
+	if plain == "1" || plain == "true" {
 		Global.Plain = true
 	}
-	if os.Getenv("GROVE_DEBUG") == "1" {
+	debug := os.Getenv("GROVE_DEBUG")
+	if debug == "1" || debug == "true" {
 		Global.Debug = true
 	}
 }
