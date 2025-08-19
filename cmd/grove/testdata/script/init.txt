@@ -1,3 +1,7 @@
+# =============================================================================
+# grove init command tests
+# =============================================================================
+
 # Test init command help
 exec grove init --help
 stdout 'init'
@@ -10,13 +14,13 @@ stdout 'Usage:'
 ! exec grove init invalid
 stderr 'unknown command'
 
+# =============================================================================
+# grove init new command tests
+# =============================================================================
+
 # Test init new command help
 exec grove init new --help
 stdout 'new'
-
-# Test init new fails with too many arguments
-! exec grove init new dir1 dir2
-stderr 'accepts at most 1 arg'
 
 # Test init new creates workspace in temp directory
 mkdir temp1
@@ -29,6 +33,10 @@ mkdir temp2
 exec grove init new temp2/myproject
 exists temp2/myproject/.bare
 exists temp2/myproject/.git
+
+# Test init new fails with too many arguments
+! exec grove init new dir1 dir2
+stderr 'accepts at most 1 arg'
 
 # Test init new fails when directory is not empty
 mkdir temp3
@@ -50,9 +58,45 @@ exec grove init new workspace2
 ! exec grove init new workspace2/nested
 stderr 'cannot initialize grove inside existing grove workspace'
 
+# =============================================================================
+# grove init clone command tests
+# =============================================================================
+
 # Test init clone command help
 exec grove init clone --help
 stdout 'clone'
+
+# Test init clone with --branches flag help
+exec grove init clone --help
+stdout '--branches'
+
+# Test init clone with single branch
+mkdir clone-single-branch
+! exec grove init clone file:///test/repo.git clone-single-branch --branches "main"
+stderr 'failed to clone repository'
+
+# Test init clone with multiple branches
+mkdir clone-multi-branch
+! exec grove init clone file:///test/repo.git clone-multi-branch --branches "main,develop,feat/test"
+stderr 'failed to clone repository'
+
+# Test init clone with --branches in current directory
+mkdir clone-branches-current
+cd clone-branches-current
+! exec grove init clone file:///test/repo.git --branches "main"
+stderr 'failed to clone repository'
+cd ..
+
+# Test init clone in current directory fails due to network
+mkdir clone-current
+cd clone-current
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'failed to clone repository'
+cd ..
+
+# Test init clone with URL and directory fails if directory doesn't exist
+! exec grove init clone file:///nonexistent/repo.git nonexistent
+stderr 'failed to clone repository'
 
 # Test init clone without arguments fails
 ! exec grove init clone
@@ -71,17 +115,6 @@ stderr 'failed to clone repository'
 ! exec grove init clone file:///nonexistent/repo.git
 stderr 'not empty'
 
-# Test init clone with URL and directory fails if directory doesn't exist
-! exec grove init clone file:///nonexistent/repo.git nonexistent
-stderr 'failed to clone repository'
-
-# Test init clone in current directory fails due to network
-mkdir clone-current
-cd clone-current
-! exec grove init clone file:///nonexistent/repo.git
-stderr 'failed to clone repository'
-cd ..
-
 # Test init clone fails when current directory is not empty
 mkdir clone-not-empty
 cp existing.txt clone-not-empty/existing.txt
@@ -90,6 +123,12 @@ cd clone-not-empty
 stderr 'not empty'
 cd ..
 
+# Test init clone fails when specified directory is not empty
+mkdir clone-dir-not-empty
+cp existing.txt clone-dir-not-empty/existing.txt
+! exec grove init clone file:///nonexistent/repo.git clone-dir-not-empty
+stderr 'not empty'
+
 # Test init clone fails when current directory is a Git repository
 mkdir clone-git-repo
 cd clone-git-repo
@@ -97,12 +136,6 @@ exec git init
 ! exec grove init clone file:///nonexistent/repo.git
 stderr 'cannot initialize grove inside existing git repository'
 cd ..
-
-# Test init clone fails when specified directory is not empty
-mkdir clone-dir-not-empty
-cp existing.txt clone-dir-not-empty/existing.txt
-! exec grove init clone file:///nonexistent/repo.git clone-dir-not-empty
-stderr 'not empty'
 
 # Test init clone fails when specified directory is a Git repository
 mkdir clone-dir-git-repo
@@ -126,5 +159,85 @@ exec grove init new workspace4
 ! exec grove init clone file:///nonexistent/repo.git workspace4/nested
 stderr 'cannot initialize grove inside existing grove workspace'
 
+# Test init clone with invalid branch names
+mkdir clone-invalid-branch
+! exec grove init clone file:///test/repo.git clone-invalid-branch --branches "nonexistent"
+stderr 'failed to clone repository'
+
+# Test init clone with empty branches flag
+mkdir clone-empty-branches
+! exec grove init clone file:///test/repo.git clone-empty-branches --branches ""
+stderr 'no branches specified'
+
+# =============================================================================
+# grove init clone success path test
+# =============================================================================
+
+# Test successful clone with branches
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config user.signingkey ""
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+cd ..
+
+mkdir test-workspace
+exec grove init clone file://$WORK/testrepo test-workspace --branches master,develop
+exists test-workspace/.bare
+exists test-workspace/.git
+exists test-workspace/master
+exists test-workspace/develop
+exists test-workspace/master/README.md
+exists test-workspace/develop/README.md
+
+# =============================================================================
+# grove init clone output format tests
+# =============================================================================
+
+# Test clone output shows worktree creation by default (quiet mode)
+mkdir test-output-quiet
+exec grove init clone file://$WORK/testrepo test-output-quiet --branches master,develop
+stdout 'Cloning repository...'
+stdout 'Repository cloned'
+stdout 'Creating 2 worktrees...'
+stdout '  ✓ master'
+stdout '  ✓ develop'
+! stdout 'Enumerating objects'
+! stdout 'Counting objects'
+! stdout 'Compressing objects'
+! stdout 'Receiving objects'
+
+# Test clone with branch name sanitization output
+cd testrepo
+exec git checkout -b feat/user-auth
+cd ..
+mkdir test-output-sanitized
+exec grove init clone file://$WORK/testrepo test-output-sanitized --branches feat/user-auth
+stdout 'Creating 1 worktree...'
+stdout '  ✓ feat-user-auth'
+exists test-output-sanitized/feat-user-auth
+
+# Test clone with --verbose flag shows git output
+mkdir test-output-verbose
+exec grove init clone file://$WORK/testrepo test-output-verbose --branches master --verbose
+stdout 'Creating 1 worktree...'
+stdout '  ✓ master'
+# Note: Can't test git verbose output in script tests as it's environment dependent
+
+# Test clone error output remains visible in quiet mode
+mkdir test-error-output
+! exec grove init clone file:///nonexistent/repo.git test-error-output
+stderr 'failed to clone repository'
+
 -- existing.txt --
 content
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

@@ -122,7 +122,6 @@ func TestCloneVerboseMode(t *testing.T) {
 	}
 }
 
-
 func TestIsInsideGitRepo_NotGitRepo(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -138,4 +137,3 @@ func TestIsInsideGitRepo_NonexistentPath(t *testing.T) {
 		t.Error("Expected IsInsideGitRepo to return false for nonexistent path")
 	}
 }
-
