@@ -13,7 +13,7 @@
 
 ## Commands
 
-### `init` (5/17 complete)
+### `init`
 
 - [x] Should output help if no arguments are passed
 - [x] Should fail if given a sub-command that does not exist
@@ -46,7 +46,7 @@
 | `init clone <url>`            | Clone specific URL into grove workspace           | [x]    |
 | `init clone <url>`            | Progress bar for cloning                          | [x]    |
 | `init clone <url> --branches` | Setup worktrees for each branch                   | [x]    |
-| `init clone <url> --branches` | Provide completions for branch name               | [ ]    |
+| `init clone <url> --branches` | Provide completions for branch name               | [x]    |
 | `init clone <url> <dir>`      | Initialize grove workspace in specified directory | [x]    |
 | `init clone <url> <dir>`      | Clone specific URL into grove workspace           | [x]    |
 | `init clone <url> <dir>`      | Provide completions for directory name            | [x]    |
@@ -70,19 +70,19 @@
 - [ ] Current directory is not a Git repository
 - [ ] Repository has uncommitted changes
 
-### `switch` (0/1 complete)
+### `switch`
 
 | Command           | Features                               | Status |
 | ----------------- | -------------------------------------- | ------ |
 | `switch <branch>` | Switch to existing worktree for branch | [ ]    |
 
-### `list` (0/1 complete)
+### `list`
 
 | Command | Features                            | Status |
 | ------- | ----------------------------------- | ------ |
 | `list`  | Show all worktrees and their status | [ ]    |
 
-### `status` (0/1 complete)
+### `status`
 
 | Command  | Features                                    | Status |
 | -------- | ------------------------------------------- | ------ |

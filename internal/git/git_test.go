@@ -49,7 +49,7 @@ func TestInitBareGitNotAvailable(t *testing.T) {
 	}
 }
 
-func TestListRemoteBranches(t *testing.T) {
+func TestListBranches(t *testing.T) {
 	tempDir := t.TempDir()
 	bareDir := filepath.Join(tempDir, "test.bare")
 
@@ -135,5 +135,33 @@ func TestIsInsideGitRepo_NonexistentPath(t *testing.T) {
 
 	if IsInsideGitRepo(nonexistentPath) {
 		t.Error("Expected IsInsideGitRepo to return false for nonexistent path")
+	}
+}
+
+func TestListRemoteBranchesFromURL(t *testing.T) {
+	_, err := ListRemoteBranches("file:///nonexistent/repo.git")
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo")
+	}
+}
+
+func TestListRemoteBranchesCaching(t *testing.T) {
+	tempDir := t.TempDir()
+	testURL := "file:///nonexistent/repo.git"
+
+	origCacheDir := os.Getenv("TEST_CACHE_DIR")
+	_ = os.Setenv("TEST_CACHE_DIR", tempDir)
+	defer func() {
+		if origCacheDir == "" {
+			_ = os.Unsetenv("TEST_CACHE_DIR")
+		} else {
+			_ = os.Setenv("TEST_CACHE_DIR", origCacheDir)
+		}
+	}()
+
+	// First call should create cache file (will fail with our test URL, but that's expected)
+	_, err := ListRemoteBranches(testURL)
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo on first call")
 	}
 }

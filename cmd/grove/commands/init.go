@@ -3,8 +3,10 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -119,7 +121,33 @@ func NewInitCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
 
-		return nil, cobra.ShellCompDirectiveNoFileComp
+		url := args[0]
+		remoteBranches, err := git.ListRemoteBranches(url)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		if strings.Contains(toComplete, ",") {
+			parts := strings.Split(toComplete, ",")
+			prefix := strings.Join(parts[:len(parts)-1], ",") + ","
+			lastPart := parts[len(parts)-1]
+
+			var completions []string
+			for _, branch := range remoteBranches {
+				if strings.HasPrefix(branch, lastPart) {
+					completions = append(completions, prefix+branch)
+				}
+			}
+			return completions, cobra.ShellCompDirectiveNoSpace
+		}
+
+		var completions []string
+		for _, branch := range remoteBranches {
+			if strings.HasPrefix(branch, toComplete) {
+				completions = append(completions, branch)
+			}
+		}
+		return completions, cobra.ShellCompDirectiveNoSpace
 	})
 	initCmd.AddCommand(cloneCmd)
 
