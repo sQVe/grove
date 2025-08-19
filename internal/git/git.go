@@ -1,8 +1,12 @@
 package git
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/sqve/grove/internal/logger"
 )
@@ -25,6 +29,98 @@ func Clone(url, path string) error {
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+// CloneQuiet clones a repository with minimal output
+func CloneQuiet(url, path string) error {
+	logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
+	cmd := exec.Command("git", "clone", "--bare", "--quiet", url, path)
+
+	// Capture output for error reporting but don't stream it
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		// Include captured stderr in error for debugging
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, stderr.String())
+		}
+		return err
+	}
+
+	return nil
+}
+
+// ListBranches returns a list of all branches in a bare repository
+func ListBranches(bareRepo string) ([]string, error) {
+	logger.Debug("Executing: git branch -a in %s", bareRepo)
+	cmd := exec.Command("git", "branch", "-a")
+	cmd.Dir = bareRepo
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+
+	var branches []string
+	scanner := bufio.NewScanner(&out)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		// Remove "* " prefix for current branch
+		line = strings.TrimPrefix(line, "* ")
+
+		// Handle remote branches
+		if strings.HasPrefix(line, "remotes/origin/") {
+			branch := strings.TrimPrefix(line, "remotes/origin/")
+			if branch != "HEAD" {
+				branches = append(branches, branch)
+			}
+		} else if line != "HEAD" {
+			// Handle direct branches (common in bare repos)
+			branches = append(branches, line)
+		}
+	}
+
+	return branches, scanner.Err()
+}
+
+// CreateWorktree creates a new worktree from a bare repository
+func CreateWorktree(bareRepo, worktreePath, branch string) error {
+	logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
+	cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
+	cmd.Dir = bareRepo
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
+
+// CreateWorktreeQuiet creates a new worktree with minimal output
+func CreateWorktreeQuiet(bareRepo, worktreePath, branch string) error {
+	logger.Debug("Executing: git worktree add %s %s (quiet)", worktreePath, branch)
+	cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
+	cmd.Dir = bareRepo
+
+	// Capture output for error reporting but don't stream it
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		// Include captured stderr in error for debugging
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, stderr.String())
+		}
+		return err
+	}
+
+	return nil
 }
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository
