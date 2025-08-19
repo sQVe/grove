@@ -48,9 +48,10 @@ func TestPlainOutput(t *testing.T) {
 	config.Global.Plain = true
 	Success("test message")
 
-	// Test non-plain mode
 	config.Global.Plain = false
-	Success("test message with emoji")
+	t.Setenv("GROVE_TEST_COLORS", "true")
+
+	Success("test message with colors")
 
 	// Restore stdout and read output
 	_ = w.Close()
@@ -66,12 +67,48 @@ func TestPlainOutput(t *testing.T) {
 	}
 
 	plainLine := lines[0]
-	emojiLine := lines[1]
+	colorLine := lines[1]
 
 	if strings.Contains(plainLine, "✓") {
 		t.Error("Plain mode output should not contain emoji")
 	}
-	if !strings.Contains(emojiLine, "✓") {
-		t.Error("Non-plain mode output should contain emoji")
+	if strings.Contains(plainLine, "\033[") {
+		t.Error("Plain mode output should not contain ANSI escape codes")
+	}
+	if !strings.Contains(colorLine, "✓") {
+		t.Error("Colored mode output should contain emoji")
+	}
+	if !strings.Contains(colorLine, "\033[") {
+		t.Error("Colored mode output should contain ANSI escape codes")
+	}
+}
+
+func TestInfoAndWarning(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	config.Global.Plain = false
+	t.Setenv("GROVE_TEST_COLORS", "true")
+
+	Info("info message")
+	Warning("warning message")
+
+	// Restore stdout and read output
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if !strings.Contains(output, "ℹ") {
+		t.Error("Info output should contain info symbol")
+	}
+	if !strings.Contains(output, "⚠") {
+		t.Error("Warning output should contain warning symbol")
+	}
+	if !strings.Contains(output, "\033[") {
+		t.Error("Colored output should contain ANSI escape codes")
 	}
 }
