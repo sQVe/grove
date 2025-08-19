@@ -12,7 +12,7 @@ var (
 	Success = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	Error   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	Warning = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-	Info    = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	Info    = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
 	Dimmed  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 

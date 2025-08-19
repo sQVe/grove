@@ -102,7 +102,7 @@ func TestInfoAndWarning(t *testing.T) {
 	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
-	if !strings.Contains(output, "ℹ") {
+	if !strings.Contains(output, "→") {
 		t.Error("Info output should contain info symbol")
 	}
 	if !strings.Contains(output, "⚠") {
