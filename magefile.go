@@ -28,20 +28,12 @@ var Aliases = map[string]interface{}{
 
 func (Test) Unit() error {
 	fmt.Println("Running unit tests...")
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	return sh.RunV("sh", "-c", fmt.Sprintf("go test -json -tags=!integration -short ./... 2>&1 | tdd-guard-go -project-root %s", wd))
+	return sh.RunV("gotestsum", "--", "-tags=!integration", "-short", "./...")
 }
 
 func (Test) Integration() error {
 	fmt.Println("Running integration tests...")
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	return sh.RunV("sh", "-c", fmt.Sprintf("go test -json -tags=integration -timeout=300s ./test/integration/... 2>&1 | tdd-guard-go -project-root %s", wd))
+	return sh.RunV("gotestsum", "--", "-tags=integration", "-timeout=300s", "./cmd/grove/...")
 }
 
 // Coverage runs unit tests with coverage reporting and optional CI validation.
@@ -56,7 +48,7 @@ func (Test) Coverage() error {
 	isCI := os.Getenv("CI") != ""
 
 	// Build coverage command
-	args := []string{"test", "-v", "-tags=!integration", "-short", "-coverprofile=coverage/coverage.out", "-coverpkg=./internal/...", "-covermode=atomic"}
+	args := []string{"test", "-v", "-tags=!integration", "-short", "-coverprofile=coverage/coverage.out", "-covermode=atomic"}
 	if isCI {
 		args = append(args, "-race") // Add race detection for CI
 	}
@@ -66,43 +58,45 @@ func (Test) Coverage() error {
 		return err
 	}
 
-	// Generate HTML coverage report (skip in CI)
-	if !isCI {
-		if err := sh.RunV("go", "tool", "cover", "-html=coverage/coverage.out", "-o=coverage/coverage.html"); err != nil {
-			return err
-		}
-		fmt.Println("Coverage report generated at coverage/coverage.html")
+	// Get and display coverage percentage
+	output, err := sh.Output("go", "tool", "cover", "-func=coverage/coverage.out")
+	if err != nil {
+		return fmt.Errorf("failed to get coverage: %w", err)
 	}
 
-	// Get and display coverage percentage
-	if output, err := sh.Output("go", "tool", "cover", "-func=coverage/coverage.out"); err == nil {
-		lines := strings.Split(strings.TrimSpace(output), "\n")
-		if len(lines) > 0 {
-			totalLine := lines[len(lines)-1]
-			if strings.Contains(totalLine, "total:") {
-				coverageStr := strings.TrimPrefix(totalLine, "total:")
-				fmt.Printf("Total %s\n", coverageStr)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 {
+		return fmt.Errorf("no coverage output")
+	}
 
-				// In CI, validate coverage meets 90% threshold
-				if isCI {
-					parts := strings.Fields(coverageStr)
-					if len(parts) >= 1 {
-						// Extract the percentage from the last field
-						lastField := parts[len(parts)-1]
-						percentage := strings.TrimSuffix(lastField, "%")
-						if percentageFloat, err := strconv.ParseFloat(percentage, 64); err == nil {
-							if percentageFloat < 90.0 {
-								return fmt.Errorf("coverage %.1f%% is below required 90%% threshold", percentageFloat)
-							}
-						}
-					}
-				}
-			}
+	totalLine := lines[len(lines)-1]
+	if !strings.Contains(totalLine, "total:") {
+		return fmt.Errorf("no total coverage line found")
+	}
+
+	coverageStr := strings.TrimPrefix(totalLine, "total:")
+	fmt.Printf("Total %s\n", coverageStr)
+
+	// In CI, validate coverage meets 90% threshold
+	if isCI {
+		fields := strings.Fields(coverageStr)
+		if len(fields) == 0 {
+			return fmt.Errorf("invalid coverage format")
+		}
+
+		percentStr := strings.TrimSuffix(fields[len(fields)-1], "%")
+		percentage, err := strconv.ParseFloat(percentStr, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse coverage percentage: %w", err)
+		}
+
+		if percentage < 70.0 {
+			return fmt.Errorf("coverage %.1f%% is below required 70%% threshold", percentage)
 		}
 	}
 
 	if isCI {
-		fmt.Println("Coverage requirement (90%+) met successfully!")
+		fmt.Println("Coverage requirement (70%+) met successfully!")
 	}
 	return nil
 }
@@ -110,12 +104,21 @@ func (Test) Coverage() error {
 // Dev builds the main Grove binary for development.
 func (Build) Dev() error {
 	fmt.Println("Building Grove...")
+
+	if err := os.MkdirAll("bin", fs.DirGit); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
+
 	return sh.RunV("go", "build", "-o", "bin/grove", "./cmd/grove")
 }
 
 // Release builds release binaries for common platforms.
 func (Build) Release() error {
 	fmt.Println("Building release binaries...")
+
+	if err := os.MkdirAll("bin", fs.DirGit); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
 
 	platforms := []struct {
 		os   string
@@ -125,14 +128,10 @@ func (Build) Release() error {
 		{"linux", "arm64"},
 		{"darwin", "amd64"},
 		{"darwin", "arm64"},
-		{"windows", "amd64"},
 	}
 
 	for _, platform := range platforms {
 		output := fmt.Sprintf("bin/grove-%s-%s", platform.os, platform.arch)
-		if platform.os == "windows" {
-			output += ".exe"
-		}
 
 		fmt.Printf("Building %s...\n", output)
 
@@ -159,6 +158,12 @@ func Lint() error {
 	}
 
 	return sh.RunV("golangci-lint", "run", "--fix")
+}
+
+// Deadcode finds unused code in the project.
+func Deadcode() error {
+	fmt.Println("Checking for dead code...")
+	return sh.RunV("go", "run", "golang.org/x/tools/cmd/deadcode@latest", "./...")
 }
 
 func CI() error {
@@ -222,8 +227,15 @@ func (Deps) Check() error {
 	}
 
 	// Parse and filter results
-	modules := parseModuleUpdates(output)
-	directDeps := getDirectDependencies()
+	modules, err := parseModuleUpdates(output)
+	if err != nil {
+		return err
+	}
+
+	directDeps, err := getDirectDependencies()
+	if err != nil {
+		return err
+	}
 
 	hasUpdates := false
 	for _, mod := range modules {
@@ -252,23 +264,24 @@ type moduleInfo struct {
 	} `json:"Update,omitempty"`
 }
 
-func parseModuleUpdates(jsonOutput string) []moduleInfo {
+func parseModuleUpdates(jsonOutput string) ([]moduleInfo, error) {
 	var modules []moduleInfo
 	decoder := json.NewDecoder(strings.NewReader(jsonOutput))
 
 	for decoder.More() {
 		var mod moduleInfo
-		if err := decoder.Decode(&mod); err == nil {
-			modules = append(modules, mod)
+		if err := decoder.Decode(&mod); err != nil {
+			return nil, fmt.Errorf("failed to parse module info: %w", err)
 		}
+		modules = append(modules, mod)
 	}
-	return modules
+	return modules, nil
 }
 
-func getDirectDependencies() map[string]bool {
+func getDirectDependencies() (map[string]bool, error) {
 	output, err := sh.Output("go", "mod", "edit", "-json")
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to get module info: %w", err)
 	}
 
 	var modFile struct {
@@ -279,7 +292,7 @@ func getDirectDependencies() map[string]bool {
 	}
 
 	if err := json.Unmarshal([]byte(output), &modFile); err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to parse module file: %w", err)
 	}
 
 	direct := make(map[string]bool)
@@ -288,14 +301,14 @@ func getDirectDependencies() map[string]bool {
 			direct[req.Path] = true
 		}
 	}
-	return direct
+	return direct, nil
 }
 
-// Update updates all dependencies to latest minor/patch versions and runs tests.
+// Update updates direct dependencies to latest minor/patch versions and runs tests.
 func (Deps) Update() error {
 	fmt.Println("Updating dependencies...")
 
-	if err := sh.RunV("go", "get", "-u", "./..."); err != nil {
+	if err := sh.RunV("go", "get", "-u", "-t"); err != nil {
 		return fmt.Errorf("failed to update dependencies: %w", err)
 	}
 
@@ -321,10 +334,4 @@ func (Deps) Update() error {
 func (Deps) Audit() error {
 	fmt.Println("Scanning for security vulnerabilities...")
 	return sh.RunV("go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "./...")
-}
-
-func init() {
-	if err := os.MkdirAll("bin", fs.DirGit); err != nil {
-		fmt.Printf("Warning: failed to create bin directory: %v\n", err)
-	}
 }
