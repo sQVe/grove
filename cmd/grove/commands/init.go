@@ -46,11 +46,13 @@ func NewInitCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			logger.Success("Initialized grove workspace in: %s", targetDir)
+			logger.Info("Initialized grove workspace in: %s", targetDir)
 		},
 	}
 	initCmd.AddCommand(newCmd)
 
+	var branches string
+	var verbose bool
 	cloneCmd := &cobra.Command{
 		Use:   "clone <url> [directory]",
 		Short: "Clone a repository and create a grove workspace",
@@ -62,6 +64,12 @@ func NewInitCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
 		Run: func(cmd *cobra.Command, args []string) {
+			branchesRequested := cmd.Flags().Changed("branches")
+			if branchesRequested && (branches == "" || branches == `""`) {
+				logger.Error("no branches specified")
+				os.Exit(1)
+			}
+
 			url := args[0]
 
 			var targetDir string
@@ -77,15 +85,30 @@ func NewInitCmd() *cobra.Command {
 			}
 
 			logger.Debug("Cloning and initializing grove workspace in: %s", targetDir)
+			if branches != "" {
+				logger.Debug("Branches requested: %s", branches)
+			}
+			if verbose {
+				logger.Debug("Verbose mode enabled")
+			}
 
-			if err := workspace.CloneAndInitialize(url, targetDir); err != nil {
+			if err := workspace.CloneAndInitializeWithVerbose(url, targetDir, branches, verbose); err != nil {
 				logger.Error("Failed to clone and initialize workspace: %v", err)
 				os.Exit(1)
 			}
 
-			logger.Success("Cloned and initialized grove workspace in: %s", targetDir)
+			logger.Info("Initialized grove workspace in: %s", targetDir)
 		},
 	}
+	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")
+	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show detailed git output during clone and worktree creation")
+	_ = cloneCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
 	initCmd.AddCommand(cloneCmd)
 
 	return initCmd
