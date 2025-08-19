@@ -25,40 +25,15 @@
 
 ## System Architecture
 
-### Domain-Focused Architecture
+Grove is organized into focused packages that do one thing well:
 
-```
-┌─────────────────────────────────────┐
-│         Interface Layer             │ <- CLI/TUI commands, output formatting
-├─────────────────────────────────────┤
-│          Domain Layer               │ <- worktree, workspace business logic
-├─────────────────────────────────────┤
-│       Infrastructure Layer          │ <- git operations, config, filesystem
-└─────────────────────────────────────┘
-```
-
-### Package Organization
-
-#### Interface Layer (`cmd/`, `internal/cli/`, `internal/tui/`)
-
-- **Command definitions**: Cobra command structure and routing
-- **User interaction**: CLI flags, TUI screens, output formatting
-- **Orchestration**: Coordinates domain packages to fulfill user requests
-- **Error presentation**: User-friendly messages with suggested actions
-
-#### Domain Layer (`internal/worktree/`, `internal/workspace/`)
-
-- **Core business logic**: Pure worktree operations without I/O dependencies
-- **Business rules**: Validation of worktree states and transitions
-- **Domain entities**: Worktree, Repository, and related data structures
-- **Cross-cutting operations**: Multi-worktree workflows and coordination
-
-#### Infrastructure Layer (`internal/git/`, `internal/config/`, utilities)
-
-- **Git operations**: Git command execution and result parsing
-- **Configuration management**: TOML file handling and defaults
-- **Validation utilities**: Input sanitization and validation helpers
-- **Path utilities**: URL parsing and path manipulation (future)
+- **Commands** (`cmd/`): Cobra CLI command definitions and routing
+- **Git operations** (`internal/git/`): Git command execution wrapper
+- **Configuration** (`internal/config/`): TOML config and environment variables
+- **Workspace management** (`internal/workspace/`): Create/clone grove workspaces
+- **Validation** (`internal/validation/`): Input checking and sanitization  
+- **Styling** (`internal/styles/`): Terminal output formatting
+- **File operations** (`internal/fs/`): Filesystem permissions and paths
 
 ## Development Standards
 
@@ -90,24 +65,23 @@
 #### Package Organization
 
 ```go
-// Good: Clear, focused domain packages
+// Good: Clear, focused packages
 internal/
-├── worktree/   // Core worktree business logic
-├── workspace/  // Cross-worktree operations
 ├── git/        // Git command wrapper
 ├── config/     // Configuration management
-├── parse/      // URL/path parsing utilities
 ├── validation/ // Input validation
-├── cli/        // CLI output formatting
-└── tui/        // TUI interface (future)
+├── workspace/  // Workspace operations  
+├── styles/     // Terminal styling
+├── logger/     // Logging
+└── fs/         // File system constants
 
-// Avoid: Generic or layered packages
+// Avoid: Vague or generic packages
 internal/
-├── app/        // Premature orchestration layer
-├── domain/     // Unnecessary prefix
+├── app/        // What does this do?
+├── domain/     // Meaningless prefix
 ├── utils/      // Too generic
-└── service/    // Vague purpose
-└── common/     // Vague responsibilities
+└── service/    // Says nothing
+└── common/     // Garbage dump
 ```
 
 #### Function Design

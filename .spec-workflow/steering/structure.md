@@ -10,14 +10,13 @@ grove/
 │   └── grove/             # Main application
 │       └── main.go        # Application bootstrap
 ├── internal/              # Private application code
-│   ├── worktree/          # Core worktree business logic
-│   ├── workspace/         # Cross-worktree operations (future)
 │   ├── git/               # Git operations wrapper
 │   ├── config/            # Configuration management
-│   ├── parse/             # URL/path parsing utilities (future)
 │   ├── validation/        # Input validation and sanitization
-│   ├── cli/               # CLI output formatting (lipgloss)
-│   └── tui/               # TUI interface (future)
+│   ├── workspace/         # Grove workspace operations
+│   ├── styles/            # Terminal styling with lipgloss
+│   ├── logger/            # Logging utilities
+│   └── fs/                # File system constants
 ├── testdata/              # Integration test repositories and fixtures
 ├── .spec-workflow/        # Specification-driven development
 │   ├── steering/          # Project steering documents
@@ -39,46 +38,20 @@ grove/
 
 ```go
 internal/
-├── worktree/            # Core worktree business logic
-│   ├── manager.go       # High-level worktree management
-│   ├── lifecycle.go     # Create/delete/switch operations
-│   └── list.go          # Worktree discovery and status
-├── workspace/           # Cross-worktree operations (future)
-│   ├── search.go        # Find files across worktrees
-│   ├── move.go          # Move work between worktrees
-│   └── sync.go          # Synchronization operations
-├── git/                 # Git operations wrapper
-│   ├── client.go        # Git command execution
-│   ├── repository.go    # Repository operations
-│   └── worktree.go      # Worktree-specific git commands
+├── git/                 # Git operations wrapper  
 ├── config/              # Configuration management
-│   ├── config.go        # Core config types and loading
-│   ├── defaults.go      # Default values and validation
-│   └── toml.go          # TOML-specific parsing
-├── parse/               # URL/path parsing utilities (future)
-│   ├── url.go           # URL parsing and validation
-│   └── path.go          # Path manipulation utilities
-├── validation/          # Input validation
-│   ├── names.go         # Name validation (branches, paths)
-│   ├── paths.go         # Path validation and sanitization
-│   └── git.go           # Git-specific validation
-├── cli/                 # CLI output formatting
-│   ├── styles.go        # Lipgloss style definitions
-│   ├── progress.go      # Progress indicators
-│   └── output.go        # Formatted output helpers
-└── tui/                 # TUI interface (future)
-    ├── model.go         # Bubble Tea model
-    ├── views/           # TUI views/screens
-    └── components/      # Reusable TUI components
+├── validation/          # Input validation and sanitization
+├── workspace/           # Grove workspace operations
+├── styles/              # Terminal styling with lipgloss
+├── logger/              # Logging utilities
+└── fs/                  # File system constants
 ```
 
 ### Package Principles
 
-- **Domain packages** (worktree, workspace) contain pure business logic
-- **Infrastructure packages** (git, config) handle external interactions
-- **Utility packages** (parse, validation) provide focused helpers
-- **Interface packages** (cli, tui) handle user interaction only
-- **Clear dependencies**: CLI/TUI → domain → infrastructure
+- **Focused packages**: Each package does one thing well
+- **Clear names**: Package names say what they do
+- **Minimal dependencies**: Keep imports simple and direct
 
 #### Command Structure
 
@@ -105,7 +78,7 @@ Usage patterns:
 
 #### Go Files
 
-- **Business logic**: Descriptive nouns (`manager.go`, `repository.go`)
+- **Core code**: Descriptive nouns (`manager.go`, `repository.go`)
 - **Tests**: Parallel structure (`manager_test.go`, `repository_test.go`)
 - **Interfaces**: Suffix with behavior (`reader.go`, `validator.go`)
 - **Implementation**: Match interface name (`file_reader.go`, `name_validator.go`)
@@ -202,7 +175,7 @@ go tool cover -html=coverage/coverage.out
 
 #### Test Categories
 
-- **Unit tests**: Business logic, validation, configuration using mocks/stubs
+- **Unit tests**: Core code, validation, configuration using mocks/stubs
 - **Integration tests**: End-to-end workflows run from testdata/ with real git repositories
 - **Table tests**: Multiple scenarios with data-driven approach
 - **Error tests**: Validation of error conditions and messages
