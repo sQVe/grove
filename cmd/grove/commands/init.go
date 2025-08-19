@@ -71,8 +71,7 @@ func NewInitCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			branchesRequested := cmd.Flags().Changed("branches")
-			if branchesRequested && (branches == "" || branches == `""`) {
+			if cmd.Flags().Changed("branches") && (branches == "" || branches == `""`) {
 				logger.Error("no branches specified")
 				os.Exit(1)
 			}
@@ -105,7 +104,7 @@ func NewInitCmd() *cobra.Command {
 				logger.Debug("Verbose mode enabled")
 			}
 
-			if err := workspace.CloneAndInitializeWithVerbose(url, targetDir, branches, verbose); err != nil {
+			if err := workspace.CloneAndInitialize(url, targetDir, branches, verbose); err != nil {
 				logger.Error("Failed to clone and initialize workspace: %v", err)
 				os.Exit(1)
 			}

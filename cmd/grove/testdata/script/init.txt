@@ -205,7 +205,7 @@ mkdir test-output-quiet
 exec grove init clone file://$WORK/testrepo test-output-quiet --branches master,develop
 stdout 'Cloning repository...'
 stdout 'Repository cloned'
-stdout 'Creating 2 worktrees:'
+stdout 'Creating worktrees:'
 stdout '  ✓ master'
 stdout '  ✓ develop'
 ! stdout 'Enumerating objects'
@@ -219,14 +219,14 @@ exec git checkout -b feat/user-auth
 cd ..
 mkdir test-output-sanitized
 exec grove init clone file://$WORK/testrepo test-output-sanitized --branches feat/user-auth
-stdout 'Creating 1 worktree:'
+stdout 'Creating worktrees:'
 stdout '  ✓ feat-user-auth'
 exists test-output-sanitized/feat-user-auth
 
 # Test clone with --verbose flag shows git output
 mkdir test-output-verbose
 exec grove init clone file://$WORK/testrepo test-output-verbose --branches master --verbose
-stdout 'Creating 1 worktree:'
+stdout 'Creating worktrees:'
 stdout '  ✓ master'
 # Note: Can't test git verbose output in script tests as it's environment dependent
 

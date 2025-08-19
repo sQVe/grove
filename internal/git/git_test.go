@@ -84,7 +84,7 @@ func TestCreateWorktree(t *testing.T) {
 		t.Fatalf("failed to create bare repo: %v", err)
 	}
 
-	err := CreateWorktree(bareDir, worktreeDir, "main")
+	err := CreateWorktree(bareDir, worktreeDir, "main", false)
 	if err == nil {
 		t.Fatal("Expected error as main branch doesn't exist in empty repo")
 	}
@@ -95,7 +95,7 @@ func TestCloneQuietMode(t *testing.T) {
 	bareDir := filepath.Join(tempDir, "test.bare")
 
 	// Test with invalid URL to verify error handling works in quiet mode
-	err := CloneQuiet("file:///nonexistent/repo.git", bareDir)
+	err := Clone("file:///nonexistent/repo.git", bareDir, true)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -111,7 +111,7 @@ func TestCloneVerboseMode(t *testing.T) {
 	bareDir := filepath.Join(tempDir, "test.bare")
 
 	// Test with invalid URL to verify error handling works in verbose mode
-	err := Clone("file:///nonexistent/repo.git", bareDir)
+	err := Clone("file:///nonexistent/repo.git", bareDir, false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}

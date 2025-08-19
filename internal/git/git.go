@@ -20,35 +20,33 @@ func InitBare(path string) error {
 }
 
 // Clone clones a git repository as bare into the specified path
-func Clone(url, path string) error {
-	logger.Debug("Executing: git clone --bare %s %s", url, path)
-	cmd := exec.Command("git", "clone", "--bare", url, path)
+func Clone(url, path string, quiet bool) error {
+	if quiet {
+		logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
+		cmd := exec.Command("git", "clone", "--bare", "--quiet", url, path)
 
-	// Let git's output stream through to user
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+		// Capture output for error reporting but don't stream it
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
 
-	return cmd.Run()
-}
-
-// CloneQuiet clones a repository with minimal output
-func CloneQuiet(url, path string) error {
-	logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
-	cmd := exec.Command("git", "clone", "--bare", "--quiet", url, path)
-
-	// Capture output for error reporting but don't stream it
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		// Include captured stderr in error for debugging
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, stderr.String())
+		if err := cmd.Run(); err != nil {
+			if stderr.Len() > 0 {
+				return fmt.Errorf("%w: %s", err, stderr.String())
+			}
+			return err
 		}
-		return err
-	}
 
-	return nil
+		return nil
+	} else {
+		logger.Debug("Executing: git clone --bare %s %s", url, path)
+		cmd := exec.Command("git", "clone", "--bare", url, path)
+
+		// Let git's output stream through to user
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		return cmd.Run()
+	}
 }
 
 // ListBranches returns a list of all branches in a bare repository
@@ -91,36 +89,35 @@ func ListBranches(bareRepo string) ([]string, error) {
 }
 
 // CreateWorktree creates a new worktree from a bare repository
-func CreateWorktree(bareRepo, worktreePath, branch string) error {
-	logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
-	cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
-	cmd.Dir = bareRepo
+func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
+	if quiet {
+		logger.Debug("Executing: git worktree add %s %s (quiet)", worktreePath, branch)
+		cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
+		cmd.Dir = bareRepo
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+		// Capture output for error reporting but don't stream it
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
 
-	return cmd.Run()
-}
-
-// CreateWorktreeQuiet creates a new worktree with minimal output
-func CreateWorktreeQuiet(bareRepo, worktreePath, branch string) error {
-	logger.Debug("Executing: git worktree add %s %s (quiet)", worktreePath, branch)
-	cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
-	cmd.Dir = bareRepo
-
-	// Capture output for error reporting but don't stream it
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		// Include captured stderr in error for debugging
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, stderr.String())
+		if err := cmd.Run(); err != nil {
+			// Include captured stderr in error for debugging
+			if stderr.Len() > 0 {
+				return fmt.Errorf("%w: %s", err, stderr.String())
+			}
+			return err
 		}
-		return err
-	}
 
-	return nil
+		return nil
+	} else {
+		logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
+		cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
+		cmd.Dir = bareRepo
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		return cmd.Run()
+	}
 }
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository

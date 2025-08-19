@@ -269,7 +269,7 @@ func TestIsInsideGroveWorkspaceInvalidPath(t *testing.T) {
 func TestCloneAndInitializeWithBranches(t *testing.T) {
 	tempDir := t.TempDir()
 
-	err := CloneAndInitialize("file:///test/repo.git", tempDir, "main,develop")
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "main,develop", false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -278,7 +278,7 @@ func TestCloneAndInitializeWithBranches(t *testing.T) {
 func TestCloneAndInitializeWithEmptyBranches(t *testing.T) {
 	tempDir := t.TempDir()
 
-	err := CloneAndInitialize("file:///test/repo.git", tempDir, "")
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "", false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -287,7 +287,7 @@ func TestCloneAndInitializeWithEmptyBranches(t *testing.T) {
 func TestCloneAndInitializeWithInvalidBranches(t *testing.T) {
 	tempDir := t.TempDir()
 
-	err := CloneAndInitialize("file:///test/repo.git", tempDir, "nonexistent")
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "nonexistent", false)
 	if err == nil {
 		t.Fatal("Expected error for invalid branch")
 	}
@@ -315,7 +315,7 @@ func TestSanitizeBranchName(t *testing.T) {
 func TestCloneAndInitializeQuietMode(t *testing.T) {
 	tempDir := t.TempDir()
 
-	err := CloneAndInitializeWithVerbose("file:///test/repo.git", tempDir, "main", false)
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "main", false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -324,7 +324,7 @@ func TestCloneAndInitializeQuietMode(t *testing.T) {
 func TestCloneAndInitializeVerboseMode(t *testing.T) {
 	tempDir := t.TempDir()
 
-	err := CloneAndInitializeWithVerbose("file:///test/repo.git", tempDir, "main", true)
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "main", true)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}

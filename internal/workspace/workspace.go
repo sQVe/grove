@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
@@ -26,6 +25,36 @@ func sanitizeBranchName(branch string) string {
 		`"`, "-",
 	)
 	return replacer.Replace(branch)
+}
+
+// validateBranches validates requested branches against available branches
+func validateBranches(
+	branches string, availableBranches []string,
+) (valid, missing []string) {
+	branchList := strings.Split(branches, ",")
+
+	for _, branch := range branchList {
+		branch = strings.TrimSpace(branch)
+		if branch == "" {
+			continue
+		}
+
+		found := false
+		for _, availBranch := range availableBranches {
+			if strings.TrimSpace(availBranch) == branch {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			valid = append(valid, branch)
+		} else {
+			missing = append(missing, branch)
+		}
+	}
+
+	return valid, missing
 }
 
 // IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
@@ -100,6 +129,72 @@ func createGitFile(path, bareDir string) error {
 	return nil
 }
 
+// cloneWithProgress clones a repository with progress indication
+func cloneWithProgress(url, bareDir string, verbose bool) error {
+	if verbose {
+		logger.Info("Cloning repository...")
+		return git.Clone(url, bareDir, false)
+	}
+
+	stop := logger.StartSpinner("Cloning repository...")
+	err := git.Clone(url, bareDir, true)
+	stop()
+
+	if err == nil {
+		logger.Success("Repository cloned")
+	}
+
+	return err
+}
+
+// createWorktreesFromBranches creates worktrees for the specified branches
+func createWorktreesFromBranches(bareDir, branches string, verbose bool) error {
+	availableBranches, err := git.ListBranches(bareDir)
+	if err != nil {
+		return fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	validBranches, missingBranches := validateBranches(branches, availableBranches)
+
+	if len(missingBranches) > 0 {
+		if len(availableBranches) == 0 {
+			return fmt.Errorf("branches %v do not exist. Repository has no branches", missingBranches)
+		}
+		return fmt.Errorf("branches %v do not exist. Available branches: %v", missingBranches, availableBranches)
+	}
+
+	var stop func()
+	if verbose {
+		logger.Info("Creating worktrees:")
+	} else {
+		stop = logger.StartSpinner("Creating worktrees...")
+	}
+
+	for _, branch := range validBranches {
+		sanitizedName := sanitizeBranchName(branch)
+		worktreePath := filepath.Join("..", sanitizedName)
+
+		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
+			if stop != nil {
+				stop()
+			}
+			return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+		}
+	}
+
+	if stop != nil {
+		stop()
+		logger.Success("Creating worktrees:")
+	}
+
+	for _, branch := range validBranches {
+		sanitizedName := sanitizeBranchName(branch)
+		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), sanitizedName)
+	}
+
+	return nil
+}
+
 // Initialize creates a new grove workspace in the specified directory
 func Initialize(path string) error {
 	if err := validateAndPrepareDirectory(path); err != nil {
@@ -122,208 +217,24 @@ func Initialize(path string) error {
 }
 
 // CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
-func CloneAndInitialize(url, path, branches string) error {
+func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	if err := validateAndPrepareDirectory(path); err != nil {
 		return err
 	}
 
 	bareDir := filepath.Join(path, ".bare")
-	if err := git.Clone(url, bareDir); err != nil {
+
+	if err := cloneWithProgress(url, bareDir, verbose); err != nil {
 		_ = os.RemoveAll(bareDir)
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
-	logger.Debug("Repository cloned to %s", bareDir)
 
 	if err := createGitFile(path, bareDir); err != nil {
 		return err
 	}
 
 	if branches != "" {
-		branchList := strings.Split(branches, ",")
-		availableBranches, err := git.ListBranches(bareDir)
-		if err != nil {
-			return fmt.Errorf("failed to list branches: %w", err)
-		}
-
-		var missingBranches []string
-
-		for _, branch := range branchList {
-			branch = strings.TrimSpace(branch)
-			if branch == "" {
-				continue
-			}
-
-			found := false
-			for _, availBranch := range availableBranches {
-				if strings.TrimSpace(availBranch) == branch {
-					found = true
-					break
-				}
-			}
-			if !found {
-				missingBranches = append(missingBranches, branch)
-				continue
-			}
-
-			sanitizedName := sanitizeBranchName(branch)
-			worktreePath := filepath.Join("..", sanitizedName)
-			logger.Debug("Creating worktree for branch %s at %s", branch, worktreePath)
-
-			if err := git.CreateWorktree(bareDir, worktreePath, branch); err != nil {
-				return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
-			}
-
-			logger.Debug("Created worktree for branch %s", branch)
-		}
-
-		if len(missingBranches) > 0 {
-			if len(availableBranches) == 0 {
-				return fmt.Errorf("branches %v do not exist. Repository has no branches", missingBranches)
-			}
-			return fmt.Errorf("branches %v do not exist. Available branches: %v", missingBranches, availableBranches)
-		}
-	}
-
-	return nil
-}
-
-// CloneAndInitializeWithVerbose clones a repository and creates a grove workspace with verbose control
-func CloneAndInitializeWithVerbose(url, path, branches string, verbose bool) error {
-	if err := validateAndPrepareDirectory(path); err != nil {
-		return err
-	}
-
-	bareDir := filepath.Join(path, ".bare")
-
-	// Count valid branches for output (but don't show confusing mapping)
-	var validBranchCount int
-	if branches != "" {
-		branchList := strings.Split(branches, ",")
-		for _, branch := range branchList {
-			branch = strings.TrimSpace(branch)
-			if branch != "" {
-				validBranchCount++
-			}
-		}
-	}
-
-	var cloneErr error
-	if verbose {
-		logger.Info("Cloning repository...")
-		cloneErr = git.Clone(url, bareDir)
-	} else {
-		stop := logger.StartSpinner("Cloning repository...")
-		cloneErr = git.CloneQuiet(url, bareDir)
-		stop()
-		if cloneErr == nil {
-			logger.Success("Repository cloned")
-		}
-	}
-
-	if cloneErr != nil {
-		_ = os.RemoveAll(bareDir)
-		return fmt.Errorf("failed to clone repository: %w", cloneErr)
-	}
-
-	if err := createGitFile(path, bareDir); err != nil {
-		return err
-	}
-
-	if branches != "" {
-		var worktreeMessage string
-		if validBranchCount == 1 {
-			worktreeMessage = "Creating 1 worktree:"
-		} else {
-			worktreeMessage = fmt.Sprintf("Creating %d worktrees:", validBranchCount)
-		}
-
-		var stopWorktree func()
-		if verbose {
-			logger.Info("%s", worktreeMessage)
-		} else {
-			stopWorktree = logger.StartSpinner(worktreeMessage)
-		}
-
-		branchList := strings.Split(branches, ",")
-		availableBranches, err := git.ListBranches(bareDir)
-		if err != nil {
-			if stopWorktree != nil {
-				stopWorktree()
-			}
-			return fmt.Errorf("failed to list branches: %w", err)
-		}
-
-		var missingBranches []string
-
-		for _, branch := range branchList {
-			branch = strings.TrimSpace(branch)
-			if branch == "" {
-				continue
-			}
-
-			found := false
-			for _, availBranch := range availableBranches {
-				if strings.TrimSpace(availBranch) == branch {
-					found = true
-					break
-				}
-			}
-			if !found {
-				missingBranches = append(missingBranches, branch)
-				continue
-			}
-
-			sanitizedName := sanitizeBranchName(branch)
-			worktreePath := filepath.Join("..", sanitizedName)
-
-			var worktreeErr error
-			if verbose {
-				worktreeErr = git.CreateWorktree(bareDir, worktreePath, branch)
-			} else {
-				worktreeErr = git.CreateWorktreeQuiet(bareDir, worktreePath, branch)
-			}
-
-			if worktreeErr != nil {
-				if stopWorktree != nil {
-					stopWorktree()
-				}
-				return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, worktreeErr)
-			}
-		}
-
-		if stopWorktree != nil {
-			stopWorktree()
-			if !config.IsPlain() {
-				logger.Info("%s", worktreeMessage)
-			}
-		}
-
-		// Show individual worktree results after spinner stops
-		for _, branch := range branchList {
-			branch = strings.TrimSpace(branch)
-			if branch == "" {
-				continue
-			}
-
-			found := false
-			for _, availBranch := range availableBranches {
-				if strings.TrimSpace(availBranch) == branch {
-					found = true
-					break
-				}
-			}
-			if found {
-				sanitizedName := sanitizeBranchName(branch)
-				fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), sanitizedName)
-			}
-		}
-
-		if len(missingBranches) > 0 {
-			if len(availableBranches) == 0 {
-				return fmt.Errorf("branches %v do not exist. Repository has no branches", missingBranches)
-			}
-			return fmt.Errorf("branches %v do not exist. Available branches: %v", missingBranches, availableBranches)
-		}
+		return createWorktreesFromBranches(bareDir, branches, verbose)
 	}
 
 	return nil
