@@ -1,0 +1,24 @@
+# Test completion command shows help
+exec grove completion --help
+stdout 'Generate the autocompletion script'
+
+# Test bash completion generates script
+exec grove completion bash
+stdout '__start_grove'
+stdout 'complete -o default -F'
+
+# Test zsh completion generates script
+exec grove completion zsh
+stdout '#compdef grove'
+
+# Test fish completion generates script
+exec grove completion fish
+stdout 'complete -c grove'
+
+# Test powershell completion generates script
+exec grove completion powershell
+stdout 'Register-ArgumentCompleter'
+
+# Test invalid shell shows help
+exec grove completion invalid
+stdout 'Available Commands:'
