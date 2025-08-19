@@ -265,3 +265,81 @@ func TestIsInsideGroveWorkspaceInvalidPath(t *testing.T) {
 		t.Error("nonexistent path should not be inside grove workspace")
 	}
 }
+
+func TestCloneAndInitializeWithBranches(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "main,develop")
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo")
+	}
+}
+
+func TestCloneAndInitializeWithEmptyBranches(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "")
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo")
+	}
+}
+
+func TestCloneAndInitializeWithInvalidBranches(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := CloneAndInitialize("file:///test/repo.git", tempDir, "nonexistent")
+	if err == nil {
+		t.Fatal("Expected error for invalid branch")
+	}
+}
+
+func TestSanitizeBranchName(t *testing.T) {
+	tests := []struct {
+		branch   string
+		expected string
+	}{
+		{"feat/user-auth", "feat-user-auth"},
+		{"chore/better-error", "chore-better-error"},
+		{"test<pipe>quote\"", "test-pipe-quote-"},
+		{"main", "main"},
+		{"feat|special", "feat-special"},
+	}
+
+	for _, tt := range tests {
+		if got := sanitizeBranchName(tt.branch); got != tt.expected {
+			t.Errorf("sanitizeBranchName(%q) = %q, want %q", tt.branch, got, tt.expected)
+		}
+	}
+}
+
+func TestCloneAndInitializeQuietMode(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := CloneAndInitializeWithVerbose("file:///test/repo.git", tempDir, "main", false)
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo")
+	}
+}
+
+func TestCloneAndInitializeVerboseMode(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := CloneAndInitializeWithVerbose("file:///test/repo.git", tempDir, "main", true)
+	if err == nil {
+		t.Fatal("Expected error for non-existent repo")
+	}
+}
+
+func TestCloneAndInitializeBranchMapping(t *testing.T) {
+	expectedMappings := map[string]string{
+		"feat/user-auth":     "feat-user-auth",
+		"chore/better-error": "chore-better-error",
+	}
+
+	// Verify sanitization logic matches expected mappings
+	for original, expected := range expectedMappings {
+		if got := sanitizeBranchName(original); got != expected {
+			t.Errorf("sanitizeBranchName(%q) = %q, want %q", original, got, expected)
+		}
+	}
+}
