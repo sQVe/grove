@@ -29,6 +29,7 @@
 **Failure conditions:**
 
 - [x] Should accept at most 1 argument
+- [x] Not inside a grove workspace already
 - [x] Current/specified directory is not empty
 - [x] Current/specified directory is a Git repository
 
@@ -37,22 +38,21 @@
 | Command                       | Features                                          | Status |
 | ----------------------------- | ------------------------------------------------- | ------ |
 | `init clone`                  | Output help if no arguments                       | [x]    |
-| `init clone <url>`            | Initialize grove workspace in current directory   | [ ]    |
-| `init clone <url>`            | Clone specific URL into grove workspace           | [ ]    |
-| `init clone <url>`            | Progress bar for cloning                          | [ ]    |
+| `init clone <url>`            | Initialize grove workspace in current directory   | [x]    |
+| `init clone <url>`            | Clone specific URL into grove workspace           | [x]    |
+| `init clone <url>`            | Progress bar for cloning                          | [x]    |
 | `init clone <url> --branches` | Setup worktrees for each branch                   | [ ]    |
 | `init clone <url> --branches` | Provide completions for branch name               | [ ]    |
-| `init clone <url> <dir>`      | Initialize grove workspace in specified directory | [ ]    |
-| `init clone <url> <dir>`      | Clone specific URL into grove workspace           | [ ]    |
-| `init clone <url> <dir>`      | Progress bar for cloning                          | [ ]    |
-| `init clone <url> <dir>`      | Provide completions for directory name            | [ ]    |
+| `init clone <url> <dir>`      | Initialize grove workspace in specified directory | [x]    |
+| `init clone <url> <dir>`      | Clone specific URL into grove workspace           | [x]    |
+| `init clone <url> <dir>`      | Provide completions for directory name            | [x]    |
 
 **Failure conditions:**
 
 - [x] Should accept 1 or 2 arguments.
-- [ ] Current/specified directory is not empty
-- [ ] Current/specified directory is a Git repository
-- [ ] Specified URL is not a valid Git repository URL
+- [x] Not inside a grove workspace already
+- [x] Current/specified directory is not empty
+- [x] Current/specified directory is a Git repository
 
 #### `init convert`
 
