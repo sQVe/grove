@@ -14,6 +14,10 @@ stderr 'unknown command'
 exec grove init new --help
 stdout 'new'
 
+# Test init new fails with too many arguments
+! exec grove init new dir1 dir2
+stderr 'accepts at most 1 arg'
+
 # Test init new creates workspace in temp directory
 mkdir temp1
 exec grove init new temp1
@@ -31,6 +35,30 @@ mkdir temp3
 cp existing.txt temp3/existing.txt
 ! exec grove init new temp3
 stderr 'not empty'
+
+# Test init clone command help
+exec grove init clone --help
+stdout 'clone'
+
+# Test init clone without arguments fails
+! exec grove init clone
+stderr 'accepts between 1 and 2 arg'
+
+# Test init clone with too many arguments fails
+! exec grove init clone url dir extra
+stderr 'accepts between 1 and 2 arg'
+
+# Test init clone with invalid URL fails
+! exec grove init clone not-a-url
+stderr 'not a valid Git repository URL'
+
+# Test init clone with valid URL accepts argument
+! exec grove init clone https://github.com/user/repo.git
+stderr 'not yet implemented'
+
+# Test init clone with URL and directory accepts arguments
+! exec grove init clone https://github.com/user/repo.git mydir
+stderr 'not yet implemented'
 
 -- existing.txt --
 content

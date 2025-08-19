@@ -28,14 +28,15 @@
 
 **Failure conditions:**
 
-- [x] Current directory is not empty
-- [x] Current directory is a Git repository
+- [x] Should accept at most 1 argument
+- [x] Current/specified directory is not empty
+- [x] Current/specified directory is a Git repository
 
 #### `init clone` variants
 
 | Command                       | Features                                          | Status |
 | ----------------------------- | ------------------------------------------------- | ------ |
-| `init clone`                  | Output help if no arguments                       | [ ]    |
+| `init clone`                  | Output help if no arguments                       | [x]    |
 | `init clone <url>`            | Initialize grove workspace in current directory   | [ ]    |
 | `init clone <url>`            | Clone specific URL into grove workspace           | [ ]    |
 | `init clone <url>`            | Progress bar for cloning                          | [ ]    |
@@ -48,8 +49,9 @@
 
 **Failure conditions:**
 
-- [ ] Current directory is not empty
-- [ ] Current directory is a Git repository
+- [x] Should accept 1 or 2 arguments.
+- [ ] Current/specified directory is not empty
+- [ ] Current/specified directory is a Git repository
 - [ ] Specified URL is not a valid Git repository URL
 
 #### `init convert`

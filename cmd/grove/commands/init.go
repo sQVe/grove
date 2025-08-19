@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/logger"
@@ -51,5 +52,30 @@ func NewInitCmd() *cobra.Command {
 	}
 	initCmd.AddCommand(newCmd)
 
+	cloneCmd := &cobra.Command{
+		Use:   "clone <url> [directory]",
+		Short: "Clone a repository and create a grove workspace",
+		Args:  cobra.RangeArgs(1, 2),
+		Run: func(cmd *cobra.Command, args []string) {
+			url := args[0]
+
+			if !isValidGitURL(url) {
+				logger.Error("Specified URL is not a valid Git repository URL")
+				os.Exit(1)
+			}
+
+			logger.Error("Clone functionality not yet implemented")
+			os.Exit(1)
+		},
+	}
+	initCmd.AddCommand(cloneCmd)
+
 	return initCmd
+}
+
+func isValidGitURL(url string) bool {
+	return strings.HasPrefix(url, "http://") ||
+		strings.HasPrefix(url, "https://") ||
+		strings.HasPrefix(url, "git@") ||
+		strings.Contains(url, ".git")
 }
