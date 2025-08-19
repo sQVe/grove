@@ -2,7 +2,7 @@ package config
 
 import "os"
 
-// Global holds the global configuration state for Grove CLI
+// Global holds the global configuration state for Grove
 var Global struct {
 	Plain bool // Disable colors, emojis, and formatting
 	Debug bool // Enable debug logging

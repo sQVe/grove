@@ -2,7 +2,7 @@
 
 ## Project Context
 
-Grove is a Git worktree management CLI that makes worktrees as simple as switching branches.
+Grove is a Git worktree management tool that makes worktrees as simple as switching branches.
 
 **Essential reading:**
 

@@ -21,7 +21,7 @@ func TestGroveCommandNoArgs(t *testing.T) {
 	}
 
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "Grove is a CLI tool that makes Git worktrees as simple") {
+	if !strings.Contains(outputStr, "Grove is a tool that makes Git worktrees as simple") {
 		t.Errorf("help should contain description, got: %s", outputStr)
 	}
 	if !strings.Contains(outputStr, "init") {

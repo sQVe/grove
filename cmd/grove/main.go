@@ -15,7 +15,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:           "grove",
 		Short:         "Grove - Git worktree management made simple",
-		Long:          `Grove is a CLI tool that makes Git worktrees as simple as switching branches.`,
+		Long:          `Grove is a tool that makes Git worktrees as simple as switching branches.`,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -25,7 +25,7 @@ func main() {
 			if debug, _ := cmd.Flags().GetBool("debug"); debug && !config.Global.Debug {
 				config.Global.Debug = true
 			}
-			logger.Debug("Grove CLI starting with config: plain=%v, debug=%v",
+			logger.Debug("Grove starting with config: plain=%v, debug=%v",
 				config.IsPlain(), config.IsDebug())
 		},
 		Run: func(cmd *cobra.Command, args []string) {

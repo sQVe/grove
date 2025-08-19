@@ -23,6 +23,9 @@ func NewInitCmd() *cobra.Command {
 		Use:   "new [directory]",
 		Short: "Create a new grove workspace",
 		Args:  cobra.MaximumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveFilterDirs
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			var targetDir string
 			if len(args) == 0 {
@@ -43,7 +46,7 @@ func NewInitCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			logger.Success("Initialized Grove workspace in: %s", targetDir)
+			logger.Success("Initialized grove workspace in: %s", targetDir)
 		},
 	}
 	initCmd.AddCommand(newCmd)

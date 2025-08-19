@@ -1,6 +1,6 @@
 # Grove
 
-A fast, intuitive Git worktree management CLI that makes Git worktrees as simple as switching branches.
+A fast, intuitive Git worktree management tool that makes Git worktrees as simple as switching branches.
 
 ## Installation
 
