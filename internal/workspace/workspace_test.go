@@ -32,7 +32,7 @@ func TestInitialize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read .git file: %v", err)
 	}
-	expected := "gitdir: .bare"
+	expected := groveGitContent
 	if string(content) != expected {
 		t.Errorf(".git file should contain '%s', got '%s'", expected, string(content))
 	}
@@ -205,5 +205,63 @@ func TestInitializeInsideGitRepository(t *testing.T) {
 
 	if !os.IsExist(err) && err.Error() != errInsideGitRepo {
 		t.Errorf("expected 'inside existing git repository' error, got: %v", err)
+	}
+}
+
+func TestIsInsideGroveWorkspace(t *testing.T) {
+	tempDir := t.TempDir()
+
+	if IsInsideGroveWorkspace(tempDir) {
+		t.Error("empty directory should not be inside grove workspace")
+	}
+}
+
+func TestIsInsideGroveWorkspaceWithBareDir(t *testing.T) {
+	tempDir := t.TempDir()
+
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.Mkdir(bareDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create .bare directory: %v", err)
+	}
+
+	if !IsInsideGroveWorkspace(tempDir) {
+		t.Error("directory with .bare should be inside grove workspace")
+	}
+}
+
+func TestIsInsideGroveWorkspaceWithGitFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	gitFile := filepath.Join(tempDir, ".git")
+	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+		t.Fatalf("failed to create .git file: %v", err)
+	}
+
+	if !IsInsideGroveWorkspace(tempDir) {
+		t.Error("directory with grove .git file should be inside grove workspace")
+	}
+}
+
+func TestIsInsideGroveWorkspaceNested(t *testing.T) {
+	tempDir := t.TempDir()
+
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.Mkdir(bareDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create .bare directory: %v", err)
+	}
+
+	subDir := filepath.Join(tempDir, "subdir", "nested")
+	if err := os.MkdirAll(subDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create nested directory: %v", err)
+	}
+
+	if !IsInsideGroveWorkspace(subDir) {
+		t.Error("nested directory should be inside grove workspace")
+	}
+}
+
+func TestIsInsideGroveWorkspaceInvalidPath(t *testing.T) {
+	if IsInsideGroveWorkspace("/nonexistent/path") {
+		t.Error("nonexistent path should not be inside grove workspace")
 	}
 }
