@@ -64,34 +64,23 @@ func (Test) Coverage() error {
 		return fmt.Errorf("failed to get coverage: %w", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) == 0 {
-		return fmt.Errorf("no coverage output")
-	}
+	fmt.Print(output)
 
-	totalLine := lines[len(lines)-1]
-	if !strings.Contains(totalLine, "total:") {
-		return fmt.Errorf("no total coverage line found")
-	}
-
-	coverageStr := strings.TrimPrefix(totalLine, "total:")
-	fmt.Printf("Total %s\n", coverageStr)
-
-	// In CI, validate coverage meets 90% threshold
+	// In CI, validate coverage threshold
 	if isCI {
-		fields := strings.Fields(coverageStr)
-		if len(fields) == 0 {
-			return fmt.Errorf("invalid coverage format")
-		}
-
-		percentStr := strings.TrimSuffix(fields[len(fields)-1], "%")
+		lines := strings.Split(strings.TrimSpace(output), "\n")
+		totalLine := lines[len(lines)-1]
+		
+		// Extract percentage from "total: (statements) XX.X%"
+		parts := strings.Fields(totalLine)
+		percentStr := strings.TrimSuffix(parts[len(parts)-1], "%")
 		percentage, err := strconv.ParseFloat(percentStr, 64)
 		if err != nil {
-			return fmt.Errorf("failed to parse coverage percentage: %w", err)
+			return fmt.Errorf("failed to parse coverage: %w", err)
 		}
 
 		if percentage < 70.0 {
-			return fmt.Errorf("coverage %.1f%% is below required 70%% threshold", percentage)
+			return fmt.Errorf("coverage %.1f%% below 70%% threshold", percentage)
 		}
 	}
 
@@ -266,12 +255,16 @@ type moduleInfo struct {
 
 func parseModuleUpdates(jsonOutput string) ([]moduleInfo, error) {
 	var modules []moduleInfo
-	decoder := json.NewDecoder(strings.NewReader(jsonOutput))
-
-	for decoder.More() {
+	
+	// Split by lines and parse each JSON object
+	lines := strings.Split(strings.TrimSpace(jsonOutput), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
 		var mod moduleInfo
-		if err := decoder.Decode(&mod); err != nil {
-			return nil, fmt.Errorf("failed to parse module info: %w", err)
+		if err := json.Unmarshal([]byte(line), &mod); err != nil {
+			return nil, fmt.Errorf("failed to parse module: %w", err)
 		}
 		modules = append(modules, mod)
 	}
