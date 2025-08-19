@@ -16,7 +16,7 @@
 ### `init` (5/17 complete)
 
 - [x] Should output help if no arguments are passed
-- [x] Should fail if given a subcommand that does not exist
+- [x] Should fail if given a sub-command that does not exist
 
 #### `init new` variants
 
@@ -25,6 +25,10 @@
 | `init new`       | Initialize grove workspace in current directory   | [x]    |
 | `init new <dir>` | Initialize grove workspace in specified directory | [x]    |
 | `init new <dir>` | Provide completions for directory name            | [x]    |
+
+**Notes:**
+
+- When given a directory name, the output should always output an absolute path.
 
 **Failure conditions:**
 
@@ -41,7 +45,7 @@
 | `init clone <url>`            | Initialize grove workspace in current directory   | [x]    |
 | `init clone <url>`            | Clone specific URL into grove workspace           | [x]    |
 | `init clone <url>`            | Progress bar for cloning                          | [x]    |
-| `init clone <url> --branches` | Setup worktrees for each branch                   | [ ]    |
+| `init clone <url> --branches` | Setup worktrees for each branch                   | [x]    |
 | `init clone <url> --branches` | Provide completions for branch name               | [ ]    |
 | `init clone <url> <dir>`      | Initialize grove workspace in specified directory | [x]    |
 | `init clone <url> <dir>`      | Clone specific URL into grove workspace           | [x]    |
@@ -53,6 +57,7 @@
 - [x] Not inside a grove workspace already
 - [x] Current/specified directory is not empty
 - [x] Current/specified directory is a Git repository
+- [x] Convert branch name to safe directory name
 
 #### `init convert`
 
