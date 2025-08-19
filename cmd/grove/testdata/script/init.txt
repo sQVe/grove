@@ -36,6 +36,20 @@ cp existing.txt temp3/existing.txt
 ! exec grove init new temp3
 stderr 'not empty'
 
+# Test init new fails inside existing grove workspace
+mkdir workspace1
+exec grove init new workspace1
+cd workspace1
+! exec grove init new
+stderr 'cannot initialize grove inside existing grove workspace'
+cd ..
+
+# Test init new with directory fails when directory is inside existing grove workspace
+mkdir workspace2
+exec grove init new workspace2
+! exec grove init new workspace2/nested
+stderr 'cannot initialize grove inside existing grove workspace'
+
 # Test init clone command help
 exec grove init clone --help
 stdout 'clone'
@@ -49,16 +63,68 @@ stderr 'accepts between 1 and 2 arg'
 stderr 'accepts between 1 and 2 arg'
 
 # Test init clone with invalid URL fails
-! exec grove init clone not-a-url
-stderr 'not a valid Git repository URL'
+mkdir clone-invalid-url
+! exec grove init clone not-a-url clone-invalid-url
+stderr 'failed to clone repository'
 
-# Test init clone with valid URL accepts argument
-! exec grove init clone https://github.com/user/repo.git
-stderr 'not yet implemented'
+# Test init clone with valid URL fails in non-empty directory
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'not empty'
 
-# Test init clone with URL and directory accepts arguments
-! exec grove init clone https://github.com/user/repo.git mydir
-stderr 'not yet implemented'
+# Test init clone with URL and directory fails if directory doesn't exist
+! exec grove init clone file:///nonexistent/repo.git nonexistent
+stderr 'failed to clone repository'
+
+# Test init clone in current directory fails due to network
+mkdir clone-current
+cd clone-current
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'failed to clone repository'
+cd ..
+
+# Test init clone fails when current directory is not empty
+mkdir clone-not-empty
+cp existing.txt clone-not-empty/existing.txt
+cd clone-not-empty
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'not empty'
+cd ..
+
+# Test init clone fails when current directory is a Git repository
+mkdir clone-git-repo
+cd clone-git-repo
+exec git init
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'cannot initialize grove inside existing git repository'
+cd ..
+
+# Test init clone fails when specified directory is not empty
+mkdir clone-dir-not-empty
+cp existing.txt clone-dir-not-empty/existing.txt
+! exec grove init clone file:///nonexistent/repo.git clone-dir-not-empty
+stderr 'not empty'
+
+# Test init clone fails when specified directory is a Git repository
+mkdir clone-dir-git-repo
+cd clone-dir-git-repo
+exec git init
+cd ..
+! exec grove init clone file:///nonexistent/repo.git clone-dir-git-repo
+stderr 'cannot initialize grove inside existing git repository'
+
+# Test init clone fails inside existing grove workspace
+mkdir workspace3
+exec grove init new workspace3
+cd workspace3
+! exec grove init clone file:///nonexistent/repo.git
+stderr 'cannot initialize grove inside existing grove workspace'
+cd ..
+
+# Test init clone with directory fails when directory is inside existing grove workspace
+mkdir workspace4
+exec grove init new workspace4
+! exec grove init clone file:///nonexistent/repo.git workspace4/nested
+stderr 'cannot initialize grove inside existing grove workspace'
 
 -- existing.txt --
 content
