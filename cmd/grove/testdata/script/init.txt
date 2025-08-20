@@ -235,8 +235,113 @@ mkdir test-error-output
 ! exec grove init clone file:///nonexistent/repo.git test-error-output
 stderr 'failed to clone repository'
 
+# =============================================================================
+# grove init convert command tests
+# =============================================================================
+
+# Test init convert command help
+exec grove init convert --help
+stdout 'convert'
+
+# Test init convert fails when not a git repository
+mkdir not-git-repo
+cd not-git-repo
+! exec grove init convert
+stderr 'Current directory is not a Git repository'
+cd ..
+
+# Test init convert fails when already grove workspace
+mkdir already-grove
+exec grove init new already-grove
+cd already-grove
+! exec grove init convert
+stderr 'Current directory is already a Grove workspace'
+cd ..
+
+# Test basic init convert success
+mkdir convert-basic
+cd convert-basic
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec grove init convert
+exists .bare
+exists .git
+exists main/test-file.txt
+cd ..
+
+# Test init convert with detached HEAD fails
+mkdir convert-detached
+cd convert-detached
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout HEAD~0
+! exec grove init convert
+stderr 'Repository is in detached HEAD state'
+cd ..
+
+# Test init convert with --branches flag
+mkdir convert-branches
+cd convert-branches
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com" 
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout -b 'feat/user-auth'
+exec git checkout main
+exec grove init convert --branches main,develop,feat/user-auth
+exists .bare
+exists .git
+exists main/test-file.txt
+exists develop/test-file.txt
+exists feat-user-auth/test-file.txt
+cd ..
+
+# Test init convert copies untracked files to worktrees
+mkdir convert-untracked
+cd convert-untracked
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cp ../untracked.txt .
+exec grove init convert --branches main,develop
+exists main/test-file.txt
+exists main/untracked.txt
+exists develop/test-file.txt
+exists develop/untracked.txt
+cd ..
+
+# Test init convert with no positional arguments
+! exec grove init convert arg1
+stderr 'accepts 0 arg'
+
 -- existing.txt --
 content
+
+-- test-file.txt --
+This is a test file
+
+-- untracked.txt --
+This file is untracked
 
 -- README.md --
 # Test Repository
