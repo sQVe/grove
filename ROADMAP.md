@@ -3,13 +3,13 @@
 ## Global Features Progress
 
 | Command | Beautify | --plain | --debug | --help |
-| ------- | -------- | ------- | ------- | ------ |
-| clone   | [ ]      | [ ]     | [ ]     | [ ]    |
-| create  | [ ]      | [ ]     | [ ]     | [ ]    |
-| init    | [x]      | [x]     | [x]     | [x]    |
-| list    | [ ]      | [ ]     | [ ]     | [ ]    |
-| status  | [ ]      | [ ]     | [ ]     | [ ]    |
-| switch  | [ ]      | [ ]     | [ ]     | [ ]    |
+| ------- | :------: | :-----: | :-----: | :----: |
+| clone   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| create  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| init    |   [x]    |   [x]   |   [x]   |  [x]   |
+| list    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| switch  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 
 ## Commands
 
@@ -21,10 +21,10 @@
 #### `init new` variants
 
 | Command          | Features                                          | Status |
-| ---------------- | ------------------------------------------------- | ------ |
-| `init new`       | Initialize grove workspace in current directory   | [x]    |
-| `init new <dir>` | Initialize grove workspace in specified directory | [x]    |
-| `init new <dir>` | Provide completions for directory name            | [x]    |
+| ---------------- | ------------------------------------------------- | :----: |
+| `init new`       | Initialize grove workspace in current directory   |  [x]   |
+| `init new <dir>` | Initialize grove workspace in specified directory |  [x]   |
+| `init new <dir>` | Provide completions for directory name            |  [x]   |
 
 **Notes:**
 
@@ -40,16 +40,16 @@
 #### `init clone` variants
 
 | Command                       | Features                                          | Status |
-| ----------------------------- | ------------------------------------------------- | ------ |
-| `init clone`                  | Output help if no arguments                       | [x]    |
-| `init clone <url>`            | Initialize grove workspace in current directory   | [x]    |
-| `init clone <url>`            | Clone specific URL into grove workspace           | [x]    |
-| `init clone <url>`            | Progress bar for cloning                          | [x]    |
-| `init clone <url> --branches` | Setup worktrees for each branch                   | [x]    |
-| `init clone <url> --branches` | Provide completions for branch name               | [x]    |
-| `init clone <url> <dir>`      | Initialize grove workspace in specified directory | [x]    |
-| `init clone <url> <dir>`      | Clone specific URL into grove workspace           | [x]    |
-| `init clone <url> <dir>`      | Provide completions for directory name            | [x]    |
+| ----------------------------- | ------------------------------------------------- | :----: |
+| `init clone`                  | Output help if no arguments                       |  [x]   |
+| `init clone <url>`            | Initialize grove workspace in current directory   |  [x]   |
+| `init clone <url>`            | Clone specific URL into grove workspace           |  [x]   |
+| `init clone <url>`            | Progress bar for cloning                          |  [x]   |
+| `init clone <url> --branches` | Setup worktrees for each branch                   |  [x]   |
+| `init clone <url> --branches` | Provide completions for branch name               |  [x]   |
+| `init clone <url> <dir>`      | Initialize grove workspace in specified directory |  [x]   |
+| `init clone <url> <dir>`      | Clone specific URL into grove workspace           |  [x]   |
+| `init clone <url> <dir>`      | Provide completions for directory name            |  [x]   |
 
 **Failure conditions:**
 
@@ -61,29 +61,58 @@
 
 #### `init convert`
 
-| Command        | Features                                     | Status |
-| -------------- | -------------------------------------------- | ------ |
-| `init convert` | Convert existing Git repo to grove workspace | [ ]    |
+| Command                   | Features                                      | Status |
+| ------------------------- | --------------------------------------------- | :----: |
+| `init convert`            | Convert existing Git repo to Grove workspace  |  [ ]   |
+| `init convert`            | Move .git to .bare                            |  [ ]   |
+| `init convert`            | Configure repository as bare                  |  [ ]   |
+| `init convert`            | Create worktree for current branch            |  [ ]   |
+| `init convert`            | Move all files to worktree directory          |  [ ]   |
+| `init convert`            | Create .git file pointing to .bare            |  [ ]   |
+| `init convert --branches` | Setup worktrees for local branches            |  [ ]   |
+| `init convert --branches` | Copy untracked files to all created worktrees |  [ ]   |
+| `init convert --branches` | Provide completions for branch names          |  [x]   |
+
+**Notes:**
+
+- Flow should be:
+
+    > `init convert --branches main,develop,feature-x`
+    >
+    > 1. Move everything to main/ (current branch)
+    > 2. Create develop/ worktree
+    > 3. Copy untracked files from main/ to develop/
+    > 4. Create feature-x/ worktree
+    > 5. Copy untracked files from main/ to feature-x/
+
+- Give information about disk space usage:
+
+    > Creating worktrees with untracked files (including node_modules: 523MB)
+    > This will use approximately 1.5GB of disk space. Continue? [Y/n]
 
 **Failure conditions:**
 
+- [ ] Should not accept any positional arguments
 - [ ] Current directory is not a Git repository
-- [ ] Repository has uncommitted changes
+- [ ] Current directory is already a Grove workspace
+- [ ] Repository is in detached HEAD state
+- [ ] Repository has ongoing merge/rebase
+- [ ] Convert branch names to safe directory names
 
 ### `switch`
 
 | Command           | Features                               | Status |
-| ----------------- | -------------------------------------- | ------ |
-| `switch <branch>` | Switch to existing worktree for branch | [ ]    |
+| ----------------- | -------------------------------------- | :----: |
+| `switch <branch>` | Switch to existing worktree for branch |  [ ]   |
 
 ### `list`
 
 | Command | Features                            | Status |
-| ------- | ----------------------------------- | ------ |
-| `list`  | Show all worktrees and their status | [ ]    |
+| ------- | ----------------------------------- | :----: |
+| `list`  | Show all worktrees and their status |  [ ]   |
 
 ### `status`
 
 | Command  | Features                                    | Status |
-| -------- | ------------------------------------------- | ------ |
-| `status` | Show current worktree and repository status | [ ]    |
+| -------- | ------------------------------------------- | :----: |
+| `status` | Show current worktree and repository status |  [ ]   |
