@@ -40,15 +40,6 @@ func main() {
 
 	rootCmd.AddCommand(commands.NewInitCmd())
 
-	if err := rootCmd.ParseFlags(os.Args[1:]); err == nil {
-		if plain, _ := rootCmd.Flags().GetBool("plain"); plain {
-			config.Global.Plain = true
-		}
-		if debug, _ := rootCmd.Flags().GetBool("debug"); debug {
-			config.Global.Debug = true
-		}
-	}
-
 	if err := rootCmd.Execute(); err != nil {
 		logger.Error("%s", err)
 		logger.Dimmed("Run 'grove --help' for usage.")

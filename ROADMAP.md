@@ -77,18 +77,13 @@
 
 - Flow should be:
 
-    > `init convert --branches main,develop,feature-x`
+    > `init convert --branches main,develop,feature-x`:
     >
     > 1. Move everything to main/ (current branch)
     > 2. Create develop/ worktree
     > 3. Copy untracked files from main/ to develop/
     > 4. Create feature-x/ worktree
     > 5. Copy untracked files from main/ to feature-x/
-
-- Give information about disk space usage:
-
-    > Creating worktrees with untracked files (including node_modules: 523MB)
-    > This will use approximately 1.5GB of disk space. Continue? [Y/n]
 
 **Failure conditions:**
 

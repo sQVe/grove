@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,8 +12,16 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-// getBranchCompletions provides completion suggestions for comma-separated branches
-func getBranchCompletions(toComplete string, allBranches []string) []string {
+// resolveTargetDirectory resolves the target directory from command arguments
+func resolveTargetDirectory(args []string, argIndex int) (string, error) {
+	if len(args) <= argIndex {
+		return os.Getwd()
+	}
+	return filepath.Abs(args[argIndex])
+}
+
+// parseBranchInput parses comma-separated branch input into parts
+func parseBranchInput(toComplete string) (allParts []string, lastPart string, prefixParts []string) {
 	rawParts := strings.Split(toComplete, ",")
 	parts := make([]string, 0, len(rawParts))
 
@@ -27,39 +36,61 @@ func getBranchCompletions(toComplete string, allBranches []string) []string {
 		parts = []string{""}
 	}
 
-	lastPart := parts[len(parts)-1]
-	prefixParts := parts[:len(parts)-1]
+	lastPart = parts[len(parts)-1]
+	prefixParts = parts[:len(parts)-1]
+	allParts = parts
+	return
+}
 
-	// Track already selected branches
+// trackSelectedBranches creates a map of already selected branches
+func trackSelectedBranches(prefixParts []string) map[string]bool {
 	selected := make(map[string]bool)
 	for _, p := range prefixParts {
 		if p != "" {
 			selected[p] = true
 		}
 	}
+	return selected
+}
 
+// filterAvailableBranches filters branches based on prefix and selection
+func filterAvailableBranches(allBranches []string, lastPart string, selected map[string]bool) []string {
+	var filtered []string
+	for _, branch := range allBranches {
+		if !selected[branch] && strings.HasPrefix(branch, lastPart) {
+			filtered = append(filtered, branch)
+		}
+	}
+	return filtered
+}
+
+// formatCompletions formats filtered branches with prefix
+func formatCompletions(filteredBranches, prefixParts []string) []string {
 	prefix := ""
 	if len(prefixParts) > 0 {
 		prefix = strings.Join(prefixParts, ",") + ","
 	}
 
 	var completions []string
-	seen := make(map[string]bool) // Prevent duplicates in output
+	seen := make(map[string]bool)
 
-	for _, branch := range allBranches {
-		if selected[branch] {
-			continue
-		}
-		if strings.HasPrefix(branch, lastPart) {
-			completion := prefix + branch
-			if !seen[completion] {
-				completions = append(completions, completion)
-				seen[completion] = true
-			}
+	for _, branch := range filteredBranches {
+		completion := prefix + branch
+		if !seen[completion] {
+			completions = append(completions, completion)
+			seen[completion] = true
 		}
 	}
 
 	return completions
+}
+
+// getBranchCompletions provides completion suggestions for comma-separated branches
+func getBranchCompletions(toComplete string, allBranches []string) []string {
+	_, lastPart, prefixParts := parseBranchInput(toComplete)
+	selected := trackSelectedBranches(prefixParts)
+	filtered := filterAvailableBranches(allBranches, lastPart, selected)
+	return formatCompletions(filtered, prefixParts)
 }
 
 func NewInitCmd() *cobra.Command {
@@ -80,33 +111,22 @@ func NewInitCmd() *cobra.Command {
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-			var targetDir string
-			if len(args) == 0 {
-				var err error
-				targetDir, err = os.Getwd()
-				if err != nil {
-					logger.Error("Failed to get current directory: %v", err)
-					os.Exit(1)
-				}
-			} else {
-				targetDir = args[0]
-				var err error
-				targetDir, err = filepath.Abs(targetDir)
-				if err != nil {
-					logger.Error("Failed to get absolute path: %v", err)
-					os.Exit(1)
-				}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			targetDir, err := resolveTargetDirectory(args, 0)
+			if err != nil {
+				logger.Error("Failed to resolve target directory: %v", err)
+				return err
 			}
 
 			logger.Debug("Initializing grove workspace in: %s", targetDir)
 
 			if err := workspace.Initialize(targetDir); err != nil {
 				logger.Error("Failed to initialize workspace: %v", err)
-				os.Exit(1)
+				return err
 			}
 
 			logger.Info("Initialized grove workspace in: %s", targetDir)
+			return nil
 		},
 	}
 	initCmd.AddCommand(newCmd)
@@ -123,30 +143,18 @@ func NewInitCmd() *cobra.Command {
 			}
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("branches") && (branches == "" || branches == `""`) {
 				logger.Error("no branches specified")
-				os.Exit(1)
+				return fmt.Errorf("no branches specified")
 			}
 
 			url := args[0]
 
-			var targetDir string
-			if len(args) == 1 {
-				var err error
-				targetDir, err = os.Getwd()
-				if err != nil {
-					logger.Error("Failed to get current directory: %v", err)
-					os.Exit(1)
-				}
-			} else {
-				targetDir = args[1]
-				var err error
-				targetDir, err = filepath.Abs(targetDir)
-				if err != nil {
-					logger.Error("Failed to get absolute path: %v", err)
-					os.Exit(1)
-				}
+			targetDir, err := resolveTargetDirectory(args, 1)
+			if err != nil {
+				logger.Error("Failed to resolve target directory: %v", err)
+				return err
 			}
 
 			logger.Debug("Cloning and initializing grove workspace in: %s", targetDir)
@@ -159,10 +167,11 @@ func NewInitCmd() *cobra.Command {
 
 			if err := workspace.CloneAndInitialize(url, targetDir, branches, verbose); err != nil {
 				logger.Error("Failed to clone and initialize workspace: %v", err)
-				os.Exit(1)
+				return err
 			}
 
 			logger.Info("Initialized grove workspace in: %s", targetDir)
+			return nil
 		},
 	}
 	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")

@@ -33,21 +33,18 @@ func validateBranches(
 ) (valid, missing []string) {
 	branchList := strings.Split(branches, ",")
 
+	availableMap := make(map[string]bool)
+	for _, availBranch := range availableBranches {
+		availableMap[strings.TrimSpace(availBranch)] = true
+	}
+
 	for _, branch := range branchList {
 		branch = strings.TrimSpace(branch)
 		if branch == "" {
 			continue
 		}
 
-		found := false
-		for _, availBranch := range availableBranches {
-			if strings.TrimSpace(availBranch) == branch {
-				found = true
-				break
-			}
-		}
-
-		if found {
+		if availableMap[branch] {
 			valid = append(valid, branch)
 		} else {
 			missing = append(missing, branch)
@@ -115,17 +112,6 @@ func validateAndPrepareDirectory(path string) error {
 		}
 	}
 
-	return nil
-}
-
-// createGitFile creates the .git file pointing to .bare directory
-func createGitFile(path, bareDir string) error {
-	gitFile := filepath.Join(path, ".git")
-	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-		_ = os.RemoveAll(bareDir)
-		return fmt.Errorf("failed to create .git file: %w", err)
-	}
-	logger.Debug("Created .git file pointing to .bare")
 	return nil
 }
 
@@ -208,12 +194,23 @@ func Initialize(path string) error {
 	logger.Debug("Created .bare directory at %s", bareDir)
 
 	if err := git.InitBare(bareDir); err != nil {
-		_ = os.RemoveAll(bareDir)
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
+			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
+		}
 		return fmt.Errorf("failed to initialize bare git repository: %w", err)
 	}
 	logger.Debug("Git bare repository initialized successfully")
 
-	return createGitFile(path, bareDir)
+	// Create .git file pointing to .bare directory
+	gitFile := filepath.Join(path, ".git")
+	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
+			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
+		}
+		return fmt.Errorf("failed to create .git file: %w", err)
+	}
+	logger.Debug("Created .git file pointing to .bare")
+	return nil
 }
 
 // CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
@@ -225,13 +222,18 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	bareDir := filepath.Join(path, ".bare")
 
 	if err := cloneWithProgress(url, bareDir, verbose); err != nil {
-		_ = os.RemoveAll(bareDir)
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
+			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
+		}
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	if err := createGitFile(path, bareDir); err != nil {
-		return err
+	// Create .git file pointing to .bare directory
+	gitFile := filepath.Join(path, ".git")
+	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+		return fmt.Errorf("failed to create .git file: %w", err)
 	}
+	logger.Debug("Created .git file pointing to .bare")
 
 	if branches != "" {
 		return createWorktreesFromBranches(bareDir, branches, verbose)

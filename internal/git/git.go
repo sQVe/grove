@@ -3,7 +3,6 @@ package git
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha1" // nolint:gosec // Used for filename hashing, not cryptographic security
 	"fmt"
 	"os"
 	"os/exec"
@@ -76,8 +75,8 @@ func ListBranches(bareRepo string) ([]string, error) {
 
 		line = strings.TrimPrefix(line, "* ")
 
-		if strings.HasPrefix(line, "remotes/origin/") {
-			branch := strings.TrimPrefix(line, "remotes/origin/")
+		if after, ok := strings.CutPrefix(line, "remotes/origin/"); ok {
+			branch := after
 			if branch != "HEAD" {
 				branches = append(branches, branch)
 			}
@@ -187,13 +186,9 @@ func listRemoteBranchesLive(url string) ([]string, error) {
 }
 
 func getCacheFile(url string) (string, error) {
-	cacheDir := os.Getenv("TEST_CACHE_DIR")
-	if cacheDir == "" {
-		var err error
-		cacheDir, err = os.UserCacheDir()
-		if err != nil {
-			return "", err
-		}
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
 	}
 
 	groveCache := filepath.Join(cacheDir, "grove", "branches")
@@ -201,8 +196,12 @@ func getCacheFile(url string) (string, error) {
 		return "", err
 	}
 
-	hash := sha1.Sum([]byte(url)) // nolint:gosec // Used for filename hashing, not cryptographic security
-	filename := fmt.Sprintf("%x.txt", hash)
+	filename := strings.ReplaceAll(url, "/", "_")
+	filename = strings.ReplaceAll(filename, ":", "_")
+	filename = strings.ReplaceAll(filename, "?", "_")
+	filename = strings.ReplaceAll(filename, "&", "_")
+	filename = strings.ReplaceAll(filename, "=", "_")
+	filename += ".txt"
 
 	return filepath.Join(groveCache, filename), nil
 }
@@ -210,4 +209,64 @@ func getCacheFile(url string) (string, error) {
 func writeCacheFile(path string, branches []string) error {
 	content := strings.Join(branches, "\n")
 	return os.WriteFile(path, []byte(content), fs.FileGit)
+}
+
+// GetCurrentBranch returns the current branch name
+func GetCurrentBranch(path string) (string, error) {
+	logger.Debug("Getting current branch from %s", path)
+	headFile := filepath.Join(path, ".git", "HEAD")
+
+	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	if err != nil {
+		return "", err
+	}
+
+	line := strings.TrimSpace(string(content))
+
+	if after, ok := strings.CutPrefix(line, "ref: refs/heads/"); ok {
+		return after, nil
+	}
+
+	return "", fmt.Errorf("detached HEAD state")
+}
+
+// IsDetachedHead checks if the repository is in detached HEAD state
+func IsDetachedHead(path string) (bool, error) {
+	logger.Debug("Checking detached HEAD in %s", path)
+	headFile := filepath.Join(path, ".git", "HEAD")
+
+	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	if err != nil {
+		return false, err
+	}
+
+	line := strings.TrimSpace(string(content))
+
+	return !strings.HasPrefix(line, "ref: refs/heads/"), nil
+}
+
+// HasOngoingOperation checks for merge/rebase/cherry-pick operations
+func HasOngoingOperation(path string) (bool, error) {
+	logger.Debug("Checking ongoing operations in %s", path)
+	gitDir := filepath.Join(path, ".git")
+
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return false, fmt.Errorf("not a git repository")
+	}
+
+	markers := []string{
+		"CHERRY_PICK_HEAD",
+		"MERGE_HEAD",
+		"REVERT_HEAD",
+		"rebase-apply",
+		"rebase-merge",
+	}
+
+	for _, marker := range markers {
+		if _, err := os.Stat(filepath.Join(gitDir, marker)); err == nil {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

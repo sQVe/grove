@@ -1,16 +1,17 @@
 package validation
 
 import (
+	"errors"
+	"io"
 	"os"
 )
 
 // DirectoryExists checks if a directory exists
 func DirectoryExists(path string) bool {
 	info, err := os.Stat(path)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
-
 	return info.IsDir()
 }
 
@@ -30,7 +31,7 @@ func IsEmptyDir(path string) (bool, error) {
 	}
 
 	// Check if error is EOF (empty directory)
-	if err.Error() == "EOF" {
+	if errors.Is(err, io.EOF) {
 		return true, nil
 	}
 
