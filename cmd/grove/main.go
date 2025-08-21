@@ -35,7 +35,7 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().Bool("plain", false, "Disable colors, emojis, and formatting")
+	rootCmd.PersistentFlags().Bool("plain", false, "Disable colors and symbols")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 
 	rootCmd.AddCommand(commands.NewInitCmd())

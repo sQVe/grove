@@ -336,10 +336,106 @@ func TestCloneAndInitializeBranchMapping(t *testing.T) {
 		"chore/better-error": "chore-better-error",
 	}
 
-	// Verify sanitization logic matches expected mappings
 	for original, expected := range expectedMappings {
 		if got := sanitizeBranchName(original); got != expected {
 			t.Errorf("sanitizeBranchName(%q) = %q, want %q", original, got, expected)
 		}
+	}
+}
+
+func TestConvert_NotGitRepository(t *testing.T) {
+	tempDir := t.TempDir()
+
+	err := Convert(tempDir)
+	if err == nil {
+		t.Fatal("Convert should fail when not a git repository")
+	}
+
+	expected := "not a git repository"
+	if err.Error() != expected {
+		t.Errorf("expected '%s', got '%s'", expected, err.Error())
+	}
+}
+
+func TestConvert_AlreadyGroveWorkspace(t *testing.T) {
+	t.Skip("Complex test - covered by integration tests")
+}
+
+func TestConvert_DetachedHead(t *testing.T) {
+	tempDir := t.TempDir()
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+
+	gitDir := filepath.Join(tempDir, ".git")
+	headFile := filepath.Join(gitDir, "HEAD")
+	if err := os.WriteFile(headFile, []byte("abc1234567890abcdef1234567890abcdef123456\n"), fs.FileGit); err != nil {
+		t.Fatalf("failed to create detached HEAD: %v", err)
+	}
+
+	err := Convert(tempDir)
+	if err == nil {
+		t.Fatal("Convert should fail when repository is in detached HEAD state")
+	}
+
+	expected := "cannot convert: repository is in detached HEAD state"
+	if err.Error() != expected {
+		t.Errorf("expected '%s', got '%s'", expected, err.Error())
+	}
+}
+
+func TestConvert_OngoingMerge(t *testing.T) {
+	tempDir := t.TempDir()
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+
+	gitDir := filepath.Join(tempDir, ".git")
+	mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+	if err := os.WriteFile(mergeHead, []byte("commit-hash"), fs.FileGit); err != nil {
+		t.Fatalf("failed to create MERGE_HEAD: %v", err)
+	}
+
+	err := Convert(tempDir)
+	if err == nil {
+		t.Fatal("Convert should fail when merge is in progress")
+	}
+
+	expected := "cannot convert: repository has ongoing merge/rebase/cherry-pick"
+	if err.Error() != expected {
+		t.Errorf("expected '%s', got '%s'", expected, err.Error())
+	}
+}
+
+func TestConvert_OngoingRebase(t *testing.T) {
+	tempDir := t.TempDir()
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+
+	// Simulate ongoing rebase
+	gitDir := filepath.Join(tempDir, ".git")
+	rebaseDir := filepath.Join(gitDir, "rebase-merge")
+	if err := os.Mkdir(rebaseDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create rebase-merge: %v", err)
+	}
+
+	err := Convert(tempDir)
+	if err == nil {
+		t.Fatal("Convert should fail when rebase is in progress")
+	}
+
+	expected := "cannot convert: repository has ongoing merge/rebase/cherry-pick"
+	if err.Error() != expected {
+		t.Errorf("expected '%s', got '%s'", expected, err.Error())
 	}
 }

@@ -17,9 +17,9 @@ Follow steering documents for all architectural decisions.
 
 ```bash
 # Fast development loop
-mage test:unit # Unit tests (~10s)
-mage lint      # Auto-fix formatting
-mage build:all # Build binaries
+mage test  # Unit tests (~10s)
+mage lint  # Auto-fix formatting
+mage build # Build binaries
 
 # Before commits
 mage test:unit && mage test:integration

@@ -71,7 +71,7 @@
 | `init convert`            | Create .git file pointing to .bare            |  [ ]   |
 | `init convert --branches` | Setup worktrees for local branches            |  [ ]   |
 | `init convert --branches` | Copy untracked files to all created worktrees |  [ ]   |
-| `init convert --branches` | Provide completions for branch names          |  [x]   |
+| `init convert --branches` | Provide completions for branch names          |  [ ]   |
 
 **Notes:**
 
@@ -87,11 +87,13 @@
 
 **Failure conditions:**
 
-- [ ] Should not accept any positional arguments
-- [ ] Current directory is not a Git repository
-- [ ] Current directory is already a Grove workspace
-- [ ] Repository is in detached HEAD state
-- [ ] Repository has ongoing merge/rebase
+- [ ] Should not accept any arguments
+- [x] Current directory is not a Git repository
+- [x] Current directory is already a Grove workspace
+- [x] Repository is in detached HEAD state
+- [x] Repository has ongoing merge/rebase
+- [ ] Should not convert when in a dirty state
+- [ ] Should revert all changes on failure
 - [ ] Convert branch names to safe directory names
 
 ### `switch`

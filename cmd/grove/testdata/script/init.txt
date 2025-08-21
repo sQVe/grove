@@ -1,3 +1,5 @@
+# TODO: Split this into smaller parts. init.txt, init_new.txt, init_clone.txt, and etc
+
 # =============================================================================
 # grove init command tests
 # =============================================================================
@@ -273,7 +275,7 @@ stderr 'failed to clone repository'
 
 # Test init convert command help
 exec grove init convert --help
-stdout 'Convert existing Git repository to Grove workspace'
+stdout 'Convert existing Git repository to a grove workspace'
 stdout 'Usage:'
 stdout '--branches'
 
@@ -281,7 +283,7 @@ stdout '--branches'
 mkdir not-git-repo
 cd not-git-repo
 ! exec grove init convert
-stderr 'Current directory is not a Git repository'
+stderr 'not a git repository'
 cd ..
 
 # Test init convert fails when already grove workspace
@@ -289,7 +291,7 @@ mkdir already-grove
 exec grove init new already-grove
 cd already-grove
 ! exec grove init convert
-stderr 'Current directory is already a Grove workspace'
+stderr 'already a grove workspace'
 cd ..
 
 # Test basic init convert success
@@ -322,7 +324,45 @@ exec git add .
 exec git commit -m 'initial commit'
 exec git checkout HEAD~0
 ! exec grove init convert
-stderr 'Repository is in detached HEAD state'
+stderr 'cannot convert: repository is in detached HEAD state'
+cd ..
+
+# Test init convert with uncommitted changes fails
+mkdir convert-uncommitted
+cd convert-uncommitted
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+cp ../untracked.txt .
+! exec grove init convert
+stderr 'cannot convert: uncommitted changes present'
+cd ..
+
+# Test init convert with ongoing merge fails
+mkdir convert-merge
+cd convert-merge
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b branch2
+exec sh -c 'echo "conflict" > test-file.txt'
+exec git add .
+exec git commit -m 'conflict'
+exec git checkout main
+exec sh -c 'echo "other" > test-file.txt'
+exec git add .
+exec git commit -m 'other'
+! exec git merge branch2
+! exec grove init convert
+stderr 'cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
 # Test init convert with --branches flag

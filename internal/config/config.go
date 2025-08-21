@@ -4,7 +4,7 @@ import "os"
 
 // Global holds the global configuration state for Grove
 var Global struct {
-	Plain bool // Disable colors, emojis, and formatting
+	Plain bool // Disable colors and symbols
 	Debug bool // Enable debug logging
 }
 
