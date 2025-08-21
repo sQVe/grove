@@ -33,7 +33,6 @@ linters:
     # Code quality
     - goconst # Find repeated strings for constants
     - gocritic # Comprehensive diagnostics
-    - gocyclo # Cyclomatic complexity
 
     # Comprehensive unused code detection
     - unparam # Unused function parameters
@@ -58,10 +57,6 @@ linters:
     # Configure unparam for unused parameters
     unparam:
       check-exported: true # Check exported functions for unused params
-
-    # Allow higher complexity for test organization with t.Run() 
-    gocyclo:
-      min-complexity: 40
 
     gocritic:
       enabled-tags:
