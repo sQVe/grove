@@ -1,0 +1,234 @@
+## Help and basic functionality
+
+# Test init convert command help
+exec grove init convert --help
+stdout 'Convert existing Git repository to a grove workspace'
+stdout 'Usage:'
+stdout '--branches'
+
+## Success paths
+
+# Test basic init convert success
+mkdir convert-basic
+cd convert-basic
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec grove init convert
+stdout 'Converted to Grove workspace'
+stdout 'convert-basic'
+exists .bare
+exists .git
+exists main/test-file.txt
+cd ..
+
+# Test init convert with --branches flag
+mkdir convert-branches
+cd convert-branches
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout -b 'feat/user-auth'
+exec git checkout main
+exec grove init convert --branches main,develop,feat/user-auth
+stdout 'Converted to Grove workspace'
+stdout 'convert-branches'
+stdout 'Creating worktrees:'
+stdout '✓ main'
+stdout '✓ develop'
+stdout '✓ feat-user-auth'
+exists .bare
+exists .git
+exists main/test-file.txt
+exists develop/test-file.txt
+exists feat-user-auth/test-file.txt
+cd ..
+
+# Test init convert copies untracked files to worktrees
+mkdir convert-untracked
+cd convert-untracked
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cp ../untracked.txt .
+exec grove init convert --branches main,develop
+stdout 'Converted to Grove workspace'
+stdout 'convert-untracked'
+stdout 'Creating worktrees:'
+stdout '✓ main'
+stdout '✓ develop'
+stdout 'Copying untracked files'
+exists main/test-file.txt
+exists main/untracked.txt
+exists develop/test-file.txt
+exists develop/untracked.txt
+cd ..
+
+## Pre-condition validation (in check order)
+
+# Test init convert fails when not a git repository
+mkdir not-git-repo
+cd not-git-repo
+! exec grove init convert
+stderr 'not a git repository'
+cd ..
+
+# Test init convert fails when already grove workspace
+mkdir already-grove
+exec grove init new already-grove
+cd already-grove
+! exec grove init convert
+stderr 'already a grove workspace'
+cd ..
+
+# Test init convert fails when repository is a worktree
+mkdir convert-worktree-main
+cd convert-worktree-main
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git worktree add ../convert-worktree-feature feature
+cd ../convert-worktree-feature
+! exec grove init convert
+stderr 'cannot convert: repository is a worktree'
+cd ..
+
+# Test init convert with detached HEAD fails
+mkdir convert-detached
+cd convert-detached
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout HEAD~0
+! exec grove init convert
+stderr 'cannot convert: repository is in detached HEAD state'
+cd ..
+
+# Test init convert with uncommitted changes fails
+mkdir convert-uncommitted
+cd convert-uncommitted
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+cp ../untracked.txt .
+! exec grove init convert
+stderr 'cannot convert: uncommitted changes present'
+cd ..
+
+# Test init convert fails when repository has existing worktrees
+mkdir convert-has-worktrees
+cd convert-has-worktrees
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git worktree add ../feature-worktree feature
+! exec grove init convert
+stderr 'cannot convert: repository has existing worktrees'
+cd ..
+
+# Test init convert fails when lock files are present
+mkdir convert-lock-files
+cd convert-lock-files
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec sh -c 'touch .git/index.lock'
+! exec grove init convert
+stderr 'cannot convert: git lock files present'
+cd ..
+
+# Test init convert with ongoing merge fails
+mkdir convert-merge
+cd convert-merge
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b branch2
+exec sh -c 'echo "conflict" > test-file.txt'
+exec git add .
+exec git commit -m 'conflict'
+exec git checkout main
+exec sh -c 'echo "other" > test-file.txt'
+exec git add .
+exec git commit -m 'other'
+! exec git merge branch2
+! exec grove init convert
+stderr 'cannot convert: repository has ongoing merge/rebase/cherry-pick'
+cd ..
+
+# Test init convert fails when unresolved conflicts are present
+mkdir convert-conflicts
+cd convert-conflicts
+exec git init
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b conflict-branch
+exec sh -c 'echo "conflict content" > test-file.txt'
+exec git add .
+exec git commit -m 'conflict commit'
+exec git checkout main
+exec sh -c 'echo "main content" > test-file.txt'
+exec git add .
+exec git commit -m 'main commit'
+! exec git merge conflict-branch
+exec git reset --hard HEAD
+exec git merge --no-commit conflict-branch
+! exec grove init convert
+stderr 'cannot convert: unresolved merge conflicts present'
+cd ..
+
+## Argument validation
+
+# Test init convert with no positional arguments
+! exec grove init convert arg1
+stderr 'accepts 0 arg'
+stderr 'received 1'
+
+-- test-file.txt --
+This is a test file
+
+-- untracked.txt --
+This file is untracked

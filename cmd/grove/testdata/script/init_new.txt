@@ -1,0 +1,59 @@
+## Help and basic functionality
+
+# Test init new command help
+exec grove init new --help
+stdout 'Create a new grove workspace'
+stdout 'Usage:'
+stdout '[directory]'
+
+## Success paths
+
+# Test init new creates workspace in temp directory
+mkdir temp1
+exec grove init new temp1
+stdout 'Initialized grove workspace'
+stdout 'temp1'
+exists temp1/.bare
+exists temp1/.git
+
+# Test init new creates workspace with directory name
+mkdir temp2
+exec grove init new temp2/myproject
+stdout 'Initialized grove workspace'
+stdout 'temp2/myproject'
+exists temp2/myproject/.bare
+exists temp2/myproject/.git
+
+## Argument validation
+
+# Test init new fails with too many arguments
+! exec grove init new dir1 dir2
+stderr 'accepts at most 1 arg'
+stderr 'received 2'
+
+## Pre-condition validation
+
+# Test init new fails when directory is not empty
+mkdir temp3
+cp existing.txt temp3/existing.txt
+! exec grove init new temp3
+stderr 'directory'
+stderr 'temp3'
+stderr 'not empty'
+
+# Test init new fails inside existing grove workspace
+mkdir workspace1
+exec grove init new workspace1
+cd workspace1
+! exec grove init new
+stderr 'cannot initialize grove inside existing grove workspace'
+cd ..
+
+# Test init new with directory fails when directory is inside existing grove workspace
+mkdir workspace2
+exec grove init new workspace2
+! exec grove init new workspace2/nested
+stderr 'cannot initialize grove inside existing grove workspace'
+
+-- existing.txt --
+content
