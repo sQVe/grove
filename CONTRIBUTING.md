@@ -21,3 +21,23 @@ These documents guide all development decisions and ensure consistency across th
 | **Verify**  | `mage test:unit && mage lint && mage build:all`       |
 
 **Prerequisites:** Go 1.21+, Git 2.5+, golangci-lint 1.50+, Mage build system
+
+## Testing Strategy
+
+**Unit tests** (`*_test.go`) - Test internal functions directly. Use real Git.
+
+- Single function behavior and error conditions
+- Tests should be short and focused, and most importantly, fast
+
+**Testscript tests** (`testdata/script/*.txt`) - Test CLI commands and workflows.
+
+- User-facing behavior and error messages
+- Complex setups or multi-step flows
+- Exit codes and command integration
+
+**Decision:**
+
+- Can a user type it? → Testscript
+- Are we testing a flow? → Testscript
+- Setup is more than 4 commands? → Testscript
+- Otherwise → Unit test

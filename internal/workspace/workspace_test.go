@@ -418,7 +418,6 @@ func TestConvert(t *testing.T) {
 			t.Fatalf("failed to initialize git repository: %v", err)
 		}
 
-		// Simulate ongoing rebase
 		gitDir := filepath.Join(tempDir, ".git")
 		rebaseDir := filepath.Join(gitDir, "rebase-merge")
 		if err := os.Mkdir(rebaseDir, fs.DirGit); err != nil {
@@ -431,6 +430,124 @@ func TestConvert(t *testing.T) {
 		}
 
 		expected := "cannot convert: repository has ongoing merge/rebase/cherry-pick"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails when already a worktree", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		mainRepo := filepath.Join(tempDir, "main")
+		if err := os.Mkdir(mainRepo, fs.DirGit); err != nil {
+			t.Fatalf("failed to create main repo directory: %v", err)
+		}
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = mainRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to initialize main git repository: %v", err)
+		}
+
+		worktreeDir := filepath.Join(tempDir, "worktree")
+		if err := os.Mkdir(worktreeDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create worktree directory: %v", err)
+		}
+
+		cmd = exec.Command("git", "worktree", "add", "../worktree")
+		cmd.Dir = mainRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create git worktree: %v", err)
+		}
+
+		err := Convert(worktreeDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository is already a worktree")
+		}
+
+		expected := "cannot convert: repository is already a worktree"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails with uncommitted changes", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to initialize git repository: %v", err)
+		}
+
+		testFile := filepath.Join(tempDir, "test.txt")
+		if err := os.WriteFile(testFile, []byte("initial content"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		err := Convert(tempDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository has uncommitted changes")
+		}
+
+		expected := "cannot convert: repository has uncommitted changes"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails with existing worktrees", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to initialize git repository: %v", err)
+		}
+
+		worktreeDir := filepath.Join(tempDir, "worktree")
+		if err := os.Mkdir(worktreeDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create worktree directory: %v", err)
+		}
+
+		cmd = exec.Command("git", "worktree", "add", "worktree")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create git worktree: %v", err)
+		}
+
+		err := Convert(tempDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository already has worktrees")
+		}
+
+		expected := "cannot convert: repository already has worktrees"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails with lock files", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to initialize git repository: %v", err)
+		}
+
+		gitDir := filepath.Join(tempDir, ".git")
+		lockFile := filepath.Join(gitDir, "index.lock")
+		if err := os.WriteFile(lockFile, []byte("lock content"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create index.lock: %v", err)
+		}
+
+		err := Convert(tempDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository has active lock files")
+		}
+
+		expected := "cannot convert: repository has active lock files"
 		if err.Error() != expected {
 			t.Errorf("expected '%s', got '%s'", expected, err.Error())
 		}
