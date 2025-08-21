@@ -241,3 +241,45 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 
 	return nil
 }
+
+func Convert(targetDir string) error {
+	if IsInsideGroveWorkspace(targetDir) {
+		return fmt.Errorf("already a grove workspace")
+	}
+
+	if !git.IsInsideGitRepo(targetDir) {
+		return fmt.Errorf("not a git repository")
+	}
+
+	detached, err := git.IsDetachedHead(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check HEAD state: %w", err)
+	}
+	if detached {
+		return fmt.Errorf("cannot convert: repository is in detached HEAD state")
+	}
+
+	hasOngoing, err := git.HasOngoingOperation(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for ongoing operations: %w", err)
+	}
+	if hasOngoing {
+		return fmt.Errorf("cannot convert: repository has ongoing merge/rebase/cherry-pick")
+	}
+
+	// TODO: Check it's not already a worktree (.git is directory not file)
+	// TODO: Check for uncommitted changes (git status --porcelain)
+	// TODO: Check for existing worktrees (git worktree list)
+	// TODO: Check for lock files (.git/index.lock, etc)
+	// TODO: Check for unresolved conflicts (git ls-files -u)
+
+	// TODO: Implement convert logic
+	// - Move .git to .bare
+	// - Configure repository as bare
+	// - Create worktree for current branch
+	// - Move all files to worktree directory
+	// - Create .git file pointing to .bare
+	// - Handle --branches flag to create additional worktrees
+
+	return fmt.Errorf("convert command not implemented yet")
+}

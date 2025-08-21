@@ -192,5 +192,35 @@ func NewInitCmd() *cobra.Command {
 	})
 	initCmd.AddCommand(cloneCmd)
 
+	var convertBranches string
+	var convertVerbose bool
+	convertCmd := &cobra.Command{
+		Use:   "convert",
+		Short: "Convert existing Git repository to a grove workspace",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			targetDir := "."
+
+			logger.Debug("Converting repository to grove workspace in: %s", targetDir)
+
+			if err := workspace.Convert(targetDir); err != nil {
+				logger.Error("Failed to convert repository to grove workspace: %v", err)
+				return err
+			}
+
+			logger.Info("Converted repository to grove workspace in: %s", targetDir)
+			return nil
+		},
+	}
+	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Comma-separated list of local branches to create worktrees for")
+	convertCmd.Flags().BoolVar(&convertVerbose, "verbose", false, "Show detailed git output during conversion")
+	_ = convertCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		// TODO: Implement local branch completion
+		// - Get local branches from current Git repository
+		// - Use getBranchCompletions for comma-separated support
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
+	initCmd.AddCommand(convertCmd)
+
 	return initCmd
 }
