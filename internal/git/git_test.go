@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 func TestInitBare(t *testing.T) {
@@ -430,54 +431,14 @@ func TestHasUncommittedChanges(t *testing.T) {
 	})
 
 	t.Run("returns true for modified files", func(t *testing.T) {
-		tempDir := t.TempDir()
+		repo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
-		}
-
-		testFile := filepath.Join(tempDir, "tracked.txt")
-		if err := os.WriteFile(testFile, []byte("initial"), fs.FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable GPG signing: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "initial")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit files: %v", err)
-		}
-
+		testFile := filepath.Join(repo.Path, "test.txt")
 		if err := os.WriteFile(testFile, []byte("modified"), fs.FileStrict); err != nil {
 			t.Fatalf("failed to modify test file: %v", err)
 		}
 
-		hasChanges, err := HasUncommittedChanges(tempDir)
+		hasChanges, err := HasUncommittedChanges(repo.Path)
 		if err != nil {
 			t.Fatalf("HasUncommittedChanges failed: %v", err)
 		}
@@ -527,50 +488,9 @@ func TestHasUncommittedChanges(t *testing.T) {
 
 func TestListWorktrees(t *testing.T) {
 	t.Run("returns empty slice when no worktrees", func(t *testing.T) {
-		tempDir := t.TempDir()
+		repo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable GPG signing: %v", err)
-		}
-
-		testFile := filepath.Join(tempDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "initial")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit files: %v", err)
-		}
-
-		worktrees, err := ListWorktrees(tempDir)
+		worktrees, err := ListWorktrees(repo.Path)
 		if err != nil {
 			t.Fatalf("ListWorktrees failed: %v", err)
 		}
@@ -581,57 +501,17 @@ func TestListWorktrees(t *testing.T) {
 	})
 
 	t.Run("returns worktree paths when worktrees exist", func(t *testing.T) {
-		tempDir := t.TempDir()
-		worktreeDir := filepath.Join(tempDir, "branch-worktree")
+		repo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
-		}
+		worktreeDir := filepath.Join(repo.Dir, "branch-worktree")
 
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable GPG signing: %v", err)
-		}
-
-		testFile := filepath.Join(tempDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "initial")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit files: %v", err)
-		}
-
-		cmd = exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
-		cmd.Dir = tempDir
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		worktrees, err := ListWorktrees(tempDir)
+		worktrees, err := ListWorktrees(repo.Path)
 		if err != nil {
 			t.Fatalf("ListWorktrees failed: %v", err)
 		}
@@ -757,51 +637,27 @@ func TestHasUnresolvedConflicts(t *testing.T) {
 	})
 
 	t.Run("detects merge conflicts", func(t *testing.T) {
-		tempDir := t.TempDir()
+		repo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable GPG signing: %v", err)
-		}
-
-		testFile := filepath.Join(tempDir, "conflict.txt")
+		testFile := filepath.Join(repo.Path, "conflict.txt")
 		if err := os.WriteFile(testFile, []byte("initial"), fs.FileStrict); err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
 
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
+		cmd := exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add files: %v", err)
 		}
 
 		cmd = exec.Command("git", "commit", "-m", "initial")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit files: %v", err)
 		}
 
 		cmd = exec.Command("git", "checkout", "-b", "branch1")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create branch1: %v", err)
 		}
@@ -811,19 +667,19 @@ func TestHasUnresolvedConflicts(t *testing.T) {
 		}
 
 		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add files on branch1: %v", err)
 		}
 
 		cmd = exec.Command("git", "commit", "-m", "branch1 changes")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit branch1 changes: %v", err)
 		}
 
 		cmd = exec.Command("git", "checkout", "main")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to checkout main: %v", err)
 		}
@@ -833,22 +689,22 @@ func TestHasUnresolvedConflicts(t *testing.T) {
 		}
 
 		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add files on main: %v", err)
 		}
 
 		cmd = exec.Command("git", "commit", "-m", "main changes")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit main changes: %v", err)
 		}
 
 		cmd = exec.Command("git", "merge", "branch1")
-		cmd.Dir = tempDir
+		cmd.Dir = repo.Path
 		_ = cmd.Run() // Expected to fail with conflict
 
-		hasConflicts, err := HasUnresolvedConflicts(tempDir)
+		hasConflicts, err := HasUnresolvedConflicts(repo.Path)
 		if err != nil {
 			t.Fatalf("HasUnresolvedConflicts failed: %v", err)
 		}
@@ -887,114 +743,18 @@ func TestHasSubmodules(t *testing.T) {
 	})
 
 	t.Run("detects submodules when present", func(t *testing.T) {
-		tempDir := t.TempDir()
+		repo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
+		gitmodulesPath := filepath.Join(repo.Path, ".gitmodules")
+		gitmodulesContent := `[submodule "test"]
+	path = test
+	url = https://example.com/test.git
+`
+		if err := os.WriteFile(gitmodulesPath, []byte(gitmodulesContent), fs.FileGit); err != nil {
+			t.Fatalf("failed to create .gitmodules: %v", err)
 		}
 
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable GPG signing: %v", err)
-		}
-
-		testFile := filepath.Join(tempDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "initial")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit files: %v", err)
-		}
-
-		submoduleDir := filepath.Join(tempDir, "submodule")
-		if err := os.Mkdir(submoduleDir, fs.DirGit); err != nil {
-			t.Fatalf("failed to create submodule directory: %v", err)
-		}
-
-		cmd = exec.Command("git", "init")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize submodule git repository: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.name", "Test")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set submodule git user.name: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "user.email", "test@example.com")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to set submodule git user.email: %v", err)
-		}
-
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to disable submodule GPG signing: %v", err)
-		}
-
-		subFile := filepath.Join(submoduleDir, "sub.txt")
-		if err := os.WriteFile(subFile, []byte("sub"), fs.FileStrict); err != nil {
-			t.Fatalf("failed to create submodule file: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add submodule files: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "submodule initial")
-		cmd.Dir = submoduleDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit submodule files: %v", err)
-		}
-
-		cmd = exec.Command("git", "submodule", "add", "./submodule", "submodule")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to add submodule: %v", err)
-		}
-
-		cmd = exec.Command("git", "add", ".")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to stage submodule changes: %v", err)
-		}
-
-		cmd = exec.Command("git", "commit", "-m", "add submodule")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to commit submodule: %v", err)
-		}
-
-		hasSubmodules, err := HasSubmodules(tempDir)
+		hasSubmodules, err := HasSubmodules(repo.Path)
 		if err != nil {
 			t.Fatalf("HasSubmodules failed: %v", err)
 		}
