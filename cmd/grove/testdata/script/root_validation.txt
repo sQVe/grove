@@ -5,9 +5,8 @@ exec grove --help
 exec grove
 stdout 'Grove is a tool that makes Git worktrees as simple'
 stdout 'Available Commands'
-stdout 'clone'
 stdout 'completion'
-stdout 'convert'
+stdout 'help'
 stdout 'init'
 stdout 'Flags'
 stdout '--debug'

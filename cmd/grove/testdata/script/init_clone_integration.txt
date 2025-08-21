@@ -1,0 +1,83 @@
+# Setup test repository fixture
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config user.signingkey ""
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+cd ..
+
+## Success paths
+
+# Test successful clone with branches
+mkdir test-workspace
+exec grove init clone file://$WORK/testrepo test-workspace --branches master,develop
+stdout 'Initialized grove workspace'
+stdout 'test-workspace'
+exists test-workspace/.bare
+exists test-workspace/.git
+exists test-workspace/master
+exists test-workspace/develop
+exists test-workspace/master/README.md
+exists test-workspace/develop/README.md
+
+## Output format tests
+
+# Test clone output shows worktree creation by default (quiet mode)
+mkdir test-output-quiet
+exec grove init clone file://$WORK/testrepo test-output-quiet --branches master,develop
+stdout 'Cloning repository...'
+stdout 'Repository cloned'
+stdout 'Creating worktrees:'
+stdout '  ✓ master'
+stdout '  ✓ develop'
+stdout 'Initialized grove workspace'
+stdout 'test-output-quiet'
+! stdout 'Enumerating objects'
+! stdout 'Counting objects'
+! stdout 'Compressing objects'
+! stdout 'Receiving objects'
+
+# Test clone with branch name sanitization output
+cd testrepo
+exec git checkout -b feat/user-auth
+cd ..
+mkdir test-output-sanitized
+exec grove init clone file://$WORK/testrepo test-output-sanitized --branches feat/user-auth
+stdout 'Creating worktrees:'
+stdout '  ✓ feat-user-auth'
+stdout 'Initialized grove workspace'
+stdout 'test-output-sanitized'
+exists test-output-sanitized/feat-user-auth
+
+# Test clone with --verbose flag shows git output
+mkdir test-output-verbose
+exec grove init clone file://$WORK/testrepo test-output-verbose --branches master --verbose
+stdout 'Creating worktrees:'
+stdout '  ✓ master'
+stdout 'Initialized grove workspace'
+stdout 'test-output-verbose'
+# Note: Can't test git verbose output in script tests as it's environment dependent
+
+# Test clone error output remains visible in quiet mode
+mkdir test-error-output
+! exec grove init clone file:///nonexistent/repo.git test-error-output
+stderr 'failed to clone repository'
+
+## Branch validation with real repository
+
+# Test init clone with invalid branch names
+mkdir clone-invalid-branch
+! exec grove init clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
+stderr 'branches'
+stderr 'nonexistent'
+stderr 'do not exist'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

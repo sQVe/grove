@@ -40,3 +40,8 @@ These documents guide all development decisions and ensure consistency across th
 - Can a user type it? → Testscript
 - Are we testing a flow? → Testscript
 - Otherwise → Unit test
+
+**Testscript organization:**
+
+- `*_validation.txt` - Fast tests: arguments, help, preconditions
+- `*_integration.txt` - Slower tests: actual Git operations, shared fixtures

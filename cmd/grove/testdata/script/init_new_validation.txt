@@ -6,24 +6,6 @@ stdout 'Create a new grove workspace'
 stdout 'Usage:'
 stdout '[directory]'
 
-## Success paths
-
-# Test init new creates workspace in temp directory
-mkdir temp1
-exec grove init new temp1
-stdout 'Initialized grove workspace'
-stdout 'temp1'
-exists temp1/.bare
-exists temp1/.git
-
-# Test init new creates workspace with directory name
-mkdir temp2
-exec grove init new temp2/myproject
-stdout 'Initialized grove workspace'
-stdout 'temp2/myproject'
-exists temp2/myproject/.bare
-exists temp2/myproject/.git
-
 ## Argument validation
 
 # Test init new fails with too many arguments
