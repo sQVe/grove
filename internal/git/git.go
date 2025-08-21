@@ -126,6 +126,31 @@ func IsInsideGitRepo(path string) bool {
 	return cmd.Run() == nil
 }
 
+// IsWorktree checks if the given path is a git worktree
+func IsWorktree(path string) bool {
+	gitPath := filepath.Join(path, ".git")
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// HasUncommittedChanges checks if the repository has uncommitted changes
+func HasUncommittedChanges(path string) (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return false, err
+	}
+
+	return strings.TrimSpace(out.String()) != "", nil
+}
+
 // ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
 func ListRemoteBranches(url string) ([]string, error) { // nolint:unparam // Return value is used in completion and tests
 	cacheFile, err := getCacheFile(url)
@@ -269,4 +294,115 @@ func HasOngoingOperation(path string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// ListWorktrees returns paths to existing worktrees, excluding the main repository
+func ListWorktrees(repoPath string) ([]string, error) {
+	logger.Debug("Executing: git worktree list in %s", repoPath)
+	cmd := exec.Command("git", "worktree", "list")
+	cmd.Dir = repoPath
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+
+	var worktrees []string
+	scanner := bufio.NewScanner(&out)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		// Split line by whitespace - first field is the path
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+
+		worktreePath := fields[0]
+
+		// Skip the main repository (has "(bare)" suffix or is the main repo)
+		if len(fields) > 1 && strings.Contains(line, "(bare)") {
+			continue
+		}
+
+		// Skip if the worktree path equals the repository path (main repo)
+		absWorktreePath, err := filepath.Abs(worktreePath)
+		if err != nil {
+			return nil, err
+		}
+		absRepoPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return nil, err
+		}
+		if absWorktreePath == absRepoPath {
+			continue
+		}
+
+		worktrees = append(worktrees, worktreePath)
+	}
+
+	return worktrees, scanner.Err()
+}
+
+// HasLockFiles checks if there are any active git lock files
+func HasLockFiles(path string) (bool, error) {
+	logger.Debug("Checking for lock files in %s", path)
+	gitDir := filepath.Join(path, ".git")
+
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return false, fmt.Errorf("not a git repository")
+	}
+
+	lockFiles, err := filepath.Glob(filepath.Join(gitDir, "*.lock"))
+	if err != nil {
+		return false, err
+	}
+
+	return len(lockFiles) > 0, nil
+}
+
+// HasUnresolvedConflicts checks if there are unresolved merge conflicts
+func HasUnresolvedConflicts(path string) (bool, error) {
+	logger.Debug("Checking for unresolved conflicts in %s", path)
+	cmd := exec.Command("git", "ls-files", "-u")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return false, err
+	}
+
+	return strings.TrimSpace(out.String()) != "", nil
+}
+
+// HasSubmodules checks if the repository has submodules
+func HasSubmodules(path string) (bool, error) {
+	logger.Debug("Checking for submodules in %s", path)
+
+	// Check for .gitmodules file first, since it is more reliable than git
+	// submodule status.
+	gitModulesPath := filepath.Join(path, ".gitmodules")
+	if _, err := os.Stat(gitModulesPath); err == nil {
+		return true, nil
+	}
+
+	cmd := exec.Command("git", "submodule", "status")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return false, err
+	}
+
+	output := strings.TrimSpace(out.String())
+	return output != "", nil
 }

@@ -39,5 +39,4 @@ These documents guide all development decisions and ensure consistency across th
 
 - Can a user type it? → Testscript
 - Are we testing a flow? → Testscript
-- Setup is more than 4 commands? → Testscript
 - Otherwise → Unit test

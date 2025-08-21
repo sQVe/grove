@@ -4,4 +4,12 @@ exec grove --help
 # Test grove shows help with no arguments
 exec grove
 stdout 'Grove is a tool that makes Git worktrees as simple'
+stdout 'Available Commands'
+stdout 'clone'
+stdout 'completion'
+stdout 'convert'
 stdout 'init'
+stdout 'Flags'
+stdout '--debug'
+stdout '--help'
+stdout '--plain'

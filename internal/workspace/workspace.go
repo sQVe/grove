@@ -251,6 +251,42 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("not a git repository")
 	}
 
+	if git.IsWorktree(targetDir) {
+		return fmt.Errorf("cannot convert: repository is already a worktree")
+	}
+
+	hasLocks, err := git.HasLockFiles(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for lock files: %w", err)
+	}
+	if hasLocks {
+		return fmt.Errorf("cannot convert: repository has active lock files")
+	}
+
+	hasSubmodules, err := git.HasSubmodules(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for submodules: %w", err)
+	}
+	if hasSubmodules {
+		return fmt.Errorf("cannot convert: repository has submodules")
+	}
+
+	hasConflicts, err := git.HasUnresolvedConflicts(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for unresolved conflicts: %w", err)
+	}
+	if hasConflicts {
+		return fmt.Errorf("cannot convert: repository has unresolved conflicts")
+	}
+
+	hasChanges, err := git.HasUncommittedChanges(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
+	}
+	if hasChanges {
+		return fmt.Errorf("cannot convert: repository has uncommitted changes")
+	}
+
 	detached, err := git.IsDetachedHead(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check HEAD state: %w", err)
@@ -267,11 +303,13 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has ongoing merge/rebase/cherry-pick")
 	}
 
-	// TODO: Check it's not already a worktree (.git is directory not file)
-	// TODO: Check for uncommitted changes (git status --porcelain)
-	// TODO: Check for existing worktrees (git worktree list)
-	// TODO: Check for lock files (.git/index.lock, etc)
-	// TODO: Check for unresolved conflicts (git ls-files -u)
+	worktrees, err := git.ListWorktrees(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for existing worktrees: %w", err)
+	}
+	if len(worktrees) > 0 {
+		return fmt.Errorf("cannot convert: repository has existing worktrees")
+	}
 
 	// TODO: Implement convert logic
 	// - Move .git to .bare

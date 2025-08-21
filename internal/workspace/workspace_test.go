@@ -11,6 +11,49 @@ import (
 
 const errInsideGitRepo = "cannot initialize grove inside existing git repository"
 
+func setupGitRepo(t *testing.T, dir string) {
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to set git user.name: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to set git user.email: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to disable GPG signing: %v", err)
+	}
+
+	testFile := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add files: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit files: %v", err)
+	}
+}
+
 func TestInitialize(t *testing.T) {
 	t.Run("succeeds on empty directory", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -353,10 +396,6 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
-	t.Run("already grove workspace", func(t *testing.T) {
-		t.Skip("Complex test - covered by integration tests")
-	})
-
 	t.Run("fails on detached head", func(t *testing.T) {
 		tempDir := t.TempDir()
 
@@ -498,19 +537,12 @@ func TestConvert(t *testing.T) {
 
 	t.Run("fails with existing worktrees", func(t *testing.T) {
 		tempDir := t.TempDir()
+		tempParent := filepath.Dir(tempDir)
+		worktreeDir := filepath.Join(tempParent, "worktree")
 
-		cmd := exec.Command("git", "init")
-		cmd.Dir = tempDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to initialize git repository: %v", err)
-		}
+		setupGitRepo(t, tempDir)
 
-		worktreeDir := filepath.Join(tempDir, "worktree")
-		if err := os.Mkdir(worktreeDir, fs.DirGit); err != nil {
-			t.Fatalf("failed to create worktree directory: %v", err)
-		}
-
-		cmd = exec.Command("git", "worktree", "add", "worktree")
+		cmd := exec.Command("git", "worktree", "add", worktreeDir) // nolint:gosec // Test uses controlled temp directory
 		cmd.Dir = tempDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create git worktree: %v", err)
@@ -518,10 +550,10 @@ func TestConvert(t *testing.T) {
 
 		err := Convert(tempDir)
 		if err == nil {
-			t.Fatal("Convert should fail when repository already has worktrees")
+			t.Fatal("Convert should fail when repository has existing worktrees")
 		}
 
-		expected := "cannot convert: repository already has worktrees"
+		expected := "cannot convert: repository has existing worktrees"
 		if err.Error() != expected {
 			t.Errorf("expected '%s', got '%s'", expected, err.Error())
 		}
@@ -548,6 +580,110 @@ func TestConvert(t *testing.T) {
 		}
 
 		expected := "cannot convert: repository has active lock files"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails with submodules", func(t *testing.T) {
+		tempDir := t.TempDir()
+		setupGitRepo(t, tempDir)
+
+		submoduleDir := filepath.Join(tempDir, "submodule")
+		if err := os.Mkdir(submoduleDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create submodule directory: %v", err)
+		}
+
+		setupGitRepo(t, submoduleDir)
+
+		cmd := exec.Command("git", "submodule", "add", "./submodule", "submodule")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add submodule: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to stage submodule changes: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "add submodule")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit submodule: %v", err)
+		}
+
+		err := Convert(tempDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository has submodules")
+		}
+
+		expected := "cannot convert: repository has submodules"
+		if err.Error() != expected {
+			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("fails with unresolved conflicts", func(t *testing.T) {
+		tempDir := t.TempDir()
+		setupGitRepo(t, tempDir)
+
+		cmd := exec.Command("git", "checkout", "-b", "branch1")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create branch1: %v", err)
+		}
+
+		testFile := filepath.Join(tempDir, "test.txt")
+		if err := os.WriteFile(testFile, []byte("branch1 content"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify test file on branch1: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add files on branch1: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "branch1 changes")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit branch1 changes: %v", err)
+		}
+
+		cmd = exec.Command("git", "checkout", "main")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to checkout main: %v", err)
+		}
+
+		if err := os.WriteFile(testFile, []byte("main content"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify test file on main: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add files on main: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "main changes")
+		cmd.Dir = tempDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit main changes: %v", err)
+		}
+
+		cmd = exec.Command("git", "merge", "branch1")
+		cmd.Dir = tempDir
+		_ = cmd.Run() // Expected to fail with conflict
+
+		err := Convert(tempDir)
+		if err == nil {
+			t.Fatal("Convert should fail when repository has unresolved conflicts")
+		}
+
+		expected := "cannot convert: repository has unresolved conflicts"
 		if err.Error() != expected {
 			t.Errorf("expected '%s', got '%s'", expected, err.Error())
 		}

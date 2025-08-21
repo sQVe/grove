@@ -139,7 +139,7 @@ exec git add .
 exec git commit -m 'initial commit'
 cp ../untracked.txt .
 ! exec grove init convert
-stderr 'cannot convert: uncommitted changes present'
+stderr 'cannot convert: repository has uncommitted changes'
 cd ..
 
 # Test init convert fails when repository has existing worktrees
