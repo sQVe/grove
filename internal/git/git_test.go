@@ -160,155 +160,184 @@ func TestListRemoteBranchesCaching(t *testing.T) {
 }
 
 func TestGetCurrentBranch(t *testing.T) {
-	tempDir := t.TempDir()
-	gitDir := filepath.Join(tempDir, ".git")
+	t.Run("returns branch name from HEAD file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create git directory: %v", err)
-	}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	// Write HEAD file pointing to main branch
-	headFile := filepath.Join(gitDir, "HEAD")
-	if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), fs.FileGit); err != nil {
-		t.Fatalf("failed to create HEAD file: %v", err)
-	}
+		// Write HEAD file pointing to main branch
+		headFile := filepath.Join(gitDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create HEAD file: %v", err)
+		}
 
-	branch, err := GetCurrentBranch(tempDir)
-	if err != nil {
-		t.Fatalf("GetCurrentBranch failed: %v", err)
-	}
+		branch, err := GetCurrentBranch(tempDir)
+		if err != nil {
+			t.Fatalf("GetCurrentBranch failed: %v", err)
+		}
 
-	if branch != "main" {
-		t.Errorf("expected branch 'main', got '%s'", branch)
-	}
-}
+		if branch != "main" {
+			t.Errorf("expected branch 'main', got '%s'", branch)
+		}
+	})
 
-func TestGetCurrentBranchDetachedHead(t *testing.T) {
-	tempDir := t.TempDir()
-	gitDir := filepath.Join(tempDir, ".git")
+	t.Run("fails for detached HEAD", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create git directory: %v", err)
-	}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	// Write HEAD file with a commit hash (detached)
-	headFile := filepath.Join(gitDir, "HEAD")
-	if err := os.WriteFile(headFile, []byte("abc1234567890\n"), fs.FileGit); err != nil {
-		t.Fatalf("failed to create HEAD file: %v", err)
-	}
+		// Write HEAD file with a commit hash (detached)
+		headFile := filepath.Join(gitDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte("abc1234567890\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create HEAD file: %v", err)
+		}
 
-	_, err := GetCurrentBranch(tempDir)
-	if err == nil {
-		t.Fatal("GetCurrentBranch should fail for detached HEAD")
-	}
-}
+		_, err := GetCurrentBranch(tempDir)
+		if err == nil {
+			t.Fatal("GetCurrentBranch should fail for detached HEAD")
+		}
+	})
 
-func TestGetCurrentBranchNoGitRepo(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
 
-	_, err := GetCurrentBranch(tempDir)
-	if err == nil {
-		t.Fatal("GetCurrentBranch should fail for non-git directory")
-	}
+		_, err := GetCurrentBranch(tempDir)
+		if err == nil {
+			t.Fatal("GetCurrentBranch should fail for non-git directory")
+		}
+	})
 }
 
 func TestIsDetachedHead(t *testing.T) {
-	tempDir := t.TempDir()
-	gitDir := filepath.Join(tempDir, ".git")
+	t.Run("detects detached HEAD with commit hash", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create git directory: %v", err)
-	}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	// Test detached HEAD (commit hash)
-	headFile := filepath.Join(gitDir, "HEAD")
-	if err := os.WriteFile(headFile, []byte("abc1234567890abcdef1234567890abcdef123456\n"), fs.FileGit); err != nil {
-		t.Fatalf("failed to create HEAD file: %v", err)
-	}
+		// Test detached HEAD (commit hash)
+		headFile := filepath.Join(gitDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte("abc1234567890abcdef1234567890abcdef123456\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create HEAD file: %v", err)
+		}
 
-	isDetached, err := IsDetachedHead(tempDir)
-	if err != nil {
-		t.Fatalf("IsDetachedHead failed: %v", err)
-	}
-	if !isDetached {
-		t.Error("expected detached HEAD to be detected")
-	}
+		isDetached, err := IsDetachedHead(tempDir)
+		if err != nil {
+			t.Fatalf("IsDetachedHead failed: %v", err)
+		}
+		if !isDetached {
+			t.Error("expected detached HEAD to be detected")
+		}
+	})
 
-	// Test normal branch
-	if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), fs.FileGit); err != nil {
-		t.Fatalf("failed to update HEAD file: %v", err)
-	}
+	t.Run("does not detect normal branch as detached", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	isDetached, err = IsDetachedHead(tempDir)
-	if err != nil {
-		t.Fatalf("IsDetachedHead failed: %v", err)
-	}
-	if isDetached {
-		t.Error("expected branch HEAD not to be detected as detached")
-	}
-}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-func TestIsDetachedHeadNoGitRepo(t *testing.T) {
-	tempDir := t.TempDir()
+		headFile := filepath.Join(gitDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to update HEAD file: %v", err)
+		}
 
-	_, err := IsDetachedHead(tempDir)
-	if err == nil {
-		t.Fatal("IsDetachedHead should fail for non-git directory")
-	}
+		isDetached, err := IsDetachedHead(tempDir)
+		if err != nil {
+			t.Fatalf("IsDetachedHead failed: %v", err)
+		}
+		if isDetached {
+			t.Error("expected branch HEAD not to be detected as detached")
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		_, err := IsDetachedHead(tempDir)
+		if err == nil {
+			t.Fatal("IsDetachedHead should fail for non-git directory")
+		}
+	})
 }
 
 func TestHasOngoingOperation(t *testing.T) {
-	tempDir := t.TempDir()
-	gitDir := filepath.Join(tempDir, ".git")
+	t.Run("returns false for clean repo", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create git directory: %v", err)
-	}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	hasOperation, err := HasOngoingOperation(tempDir)
-	if err != nil {
-		t.Fatalf("HasOngoingOperation failed: %v", err)
-	}
-	if hasOperation {
-		t.Error("expected no ongoing operation in clean repo")
-	}
+		hasOperation, err := HasOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed: %v", err)
+		}
+		if hasOperation {
+			t.Error("expected no ongoing operation in clean repo")
+		}
+	})
 
-	mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
-	if err := os.WriteFile(mergeHead, []byte("commit-hash"), fs.FileGit); err != nil {
-		t.Fatalf("failed to create MERGE_HEAD: %v", err)
-	}
+	t.Run("detects merge operation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-	hasOperation, err = HasOngoingOperation(tempDir)
-	if err != nil {
-		t.Fatalf("HasOngoingOperation failed: %v", err)
-	}
-	if !hasOperation {
-		t.Error("expected merge operation to be detected")
-	}
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	if err := os.Remove(mergeHead); err != nil {
-		t.Fatalf("failed to remove MERGE_HEAD: %v", err)
-	}
+		mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+		if err := os.WriteFile(mergeHead, []byte("commit-hash"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create MERGE_HEAD: %v", err)
+		}
 
-	rebaseDir := filepath.Join(gitDir, "rebase-merge")
-	if err := os.Mkdir(rebaseDir, fs.DirGit); err != nil {
-		t.Fatalf("failed to create rebase-merge: %v", err)
-	}
+		hasOperation, err := HasOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed: %v", err)
+		}
+		if !hasOperation {
+			t.Error("expected merge operation to be detected")
+		}
+	})
 
-	hasOperation, err = HasOngoingOperation(tempDir)
-	if err != nil {
-		t.Fatalf("HasOngoingOperation failed: %v", err)
-	}
-	if !hasOperation {
-		t.Error("expected rebase operation to be detected")
-	}
-}
+	t.Run("detects rebase operation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
 
-func TestHasOngoingOperationNoGitRepo(t *testing.T) {
-	tempDir := t.TempDir()
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
 
-	_, err := HasOngoingOperation(tempDir)
-	if err == nil {
-		t.Fatal("HasOngoingOperation should fail for non-git directory")
-	}
+		rebaseDir := filepath.Join(gitDir, "rebase-merge")
+		if err := os.Mkdir(rebaseDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create rebase-merge: %v", err)
+		}
+
+		hasOperation, err := HasOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed: %v", err)
+		}
+		if !hasOperation {
+			t.Error("expected rebase operation to be detected")
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		_, err := HasOngoingOperation(tempDir)
+		if err == nil {
+			t.Fatal("HasOngoingOperation should fail for non-git directory")
+		}
+	})
 }
