@@ -11,7 +11,6 @@ import (
 
 const errInsideGitRepo = "cannot initialize grove inside existing git repository"
 
-//gocyclo:ignore
 func TestInitialize(t *testing.T) {
 	t.Run("succeeds on empty directory", func(t *testing.T) {
 		tempDir := t.TempDir()

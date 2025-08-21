@@ -59,6 +59,10 @@ linters:
     unparam:
       check-exported: true # Check exported functions for unused params
 
+    # Allow higher complexity for test organization with t.Run() 
+    gocyclo:
+      min-complexity: 40
+
     gocritic:
       enabled-tags:
         - diagnostic
