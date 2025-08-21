@@ -1,4 +1,4 @@
-version: "2"
+version: '2'
 
 run:
   timeout: 5m
@@ -14,7 +14,7 @@ formatters:
     - goimports
   settings:
     gofumpt:
-      module-path: "github.com/sqve/grove"
+      module-path: 'github.com/sqve/grove'
       extra-rules: true
 
 linters:
@@ -39,7 +39,7 @@ linters:
     - unparam # Unused function parameters
     - unconvert # Unnecessary type conversions
     - wastedassign # Wasted assignments
-    
+
     # Security and error handling
     - gosec # Security vulnerabilities
     - errorlint # Error wrapping and handling issues
