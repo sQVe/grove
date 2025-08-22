@@ -37,6 +37,7 @@ func main() {
 
 	rootCmd.PersistentFlags().Bool("plain", false, "Disable colors and symbols")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
+	rootCmd.Flags().BoolP("help", "h", false, "Help for grove")
 
 	rootCmd.AddCommand(commands.NewInitCmd())
 

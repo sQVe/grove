@@ -103,6 +103,7 @@ func NewInitCmd() *cobra.Command {
 			_ = cmd.Help()
 		},
 	}
+	initCmd.Flags().BoolP("help", "h", false, "Help for init")
 
 	newCmd := &cobra.Command{
 		Use:   "new [directory]",
@@ -129,6 +130,7 @@ func NewInitCmd() *cobra.Command {
 			return nil
 		},
 	}
+	newCmd.Flags().BoolP("help", "h", false, "Help for new")
 	initCmd.AddCommand(newCmd)
 
 	var branches string
@@ -190,6 +192,7 @@ func NewInitCmd() *cobra.Command {
 		completions := getBranchCompletions(toComplete, remoteBranches)
 		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 	})
+	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 	initCmd.AddCommand(cloneCmd)
 
 	var convertBranches string
@@ -220,6 +223,7 @@ func NewInitCmd() *cobra.Command {
 		// - Use getBranchCompletions for comma-separated support
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})
+	convertCmd.Flags().BoolP("help", "h", false, "Help for convert")
 	initCmd.AddCommand(convertCmd)
 
 	return initCmd
