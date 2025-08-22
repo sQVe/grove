@@ -16,25 +16,25 @@ stderr 'received 2'
 ## Pre-condition validation
 
 # Test init new fails when directory is not empty
-mkdir temp3
-cp existing.txt temp3/existing.txt
-! exec grove init new temp3
+mkdir new-fails-not-empty
+cp existing.txt new-fails-not-empty/existing.txt
+! exec grove init new new-fails-not-empty
 stderr 'directory'
-stderr 'temp3'
+stderr 'new-fails-not-empty'
 stderr 'not empty'
 
 # Test init new fails inside existing grove workspace
-mkdir workspace1
-exec grove init new workspace1
-cd workspace1
+mkdir new-fails-inside-grove
+exec grove init new new-fails-inside-grove
+cd new-fails-inside-grove
 ! exec grove init new
 stderr 'cannot initialize grove inside existing grove workspace'
 cd ..
 
 # Test init new with directory fails when directory is inside existing grove workspace
-mkdir workspace2
-exec grove init new workspace2
-! exec grove init new workspace2/nested
+mkdir new-fails-nested-grove
+exec grove init new new-fails-nested-grove
+! exec grove init new new-fails-nested-grove/nested
 stderr 'cannot initialize grove inside existing grove workspace'
 
 -- existing.txt --

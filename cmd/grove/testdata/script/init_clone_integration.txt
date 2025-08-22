@@ -1,11 +1,12 @@
+# Setup git config once
+exec git config --global user.name "Test"
+exec git config --global user.email "test@example.com"
+exec git config --global commit.gpgsign false
+
 # Setup test repository fixture
 mkdir testrepo
 exec git init testrepo
 cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config user.signingkey ""
-exec git config commit.gpgsign false
 cp ../README.md .
 exec git add .
 exec git commit -m 'initial commit'
@@ -15,29 +16,29 @@ cd ..
 ## Success paths
 
 # Test successful clone with branches
-mkdir test-workspace
-exec grove init clone file://$WORK/testrepo test-workspace --branches master,develop
+mkdir clone-with-branches
+exec grove init clone file://$WORK/testrepo clone-with-branches --branches master,develop
 stdout 'Initialized grove workspace'
-stdout 'test-workspace'
-exists test-workspace/.bare
-exists test-workspace/.git
-exists test-workspace/master
-exists test-workspace/develop
-exists test-workspace/master/README.md
-exists test-workspace/develop/README.md
+stdout 'clone-with-branches'
+exists clone-with-branches/.bare
+exists clone-with-branches/.git
+exists clone-with-branches/master
+exists clone-with-branches/develop
+exists clone-with-branches/master/README.md
+exists clone-with-branches/develop/README.md
 
 ## Output format tests
 
 # Test clone output shows worktree creation by default (quiet mode)
-mkdir test-output-quiet
-exec grove init clone file://$WORK/testrepo test-output-quiet --branches master,develop
+mkdir clone-quiet-output
+exec grove init clone file://$WORK/testrepo clone-quiet-output --branches master,develop
 stdout 'Cloning repository...'
 stdout 'Repository cloned'
 stdout 'Creating worktrees:'
 stdout '  ✓ master'
 stdout '  ✓ develop'
 stdout 'Initialized grove workspace'
-stdout 'test-output-quiet'
+stdout 'clone-quiet-output'
 ! stdout 'Enumerating objects'
 ! stdout 'Counting objects'
 ! stdout 'Compressing objects'
@@ -47,26 +48,26 @@ stdout 'test-output-quiet'
 cd testrepo
 exec git checkout -b feat/user-auth
 cd ..
-mkdir test-output-sanitized
-exec grove init clone file://$WORK/testrepo test-output-sanitized --branches feat/user-auth
+mkdir clone-sanitize-branches
+exec grove init clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
 stdout 'Creating worktrees:'
 stdout '  ✓ feat-user-auth'
 stdout 'Initialized grove workspace'
-stdout 'test-output-sanitized'
-exists test-output-sanitized/feat-user-auth
+stdout 'clone-sanitize-branches'
+exists clone-sanitize-branches/feat-user-auth
 
 # Test clone with --verbose flag shows git output
-mkdir test-output-verbose
-exec grove init clone file://$WORK/testrepo test-output-verbose --branches master --verbose
+mkdir clone-verbose-output
+exec grove init clone file://$WORK/testrepo clone-verbose-output --branches master --verbose
 stdout 'Creating worktrees:'
 stdout '  ✓ master'
 stdout 'Initialized grove workspace'
-stdout 'test-output-verbose'
+stdout 'clone-verbose-output'
 # Note: Can't test git verbose output in script tests as it's environment dependent
 
 # Test clone error output remains visible in quiet mode
-mkdir test-error-output
-! exec grove init clone file:///nonexistent/repo.git test-error-output
+mkdir clone-error-output
+! exec grove init clone file:///nonexistent/repo.git clone-error-output
 stderr 'failed to clone repository'
 
 ## Branch validation with real repository

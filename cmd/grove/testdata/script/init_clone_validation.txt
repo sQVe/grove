@@ -1,3 +1,8 @@
+# Setup git config once
+exec git config --global user.name "Test"
+exec git config --global user.email "test@example.com"
+exec git config --global commit.gpgsign false
+
 ## Help and basic functionality
 
 # Test init clone command help
@@ -86,17 +91,17 @@ stderr 'cannot initialize grove inside existing git repository'
 ## Grove workspace validation
 
 # Test init clone fails inside existing grove workspace
-mkdir workspace3
-exec grove init new workspace3
-cd workspace3
+mkdir clone-fails-inside-grove
+exec grove init new clone-fails-inside-grove
+cd clone-fails-inside-grove
 ! exec grove init clone file:///nonexistent/repo.git
 stderr 'cannot initialize grove inside existing grove workspace'
 cd ..
 
 # Test init clone with directory fails when directory is inside existing grove workspace
-mkdir workspace4
-exec grove init new workspace4
-! exec grove init clone file:///nonexistent/repo.git workspace4/nested
+mkdir clone-fails-nested-grove
+exec grove init new clone-fails-nested-grove
+! exec grove init clone file:///nonexistent/repo.git clone-fails-nested-grove/nested
 stderr 'cannot initialize grove inside existing grove workspace'
 
 ## Branch validation

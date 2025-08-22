@@ -1,12 +1,14 @@
+## Setup git config once for all tests
+exec git config --global user.name "Test"
+exec git config --global user.email "test@example.com"
+exec git config --global commit.gpgsign false
+
 ## Success paths
 
 # Test basic init convert success
 mkdir convert-basic
 cd convert-basic
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -22,9 +24,6 @@ cd ..
 mkdir convert-branches
 cd convert-branches
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -49,9 +48,6 @@ cd ..
 mkdir convert-untracked
 cd convert-untracked
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -77,9 +73,6 @@ cd ..
 mkdir convert-merge
 cd convert-merge
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -100,9 +93,6 @@ cd ..
 mkdir convert-conflicts
 cd convert-conflicts
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
