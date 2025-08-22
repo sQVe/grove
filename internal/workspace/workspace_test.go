@@ -8,8 +8,6 @@ import (
 	"github.com/sqve/grove/internal/fs"
 )
 
-const errInsideGitRepo = "cannot initialize grove inside existing git repository"
-
 func TestIsInsideGroveWorkspace(t *testing.T) {
 	t.Run("returns false for non-grove directory", func(t *testing.T) {
 		tempDir := t.TempDir()
