@@ -87,12 +87,12 @@
 
 **Failure conditions:**
 
-- [ ] Should not accept any arguments
+- [x] Should not accept any arguments
 - [x] Current directory is not a Git repository
 - [x] Current directory is already a Grove workspace
 - [x] Repository is in detached HEAD state
 - [x] Repository has ongoing merge/rebase
-- [ ] Should not convert when in a dirty state
+- [x] Should not convert when in a dirty state
 - [ ] Should revert all changes on failure
 - [ ] Convert branch names to safe directory names
 
