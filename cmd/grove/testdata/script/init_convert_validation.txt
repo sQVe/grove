@@ -1,3 +1,8 @@
+## Setup git config once for all tests
+exec git config --global user.name "Test"
+exec git config --global user.email "test@example.com"
+exec git config --global commit.gpgsign false
+
 ## Help and basic functionality
 
 # Test init convert command help
@@ -33,9 +38,6 @@ cd ..
 mkdir convert-worktree-main
 cd convert-worktree-main
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -49,9 +51,6 @@ cd ..
 mkdir convert-detached
 cd convert-detached
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -64,9 +63,6 @@ cd ..
 mkdir convert-uncommitted
 cd convert-uncommitted
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -79,9 +75,6 @@ cd ..
 mkdir convert-has-worktrees
 cd convert-has-worktrees
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
@@ -94,19 +87,79 @@ cd ..
 mkdir convert-lock-files
 cd convert-lock-files
 exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'touch .git/index.lock'
 ! exec grove init convert
-stderr 'cannot convert: git lock files present'
+stderr 'cannot convert: repository has active lock files'
 cd ..
+
+# Test init convert fails when repository has submodules
+mkdir convert-submodules
+cd convert-submodules
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+cp ../gitmodules .gitmodules
+! exec grove init convert
+stderr 'cannot convert: repository has submodules'
+cd ..
+
+# Test init convert fails when repository has unresolved conflicts
+mkdir convert-conflicts
+cd convert-conflicts
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec sh -c 'touch .git/MERGE_HEAD'
+! exec grove init convert
+stderr 'cannot convert: repository has unresolved conflicts'
+cd ..
+
+# Test init convert fails when repository has ongoing operations
+mkdir convert-ongoing
+cd convert-ongoing
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec sh -c 'touch .git/MERGE_HEAD'
+! exec grove init convert
+stderr 'cannot convert: repository has ongoing merge/rebase/cherry-pick'
+cd ..
+
+# Test init convert fails when repository has unpushed commits
+# mkdir convert-unpushed
+# cd convert-unpushed
+# exec git init
+# exec git config user.name "Test"
+# exec git config user.email "test@example.com"
+# exec git config commit.gpgsign false
+# cp ../test-file.txt .
+# exec git add .
+# exec git commit -m 'initial commit'
+# exec git remote add origin https://github.com/fake/repo.git
+# exec git branch --set-upstream-to=origin/main main
+# cp ../test-file2.txt .
+# exec git add .
+# exec git commit -m 'unpushed commit'
+# ! exec grove init convert
+# stderr 'cannot convert: repository has unpushed commits'
+# cd ..
 
 -- test-file.txt --
 This is a test file
 
 -- untracked.txt --
 This file is untracked
+
+-- test-file2.txt --
+This is another test file
+
+-- gitmodules --
+[submodule "sub"]
+	path = sub
+	url = ../sub
