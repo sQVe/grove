@@ -287,6 +287,15 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has uncommitted changes")
 	}
 
+	// TODO: Check for unpushed commits to prevent data loss
+	// hasUnpushed, err := git.HasUnpushedCommits(targetDir)
+	// if err != nil {
+	//     return fmt.Errorf("failed to check for unpushed commits: %w", err)
+	// }
+	// if hasUnpushed {
+	//     return fmt.Errorf("cannot convert: repository has unpushed commits")
+	// }
+
 	detached, err := git.IsDetachedHead(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check HEAD state: %w", err)
