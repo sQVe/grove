@@ -85,6 +85,59 @@
     > 4. Create feature-x/ worktree
     > 5. Copy untracked files from main/ to feature-x/
 
+- Configuration-based file preservation via `.groveconfig`:
+    - Include-only patterns (no exclusions needed)
+    - Defaults: `.env*`, `*.local.*`, `*.key`, `*.pem`
+    - Post-operation hooks: `post_convert = ["pnpm install"]`
+
+    User experience:
+    1. Show what will be preserved (matches patterns)
+    2. Show what will be lost (everything else)
+    3. Group large directories (node_modules, .cache) separately in warnings
+    4. Require confirmation if many files at risk
+
+    No full backups - only preserve what's explicitly configured.
+
+    File deletion preview:
+    - Use `git clean -ndX` to show exactly what Git would delete
+    - Group by leaf name (e.g., node_modules/, dist/, \*.json) to avoid language-specific hardcoding
+    - Always highlight sensitive files (.env, .key, etc.) separately
+    - Show counts for repeated patterns across monorepo packages
+    - Simple presentation: "node_modules/ (4 locations)" vs 50+ individual file lines
+
+    ```go
+    	import (
+    		"fmt"
+    		"path/filepath"
+    		"strings"
+    	)
+
+    	func GroupIgnored(output string) {
+    		byLeaf := make(map[string][]string)
+
+    		for _, line := range strings.Split(output, "\n") {
+    			path := strings.TrimPrefix(line, "Would remove ")
+
+    			// Get the last path component
+    			leaf := filepath.Base(path)
+    			if strings.HasSuffix(path, "/") {
+    				leaf = path[strings.LastIndex(path[:len(path)-1], "/")+1:]
+    			}
+
+    			byLeaf[leaf] = append(byLeaf[leaf], path)
+    		}
+
+    		// Present grouped by pattern
+    		for pattern, paths := range byLeaf {
+    			if len(paths) > 1 {
+    				fmt.Printf("%s (%d locations)\n", pattern, len(paths))
+    			} else {
+    				fmt.Printf("%s\n", paths[0])
+    			}
+    		}
+    	}
+    ```
+
 **Failure conditions:**
 
 - [x] Should not accept any arguments
@@ -95,6 +148,8 @@
 - [x] Should not convert when in a dirty state
 - [ ] Should revert all changes on failure
 - [ ] Convert branch names to safe directory names
+
+**Safety Strategy:**
 
 ### `switch`
 
