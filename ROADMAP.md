@@ -146,6 +146,16 @@
 - [x] Repository is in detached HEAD state
 - [x] Repository has ongoing merge/rebase
 - [x] Should not convert when in a dirty state
+
+- [ ] Should not output double error message:
+
+    ```sh
+    % $CODE/personal/grove/main/bin/grove init convert
+    ✗ Failed to convert repository to grove workspace: cannot convert: repository has uncommitted changes
+    ✗ cannot convert: repository has uncommitted changes
+    Run 'grove --help' for usage.
+    ```
+
 - [ ] Should revert all changes on failure
 - [x] Convert branch names to safe directory names
 
