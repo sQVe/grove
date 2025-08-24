@@ -162,15 +162,11 @@ func IsInsideGitRepo(path string) bool {
 // IsWorktree checks if the given path is a git worktree
 func IsWorktree(path string) bool {
 	gitPath := filepath.Join(path, ".git")
-	info, err := os.Stat(gitPath)
-	if err != nil {
-		return false
-	}
-	return !info.IsDir()
+	return fs.FileExists(gitPath)
 }
 
-// HasUncommittedChanges checks if the repository has uncommitted changes
-func HasUncommittedChanges(path string) (bool, error) {
+// getRepoStatus runs git status once and returns both tracked and any changes
+func getRepoStatus(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = path
 
@@ -181,45 +177,42 @@ func HasUncommittedChanges(path string) (bool, error) {
 
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() > 0 {
-			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+			return false, false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
-		return false, err
+		return false, false, err
 	}
 
-	return strings.TrimSpace(out.String()) != "", nil
-}
-
-// HasTrackedChanges checks for changes to tracked files (staged or modified)
-func HasTrackedChanges(path string) (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return false, err
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		return false, false, nil
 	}
 
-	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	hasAnyChanges = true
+
+	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if line == "" {
 			continue
 		}
-		// Status format: XY filename
-		// ?? = untracked (allowed during convert)
-		// Everything else = staged or modified (not allowed during convert)
 		if !strings.HasPrefix(line, "??") {
-			return true, nil
+			hasTrackedChanges = true
+			break
 		}
 	}
 
-	return false, nil
+	return hasAnyChanges, hasTrackedChanges, nil
+}
+
+// HasUncommittedChanges checks if the repository has uncommitted changes
+func HasUncommittedChanges(path string) (bool, error) {
+	hasAny, _, err := getRepoStatus(path)
+	return hasAny, err
+}
+
+// HasTrackedChanges checks for changes to tracked files (staged or modified)
+func HasTrackedChanges(path string) (bool, error) {
+	_, hasTracked, err := getRepoStatus(path)
+	return hasTracked, err
 }
 
 // ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
@@ -305,7 +298,7 @@ func getCacheFile(url string) (string, error) {
 	}
 
 	groveCache := filepath.Join(cacheDir, "grove", "branches")
-	if err := os.MkdirAll(groveCache, fs.DirGit); err != nil {
+	if err := fs.CreateDirectory(groveCache, fs.DirGit); err != nil {
 		return "", err
 	}
 
@@ -361,7 +354,7 @@ func HasOngoingOperation(path string) (bool, error) {
 	logger.Debug("Checking ongoing operations in %s", path)
 	gitDir := filepath.Join(path, ".git")
 
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+	if !fs.DirectoryExists(gitDir) {
 		return false, fmt.Errorf("not a git repository")
 	}
 
@@ -374,7 +367,7 @@ func HasOngoingOperation(path string) (bool, error) {
 	}
 
 	for _, marker := range markers {
-		if _, err := os.Stat(filepath.Join(gitDir, marker)); err == nil {
+		if fs.PathExists(filepath.Join(gitDir, marker)) {
 			return true, nil
 		}
 	}
@@ -445,7 +438,7 @@ func HasLockFiles(path string) (bool, error) {
 	logger.Debug("Checking for lock files in %s", path)
 	gitDir := filepath.Join(path, ".git")
 
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+	if !fs.DirectoryExists(gitDir) {
 		return false, fmt.Errorf("not a git repository")
 	}
 
@@ -485,7 +478,7 @@ func HasSubmodules(path string) (bool, error) {
 	// Check for .gitmodules file first, since it is more reliable than git
 	// submodule status.
 	gitModulesPath := filepath.Join(path, ".gitmodules")
-	if _, err := os.Stat(gitModulesPath); err == nil {
+	if fs.FileExists(gitModulesPath) {
 		return true, nil
 	}
 
@@ -571,4 +564,32 @@ func ListLocalBranches(path string) ([]string, error) {
 	}
 
 	return branches, scanner.Err()
+}
+
+// BranchExists checks if a branch exists in the local repository
+func BranchExists(repoPath, branchName string) (bool, error) {
+	if repoPath == "" || branchName == "" {
+		return false, errors.New("repository path and branch name cannot be empty")
+	}
+
+	logger.Debug("Checking if branch '%s' exists in %s", branchName, repoPath)
+
+	// git rev-parse --verify --quiet is a reliable way to check if a ref exists
+	// It exits with 0 if it exists, non-zero otherwise
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
+	cmd.Dir = repoPath
+
+	// We only care about the exit code, so stdout/stderr can be discarded for this check
+	err := cmd.Run()
+	if err != nil {
+		// An exit code of 1 means not found, which is not a programmatic error for this function
+		exitError := &exec.ExitError{}
+		if errors.As(err, &exitError) {
+			return false, nil
+		}
+		// Other errors (e.g., git not found) should be propagated
+		return false, err
+	}
+
+	return true, nil
 }

@@ -197,7 +197,13 @@ func TestListRemoteBranchesFromURL(t *testing.T) {
 
 func TestListRemoteBranchesCaching(t *testing.T) {
 	tempDir := t.TempDir()
-	testURL := "file:///nonexistent/repo.git"
+	testRepo := testgit.NewTestRepo(t)
+
+	cmd := exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = testRepo.Path
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature branch: %v", err)
+	}
 
 	origCacheDir := os.Getenv("TEST_CACHE_DIR")
 	_ = os.Setenv("TEST_CACHE_DIR", tempDir)
@@ -209,9 +215,20 @@ func TestListRemoteBranchesCaching(t *testing.T) {
 		}
 	}()
 
-	_, err := ListRemoteBranches(testURL)
-	if err == nil {
-		t.Fatal("Expected error for non-existent repo on first call")
+	branches1, err := ListRemoteBranches("file://" + testRepo.Path)
+	if err != nil {
+		t.Fatalf("first call failed: %v", err)
+	}
+	if len(branches1) == 0 {
+		t.Fatal("expected branches from repository")
+	}
+
+	branches2, err := ListRemoteBranches("file://" + testRepo.Path)
+	if err != nil {
+		t.Fatalf("cached call failed: %v", err)
+	}
+	if len(branches1) != len(branches2) {
+		t.Fatalf("cache inconsistency: first=%d, cached=%d", len(branches1), len(branches2))
 	}
 }
 
@@ -1097,4 +1114,78 @@ func TestListLocalBranches(t *testing.T) {
 			t.Fatal("ListLocalBranches should fail for non-git directory")
 		}
 	})
+}
+
+func TestBranchExists(t *testing.T) {
+	t.Run("returns true for existing branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		cmd := exec.Command("git", "checkout", "-b", "feature")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature branch: %v", err)
+		}
+
+		exists, err := BranchExists(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("BranchExists failed: %v", err)
+		}
+		if !exists {
+			t.Error("expected feature branch to exist")
+		}
+	})
+
+	t.Run("returns false for non-existent branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		exists, err := BranchExists(repo.Path, "nonexistent")
+		if err != nil {
+			t.Fatalf("BranchExists failed: %v", err)
+		}
+		if exists {
+			t.Error("expected nonexistent branch to not exist")
+		}
+	})
+
+	t.Run("fails with empty repo path", func(t *testing.T) {
+		_, err := BranchExists("", "main")
+		if err == nil {
+			t.Fatal("BranchExists should fail with empty repo path")
+		}
+		if err.Error() != "repository path and branch name cannot be empty" {
+			t.Errorf("expected empty path error, got: %v", err)
+		}
+	})
+
+	t.Run("fails with empty branch name", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		_, err := BranchExists(repo.Path, "")
+		if err == nil {
+			t.Fatal("BranchExists should fail with empty branch name")
+		}
+		if err.Error() != "repository path and branch name cannot be empty" {
+			t.Errorf("expected empty branch name error, got: %v", err)
+		}
+	})
+
+	t.Run("returns false for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		exists, err := BranchExists(tempDir, "main")
+		if err != nil {
+			t.Fatalf("BranchExists failed: %v", err)
+		}
+		if exists {
+			t.Error("expected branch to not exist in non-git directory")
+		}
+	})
+}
+
+func TestIsInsideGitRepo_ValidRepo(t *testing.T) {
+	repo := testgit.NewTestRepo(t)
+
+	if !IsInsideGitRepo(repo.Path) {
+		t.Error("Expected IsInsideGitRepo to return true for valid git repository")
+	}
 }
