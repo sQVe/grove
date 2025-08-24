@@ -18,42 +18,60 @@ import (
 // ErrNoUpstreamConfigured is returned when a branch has no upstream configured
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
 
-// InitBare initializes a bare git repository in the specified directory
-func InitBare(path string) error {
-	logger.Debug("Executing: git init --bare in %s", path)
-	cmd := exec.Command("git", "init", "--bare")
-	cmd.Dir = path
-	return cmd.Run()
-}
+// remoteBranchCacheDuration is how long remote branch listings are cached
+const remoteBranchCacheDuration = 5 * time.Minute
 
-// Clone clones a git repository as bare into the specified path
-func Clone(url, path string, quiet bool) error {
+// runGitCommand executes a git command with consistent stderr capture and error handling
+func runGitCommand(cmd *exec.Cmd, quiet bool) error {
 	if quiet {
-		logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
-		cmd := exec.Command("git", "clone", "--bare", "--quiet", url, path)
-
-		// Capture output for error reporting but don't stream it
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr
 
 		if err := cmd.Run(); err != nil {
 			if stderr.Len() > 0 {
-				return fmt.Errorf("%w: %s", err, stderr.String())
+				return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 			}
 			return err
 		}
-
 		return nil
+	}
+
+	// Verbose mode: stream stdout and stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// InitBare initializes a bare git repository in the specified directory
+func InitBare(path string) error {
+	if path == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	logger.Debug("Executing: git init --bare in %s", path)
+	cmd := exec.Command("git", "init", "--bare")
+	cmd.Dir = path
+	return runGitCommand(cmd, true) // Always quiet for init
+}
+
+// Clone clones a git repository as bare into the specified path
+func Clone(url, path string, quiet bool) error {
+	if url == "" {
+		return errors.New("repository URL cannot be empty")
+	}
+	if path == "" {
+		return errors.New("destination path cannot be empty")
+	}
+
+	var cmd *exec.Cmd
+	if quiet {
+		logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
+		cmd = exec.Command("git", "clone", "--bare", "--quiet", url, path)
 	} else {
 		logger.Debug("Executing: git clone --bare %s %s", url, path)
-		cmd := exec.Command("git", "clone", "--bare", url, path)
-
-		// Let git's output stream through to user
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		return cmd.Run()
+		cmd = exec.Command("git", "clone", "--bare", url, path)
 	}
+
+	return runGitCommand(cmd, quiet)
 }
 
 // ListBranches returns a list of all branches in a bare repository
@@ -94,32 +112,27 @@ func ListBranches(bareRepo string) ([]string, error) {
 
 // CreateWorktree creates a new worktree from a bare repository
 func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
+	if bareRepo == "" {
+		return errors.New("bare repository path cannot be empty")
+	}
+	if worktreePath == "" {
+		return errors.New("worktree path cannot be empty")
+	}
+	if branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
+
+	var cmd *exec.Cmd
 	if quiet {
 		logger.Debug("Executing: git worktree add %s %s (quiet)", worktreePath, branch)
-		cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
-		cmd.Dir = bareRepo
-
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-
-		if err := cmd.Run(); err != nil {
-			if stderr.Len() > 0 {
-				return fmt.Errorf("%w: %s", err, stderr.String())
-			}
-			return err
-		}
-
-		return nil
+		cmd = exec.Command("git", "worktree", "add", worktreePath, branch)
 	} else {
 		logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
-		cmd := exec.Command("git", "worktree", "add", worktreePath, branch)
-		cmd.Dir = bareRepo
-
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		return cmd.Run()
+		cmd = exec.Command("git", "worktree", "add", worktreePath, branch)
 	}
+	cmd.Dir = bareRepo
+
+	return runGitCommand(cmd, quiet)
 }
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository
@@ -157,13 +170,16 @@ func HasUncommittedChanges(path string) (bool, error) {
 
 // ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
 func ListRemoteBranches(url string) ([]string, error) { // nolint:unparam // Return value is used in completion and tests
+	if url == "" {
+		return nil, errors.New("repository URL cannot be empty")
+	}
 	cacheFile, err := getCacheFile(url)
 	if err != nil {
 		return listRemoteBranchesLive(url)
 	}
 
 	if fileInfo, err := os.Stat(cacheFile); err == nil {
-		if time.Since(fileInfo.ModTime()) < 5*time.Minute {
+		if time.Since(fileInfo.ModTime()) < remoteBranchCacheDuration {
 			content, err := os.ReadFile(cacheFile) // nolint:gosec // Reading controlled cache file
 			if err == nil {
 				lines := strings.Split(strings.TrimSpace(string(content)), "\n")
@@ -214,6 +230,15 @@ func listRemoteBranchesLive(url string) ([]string, error) {
 	return branches, scanner.Err()
 }
 
+func sanitizeCacheKey(url string) string {
+	filename := strings.ReplaceAll(url, "/", "_")
+	filename = strings.ReplaceAll(filename, ":", "_")
+	filename = strings.ReplaceAll(filename, "?", "_")
+	filename = strings.ReplaceAll(filename, "&", "_")
+	filename = strings.ReplaceAll(filename, "=", "_")
+	return filename
+}
+
 func getCacheFile(url string) (string, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
@@ -225,12 +250,7 @@ func getCacheFile(url string) (string, error) {
 		return "", err
 	}
 
-	filename := strings.ReplaceAll(url, "/", "_")
-	filename = strings.ReplaceAll(filename, ":", "_")
-	filename = strings.ReplaceAll(filename, "?", "_")
-	filename = strings.ReplaceAll(filename, "&", "_")
-	filename = strings.ReplaceAll(filename, "=", "_")
-	filename += ".txt"
+	filename := sanitizeCacheKey(url) + ".txt"
 
 	return filepath.Join(groveCache, filename), nil
 }
@@ -242,6 +262,9 @@ func writeCacheFile(path string, branches []string) error {
 
 // GetCurrentBranch returns the current branch name
 func GetCurrentBranch(path string) (string, error) {
+	if path == "" {
+		return "", errors.New("repository path cannot be empty")
+	}
 	logger.Debug("Getting current branch from %s", path)
 	headFile := filepath.Join(path, ".git", "HEAD")
 
@@ -445,6 +468,9 @@ func HasUnpushedCommits(path string) (bool, error) {
 
 // ListLocalBranches returns a list of all local branches in a repository
 func ListLocalBranches(path string) ([]string, error) {
+	if path == "" {
+		return nil, errors.New("repository path cannot be empty")
+	}
 	logger.Debug("Listing local branches in %s", path)
 	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
 	cmd.Dir = path
