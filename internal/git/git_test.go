@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -769,6 +770,141 @@ func TestHasSubmodules(t *testing.T) {
 		_, err := HasSubmodules(tempDir)
 		if err == nil {
 			t.Fatal("HasSubmodules should fail for non-git directory")
+		}
+	})
+}
+
+func TestHasUnpushedCommits(t *testing.T) {
+	t.Run("returns error for repo with no upstream", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		hasUnpushed, err := HasUnpushedCommits(repo.Path)
+		if err == nil {
+			t.Fatal("Expected error for repo with no upstream")
+		}
+		if hasUnpushed {
+			t.Error("expected no unpushed commits for repo with no upstream")
+		}
+		if !errors.Is(err, ErrNoUpstreamConfigured) {
+			t.Errorf("Expected ErrNoUpstreamConfigured, got: %v", err)
+		}
+	})
+
+	t.Run("returns true for repo with unpushed commits", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		remoteRepo := testgit.NewTestRepo(t)
+
+		cmd := exec.Command("git", "remote", "add", "origin", remoteRepo.Path) // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		cmd = exec.Command("git", "fetch", "origin")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to fetch from origin: %v", err)
+		}
+
+		cmd = exec.Command("git", "branch", "--set-upstream-to=origin/main", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to set upstream: %v", err)
+		}
+
+		testFile := filepath.Join(repo.Path, "new.txt")
+		if err := os.WriteFile(testFile, []byte("new content"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add files: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "new commit")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit: %v", err)
+		}
+
+		hasUnpushed, err := HasUnpushedCommits(repo.Path)
+		if err != nil {
+			t.Fatalf("HasUnpushedCommits failed: %v", err)
+		}
+		if !hasUnpushed {
+			t.Error("expected unpushed commits to be detected")
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		_, err := HasUnpushedCommits(tempDir)
+		if err == nil {
+			t.Fatal("HasUnpushedCommits should fail for non-git directory")
+		}
+	})
+}
+
+func TestListLocalBranches(t *testing.T) {
+	t.Run("returns single branch for new repo", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		branches, err := ListLocalBranches(repo.Path)
+		if err != nil {
+			t.Fatalf("ListLocalBranches failed: %v", err)
+		}
+
+		if len(branches) != 1 {
+			t.Errorf("expected 1 branch, got %d: %v", len(branches), branches)
+		}
+		if branches[0] != "main" {
+			t.Errorf("expected 'main', got '%s'", branches[0])
+		}
+	})
+
+	t.Run("returns multiple branches", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		cmd := exec.Command("git", "checkout", "-b", "feature")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature branch: %v", err)
+		}
+
+		cmd = exec.Command("git", "checkout", "-b", "develop")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create develop branch: %v", err)
+		}
+
+		branches, err := ListLocalBranches(repo.Path)
+		if err != nil {
+			t.Fatalf("ListLocalBranches failed: %v", err)
+		}
+
+		if len(branches) != 3 {
+			t.Errorf("expected 3 branches, got %d: %v", len(branches), branches)
+		}
+
+		expectedBranches := []string{"develop", "feature", "main"}
+		for i, expected := range expectedBranches {
+			if i >= len(branches) || branches[i] != expected {
+				t.Errorf("expected branches %v, got %v", expectedBranches, branches)
+				break
+			}
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		_, err := ListLocalBranches(tempDir)
+		if err == nil {
+			t.Fatal("ListLocalBranches should fail for non-git directory")
 		}
 	})
 }

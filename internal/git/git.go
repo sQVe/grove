@@ -3,6 +3,7 @@ package git
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,9 @@ import (
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/logger"
 )
+
+// ErrNoUpstreamConfigured is returned when a branch has no upstream configured
+var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
 
 // InitBare initializes a bare git repository in the specified directory
 func InitBare(path string) error {
@@ -405,4 +409,66 @@ func HasSubmodules(path string) (bool, error) {
 
 	output := strings.TrimSpace(out.String())
 	return output != "", nil
+}
+
+// HasUnpushedCommits checks if the current branch has unpushed commits
+func HasUnpushedCommits(path string) (bool, error) {
+	logger.Debug("Checking for unpushed commits in %s", path)
+
+	// First, check if an upstream branch is configured
+	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmdUpstream.Dir = path
+	var upstreamStderr bytes.Buffer
+	cmdUpstream.Stderr = &upstreamStderr
+
+	if err := cmdUpstream.Run(); err != nil {
+		// If git rev-parse @{u} fails, it means no upstream is configured
+		return false, fmt.Errorf("%w: %s", ErrNoUpstreamConfigured, strings.TrimSpace(upstreamStderr.String()))
+	}
+
+	// If upstream exists, proceed to check for unpushed commits
+	cmdLog := exec.Command("git", "log", "@{u}..HEAD", "--oneline")
+	cmdLog.Dir = path
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmdLog.Stdout = &out
+	cmdLog.Stderr = &stderr
+
+	if err := cmdLog.Run(); err != nil {
+		return false, fmt.Errorf("failed to check unpushed commits: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+
+	output := strings.TrimSpace(out.String())
+	return output != "", nil
+}
+
+// ListLocalBranches returns a list of all local branches in a repository
+func ListLocalBranches(path string) ([]string, error) {
+	logger.Debug("Listing local branches in %s", path)
+	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return nil, err
+	}
+
+	var branches []string
+	scanner := bufio.NewScanner(&out)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			branches = append(branches, line)
+		}
+	}
+
+	return branches, scanner.Err()
 }
