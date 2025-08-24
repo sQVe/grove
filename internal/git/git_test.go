@@ -1,10 +1,12 @@
 package git
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
@@ -48,6 +50,57 @@ func TestInitBareGitNotAvailable(t *testing.T) {
 	if err.Error() != `exec: "git": executable file not found in $PATH` {
 		t.Errorf("expected git not found error, got: %v", err)
 	}
+}
+
+func TestConfigureBare(t *testing.T) {
+	t.Run("configures repository as bare", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
+
+		if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create bare directory: %v", err)
+		}
+
+		if err := InitBare(bareDir); err != nil {
+			t.Fatalf("failed to create test repo: %v", err)
+		}
+
+		if err := ConfigureBare(bareDir); err != nil {
+			t.Fatalf("ConfigureBare should succeed: %v", err)
+		}
+
+		cmd := exec.Command("git", "config", "--bool", "core.bare")
+		cmd.Dir = bareDir
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to check core.bare config: %v", err)
+		}
+
+		if strings.TrimSpace(out.String()) != "true" {
+			t.Errorf("expected core.bare=true, got: %s", out.String())
+		}
+	})
+
+	t.Run("fails with empty path", func(t *testing.T) {
+		err := ConfigureBare("")
+		if err == nil {
+			t.Fatal("ConfigureBare should fail with empty path")
+		}
+
+		if err.Error() != "repository path cannot be empty" {
+			t.Errorf("expected empty path error, got: %v", err)
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		err := ConfigureBare(tempDir)
+		if err == nil {
+			t.Fatal("ConfigureBare should fail for non-git directory")
+		}
+	})
 }
 
 func TestListBranches(t *testing.T) {
