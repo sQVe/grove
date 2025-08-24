@@ -53,6 +53,17 @@ func InitBare(path string) error {
 	return runGitCommand(cmd, true) // Always quiet for init
 }
 
+// ConfigureBare configures a git repository as bare
+func ConfigureBare(path string) error {
+	if path == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	logger.Debug("Executing: git config --bool core.bare true in %s", path)
+	cmd := exec.Command("git", "config", "--bool", "core.bare", "true")
+	cmd.Dir = path
+	return runGitCommand(cmd, true)
+}
+
 // Clone clones a git repository as bare into the specified path
 func Clone(url, path string, quiet bool) error {
 	if url == "" {
@@ -81,9 +92,14 @@ func ListBranches(bareRepo string) ([]string, error) {
 	cmd.Dir = bareRepo
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return nil, err
 	}
 
@@ -159,9 +175,14 @@ func HasUncommittedChanges(path string) (bool, error) {
 	cmd.Dir = path
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return false, err
 	}
 
@@ -206,9 +227,14 @@ func listRemoteBranchesLive(url string) ([]string, error) {
 	cmd := exec.Command("git", "ls-remote", "--heads", url)
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return nil, err
 	}
 
@@ -330,9 +356,14 @@ func ListWorktrees(repoPath string) ([]string, error) {
 	cmd.Dir = repoPath
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return nil, err
 	}
 
@@ -400,9 +431,14 @@ func HasUnresolvedConflicts(path string) (bool, error) {
 	cmd.Dir = path
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return false, err
 	}
 
@@ -424,9 +460,14 @@ func HasSubmodules(path string) (bool, error) {
 	cmd.Dir = path
 
 	var out bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
 		return false, err
 	}
 
