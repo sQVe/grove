@@ -189,6 +189,39 @@ func HasUncommittedChanges(path string) (bool, error) {
 	return strings.TrimSpace(out.String()) != "", nil
 }
 
+// HasTrackedChanges checks for changes to tracked files (staged or modified)
+func HasTrackedChanges(path string) (bool, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return false, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		// Status format: XY filename
+		// ?? = untracked (allowed during convert)
+		// Everything else = staged or modified (not allowed during convert)
+		if !strings.HasPrefix(line, "??") {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 // ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
 func ListRemoteBranches(url string) ([]string, error) { // nolint:unparam // Return value is used in completion and tests
 	if url == "" {
