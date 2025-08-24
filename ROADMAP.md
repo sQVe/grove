@@ -63,12 +63,12 @@
 
 | Command                   | Features                                      | Status |
 | ------------------------- | --------------------------------------------- | :----: |
-| `init convert`            | Convert existing Git repo to Grove workspace  |  [ ]   |
-| `init convert`            | Move .git to .bare                            |  [ ]   |
-| `init convert`            | Configure repository as bare                  |  [ ]   |
-| `init convert`            | Create worktree for current branch            |  [ ]   |
-| `init convert`            | Move all files to worktree directory          |  [ ]   |
-| `init convert`            | Create .git file pointing to .bare            |  [ ]   |
+| `init convert`            | Convert existing Git repo to Grove workspace  |  [x]   |
+| `init convert`            | Move .git to .bare                            |  [x]   |
+| `init convert`            | Configure repository as bare                  |  [x]   |
+| `init convert`            | Create worktree for current branch            |  [x]   |
+| `init convert`            | Move all files to worktree directory          |  [x]   |
+| `init convert`            | Create .git file pointing to .bare            |  [x]   |
 | `init convert --branches` | Setup worktrees for local branches            |  [ ]   |
 | `init convert --branches` | Copy untracked files to all created worktrees |  [ ]   |
 | `init convert --branches` | Provide completions for branch names          |  [ ]   |
@@ -147,7 +147,7 @@
 - [x] Repository has ongoing merge/rebase
 - [x] Should not convert when in a dirty state
 - [ ] Should revert all changes on failure
-- [ ] Convert branch names to safe directory names
+- [x] Convert branch names to safe directory names
 
 **Safety Strategy:**
 

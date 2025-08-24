@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -287,14 +288,16 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has uncommitted changes")
 	}
 
-	// TODO: Check for unpushed commits to prevent data loss
-	// hasUnpushed, err := git.HasUnpushedCommits(targetDir)
-	// if err != nil {
-	//     return fmt.Errorf("failed to check for unpushed commits: %w", err)
-	// }
-	// if hasUnpushed {
-	//     return fmt.Errorf("cannot convert: repository has unpushed commits")
-	// }
+	hasUnpushed, err := git.HasUnpushedCommits(targetDir)
+	if err != nil {
+		if !errors.Is(err, git.ErrNoUpstreamConfigured) {
+			return fmt.Errorf("failed to check for unpushed commits: %w", err)
+		}
+		logger.Debug("No upstream configured for current branch, skipping unpushed commits check")
+	}
+	if hasUnpushed {
+		return fmt.Errorf("cannot convert: repository has unpushed commits")
+	}
 
 	detached, err := git.IsDetachedHead(targetDir)
 	if err != nil {
@@ -320,13 +323,71 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has existing worktrees")
 	}
 
-	// TODO: Implement convert logic
-	// - Move .git to .bare
-	// - Configure repository as bare
-	// - Create worktree for current branch
-	// - Move all files to worktree directory
-	// - Create .git file pointing to .bare
-	// - Handle --branches flag to create additional worktrees
+	logger.Info("Starting Git repository conversion to Grove workspace...")
 
-	return fmt.Errorf("convert command not implemented yet")
+	// Get current branch before moving .git
+	currentBranch, err := git.GetCurrentBranch(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	logger.Info("Moving .git directory to .bare...")
+	// Move .git to .bare
+	gitDir := filepath.Join(targetDir, ".git")
+	bareDir := filepath.Join(targetDir, ".bare")
+	if err := os.Rename(gitDir, bareDir); err != nil {
+		return fmt.Errorf("failed to move .git to .bare: %w", err)
+	}
+
+	logger.Info("Configuring repository as bare...")
+	// Configure repository as bare
+	if err := git.ConfigureBare(bareDir); err != nil {
+		if renameErr := os.Rename(bareDir, gitDir); renameErr != nil {
+			logger.Error("Failed to restore .git directory: %v", renameErr)
+		}
+		return fmt.Errorf("failed to configure as bare repository: %w", err)
+	}
+
+	logger.Info("Creating worktree for current branch '%s'...", currentBranch)
+	// Create worktree for current branch
+	sanitizedName := sanitizeBranchName(currentBranch)
+	worktreePath := filepath.Join("..", sanitizedName)
+	if err := git.CreateWorktree(bareDir, worktreePath, currentBranch, true); err != nil {
+		if renameErr := os.Rename(bareDir, gitDir); renameErr != nil {
+			logger.Error("Failed to restore .git directory: %v", renameErr)
+		}
+		return fmt.Errorf("failed to create worktree for branch '%s': %w", currentBranch, err)
+	}
+
+	// Validate worktree directory was created
+	worktreeAbsPath := filepath.Join(targetDir, sanitizedName)
+	if _, err := os.Stat(worktreeAbsPath); os.IsNotExist(err) {
+		return fmt.Errorf("worktree directory %s was not created as expected", worktreeAbsPath)
+	}
+
+	entries, err := os.ReadDir(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory entries: %w", err)
+	}
+
+	logger.Info("Moving existing files to worktree...")
+	for _, entry := range entries {
+		if entry.Name() == ".bare" || entry.Name() == sanitizedName {
+			continue
+		}
+
+		oldPath := filepath.Join(targetDir, entry.Name())
+		newPath := filepath.Join(worktreeAbsPath, entry.Name())
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return fmt.Errorf("failed to move %s to worktree: %w", entry.Name(), err)
+		}
+	}
+
+	gitFile := filepath.Join(targetDir, ".git")
+	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+		return fmt.Errorf("failed to create .git file: %w", err)
+	}
+
+	logger.Success("Repository successfully converted to Grove workspace")
+	return nil
 }
