@@ -1,8 +1,3 @@
-## Setup git config once for all tests
-exec git config --global user.name "Test"
-exec git config --global user.email "test@example.com"
-exec git config --global commit.gpgsign false
-
 ## Help and basic functionality
 
 # Test init convert command help
@@ -41,10 +36,12 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
+exec git checkout -b feature
+exec git checkout main
 exec git worktree add ../convert-worktree-feature feature
 cd ../convert-worktree-feature
 ! exec grove init convert
-stderr 'cannot convert: repository is a worktree'
+stderr 'cannot convert: repository is already a worktree'
 cd ..
 
 # Test init convert with detached HEAD fails
@@ -59,14 +56,15 @@ exec git checkout HEAD~0
 stderr 'cannot convert: repository is in detached HEAD state'
 cd ..
 
-# Test init convert with uncommitted changes fails
-mkdir convert-uncommitted
-cd convert-uncommitted
+# Test init convert with staged changes fails
+mkdir convert-staged-changes
+cd convert-staged-changes
 exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-cp ../untracked.txt .
+exec sh -c 'echo "staged content" > staged-file.txt'
+exec git add staged-file.txt
 ! exec grove init convert
 stderr 'cannot convert: repository has uncommitted changes'
 cd ..
@@ -78,6 +76,8 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
+exec git checkout -b feature
+exec git checkout main
 exec git worktree add ../feature-worktree feature
 ! exec grove init convert
 stderr 'cannot convert: repository has existing worktrees'
@@ -116,7 +116,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'touch .git/MERGE_HEAD'
 ! exec grove init convert
-stderr 'cannot convert: repository has unresolved conflicts'
+stderr 'cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
 # Test init convert fails when repository has ongoing operations

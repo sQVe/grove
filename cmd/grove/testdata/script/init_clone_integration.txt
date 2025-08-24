@@ -17,25 +17,25 @@ cd ..
 
 # Test successful clone with branches
 mkdir clone-with-branches
-exec grove init clone file://$WORK/testrepo clone-with-branches --branches master,develop
+exec grove init clone file://$WORK/testrepo clone-with-branches --branches main,develop
 stdout 'Initialized grove workspace'
 stdout 'clone-with-branches'
 exists clone-with-branches/.bare
 exists clone-with-branches/.git
-exists clone-with-branches/master
+exists clone-with-branches/main
 exists clone-with-branches/develop
-exists clone-with-branches/master/README.md
+exists clone-with-branches/main/README.md
 exists clone-with-branches/develop/README.md
 
 ## Output format tests
 
 # Test clone output shows worktree creation by default (quiet mode)
 mkdir clone-quiet-output
-exec grove init clone file://$WORK/testrepo clone-quiet-output --branches master,develop
+exec grove init clone file://$WORK/testrepo clone-quiet-output --branches main,develop
 stdout 'Cloning repository...'
 stdout 'Repository cloned'
 stdout 'Creating worktrees:'
-stdout '  ✓ master'
+stdout '  ✓ main'
 stdout '  ✓ develop'
 stdout 'Initialized grove workspace'
 stdout 'clone-quiet-output'
@@ -58,9 +58,9 @@ exists clone-sanitize-branches/feat-user-auth
 
 # Test clone with --verbose flag shows git output
 mkdir clone-verbose-output
-exec grove init clone file://$WORK/testrepo clone-verbose-output --branches master --verbose
+exec grove init clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
 stdout 'Creating worktrees:'
-stdout '  ✓ master'
+stdout '  ✓ main'
 stdout 'Initialized grove workspace'
 stdout 'clone-verbose-output'
 # Note: Can't test git verbose output in script tests as it's environment dependent
