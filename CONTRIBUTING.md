@@ -24,6 +24,8 @@ These documents guide all development decisions and ensure consistency across th
 
 ## Testing Strategy
 
+Test the code that breaks, not the code that makes the metrics green.
+
 **Unit tests** (`*_test.go`) - Test internal functions directly. Use real Git.
 
 - Single function behavior and error conditions

@@ -43,29 +43,31 @@ exec sh -c 'ls -a | wc -l'
 stdout '^5$'
 cd ..
 
-# TODO: Test init convert with --branches flag (not yet implemented)
-# mkdir convert-branches
-# cd convert-branches
-# exec git init
-# cp ../test-file.txt .
-# exec git add .
-# exec git commit -m 'initial commit'
-# exec git checkout -b develop
-# exec git checkout -b 'feat/user-auth'
-# exec git checkout main
-# exec grove init convert --branches main,develop,feat/user-auth
-# stdout 'Repository successfully converted to Grove workspace'
-# stdout 'convert-branches'
-# stdout 'Creating worktrees:'
-# stdout '✓ main'
-# stdout '✓ develop'
-# stdout '✓ feat-user-auth'
-# exists .bare
-# exists .git
-# exists main/test-file.txt
-# exists develop/test-file.txt
-# exists feat-user-auth/test-file.txt
-# cd ..
+# Test init convert with --branches flag
+mkdir convert-branches
+cd convert-branches
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout -b 'feat/user-auth'
+exec git checkout main
+exec grove init convert --branches main,develop,feat/user-auth
+stdout 'Repository successfully converted to Grove workspace'
+stdout 'convert-branches'
+stdout 'Creating worktrees'
+stdout '✓ develop'
+stdout '✓ feat-user-auth'
+exists .bare
+exists .git
+exists main/test-file.txt
+exists develop
+exists feat-user-auth
+# All worktrees get checked out with their respective branch content
+exists develop/test-file.txt
+exists feat-user-auth/test-file.txt
+cd ..
 
 # TODO: Test init convert copies untracked files to worktrees (not yet implemented)
 # mkdir convert-untracked

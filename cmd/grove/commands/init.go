@@ -20,11 +20,12 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 	return filepath.Abs(args[argIndex])
 }
 
-// parseBranchInput parses comma-separated branch input into parts
-func parseBranchInput(toComplete string) (allParts []string, lastPart string, prefixParts []string) {
+// getBranchCompletions provides completion suggestions for comma-separated branches
+func getBranchCompletions(toComplete string, allBranches []string) []string {
 	rawParts := strings.Split(toComplete, ",")
-	parts := make([]string, 0, len(rawParts))
+	var parts []string
 
+	// Filter out empty parts except for the last one
 	for i, p := range rawParts {
 		trimmed := strings.TrimSpace(p)
 		if trimmed != "" || i == len(rawParts)-1 {
@@ -36,61 +37,29 @@ func parseBranchInput(toComplete string) (allParts []string, lastPart string, pr
 		parts = []string{""}
 	}
 
-	lastPart = parts[len(parts)-1]
-	prefixParts = parts[:len(parts)-1]
-	allParts = parts
-	return
-}
+	lastPart := parts[len(parts)-1]
+	prefixParts := parts[:len(parts)-1]
 
-// trackSelectedBranches creates a map of already selected branches
-func trackSelectedBranches(prefixParts []string) map[string]bool {
 	selected := make(map[string]bool)
 	for _, p := range prefixParts {
 		if p != "" {
 			selected[p] = true
 		}
 	}
-	return selected
-}
 
-// filterAvailableBranches filters branches based on prefix and selection
-func filterAvailableBranches(allBranches []string, lastPart string, selected map[string]bool) []string {
-	var filtered []string
-	for _, branch := range allBranches {
-		if !selected[branch] && strings.HasPrefix(branch, lastPart) {
-			filtered = append(filtered, branch)
-		}
-	}
-	return filtered
-}
-
-// formatCompletions formats filtered branches with prefix
-func formatCompletions(filteredBranches, prefixParts []string) []string {
 	prefix := ""
 	if len(prefixParts) > 0 {
 		prefix = strings.Join(prefixParts, ",") + ","
 	}
 
 	var completions []string
-	seen := make(map[string]bool)
-
-	for _, branch := range filteredBranches {
-		completion := prefix + branch
-		if !seen[completion] {
-			completions = append(completions, completion)
-			seen[completion] = true
+	for _, branch := range allBranches {
+		if !selected[branch] && strings.HasPrefix(branch, lastPart) {
+			completions = append(completions, prefix+branch)
 		}
 	}
 
 	return completions
-}
-
-// getBranchCompletions provides completion suggestions for comma-separated branches
-func getBranchCompletions(toComplete string, allBranches []string) []string {
-	_, lastPart, prefixParts := parseBranchInput(toComplete)
-	selected := trackSelectedBranches(prefixParts)
-	filtered := filterAvailableBranches(allBranches, lastPart, selected)
-	return formatCompletions(filtered, prefixParts)
 }
 
 func NewInitCmd() *cobra.Command {
@@ -205,8 +174,14 @@ func NewInitCmd() *cobra.Command {
 			targetDir := "."
 
 			logger.Debug("Converting repository to grove workspace in: %s", targetDir)
+			if convertBranches != "" {
+				logger.Debug("Branches requested: %s", convertBranches)
+			}
+			if convertVerbose {
+				logger.Debug("Verbose mode enabled")
+			}
 
-			if err := workspace.Convert(targetDir); err != nil {
+			if err := workspace.Convert(targetDir, convertBranches, convertVerbose); err != nil {
 				logger.Error("Failed to convert repository to grove workspace: %v", err)
 				return err
 			}
@@ -215,15 +190,16 @@ func NewInitCmd() *cobra.Command {
 			if err != nil {
 				absPath = targetDir
 			}
+			logger.Success("Repository successfully converted to Grove workspace")
 			logger.Info("Converted repository to grove workspace in: %s", absPath)
 			return nil
 		},
 	}
-	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Comma-separated list of local branches to create worktrees for")
+	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Comma-separated list of branches to create worktrees for")
 	convertCmd.Flags().BoolVar(&convertVerbose, "verbose", false, "Show detailed git output during conversion")
 	_ = convertCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// TODO: Implement local branch completion
-		// - Get local branches from current Git repository
+		// TODO: Implement branch completion
+		// - Get local and remote branches from current Git repository
 		// - Use getBranchCompletions for comma-separated support
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})

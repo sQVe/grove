@@ -34,9 +34,9 @@ mkdir clone-quiet-output
 exec grove init clone file://$WORK/testrepo clone-quiet-output --branches main,develop
 stdout 'Cloning repository...'
 stdout 'Repository cloned'
-stdout 'Creating worktrees:'
-stdout '  ✓ main'
-stdout '  ✓ develop'
+stdout 'Creating worktrees'
+stdout '✓ main'
+stdout '✓ develop'
 stdout 'Initialized grove workspace'
 stdout 'clone-quiet-output'
 ! stdout 'Enumerating objects'
@@ -50,8 +50,8 @@ exec git checkout -b feat/user-auth
 cd ..
 mkdir clone-sanitize-branches
 exec grove init clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
-stdout 'Creating worktrees:'
-stdout '  ✓ feat-user-auth'
+stdout 'Creating worktrees'
+stdout '✓ feat-user-auth'
 stdout 'Initialized grove workspace'
 stdout 'clone-sanitize-branches'
 exists clone-sanitize-branches/feat-user-auth
@@ -59,8 +59,8 @@ exists clone-sanitize-branches/feat-user-auth
 # Test clone with --verbose flag shows git output
 mkdir clone-verbose-output
 exec grove init clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
-stdout 'Creating worktrees:'
-stdout '  ✓ main'
+stdout 'Creating worktrees'
+stdout '✓ main'
 stdout 'Initialized grove workspace'
 stdout 'clone-verbose-output'
 # Note: Can't test git verbose output in script tests as it's environment dependent
@@ -75,9 +75,9 @@ stderr 'failed to clone repository'
 # Test init clone with invalid branch names
 mkdir clone-invalid-branch
 ! exec grove init clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
-stderr 'branches'
+stderr 'failed to create worktree for branch'
 stderr 'nonexistent'
-stderr 'do not exist'
+stderr 'invalid reference'
 
 -- README.md --
 # Test Repository
