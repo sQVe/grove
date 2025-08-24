@@ -1,9 +1,11 @@
 package workspace
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -280,7 +282,7 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has unresolved conflicts")
 	}
 
-	hasChanges, err := git.HasUncommittedChanges(targetDir)
+	hasChanges, err := git.HasTrackedChanges(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
 	}
@@ -323,16 +325,14 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has existing worktrees")
 	}
 
-	logger.Info("Starting Git repository conversion to Grove workspace...")
+	logger.Debug("Starting Git repository conversion to Grove workspace...")
 
-	// Get current branch before moving .git
 	currentBranch, err := git.GetCurrentBranch(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to get current branch: %w", err)
 	}
 
 	logger.Info("Moving .git directory to .bare...")
-	// Move .git to .bare
 	gitDir := filepath.Join(targetDir, ".git")
 	bareDir := filepath.Join(targetDir, ".bare")
 	if err := os.Rename(gitDir, bareDir); err != nil {
@@ -340,7 +340,6 @@ func Convert(targetDir string) error {
 	}
 
 	logger.Info("Configuring repository as bare...")
-	// Configure repository as bare
 	if err := git.ConfigureBare(bareDir); err != nil {
 		if renameErr := os.Rename(bareDir, gitDir); renameErr != nil {
 			logger.Error("Failed to restore .git directory: %v", renameErr)
@@ -349,17 +348,24 @@ func Convert(targetDir string) error {
 	}
 
 	logger.Info("Creating worktree for current branch '%s'...", currentBranch)
-	// Create worktree for current branch
 	sanitizedName := sanitizeBranchName(currentBranch)
 	worktreePath := filepath.Join("..", sanitizedName)
-	if err := git.CreateWorktree(bareDir, worktreePath, currentBranch, true); err != nil {
+
+	// Create worktree without checkout to preserve untracked files
+	cmd := exec.Command("git", "worktree", "add", "--no-checkout", worktreePath, currentBranch) // nolint:gosec // Branch name validated by git operations
+	cmd.Dir = bareDir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
 		if renameErr := os.Rename(bareDir, gitDir); renameErr != nil {
 			logger.Error("Failed to restore .git directory: %v", renameErr)
+		}
+		if stderr.Len() > 0 {
+			return fmt.Errorf("failed to create worktree for branch '%s': %w: %s", currentBranch, err, strings.TrimSpace(stderr.String()))
 		}
 		return fmt.Errorf("failed to create worktree for branch '%s': %w", currentBranch, err)
 	}
 
-	// Validate worktree directory was created
 	worktreeAbsPath := filepath.Join(targetDir, sanitizedName)
 	if _, err := os.Stat(worktreeAbsPath); os.IsNotExist(err) {
 		return fmt.Errorf("worktree directory %s was not created as expected", worktreeAbsPath)
@@ -370,7 +376,7 @@ func Convert(targetDir string) error {
 		return fmt.Errorf("failed to read directory entries: %w", err)
 	}
 
-	logger.Info("Moving existing files to worktree...")
+	logger.Info("Moving files to worktree...")
 	for _, entry := range entries {
 		if entry.Name() == ".bare" || entry.Name() == sanitizedName {
 			continue
@@ -381,6 +387,19 @@ func Convert(targetDir string) error {
 		if err := os.Rename(oldPath, newPath); err != nil {
 			return fmt.Errorf("failed to move %s to worktree: %w", entry.Name(), err)
 		}
+	}
+
+	// Checkout the worktree
+	logger.Info("Checking out worktree...")
+	checkoutCmd := exec.Command("git", "checkout", "-f", currentBranch) // nolint:gosec // Branch name validated by git operations
+	checkoutCmd.Dir = worktreeAbsPath
+	var checkoutStderr bytes.Buffer
+	checkoutCmd.Stderr = &checkoutStderr
+	if err := checkoutCmd.Run(); err != nil {
+		if checkoutStderr.Len() > 0 {
+			return fmt.Errorf("failed to checkout worktree: %w: %s", err, strings.TrimSpace(checkoutStderr.String()))
+		}
+		return fmt.Errorf("failed to checkout worktree: %w", err)
 	}
 
 	gitFile := filepath.Join(targetDir, ".git")

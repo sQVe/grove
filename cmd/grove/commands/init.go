@@ -211,7 +211,11 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Info("Converted repository to grove workspace in: %s", targetDir)
+			absPath, err := filepath.Abs(targetDir)
+			if err != nil {
+				absPath = targetDir
+			}
+			logger.Info("Converted repository to grove workspace in: %s", absPath)
 			return nil
 		},
 	}
