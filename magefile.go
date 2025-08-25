@@ -70,7 +70,7 @@ func (Test) Coverage() error {
 	if isCI {
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		totalLine := lines[len(lines)-1]
-		
+
 		// Extract percentage from "total: (statements) XX.X%"
 		parts := strings.Fields(totalLine)
 		percentStr := strings.TrimSuffix(parts[len(parts)-1], "%")
@@ -147,6 +147,17 @@ func Lint() error {
 	}
 
 	return sh.RunV("golangci-lint", "run", "--fix")
+}
+
+// Format formats code and documentation files.
+func Format() error {
+	fmt.Println("Formatting code...")
+	if err := sh.RunV("gofmt", "-w", "-s", "."); err != nil {
+		return err
+	}
+
+	fmt.Println("Formatting Markdown/JSON/YAML...")
+	return sh.RunV("npx", "--yes", "prettier", "--write", ".")
 }
 
 // Deadcode finds unused code in the project.
@@ -255,7 +266,7 @@ type moduleInfo struct {
 
 func parseModuleUpdates(jsonOutput string) ([]moduleInfo, error) {
 	var modules []moduleInfo
-	
+
 	// Split by lines and parse each JSON object
 	lines := strings.Split(strings.TrimSpace(jsonOutput), "\n")
 	for _, line := range lines {
