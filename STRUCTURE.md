@@ -12,7 +12,6 @@ grove/
 ├── internal/              # Private application code
 │   ├── git/               # Git operations wrapper
 │   ├── config/            # Environment variable configuration
-│   ├── validation/        # Input validation and sanitization
 │   ├── workspace/         # Grove workspace operations
 │   ├── styles/            # Terminal styling with lipgloss
 │   ├── logger/            # Logging utilities
@@ -37,18 +36,18 @@ grove/
 
 Currently implemented:
 
-- `grove init new [dir]` - Initialize empty workspace
-- `grove init clone <url> [dir]` - Clone repository into workspace
+-   `grove init new [dir]` - Initialize empty workspace
+-   `grove init clone <url> [dir]` - Clone repository into workspace
 
 ### Internal Packages
 
-- **git/**: Wrapper around Git CLI commands
-- **config/**: Environment variables (`GROVE_PLAIN`, `GROVE_DEBUG`)
-- **validation/**: Input sanitization and directory checks
-- **workspace/**: Core workspace creation and management
-- **styles/**: Terminal output formatting with lipgloss
-- **logger/**: Debug and spinner output
-- **fs/**: File permission constants
+-   **git/**: Wrapper around Git CLI commands
+-   **config/**: Environment variables (`GROVE_PLAIN`, `GROVE_DEBUG`)
+-   **workspace/**: Core workspace creation and management
+-   **styles/**: Terminal output formatting with lipgloss
+-   **logger/**: Debug and spinner output
+-   **fs/**: File system constants and validation
+-   **testutil/**: Testing utilities and helpers
 
 ## Development Workflow
 
@@ -59,36 +58,38 @@ mage test:unit        # Fast unit tests
 mage test:integration # Full integration tests
 mage test:coverage    # Unit tests with coverage report
 mage lint             # Run golangci-lint with --fix
+mage format           # Format code and documentation files
 mage build:dev        # Build development binary
 mage ci               # Full CI pipeline locally
 ```
 
 ### Requirements
 
-- Go 1.21+
-- golangci-lint 1.50+
-- mage
+-   Go 1.21+
+-   golangci-lint 1.50+
+-   mage
+-   gotestsum
 
 ### Standards
 
-- 90% test coverage requirement
-- Table-driven tests for multiple scenarios
-- Error messages must be user-friendly
-- Fail fast on invalid input
+-   90% test coverage requirement
+-   Table-driven tests for multiple scenarios
+-   Error messages must be user-friendly
+-   Fail fast on invalid input
 
 ## File Naming Conventions
 
-- **Core code**: Descriptive nouns (`workspace.go`, `git.go`)
-- **Tests**: Parallel structure (`workspace_test.go`, `git_test.go`)
-- **Test data**: Root-level `testdata/` for integration tests
+-   **Core code**: Descriptive nouns (`workspace.go`, `git.go`)
+-   **Tests**: Parallel structure (`workspace_test.go`, `git_test.go`)
+-   **Test data**: Root-level `testdata/` for integration tests
 
 ## Git Workflow
 
 ### Branch Naming
 
-- **Features**: `feat/short-description`
-- **Bug fixes**: `fix/short-description`
-- **Chores**: `chore/short-description`
+-   **Features**: `feat/short-description`
+-   **Bug fixes**: `fix/short-description`
+-   **Chores**: `chore/short-description`
 
 ### Commit Format
 
@@ -97,4 +98,3 @@ type(scope): brief description
 ```
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-
