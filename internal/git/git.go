@@ -165,8 +165,9 @@ func IsWorktree(path string) bool {
 	return fs.FileExists(gitPath)
 }
 
-// getRepoStatus runs git status once and returns both tracked and any changes
-func getRepoStatus(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
+// CheckGitChanges runs git status once and returns both tracked and any changes
+func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
+	logger.Debug("Checking repository status in %s", path)
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = path
 
@@ -179,19 +180,23 @@ func getRepoStatus(path string) (hasAnyChanges, hasTrackedChanges bool, err erro
 		if stderr.Len() > 0 {
 			return false, false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
+		logger.Debug("Git status failed: %v", err)
 		return false, false, err
 	}
 
 	output := strings.TrimSpace(out.String())
 	if output == "" {
+		logger.Debug("Repository status: clean (no changes)")
 		return false, false, nil
 	}
 
 	hasAnyChanges = true
 
 	lines := strings.Split(output, "\n")
+	changeCount := len(lines)
 	for _, line := range lines {
 		if line == "" {
+			changeCount--
 			continue
 		}
 		if !strings.HasPrefix(line, "??") {
@@ -200,19 +205,8 @@ func getRepoStatus(path string) (hasAnyChanges, hasTrackedChanges bool, err erro
 		}
 	}
 
+	logger.Debug("Repository status: %d changes detected, tracked changes: %t", changeCount, hasTrackedChanges)
 	return hasAnyChanges, hasTrackedChanges, nil
-}
-
-// HasUncommittedChanges checks if the repository has uncommitted changes
-func HasUncommittedChanges(path string) (bool, error) {
-	hasAny, _, err := getRepoStatus(path)
-	return hasAny, err
-}
-
-// HasTrackedChanges checks for changes to tracked files (staged or modified)
-func HasTrackedChanges(path string) (bool, error) {
-	_, hasTracked, err := getRepoStatus(path)
-	return hasTracked, err
 }
 
 // ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
