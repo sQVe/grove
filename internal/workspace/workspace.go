@@ -224,7 +224,7 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has unresolved conflicts")
 	}
 
-	_, hasChanges, err := git.CheckGitChanges(targetDir)
+	hasChanges, _, err := git.CheckGitChanges(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for uncommitted changes: %w", err)
 	}

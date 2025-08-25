@@ -92,7 +92,7 @@ cd ..
 # exists develop/untracked.txt
 # cd ..
 
-# Test init convert with mixed tracked and untracked files
+# Test init convert fails with mixed tracked and untracked files
 mkdir convert-mixed-files
 cd convert-mixed-files
 exec git init
@@ -101,29 +101,12 @@ exec sh -c 'echo "tracked code" > src/main.go'
 exec sh -c 'echo "tracked test" > src/main_test.go'
 exec git add src/
 exec git commit -m 'tracked files'
-# Add untracked files
 exec sh -c 'echo "NODE_ENV=development" > .env'
 exec sh -c 'echo "output" > build/main.js'
 mkdir -p node_modules/package
 exec sh -c 'echo "{}" > node_modules/package/package.json'
-exec grove init convert
-stdout 'Repository successfully converted to Grove workspace'
-stdout 'convert-mixed-files'
-# Verify tracked files moved
-exists main/src/main.go
-exists main/src/main_test.go
-# Verify untracked files moved
-exists main/.env
-exists main/build/main.js
-exists main/node_modules/package/package.json
-# CRITICAL: Verify root directory is clean
-! exists src
-! exists .env
-! exists build
-! exists node_modules
-# Count root items (should be exactly 5: ., .., .bare, .git, main)
-exec sh -c 'ls -a | wc -l'
-stdout '^5$'
+! exec grove init convert
+stderr 'cannot convert: repository has uncommitted changes'
 cd ..
 
 # Test init convert file integrity check

@@ -69,6 +69,30 @@ exec git add staged-file.txt
 stderr 'cannot convert: repository has uncommitted changes'
 cd ..
 
+# Test init convert fails with untracked files
+mkdir convert-untracked-files
+cd convert-untracked-files
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec sh -c 'echo "this file should not be deleted" > untracked.txt'
+! exec grove init convert
+stderr 'cannot convert: repository has uncommitted changes'
+cd ..
+
+# Test init convert fails with modified unstaged files
+mkdir convert-modified-unstaged
+cd convert-modified-unstaged
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec sh -c 'echo "modified content" >> test-file.txt'
+! exec grove init convert
+stderr 'cannot convert: repository has uncommitted changes'
+cd ..
+
 # Test init convert fails when repository has existing worktrees
 mkdir convert-has-worktrees
 cd convert-has-worktrees
@@ -132,23 +156,24 @@ stderr 'cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
 # Test init convert fails when repository has unpushed commits
-# mkdir convert-unpushed
-# cd convert-unpushed
-# exec git init
-# exec git config user.name "Test"
-# exec git config user.email "test@example.com"
-# exec git config commit.gpgsign false
-# cp ../test-file.txt .
-# exec git add .
-# exec git commit -m 'initial commit'
-# exec git remote add origin https://github.com/fake/repo.git
-# exec git branch --set-upstream-to=origin/main main
-# cp ../test-file2.txt .
-# exec git add .
-# exec git commit -m 'unpushed commit'
-# ! exec grove init convert
-# stderr 'cannot convert: repository has unpushed commits'
-# cd ..
+mkdir convert-unpushed-remote
+cd convert-unpushed-remote
+exec git init --bare
+cd ..
+mkdir convert-unpushed
+cd convert-unpushed
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../convert-unpushed-remote
+exec git push -u origin main
+cp ../test-file2.txt .
+exec git add .
+exec git commit -m 'unpushed commit'
+! exec grove init convert
+stderr 'cannot convert: repository has unpushed commits'
+cd ..
 
 -- test-file.txt --
 This is a test file
