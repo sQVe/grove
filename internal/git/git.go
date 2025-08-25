@@ -153,7 +153,6 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository
 func IsInsideGitRepo(path string) bool {
-	logger.Debug("Checking if %s is inside git repository", path)
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
 	cmd.Dir = path
 	return cmd.Run() == nil
@@ -167,7 +166,6 @@ func IsWorktree(path string) bool {
 
 // CheckGitChanges runs git status once and returns both tracked and any changes
 func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
-	logger.Debug("Checking repository status in %s", path)
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = path
 
@@ -311,7 +309,6 @@ func GetCurrentBranch(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("repository path cannot be empty")
 	}
-	logger.Debug("Getting current branch from %s", path)
 	headFile := filepath.Join(path, ".git", "HEAD")
 
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
@@ -330,7 +327,6 @@ func GetCurrentBranch(path string) (string, error) {
 
 // IsDetachedHead checks if the repository is in detached HEAD state
 func IsDetachedHead(path string) (bool, error) {
-	logger.Debug("Checking detached HEAD in %s", path)
 	headFile := filepath.Join(path, ".git", "HEAD")
 
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
@@ -345,7 +341,6 @@ func IsDetachedHead(path string) (bool, error) {
 
 // HasOngoingOperation checks for merge/rebase/cherry-pick operations
 func HasOngoingOperation(path string) (bool, error) {
-	logger.Debug("Checking ongoing operations in %s", path)
 	gitDir := filepath.Join(path, ".git")
 
 	if !fs.DirectoryExists(gitDir) {
@@ -429,7 +424,6 @@ func ListWorktrees(repoPath string) ([]string, error) {
 
 // HasLockFiles checks if there are any active git lock files
 func HasLockFiles(path string) (bool, error) {
-	logger.Debug("Checking for lock files in %s", path)
 	gitDir := filepath.Join(path, ".git")
 
 	if !fs.DirectoryExists(gitDir) {
@@ -446,7 +440,6 @@ func HasLockFiles(path string) (bool, error) {
 
 // HasUnresolvedConflicts checks if there are unresolved merge conflicts
 func HasUnresolvedConflicts(path string) (bool, error) {
-	logger.Debug("Checking for unresolved conflicts in %s", path)
 	cmd := exec.Command("git", "ls-files", "-u")
 	cmd.Dir = path
 
@@ -467,8 +460,6 @@ func HasUnresolvedConflicts(path string) (bool, error) {
 
 // HasSubmodules checks if the repository has submodules
 func HasSubmodules(path string) (bool, error) {
-	logger.Debug("Checking for submodules in %s", path)
-
 	// Check for .gitmodules file first, since it is more reliable than git
 	// submodule status.
 	gitModulesPath := filepath.Join(path, ".gitmodules")
@@ -497,8 +488,6 @@ func HasSubmodules(path string) (bool, error) {
 
 // HasUnpushedCommits checks if the current branch has unpushed commits
 func HasUnpushedCommits(path string) (bool, error) {
-	logger.Debug("Checking for unpushed commits in %s", path)
-
 	// First, check if an upstream branch is configured
 	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	cmdUpstream.Dir = path
@@ -532,7 +521,6 @@ func ListLocalBranches(path string) ([]string, error) {
 	if path == "" {
 		return nil, errors.New("repository path cannot be empty")
 	}
-	logger.Debug("Listing local branches in %s", path)
 	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
 	cmd.Dir = path
 
@@ -565,8 +553,6 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 	if repoPath == "" || branchName == "" {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
-
-	logger.Debug("Checking if branch '%s' exists in %s", branchName, repoPath)
 
 	// git rev-parse --verify --quiet is a reliable way to check if a ref exists
 	// It exits with 0 if it exists, non-zero otherwise

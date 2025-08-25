@@ -71,7 +71,6 @@ func validateAndPrepareDirectory(path string) error {
 	}
 
 	if fs.DirectoryExists(path) {
-		logger.Debug("Directory %s exists, checking if empty", path)
 
 		isEmpty, err := fs.IsEmptyDir(path)
 		if err != nil {
@@ -81,7 +80,6 @@ func validateAndPrepareDirectory(path string) error {
 			return fmt.Errorf("directory %s is not empty", path)
 		}
 	} else {
-		logger.Debug("Creating new directory: %s", path)
 		if err := fs.CreateDirectory(path, fs.DirGit); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", path, err)
 		}
@@ -141,7 +139,6 @@ func Initialize(path string) error {
 	if err := fs.CreateDirectory(bareDir, fs.DirGit); err != nil {
 		return fmt.Errorf("failed to create .bare directory: %w", err)
 	}
-	logger.Debug("Created .bare directory at %s", bareDir)
 
 	if err := git.InitBare(bareDir); err != nil {
 		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
@@ -149,7 +146,6 @@ func Initialize(path string) error {
 		}
 		return fmt.Errorf("failed to initialize bare git repository: %w", err)
 	}
-	logger.Debug("Git bare repository initialized successfully")
 
 	// Create .git file pointing to .bare directory
 	gitFile := filepath.Join(path, ".git")
@@ -159,7 +155,6 @@ func Initialize(path string) error {
 		}
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
-	logger.Debug("Created .git file pointing to .bare")
 	return nil
 }
 
@@ -183,7 +178,6 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
-	logger.Debug("Created .git file pointing to .bare")
 
 	if branches != "" {
 		return createWorktreesFromBranches(bareDir, branches, verbose, "")
@@ -239,11 +233,8 @@ func validateRepoForConversion(targetDir string) error {
 	}
 
 	hasUnpushed, err := git.HasUnpushedCommits(targetDir)
-	if err != nil {
-		if !errors.Is(err, git.ErrNoUpstreamConfigured) {
-			return fmt.Errorf("failed to check for unpushed commits: %w", err)
-		}
-		logger.Debug("No upstream configured for current branch, skipping unpushed commits check")
+	if err != nil && !errors.Is(err, git.ErrNoUpstreamConfigured) {
+		return fmt.Errorf("failed to check for unpushed commits: %w", err)
 	}
 	if hasUnpushed {
 		return fmt.Errorf("cannot convert: repository has unpushed commits")
@@ -283,11 +274,13 @@ func setupBareRepo(targetDir string) (string, error) {
 		return "", fmt.Errorf("failed to get current branch: %w", err)
 	}
 
-	logger.Info("Moving .git directory to .bare...")
 	gitDir := filepath.Join(targetDir, ".git")
 	bareDir := filepath.Join(targetDir, ".bare")
+	logger.Debug("Preparing to convert repository to bare: %s -> %s", gitDir, bareDir)
+
+	logger.Info("Moving .git directory to .bare...")
 	if err := fs.RenameWithFallback(gitDir, bareDir); err != nil {
-		return "", fmt.Errorf("failed to move .git to .bare: %w", err)
+		return "", fmt.Errorf("failed to move .git to .bare: %w (recovery: ensure %s exists)", err, gitDir)
 	}
 
 	logger.Info("Configuring repository as bare...")
@@ -295,9 +288,10 @@ func setupBareRepo(targetDir string) (string, error) {
 		if renameErr := fs.RenameWithFallback(bareDir, gitDir); renameErr != nil {
 			logger.Error("Failed to restore .git directory: %v", renameErr)
 		}
-		return "", fmt.Errorf("failed to configure as bare repository: %w", err)
+		return "", fmt.Errorf("failed to configure as bare repository: %w (recovery: mv %s %s)", err, bareDir, gitDir)
 	}
 
+	logger.Debug("Repository converted to bare successfully, current branch: %s", currentBranch)
 	return currentBranch, nil
 }
 
@@ -378,7 +372,18 @@ func moveFilesToFirstWorktree(targetDir string, branches []string) error {
 		worktreeDirs[sanitizeBranchName(branch)] = true
 	}
 
+	var filesToMove []string
+	for _, entry := range entries {
+		if entry.Name() == ".bare" || worktreeDirs[entry.Name()] {
+			continue
+		}
+		filesToMove = append(filesToMove, entry.Name())
+	}
+
+	logger.Debug("Preparing to move files to first worktree: %s -> %s, count: %d", targetDir, firstWorktreeAbsPath, len(filesToMove))
 	logger.Info("Moving files to worktree...")
+
+	movedCount := 0
 	for _, entry := range entries {
 		if entry.Name() == ".bare" || worktreeDirs[entry.Name()] {
 			continue
@@ -387,9 +392,12 @@ func moveFilesToFirstWorktree(targetDir string, branches []string) error {
 		oldPath := filepath.Join(targetDir, entry.Name())
 		newPath := filepath.Join(firstWorktreeAbsPath, entry.Name())
 		if err := fs.RenameWithFallback(oldPath, newPath); err != nil {
-			return fmt.Errorf("failed to move %s to worktree: %w", entry.Name(), err)
+			return fmt.Errorf("failed to move %s to worktree: %w (moved %d/%d files)", entry.Name(), err, movedCount, len(filesToMove))
 		}
+		movedCount++
 	}
+
+	logger.Debug("Successfully moved %d files to worktree", movedCount)
 	return nil
 }
 
@@ -462,19 +470,23 @@ func parseBranches(branches, skipBranch string) []string {
 			cleanedBranches = append(cleanedBranches, branch)
 		}
 	}
+	logger.Debug("Parsed branches for worktree creation: %v", cleanedBranches)
 	return cleanedBranches
 }
 
 // validateBranchesForConvert validates that all specified branches exist before conversion
 func validateBranchesForConvert(targetDir, branches string) error {
 	cleanedBranches := parseBranches(branches, "")
+	logger.Debug("Validating branches exist: %v", cleanedBranches)
 
 	for _, branch := range cleanedBranches {
 		exists, err := git.BranchExists(targetDir, branch)
 		if err != nil {
+			logger.Debug("Branch validation failed for '%s': %v", branch, err)
 			return fmt.Errorf("failed to check branch '%s': %w", branch, err)
 		}
 		if !exists {
+			logger.Debug("Branch validation failed: branch '%s' does not exist", branch)
 			return fmt.Errorf("branch '%s' does not exist", branch)
 		}
 	}
@@ -492,8 +504,6 @@ func Convert(targetDir, branches string, verbose bool) error {
 			return err
 		}
 	}
-
-	logger.Debug("Starting Git repository conversion to Grove workspace...")
 
 	currentBranch, err := setupBareRepo(targetDir)
 	if err != nil {

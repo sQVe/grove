@@ -88,8 +88,6 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Debug("Initializing grove workspace in: %s", targetDir)
-
 			if err := workspace.Initialize(targetDir); err != nil {
 				logger.Error("Failed to initialize workspace: %v", err)
 				return err
@@ -128,14 +126,6 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Debug("Cloning and initializing grove workspace in: %s", targetDir)
-			if branches != "" {
-				logger.Debug("Branches requested: %s", branches)
-			}
-			if verbose {
-				logger.Debug("Verbose mode enabled")
-			}
-
 			if err := workspace.CloneAndInitialize(url, targetDir, branches, verbose); err != nil {
 				logger.Error("Failed to clone and initialize workspace: %v", err)
 				return err
@@ -172,14 +162,6 @@ func NewInitCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetDir := "."
-
-			logger.Debug("Converting repository to grove workspace in: %s", targetDir)
-			if convertBranches != "" {
-				logger.Debug("Branches requested: %s", convertBranches)
-			}
-			if convertVerbose {
-				logger.Debug("Verbose mode enabled")
-			}
 
 			if err := workspace.Convert(targetDir, convertBranches, convertVerbose); err != nil {
 				logger.Error("Failed to convert repository to grove workspace: %v", err)
