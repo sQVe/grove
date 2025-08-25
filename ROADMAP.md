@@ -15,8 +15,8 @@
 
 ### `init`
 
-- [x] Should output help if no arguments are passed
-- [x] Should fail if given a sub-command that does not exist
+-   [x] Should output help if no arguments are passed
+-   [x] Should fail if given a sub-command that does not exist
 
 #### `init new` variants
 
@@ -28,14 +28,14 @@
 
 **Notes:**
 
-- When given a directory name, the output should always output an absolute path.
+-   When given a directory name, the output should always output an absolute path.
 
 **Failure conditions:**
 
-- [x] Should accept at most 1 argument
-- [x] Not inside a grove workspace already
-- [x] Current/specified directory is not empty
-- [x] Current/specified directory is a Git repository
+-   [x] Should accept at most 1 argument
+-   [x] Not inside a grove workspace already
+-   [x] Current/specified directory is not empty
+-   [x] Current/specified directory is a Git repository
 
 #### `init clone` variants
 
@@ -53,11 +53,11 @@
 
 **Failure conditions:**
 
-- [x] Should accept 1 or 2 arguments.
-- [x] Not inside a grove workspace already
-- [x] Current/specified directory is not empty
-- [x] Current/specified directory is a Git repository
-- [x] Convert branch name to safe directory name
+-   [x] Should accept 1 or 2 arguments.
+-   [x] Not inside a grove workspace already
+-   [x] Current/specified directory is not empty
+-   [x] Current/specified directory is a Git repository
+-   [x] Convert branch name to safe directory name
 
 #### `init convert`
 
@@ -75,7 +75,7 @@
 
 **Notes:**
 
-- Flow should be:
+-   Flow should be:
 
     > `init convert --branches main,develop,feature-x`:
     >
@@ -85,12 +85,14 @@
     > 4. Create feature-x/ worktree
     > 5. Copy untracked files from main/ to feature-x/
 
-- Configuration-based file preservation via `.groveconfig`:
-    - Include-only patterns (no exclusions needed)
-    - Defaults: `.env*`, `*.local.*`, `*.key`, `*.pem`
-    - Post-operation hooks: `post_convert = ["pnpm install"]`
+-   Configuration-based file preservation via `.groveconfig`:
+
+    -   Include-only patterns (no exclusions needed)
+    -   Defaults: `.env*`, `*.local.*`, `*.key`, `*.pem`
+    -   Post-operation hooks: `post_convert = ["pnpm install"]`
 
     User experience:
+
     1. Show what will be preserved (matches patterns)
     2. Show what will be lost (everything else)
     3. Group large directories (node_modules, .cache) separately in warnings
@@ -99,11 +101,12 @@
     No full backups - only preserve what's explicitly configured.
 
     File deletion preview:
-    - Use `git clean -ndX` to show exactly what Git would delete
-    - Group by leaf name (e.g., node_modules/, dist/, \*.json) to avoid language-specific hardcoding
-    - Always highlight sensitive files (.env, .key, etc.) separately
-    - Show counts for repeated patterns across monorepo packages
-    - Simple presentation: "node_modules/ (4 locations)" vs 50+ individual file lines
+
+    -   Use `git clean -ndX` to show exactly what Git would delete
+    -   Group by leaf name (e.g., node_modules/, dist/, \*.json) to avoid language-specific hardcoding
+    -   Always highlight sensitive files (.env, .key, etc.) separately
+    -   Show counts for repeated patterns across monorepo packages
+    -   Simple presentation: "node_modules/ (4 locations)" vs 50+ individual file lines
 
     ```go
     	import (
@@ -118,7 +121,6 @@
     		for _, line := range strings.Split(output, "\n") {
     			path := strings.TrimPrefix(line, "Would remove ")
 
-    			// Get the last path component
     			leaf := filepath.Base(path)
     			if strings.HasSuffix(path, "/") {
     				leaf = path[strings.LastIndex(path[:len(path)-1], "/")+1:]
@@ -127,7 +129,6 @@
     			byLeaf[leaf] = append(byLeaf[leaf], path)
     		}
 
-    		// Present grouped by pattern
     		for pattern, paths := range byLeaf {
     			if len(paths) > 1 {
     				fmt.Printf("%s (%d locations)\n", pattern, len(paths))
@@ -140,14 +141,13 @@
 
 **Failure conditions:**
 
-- [x] Should not accept any arguments
-- [x] Current directory is not a Git repository
-- [x] Current directory is already a Grove workspace
-- [x] Repository is in detached HEAD state
-- [x] Repository has ongoing merge/rebase
-- [x] Should not convert when in a dirty state
-
-- [ ] Should not output double error message:
+-   [x] Should not accept any arguments
+-   [x] Current directory is not a Git repository
+-   [x] Current directory is already a Grove workspace
+-   [x] Repository is in detached HEAD state
+-   [x] Repository has ongoing merge/rebase
+-   [x] Should not convert when in a dirty state
+-   [x] Should not output double error message:
 
     ```sh
     % $CODE/personal/grove/main/bin/grove init convert
@@ -156,8 +156,8 @@
     Run 'grove --help' for usage.
     ```
 
-- [ ] Should revert all changes on failure
-- [x] Convert branch names to safe directory names
+-   [ ] Should revert all changes on failure
+-   [x] Convert branch names to safe directory names
 
 **Safety Strategy:**
 
