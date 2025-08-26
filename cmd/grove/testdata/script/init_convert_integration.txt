@@ -57,6 +57,7 @@ exec grove init convert --branches main,develop,feat/user-auth
 stdout 'Repository successfully converted to Grove workspace'
 stdout 'convert-branches'
 stdout 'Creating worktrees'
+stdout '✓ main'
 stdout '✓ develop'
 stdout '✓ feat-user-auth'
 exists .bare
@@ -179,6 +180,37 @@ exec git reset --hard HEAD
 ! exec git merge --no-commit conflict-branch
 ! exec grove init convert
 stderr 'cannot convert: repository has unresolved conflicts'
+cd ..
+
+# Test init convert with remote-only branch
+mkdir convert-remote-branch
+cd convert-remote-branch
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature-branch
+exec git checkout main
+# Simulate a remote by creating bare repo and cloning it
+exec git clone --bare . ../remote.git
+exec git remote add origin ../remote.git
+exec git push -u origin main
+exec git push origin feature-branch
+# Remove local feature branch to simulate remote-only scenario
+exec git branch -D feature-branch
+# Verify branch only exists remotely
+exec git branch -a
+stdout 'remotes/origin/feature-branch'
+! stdout '^  feature-branch$'
+# Convert with remote branch should work
+exec grove init convert --branches feature-branch
+stdout 'Repository successfully converted to Grove workspace'
+stdout '✓ main'
+stdout '✓ feature-branch'
+exists .bare
+exists .git
+exists main/test-file.txt
+exists feature-branch
 cd ..
 
 -- test-file.txt --
