@@ -110,7 +110,7 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 		return nil
 	}
 
-	logger.Info("Creating worktrees...")
+	logger.Info("Creating worktrees:")
 
 	for _, branch := range filteredBranches {
 		sanitizedName := sanitizeBranchName(branch)
@@ -123,7 +123,7 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 
 	for _, branch := range filteredBranches {
 		sanitizedName := sanitizeBranchName(branch)
-		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), sanitizedName)
+		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), styles.Render(&styles.Worktree, sanitizedName))
 	}
 
 	return nil
@@ -278,7 +278,7 @@ func setupBareRepo(targetDir string) (string, error) {
 	bareDir := filepath.Join(targetDir, ".bare")
 	logger.Debug("Preparing to convert repository to bare: %s -> %s", gitDir, bareDir)
 
-	logger.Info("Moving .git directory to .bare...")
+	logger.Info("Moving %s directory to %s...", styles.Render(&styles.Path, ".git"), styles.Render(&styles.Path, ".bare"))
 	if err := fs.RenameWithFallback(gitDir, bareDir); err != nil {
 		return "", fmt.Errorf("failed to move .git to .bare: %w (recovery: ensure %s exists)", err, gitDir)
 	}
@@ -381,7 +381,7 @@ func moveFilesToFirstWorktree(targetDir string, branches []string) error {
 	}
 
 	logger.Debug("Preparing to move files to first worktree: %s -> %s, count: %d", targetDir, firstWorktreeAbsPath, len(filesToMove))
-	logger.Info("Moving files to worktree...")
+	logger.Info("Reorganizing repository files...")
 
 	movedCount := 0
 	for _, entry := range entries {
@@ -406,7 +406,6 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	firstSanitizedName := sanitizeBranchName(firstBranch)
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
-	logger.Info("Checking out worktree...")
 	checkoutCmd := exec.Command("git", "checkout", "-f", firstBranch) // nolint:gosec
 	checkoutCmd.Dir = firstWorktreeAbsPath
 
@@ -420,20 +419,34 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 
 	if err := checkoutCmd.Run(); err != nil {
 		if !verbose && checkoutStderr.Len() > 0 {
-			return fmt.Errorf("failed to checkout worktree: %w: %s", err, strings.TrimSpace(checkoutStderr.String()))
+			return fmt.Errorf("failed to restore files in worktree: %w: %s", err, strings.TrimSpace(checkoutStderr.String()))
 		}
-		return fmt.Errorf("failed to checkout worktree: %w", err)
+		return fmt.Errorf("failed to restore files in worktree: %w", err)
 	}
 	return nil
 }
 
-// createWorktreesForConversion creates worktrees for specified branches and moves files to first one
-func createWorktreesForConversion(targetDir, branches string, verbose bool) error {
+// createWorktreesForConversion creates worktrees for specified branches and moves files to current branch
+func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool) error {
 	bareDir := filepath.Join(targetDir, ".bare")
 	cleanedBranches := parseBranches(branches, "")
 
 	if len(cleanedBranches) == 0 {
 		return fmt.Errorf("no valid branches specified")
+	}
+
+	found := false
+	for i, branch := range cleanedBranches {
+		if branch == currentBranch {
+			found = true
+			if i != 0 {
+				cleanedBranches = append([]string{currentBranch}, append(cleanedBranches[:i], cleanedBranches[i+1:]...)...)
+			}
+			break
+		}
+	}
+	if !found {
+		cleanedBranches = append([]string{currentBranch}, cleanedBranches...)
 	}
 
 	if err := createWorktreesOnly(bareDir, cleanedBranches, verbose); err != nil {
@@ -444,17 +457,26 @@ func createWorktreesForConversion(targetDir, branches string, verbose bool) erro
 		return err
 	}
 
+	for _, branch := range cleanedBranches {
+		sanitizedName := sanitizeBranchName(branch)
+		if branch == currentBranch {
+			fmt.Printf("  %s %s %s\n",
+				styles.Render(&styles.Success, "✓"),
+				styles.Render(&styles.Worktree, sanitizedName),
+				styles.Render(&styles.Dimmed, "(current)"))
+		} else {
+			fmt.Printf("  %s %s\n",
+				styles.Render(&styles.Success, "✓"),
+				styles.Render(&styles.Worktree, sanitizedName))
+		}
+	}
+
 	if err := moveFilesToFirstWorktree(targetDir, cleanedBranches); err != nil {
 		return err
 	}
 
 	if err := checkoutFirstWorktree(targetDir, cleanedBranches[0], verbose); err != nil {
 		return err
-	}
-
-	for _, branch := range cleanedBranches {
-		sanitizedName := sanitizeBranchName(branch)
-		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), sanitizedName)
 	}
 
 	return nil
@@ -511,7 +533,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 	}
 
 	if branches != "" {
-		if err := createWorktreesForConversion(targetDir, branches, verbose); err != nil {
+		if err := createWorktreesForConversion(targetDir, currentBranch, branches, verbose); err != nil {
 			return err
 		}
 	} else {
