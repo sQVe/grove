@@ -84,12 +84,10 @@ func NewInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetDir, err := resolveTargetDirectory(args, 0)
 			if err != nil {
-				logger.Error("Failed to resolve target directory: %v", err)
 				return err
 			}
 
 			if err := workspace.Initialize(targetDir); err != nil {
-				logger.Error("Failed to initialize workspace: %v", err)
 				return err
 			}
 
@@ -114,7 +112,6 @@ func NewInitCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("branches") && (branches == "" || branches == `""`) {
-				logger.Error("no branches specified")
 				return fmt.Errorf("no branches specified")
 			}
 
@@ -122,12 +119,10 @@ func NewInitCmd() *cobra.Command {
 
 			targetDir, err := resolveTargetDirectory(args, 1)
 			if err != nil {
-				logger.Error("Failed to resolve target directory: %v", err)
 				return err
 			}
 
 			if err := workspace.CloneAndInitialize(url, targetDir, branches, verbose); err != nil {
-				logger.Error("Failed to clone and initialize workspace: %v", err)
 				return err
 			}
 
@@ -164,7 +159,6 @@ func NewInitCmd() *cobra.Command {
 			targetDir := "."
 
 			if err := workspace.Convert(targetDir, convertBranches, convertVerbose); err != nil {
-				logger.Error("Failed to convert repository to grove workspace: %v", err)
 				return err
 			}
 
