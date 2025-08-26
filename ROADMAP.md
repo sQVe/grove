@@ -61,29 +61,19 @@
 
 #### `init convert`
 
-| Command                   | Features                                      | Status |
-| ------------------------- | --------------------------------------------- | :----: |
-| `init convert`            | Convert existing Git repo to Grove workspace  |  [x]   |
-| `init convert`            | Move .git to .bare                            |  [x]   |
-| `init convert`            | Configure repository as bare                  |  [x]   |
-| `init convert`            | Create worktree for current branch            |  [x]   |
-| `init convert`            | Move all files to worktree directory          |  [x]   |
-| `init convert`            | Create .git file pointing to .bare            |  [x]   |
-| `init convert --branches` | Setup worktrees for local branches            |  [ ]   |
-| `init convert --branches` | Copy untracked files to all created worktrees |  [ ]   |
-| `init convert --branches` | Provide completions for branch names          |  [ ]   |
+| Command                   | Features                                        | Status |
+| ------------------------- | ----------------------------------------------- | :----: |
+| `init convert`            | Convert existing Git repo to Grove workspace    |  [x]   |
+| `init convert`            | Move .git to .bare                              |  [x]   |
+| `init convert`            | Configure repository as bare                    |  [x]   |
+| `init convert`            | Create worktree for current branch              |  [x]   |
+| `init convert`            | Move all files to worktree directory            |  [x]   |
+| `init convert`            | Create .git file pointing to .bare              |  [x]   |
+| `init convert --branches` | Setup worktrees for local and remote branches   |  [x]   |
+| `init convert --branches` | Copy git-ignored files to all created worktrees |  [ ]   |
+| `init convert --branches` | Provide completions for branch names            |  [ ]   |
 
 **Notes:**
-
--   Flow should be:
-
-    > `init convert --branches main,develop,feature-x`:
-    >
-    > 1. Move everything to main/ (current branch)
-    > 2. Create develop/ worktree
-    > 3. Copy untracked files from main/ to develop/
-    > 4. Create feature-x/ worktree
-    > 5. Copy untracked files from main/ to feature-x/
 
 -   Configuration-based file preservation via `.groveconfig`:
 
