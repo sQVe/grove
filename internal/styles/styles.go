@@ -9,11 +9,13 @@ import (
 )
 
 var (
-	Success = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	Error   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
-	Warning = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-	Info    = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
-	Dimmed  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	Dimmed   = lipgloss.NewStyle().Foreground(lipgloss.Color("8")) // gray
+	Error    = lipgloss.NewStyle().Foreground(lipgloss.Color("1")) // red
+	Info     = lipgloss.NewStyle().Foreground(lipgloss.Color("4")) // blue
+	Path     = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
+	Success  = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // green
+	Warning  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
+	Worktree = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
 )
 
 func Render(style *lipgloss.Style, text string) string {

@@ -188,50 +188,6 @@ func TestIsInsideGitRepo_NonexistentPath(t *testing.T) {
 	}
 }
 
-func TestListRemoteBranchesFromURL(t *testing.T) {
-	_, err := ListRemoteBranches("file:///nonexistent/repo.git")
-	if err == nil {
-		t.Fatal("Expected error for non-existent repo")
-	}
-}
-
-func TestListRemoteBranchesCaching(t *testing.T) {
-	tempDir := t.TempDir()
-	testRepo := testgit.NewTestRepo(t)
-
-	cmd := exec.Command("git", "checkout", "-b", "feature")
-	cmd.Dir = testRepo.Path
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("failed to create feature branch: %v", err)
-	}
-
-	origCacheDir := os.Getenv("TEST_CACHE_DIR")
-	_ = os.Setenv("TEST_CACHE_DIR", tempDir)
-	defer func() {
-		if origCacheDir == "" {
-			_ = os.Unsetenv("TEST_CACHE_DIR")
-		} else {
-			_ = os.Setenv("TEST_CACHE_DIR", origCacheDir)
-		}
-	}()
-
-	branches1, err := ListRemoteBranches("file://" + testRepo.Path)
-	if err != nil {
-		t.Fatalf("first call failed: %v", err)
-	}
-	if len(branches1) == 0 {
-		t.Fatal("expected branches from repository")
-	}
-
-	branches2, err := ListRemoteBranches("file://" + testRepo.Path)
-	if err != nil {
-		t.Fatalf("cached call failed: %v", err)
-	}
-	if len(branches1) != len(branches2) {
-		t.Fatalf("cache inconsistency: first=%d, cached=%d", len(branches1), len(branches2))
-	}
-}
-
 func TestGetCurrentBranch(t *testing.T) {
 	t.Run("returns branch name from HEAD file", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -943,6 +899,36 @@ func TestBranchExists(t *testing.T) {
 		}
 		if exists {
 			t.Error("expected branch to not exist in non-git directory")
+		}
+	})
+
+	t.Run("returns true for remote branch", func(t *testing.T) {
+		originRepo := testgit.NewTestRepo(t)
+		cmd := exec.Command("git", "checkout", "-b", "remote-feature")
+		cmd.Dir = originRepo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create remote-feature branch: %v", err)
+		}
+
+		tempDir := t.TempDir()
+		bareRepoPath := filepath.Join(tempDir, "bare")
+		cloneCmd := exec.Command("git", "clone", "--bare", originRepo.Path, bareRepoPath) // nolint:gosec
+		if err := cloneCmd.Run(); err != nil {
+			t.Fatalf("failed to create bare clone: %v", err)
+		}
+
+		localRepoPath := filepath.Join(tempDir, "local")
+		localCloneCmd := exec.Command("git", "clone", bareRepoPath, localRepoPath) // nolint:gosec
+		if err := localCloneCmd.Run(); err != nil {
+			t.Fatalf("failed to clone locally: %v", err)
+		}
+
+		exists, err := BranchExists(localRepoPath, "remote-feature")
+		if err != nil {
+			t.Fatalf("BranchExists failed: %v", err)
+		}
+		if !exists {
+			t.Error("expected remote-feature branch to exist via remote reference")
 		}
 	})
 }

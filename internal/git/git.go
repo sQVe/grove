@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/logger"
@@ -17,9 +16,6 @@ import (
 
 // ErrNoUpstreamConfigured is returned when a branch has no upstream configured
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
-
-// remoteBranchCacheDuration is how long remote branch listings are cached
-const remoteBranchCacheDuration = 5 * time.Minute
 
 // runGitCommand executes a git command with consistent stderr capture and error handling
 func runGitCommand(cmd *exec.Cmd, quiet bool) error {
@@ -87,8 +83,8 @@ func Clone(url, path string, quiet bool) error {
 
 // ListBranches returns a list of all branches in a bare repository
 func ListBranches(bareRepo string) ([]string, error) {
-	logger.Debug("Executing: git branch -a in %s", bareRepo)
-	cmd := exec.Command("git", "branch", "-a")
+	logger.Debug("Executing: git branch -a --format=%%(refname:short) in %s", bareRepo)
+	cmd := exec.Command("git", "branch", "-a", "--format=%(refname:short)")
 	cmd.Dir = bareRepo
 
 	var out bytes.Buffer
@@ -103,24 +99,26 @@ func ListBranches(bareRepo string) ([]string, error) {
 		return nil, err
 	}
 
-	var branches []string
+	branchSet := make(map[string]bool)
 	scanner := bufio.NewScanner(&out)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		if line == "" || line == "origin" {
 			continue
 		}
 
-		line = strings.TrimPrefix(line, "* ")
-
-		if after, ok := strings.CutPrefix(line, "remotes/origin/"); ok {
-			branch := after
-			if branch != "HEAD" {
-				branches = append(branches, branch)
+		if branchName, ok := strings.CutPrefix(line, "origin/"); ok {
+			if branchName != "HEAD" {
+				branchSet[branchName] = true
 			}
-		} else if line != "HEAD" {
-			branches = append(branches, line)
+		} else {
+			branchSet[line] = true
 		}
+	}
+
+	var branches []string
+	for branch := range branchSet {
+		branches = append(branches, branch)
 	}
 
 	return branches, scanner.Err()
@@ -205,103 +203,6 @@ func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err er
 
 	logger.Debug("Repository status: %d changes detected, tracked changes: %t", changeCount, hasTrackedChanges)
 	return hasAnyChanges, hasTrackedChanges, nil
-}
-
-// ListRemoteBranches returns a list of all branches from a remote repository with transparent caching
-func ListRemoteBranches(url string) ([]string, error) { // nolint:unparam // Return value is used in completion and tests
-	if url == "" {
-		return nil, errors.New("repository URL cannot be empty")
-	}
-	cacheFile, err := getCacheFile(url)
-	if err != nil {
-		return listRemoteBranchesLive(url)
-	}
-
-	if fileInfo, err := os.Stat(cacheFile); err == nil {
-		if time.Since(fileInfo.ModTime()) < remoteBranchCacheDuration {
-			content, err := os.ReadFile(cacheFile) // nolint:gosec // Reading controlled cache file
-			if err == nil {
-				lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-				if len(lines) == 1 && lines[0] == "" {
-					return []string{}, nil
-				}
-				return lines, nil
-			}
-		}
-	}
-
-	branches, err := listRemoteBranchesLive(url)
-	if err != nil {
-		return nil, err
-	}
-
-	_ = writeCacheFile(cacheFile, branches)
-
-	return branches, nil
-}
-
-func listRemoteBranchesLive(url string) ([]string, error) {
-	logger.Debug("Executing: git ls-remote --heads %s", url)
-	cmd := exec.Command("git", "ls-remote", "--heads", url)
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return nil, err
-	}
-
-	var branches []string
-	scanner := bufio.NewScanner(&out)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		parts := strings.Fields(line)
-		if len(parts) >= 2 && strings.HasPrefix(parts[1], "refs/heads/") {
-			branch := strings.TrimPrefix(parts[1], "refs/heads/")
-			branches = append(branches, branch)
-		}
-	}
-
-	return branches, scanner.Err()
-}
-
-func sanitizeCacheKey(url string) string {
-	filename := strings.ReplaceAll(url, "/", "_")
-	filename = strings.ReplaceAll(filename, ":", "_")
-	filename = strings.ReplaceAll(filename, "?", "_")
-	filename = strings.ReplaceAll(filename, "&", "_")
-	filename = strings.ReplaceAll(filename, "=", "_")
-	return filename
-}
-
-func getCacheFile(url string) (string, error) {
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-
-	groveCache := filepath.Join(cacheDir, "grove", "branches")
-	if err := fs.CreateDirectory(groveCache, fs.DirGit); err != nil {
-		return "", err
-	}
-
-	filename := sanitizeCacheKey(url) + ".txt"
-
-	return filepath.Join(groveCache, filename), nil
-}
-
-func writeCacheFile(path string, branches []string) error {
-	content := strings.Join(branches, "\n")
-	return os.WriteFile(path, []byte(content), fs.FileGit)
 }
 
 // GetCurrentBranch returns the current branch name
@@ -548,26 +449,28 @@ func ListLocalBranches(path string) ([]string, error) {
 	return branches, scanner.Err()
 }
 
-// BranchExists checks if a branch exists in the local repository
+// BranchExists checks if a branch exists locally or on the remote
 func BranchExists(repoPath, branchName string) (bool, error) {
 	if repoPath == "" || branchName == "" {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
 
-	// git rev-parse --verify --quiet is a reliable way to check if a ref exists
-	// It exits with 0 if it exists, non-zero otherwise
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
 	cmd.Dir = repoPath
-
-	// We only care about the exit code, so stdout/stderr can be discarded for this check
 	err := cmd.Run()
+	if err == nil {
+		return true, nil
+	}
+
+	remoteBranch := "origin/" + branchName
+	cmd = exec.Command("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
+	cmd.Dir = repoPath
+	err = cmd.Run()
 	if err != nil {
-		// An exit code of 1 means not found, which is not a programmatic error for this function
 		exitError := &exec.ExitError{}
 		if errors.As(err, &exitError) {
 			return false, nil
 		}
-		// Other errors (e.g., git not found) should be propagated
 		return false, err
 	}
 

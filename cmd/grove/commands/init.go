@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -91,7 +92,7 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Info("Initialized grove workspace in: %s", targetDir)
+			logger.Info("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
 			return nil
 		},
 	}
@@ -104,6 +105,12 @@ func NewInitCmd() *cobra.Command {
 		Use:   "clone <url> [directory]",
 		Short: "Clone a repository and create a grove workspace",
 		Args:  cobra.RangeArgs(1, 2),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("branches") && len(args) == 0 {
+				return fmt.Errorf("--branches requires a repository URL to be specified")
+			}
+			return nil
+		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
@@ -126,26 +133,12 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Info("Initialized grove workspace in: %s", targetDir)
+			logger.Info("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
 			return nil
 		},
 	}
 	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")
 	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show detailed git output during clone and worktree creation")
-	_ = cloneCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if len(args) == 0 {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-
-		url := args[0]
-		remoteBranches, err := git.ListRemoteBranches(url)
-		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-
-		completions := getBranchCompletions(toComplete, remoteBranches)
-		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
-	})
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 	initCmd.AddCommand(cloneCmd)
 
@@ -166,18 +159,32 @@ func NewInitCmd() *cobra.Command {
 			if err != nil {
 				absPath = targetDir
 			}
-			logger.Success("Repository successfully converted to Grove workspace")
-			logger.Info("Converted repository to grove workspace in: %s", absPath)
+			logger.Success("Converted repository to grove workspace in: %s", styles.Render(&styles.Path, absPath))
 			return nil
 		},
 	}
-	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Comma-separated list of branches to create worktrees for")
+	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Additional branches to create worktrees for (comma-separated, current branch is always included)")
 	convertCmd.Flags().BoolVar(&convertVerbose, "verbose", false, "Show detailed git output during conversion")
 	_ = convertCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		// TODO: Implement branch completion
-		// - Get local and remote branches from current Git repository
-		// - Use getBranchCompletions for comma-separated support
-		return nil, cobra.ShellCompDirectiveNoFileComp
+		currentBranch, err := git.GetCurrentBranch(".")
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		allBranches, err := git.ListBranches(".")
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+
+		var availableBranches []string
+		for _, branch := range allBranches {
+			if branch != currentBranch {
+				availableBranches = append(availableBranches, branch)
+			}
+		}
+
+		completions := getBranchCompletions(toComplete, availableBranches)
+		return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 	})
 	convertCmd.Flags().BoolP("help", "h", false, "Help for convert")
 	initCmd.AddCommand(convertCmd)
