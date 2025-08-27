@@ -10,6 +10,7 @@
 | list    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | switch  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| config  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 
 ## Commands
 
@@ -61,24 +62,25 @@
 
 #### `init convert`
 
-| Command                   | Features                                        | Status |
-| ------------------------- | ----------------------------------------------- | :----: |
-| `init convert`            | Convert existing Git repo to Grove workspace    |  [x]   |
-| `init convert`            | Move .git to .bare                              |  [x]   |
-| `init convert`            | Configure repository as bare                    |  [x]   |
-| `init convert`            | Create worktree for current branch              |  [x]   |
-| `init convert`            | Move all files to worktree directory            |  [x]   |
-| `init convert`            | Create .git file pointing to .bare              |  [x]   |
-| `init convert --branches` | Setup worktrees for local and remote branches   |  [x]   |
-| `init convert --branches` | Copy git-ignored files to all created worktrees |  [ ]   |
-| `init convert --branches` | Provide completions for branch names            |  [x]   |
+| Command                   | Features                                            | Status |
+| ------------------------- | --------------------------------------------------- | :----: |
+| `init convert`            | Convert existing Git repo to Grove workspace        |  [x]   |
+| `init convert`            | Move .git to .bare                                  |  [x]   |
+| `init convert`            | Configure repository as bare                        |  [x]   |
+| `init convert`            | Create worktree for current branch                  |  [x]   |
+| `init convert`            | Move all files to worktree directory                |  [x]   |
+| `init convert`            | Create .git file pointing to .bare                  |  [x]   |
+| `init convert --branches` | Setup worktrees for local and remote branches       |  [x]   |
+| `init convert --branches` | Preserve git-ignored files in all created worktrees |  [ ]   |
+| `init convert --branches` | Use grove.convert.preserveIgnored config patterns   |  [ ]   |
+| `init convert --branches` | Provide completions for branch names                |  [x]   |
 
 **Notes:**
 
--   Copy common git-ignored files to created worktrees to match normal git behavior:
-    -   `.env*` files
-    -   `*.local.*` files
-    -   `*.key`, `*.pem` credential files
+-   Preserve common git-ignored files in created worktrees to match normal git behavior:
+    -   `.env` and `.env.local` files
+    -   Local config overrides (`*.local.json`, `*.local.yaml`, etc.)
+    -   Credential files require explicit opt-in for security
 
 **Failure conditions:**
 
@@ -91,6 +93,41 @@
 -   [x] Should not output double error message:
 -   [ ] Should revert all changes on failure
 -   [x] Convert branch names to safe directory names
+
+### `config`
+
+| Command                    | Features                                   | Status |
+| -------------------------- | ------------------------------------------ | :----: |
+| `config`                   | Output help if no arguments                |  [ ]   |
+| `config list`              | Show all grove.\* settings from git config |  [ ]   |
+| `config list --global`     | Show only global grove.\* settings         |  [ ]   |
+| `config get <key>`         | Get specific config value                  |  [ ]   |
+| `config get --global`      | Get specific global config value           |  [ ]   |
+| `config set <key> <value>` | Set config value (defaults to local)       |  [ ]   |
+| `config set --global`      | Set global config value                    |  [ ]   |
+| `config add <key> <value>` | Add to multi-value key (defaults to local) |  [ ]   |
+| `config add --global`      | Add to global multi-value key              |  [ ]   |
+| `config unset <key>`       | Remove config setting (defaults to local)  |  [ ]   |
+| `config unset --global`    | Remove global config setting               |  [ ]   |
+
+**Notes:**
+
+-   Uses Git's existing config system (no new dependencies)
+-   Multi-value support for patterns (e.g., grove.convert.preserveIgnored)
+
+**Implementation approach:**
+
+-   Shell out to `git config` commands
+-   Read with `git config --get` and `git config --get-all`
+-   Same precedence as delta: CLI > ENV > git config > defaults
+
+**Config keys:**
+
+-   `grove.plain` - Disable colors/symbols (boolean, default: false)
+-   `grove.debug` - Enable debug output (boolean, default: false)
+-   `grove.convert.preserveIgnored` - Patterns for ignored files to preserve in new worktrees (multi-value)
+    -   Default patterns: `.env`, `.env.local`, `.env.development.local`, `*.local.json`, `*.local.yaml`, `*.local.yml`, `*.local.toml`
+    -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
 
 ### `switch`
 
