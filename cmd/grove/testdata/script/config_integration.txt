@@ -1,0 +1,90 @@
+# Test config integration with git config
+
+# Setup git repository
+exec git init
+exec git commit --allow-empty -m 'initial'
+
+# Test basic set/get operations
+exec grove config set grove.plain true
+exec grove config get grove.plain
+stdout '^true$'
+
+exec grove config set grove.debug false
+exec grove config get grove.debug
+stdout '^false$'
+
+# Test list operation shows grove.* settings
+exec grove config list
+stdout 'grove.plain=true'
+stdout 'grove.debug=false'
+
+# Test global vs local precedence
+exec grove config set --global grove.debug true
+exec grove config set grove.debug false
+exec grove config get grove.debug
+stdout '^false$'  # local wins
+
+# Verify global value is there
+exec grove config get --global grove.debug
+stdout '^true$'
+
+# Test list shows both global and local
+exec grove config list
+stdout 'grove.debug=false'
+
+exec grove config list --global
+stdout 'grove.debug=true'
+! stdout 'grove.plain'  # not in global
+
+# Test multi-value keys
+exec grove config add grove.convert.preserveIgnored '.env'
+exec grove config add grove.convert.preserveIgnored '*.secret'
+exec grove config add grove.convert.preserveIgnored '.env.local'
+
+# List should show all values
+exec grove config list
+stdout 'grove.convert.preserveIgnored=.env'
+stdout 'grove.convert.preserveIgnored=\*\.secret'
+stdout 'grove.convert.preserveIgnored=.env.local'
+
+# Get should return first value
+exec grove config get grove.convert.preserveIgnored
+stdout '^.env$'
+
+# Test unset removes ALL values for multi-value keys
+exec grove config unset grove.convert.preserveIgnored
+! exec grove config get grove.convert.preserveIgnored
+stderr 'not found'
+
+# Verify list no longer shows the key
+exec grove config list
+! stdout 'grove.convert.preserveIgnored'
+
+# Test unset for single-value keys
+exec grove config unset grove.plain
+! exec grove config get grove.plain
+stderr 'not found'
+
+# Test exit codes and error messages
+! exec grove config get grove.missing
+stderr 'not found'
+
+# Test boolean values accepted
+exec grove config set grove.plain true
+exec grove config set grove.debug false
+exec grove config set grove.plain yes
+exec grove config set grove.debug no
+exec grove config set grove.plain 1
+exec grove config set grove.debug 0
+
+# Test global flag works with all subcommands
+exec grove config set --global grove.plain false
+exec grove config get --global grove.plain
+stdout '^false$'
+
+exec grove config add --global grove.convert.preserveIgnored '*.global'
+exec grove config list --global
+stdout 'grove.convert.preserveIgnored=\*\.global'
+
+exec grove config unset --global grove.convert.preserveIgnored
+exec grove config unset --global grove.plain

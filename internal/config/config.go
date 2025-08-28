@@ -29,3 +29,27 @@ func LoadFromEnv() {
 		Global.Debug = true
 	}
 }
+
+// LoadFromGitConfig loads configuration from git config
+func LoadFromGitConfig() {
+	// TODO: implement git config loading
+}
+
+// GetDefaultPreserveIgnoredPatterns returns default patterns to preserve
+func GetDefaultPreserveIgnoredPatterns() []string {
+	return []string{
+		".env",
+		".env.local",
+		".env.development.local",
+		"*.local.json",
+		"*.local.yaml",
+		"*.local.yml",
+		"*.local.toml",
+	}
+}
+
+// GetPreserveIgnoredPatterns returns all preserve ignored patterns
+func GetPreserveIgnoredPatterns() []string {
+	// TODO: implement git config reading for grove.convert.preserveIgnored
+	return GetDefaultPreserveIgnoredPatterns()
+}

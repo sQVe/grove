@@ -1,0 +1,95 @@
+# Test config command help
+exec grove config --help
+stdout 'Usage:'
+stdout 'list'
+stdout 'get'
+stdout 'set'
+stdout 'add'
+stdout 'unset'
+
+# Test config command execution shows help
+exec grove config
+stdout 'Usage:'
+
+# Test config rejects invalid subcommands
+! exec grove config invalid
+stderr 'unknown command'
+
+# Test argument validation - list
+! exec grove config list extra
+stderr 'accepts 0 arg'
+
+# Test argument validation - get
+! exec grove config get
+stderr 'requires 1 arg'
+
+# Test argument validation - set
+! exec grove config set key
+stderr 'requires 2 arg'
+
+# Test argument validation - add
+! exec grove config add key
+stderr 'requires 2 arg'
+
+# Test argument validation - unset
+! exec grove config unset
+stderr 'requires 1 arg'
+
+# Test non-grove.* keys rejected - get
+! exec grove config get user.name
+stderr 'only grove\.\* settings'
+
+# Test non-grove.* keys rejected - set
+! exec grove config set user.name value
+stderr 'only grove\.\* settings'
+
+# Test non-grove.* keys rejected - add
+! exec grove config add user.email 'test@example.com'
+stderr 'only grove\.\* settings'
+
+# Test non-grove.* keys rejected - unset
+! exec grove config unset user.name
+stderr 'only grove\.\* settings'
+
+# Test boolean validation for grove.plain
+! exec grove config set grove.plain maybe
+stderr 'invalid boolean'
+
+# Test boolean validation for grove.debug
+! exec grove config set grove.debug 2
+stderr 'invalid boolean'
+
+# Test special characters in values (CRITICAL for security)
+exec git init
+exec git commit --allow-empty -m 'initial'
+
+exec grove config set grove.debug 'true; rm -rf /'
+exec grove config get grove.debug
+stdout '^true; rm -rf /$'
+
+exec grove config add grove.convert.preserveIgnored '*.secret'
+exec grove config add grove.convert.preserveIgnored '"quoted"'
+exec grove config add grove.convert.preserveIgnored '$HOME'
+exec grove config list
+stdout '\*\.secret'
+stdout '"quoted"'
+stdout '\$HOME'
+
+# Test outside repo behavior
+mkdir ../temp
+cd ../temp
+
+# Local operations should fail outside repo
+! exec grove config set grove.plain true
+stderr 'not in a git repository'
+
+! exec grove config get grove.plain
+stderr 'not in a git repository'
+
+# Global operations should work outside repo
+exec grove config set --global grove.plain true
+exec grove config list --global
+stdout 'grove.plain=true'
+
+exec grove config get --global grove.plain
+stdout '^true$'
