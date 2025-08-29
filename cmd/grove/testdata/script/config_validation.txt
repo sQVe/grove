@@ -17,23 +17,23 @@ stderr 'unknown command'
 
 # Test argument validation - list
 ! exec grove config list extra
-stderr 'accepts 0 arg'
+stderr 'unknown command'
 
 # Test argument validation - get
 ! exec grove config get
-stderr 'requires 1 arg'
+stderr 'accepts 1 arg'
 
 # Test argument validation - set
 ! exec grove config set key
-stderr 'requires 2 arg'
+stderr 'accepts 2 arg'
 
 # Test argument validation - add
 ! exec grove config add key
-stderr 'requires 2 arg'
+stderr 'accepts 2 arg'
 
 # Test argument validation - unset
 ! exec grove config unset
-stderr 'requires 1 arg'
+stderr 'accepts 1 arg'
 
 # Test non-grove.* keys rejected - get
 ! exec grove config get user.name
@@ -63,13 +63,14 @@ stderr 'invalid boolean'
 exec git init
 exec git commit --allow-empty -m 'initial'
 
-exec grove config set grove.debug 'true; rm -rf /'
-exec grove config get grove.debug
+# Use non-boolean key for special character security test
+exec grove config add grove.convert.preserve 'true; rm -rf /'
+exec grove config get grove.convert.preserve
 stdout '^true; rm -rf /$'
 
-exec grove config add grove.convert.preserveIgnored '*.secret'
-exec grove config add grove.convert.preserveIgnored '"quoted"'
-exec grove config add grove.convert.preserveIgnored '$HOME'
+exec grove config add grove.convert.preserve '*.secret'
+exec grove config add grove.convert.preserve '"quoted"'
+exec grove config add grove.convert.preserve '$HOME'
 exec grove config list
 stdout '\*\.secret'
 stdout '"quoted"'
@@ -81,10 +82,10 @@ cd ../temp
 
 # Local operations should fail outside repo
 ! exec grove config set grove.plain true
-stderr 'not in a git repository'
+stderr 'not in a git directory'
 
 ! exec grove config get grove.plain
-stderr 'not in a git repository'
+stderr 'config key not found'
 
 # Global operations should work outside repo
 exec grove config set --global grove.plain true

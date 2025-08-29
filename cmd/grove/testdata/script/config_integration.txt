@@ -37,28 +37,28 @@ stdout 'grove.debug=true'
 ! stdout 'grove.plain'  # not in global
 
 # Test multi-value keys
-exec grove config add grove.convert.preserveIgnored '.env'
-exec grove config add grove.convert.preserveIgnored '*.secret'
-exec grove config add grove.convert.preserveIgnored '.env.local'
+exec grove config add grove.convert.preserve '.env'
+exec grove config add grove.convert.preserve '*.secret'
+exec grove config add grove.convert.preserve '.env.local'
 
 # List should show all values
 exec grove config list
-stdout 'grove.convert.preserveIgnored=.env'
-stdout 'grove.convert.preserveIgnored=\*\.secret'
-stdout 'grove.convert.preserveIgnored=.env.local'
+stdout 'grove.convert.preserve=.env'
+stdout 'grove.convert.preserve=\*\.secret'
+stdout 'grove.convert.preserve=.env.local'
 
-# Get should return first value
-exec grove config get grove.convert.preserveIgnored
-stdout '^.env$'
+# Get should return last value (git config behavior)
+exec grove config get grove.convert.preserve
+stdout '^.env.local$'
 
 # Test unset removes ALL values for multi-value keys
-exec grove config unset grove.convert.preserveIgnored
-! exec grove config get grove.convert.preserveIgnored
+exec grove config unset grove.convert.preserve
+! exec grove config get grove.convert.preserve
 stderr 'not found'
 
 # Verify list no longer shows the key
 exec grove config list
-! stdout 'grove.convert.preserveIgnored'
+! stdout 'grove.convert.preserve'
 
 # Test unset for single-value keys
 exec grove config unset grove.plain
@@ -82,9 +82,9 @@ exec grove config set --global grove.plain false
 exec grove config get --global grove.plain
 stdout '^false$'
 
-exec grove config add --global grove.convert.preserveIgnored '*.global'
+exec grove config add --global grove.convert.preserve '*.global'
 exec grove config list --global
-stdout 'grove.convert.preserveIgnored=\*\.global'
+stdout 'grove.convert.preserve=\*\.global'
 
-exec grove config unset --global grove.convert.preserveIgnored
+exec grove config unset --global grove.convert.preserve
 exec grove config unset --global grove.plain

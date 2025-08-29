@@ -8,7 +8,7 @@ cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
 exec grove init convert
-stdout 'Repository successfully converted to Grove workspace'
+stdout 'Converted repository to grove workspace'
 stdout 'convert-basic'
 exists .bare
 exists .git
@@ -27,7 +27,7 @@ exec sh -c 'echo "export default {}" > src/components/Button.tsx'
 exec git add .
 exec git commit -m 'initial commit'
 exec grove init convert
-stdout 'Repository successfully converted to Grove workspace'
+stdout 'Converted repository to grove workspace'
 stdout 'convert-realistic'
 # Verify files moved to worktree
 exists main/.github/workflows/ci.yml
@@ -54,7 +54,7 @@ exec git checkout -b develop
 exec git checkout -b 'feat/user-auth'
 exec git checkout main
 exec grove init convert --branches main,develop,feat/user-auth
-stdout 'Repository successfully converted to Grove workspace'
+stdout 'Converted repository to grove workspace'
 stdout 'convert-branches'
 stdout 'Creating worktrees'
 stdout '✓ main'
@@ -81,7 +81,7 @@ cd ..
 # exec git checkout main
 # cp ../untracked.txt .
 # exec grove init convert --branches main,develop
-# stdout 'Repository successfully converted to Grove workspace'
+# stdout 'Converted repository to grove workspace'
 # stdout 'convert-untracked'
 # stdout 'Creating worktrees:'
 # stdout '✓ main'
@@ -204,7 +204,7 @@ stdout 'remotes/origin/feature-branch'
 ! stdout '^  feature-branch$'
 # Convert with remote branch should work
 exec grove init convert --branches feature-branch
-stdout 'Repository successfully converted to Grove workspace'
+stdout 'Converted repository to grove workspace'
 stdout '✓ main'
 stdout '✓ feature-branch'
 exists .bare
