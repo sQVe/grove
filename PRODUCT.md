@@ -23,7 +23,7 @@ Replace complex Git worktree commands with simple Grove commands that handle the
 
 **Grove provides:**
 
--   `grove init clone <url>` - Setup workspace
+-   `grove clone <url>` - Setup workspace
 -   `grove create feature/auth` - New worktree
 -   `grove switch main` - Switch to branch
 

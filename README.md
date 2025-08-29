@@ -6,7 +6,7 @@ A fast, intuitive Git worktree management tool that makes Git worktrees as simpl
 
 ```bash
 # Initialize workspace from repository
-grove init clone https://github.com/example/project
+grove clone https://github.com/example/project
 
 # Or create empty workspace
 grove init new my-project

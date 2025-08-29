@@ -5,25 +5,25 @@ exec git config --global commit.gpgsign false
 
 ## Help and basic functionality
 
-# Test init clone command help
-exec grove init clone --help
+# Test clone command help
+exec grove clone --help
 stdout 'Clone a repository and create a grove workspace'
 stdout 'Usage:'
 stdout '<url>'
 
 # Test init clone with --branches flag help
-exec grove init clone --help
+exec grove clone --help
 stdout '--branches'
 
 ## Argument validation
 
 # Test init clone without arguments fails
-! exec grove init clone
+! exec grove clone
 stderr 'accepts between 1 and 2 arg'
 stderr 'received 0'
 
 # Test init clone with too many arguments fails
-! exec grove init clone url dir extra
+! exec grove clone url dir extra
 stderr 'accepts between 1 and 2 arg'
 stderr 'received 3'
 
@@ -31,24 +31,24 @@ stderr 'received 3'
 
 # Test init clone with invalid URL fails
 mkdir clone-invalid-url
-! exec grove init clone not-a-url clone-invalid-url
+! exec grove clone not-a-url clone-invalid-url
 stderr 'failed to clone repository'
 
 # Test init clone with URL and directory fails if directory doesn't exist
-! exec grove init clone file:///nonexistent/repo.git nonexistent
+! exec grove clone file:///nonexistent/repo.git nonexistent
 stderr 'failed to clone repository'
 
 # Test init clone in current directory fails due to network
 mkdir clone-current
 cd clone-current
-! exec grove init clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git
 stderr 'failed to clone repository'
 cd ..
 
 ## Directory validation
 
 # Test init clone with valid URL fails in non-empty directory
-! exec grove init clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git
 stderr 'directory'
 stderr 'not empty'
 
@@ -56,7 +56,7 @@ stderr 'not empty'
 mkdir clone-not-empty
 cp existing.txt clone-not-empty/existing.txt
 cd clone-not-empty
-! exec grove init clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git
 stderr 'directory'
 stderr 'clone-not-empty'
 stderr 'not empty'
@@ -65,7 +65,7 @@ cd ..
 # Test init clone fails when specified directory is not empty
 mkdir clone-dir-not-empty
 cp existing.txt clone-dir-not-empty/existing.txt
-! exec grove init clone file:///nonexistent/repo.git clone-dir-not-empty
+! exec grove clone file:///nonexistent/repo.git clone-dir-not-empty
 stderr 'directory'
 stderr 'clone-dir-not-empty'
 stderr 'not empty'
@@ -76,7 +76,7 @@ stderr 'not empty'
 mkdir clone-git-repo
 cd clone-git-repo
 exec git init
-! exec grove init clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git
 stderr 'cannot initialize grove inside existing git repository'
 cd ..
 
@@ -85,7 +85,7 @@ mkdir clone-dir-git-repo
 cd clone-dir-git-repo
 exec git init
 cd ..
-! exec grove init clone file:///nonexistent/repo.git clone-dir-git-repo
+! exec grove clone file:///nonexistent/repo.git clone-dir-git-repo
 stderr 'cannot initialize grove inside existing git repository'
 
 ## Grove workspace validation
@@ -94,37 +94,37 @@ stderr 'cannot initialize grove inside existing git repository'
 mkdir clone-fails-inside-grove
 exec grove init new clone-fails-inside-grove
 cd clone-fails-inside-grove
-! exec grove init clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git
 stderr 'cannot initialize grove inside existing grove workspace'
 cd ..
 
 # Test init clone with directory fails when directory is inside existing grove workspace
 mkdir clone-fails-nested-grove
 exec grove init new clone-fails-nested-grove
-! exec grove init clone file:///nonexistent/repo.git clone-fails-nested-grove/nested
+! exec grove clone file:///nonexistent/repo.git clone-fails-nested-grove/nested
 stderr 'cannot initialize grove inside existing grove workspace'
 
 ## Branch validation
 
 # Test init clone with empty branches flag
 mkdir clone-empty-branches
-! exec grove init clone file:///test/repo.git clone-empty-branches --branches ""
+! exec grove clone file:///test/repo.git clone-empty-branches --branches ""
 stderr 'no branches specified'
 
 # Test init clone with single branch
 mkdir clone-single-branch
-! exec grove init clone file:///test/repo.git clone-single-branch --branches "main"
+! exec grove clone file:///test/repo.git clone-single-branch --branches "main"
 stderr 'failed to clone repository'
 
 # Test init clone with multiple branches
 mkdir clone-multi-branch
-! exec grove init clone file:///test/repo.git clone-multi-branch --branches "main,develop,feat/test"
+! exec grove clone file:///test/repo.git clone-multi-branch --branches "main,develop,feat/test"
 stderr 'failed to clone repository'
 
 # Test init clone with --branches in current directory
 mkdir clone-branches-current
 cd clone-branches-current
-! exec grove init clone file:///test/repo.git --branches "main"
+! exec grove clone file:///test/repo.git --branches "main"
 stderr 'failed to clone repository'
 cd ..
 

@@ -17,7 +17,7 @@ cd ..
 
 # Test successful clone with branches
 mkdir clone-with-branches
-exec grove init clone file://$WORK/testrepo clone-with-branches --branches main,develop
+exec grove clone file://$WORK/testrepo clone-with-branches --branches main,develop
 stdout 'Initialized grove workspace'
 stdout 'clone-with-branches'
 exists clone-with-branches/.bare
@@ -31,7 +31,7 @@ exists clone-with-branches/develop/README.md
 
 # Test clone output shows worktree creation by default (quiet mode)
 mkdir clone-quiet-output
-exec grove init clone file://$WORK/testrepo clone-quiet-output --branches main,develop
+exec grove clone file://$WORK/testrepo clone-quiet-output --branches main,develop
 stdout 'Cloning repository...'
 stdout 'Repository cloned'
 stdout 'Creating worktrees'
@@ -49,7 +49,7 @@ cd testrepo
 exec git checkout -b feat/user-auth
 cd ..
 mkdir clone-sanitize-branches
-exec grove init clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
+exec grove clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
 stdout 'Creating worktrees'
 stdout '✓ feat-user-auth'
 stdout 'Initialized grove workspace'
@@ -58,7 +58,7 @@ exists clone-sanitize-branches/feat-user-auth
 
 # Test clone with --verbose flag shows git output
 mkdir clone-verbose-output
-exec grove init clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
+exec grove clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
 stdout 'Creating worktrees'
 stdout '✓ main'
 stdout 'Initialized grove workspace'
@@ -67,14 +67,14 @@ stdout 'clone-verbose-output'
 
 # Test clone error output remains visible in quiet mode
 mkdir clone-error-output
-! exec grove init clone file:///nonexistent/repo.git clone-error-output
+! exec grove clone file:///nonexistent/repo.git clone-error-output
 stderr 'failed to clone repository'
 
 ## Branch validation with real repository
 
 # Test init clone with invalid branch names
 mkdir clone-invalid-branch
-! exec grove init clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
+! exec grove clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
 stderr 'failed to create worktree for branch'
 stderr 'nonexistent'
 stderr 'invalid reference'

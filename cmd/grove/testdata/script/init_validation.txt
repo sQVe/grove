@@ -3,7 +3,6 @@ exec grove init --help
 stdout 'Initialize grove'
 stdout 'Usage:'
 stdout 'new'
-stdout 'clone'
 
 # Test init command execution shows help
 exec grove init

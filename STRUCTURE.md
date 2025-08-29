@@ -7,7 +7,7 @@ grove/
 ├── cmd/                   # Application entry point
 │   └── grove/             # Main application
 │       ├── main.go        # Application bootstrap
-│       ├── commands/      # Command implementations
+│       ├── commands/      # Command implementations (init.go, clone.go, config.go)
 │       └── testdata/      # CLI test scripts
 ├── internal/              # Private application code
 │   ├── git/               # Git operations wrapper
@@ -37,7 +37,7 @@ grove/
 Currently implemented:
 
 -   `grove init new [dir]` - Initialize empty workspace
--   `grove init clone <url> [dir]` - Clone repository into workspace
+-   `grove clone <url> [dir]` - Clone repository into workspace
 
 ### Internal Packages
 

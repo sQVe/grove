@@ -40,6 +40,7 @@ func main() {
 	rootCmd.Flags().BoolP("help", "h", false, "Help for grove")
 
 	rootCmd.AddCommand(commands.NewInitCmd())
+	rootCmd.AddCommand(commands.NewCloneCmd())
 	rootCmd.AddCommand(commands.NewConfigCmd())
 
 	if err := rootCmd.Execute(); err != nil {

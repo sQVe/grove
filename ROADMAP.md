@@ -38,28 +38,6 @@
 -   [x] Current/specified directory is not empty
 -   [x] Current/specified directory is a Git repository
 
-#### `init clone` variants
-
-| Command                       | Features                                          | Status |
-| ----------------------------- | ------------------------------------------------- | :----: |
-| `init clone`                  | Output help if no arguments                       |  [x]   |
-| `init clone <url>`            | Initialize grove workspace in current directory   |  [x]   |
-| `init clone <url>`            | Clone specific URL into grove workspace           |  [x]   |
-| `init clone <url>`            | Progress bar for cloning                          |  [x]   |
-| `init clone <url> --branches` | Setup worktrees for each branch                   |  [x]   |
-| `init clone <url> --branches` | Provide completions for branch name               |  [x]   |
-| `init clone <url> <dir>`      | Initialize grove workspace in specified directory |  [x]   |
-| `init clone <url> <dir>`      | Clone specific URL into grove workspace           |  [x]   |
-| `init clone <url> <dir>`      | Provide completions for directory name            |  [x]   |
-
-**Failure conditions:**
-
--   [x] Should accept 1 or 2 arguments.
--   [x] Not inside a grove workspace already
--   [x] Current/specified directory is not empty
--   [x] Current/specified directory is a Git repository
--   [x] Convert branch name to safe directory name
-
 #### `init convert`
 
 | Command                   | Features                                            | Status |
@@ -93,6 +71,28 @@
 -   [x] Should not output double error message:
 -   [ ] Should revert all changes on failure
 -   [x] Convert branch names to safe directory names
+
+### `clone`
+
+| Command                  | Features                                          | Status |
+| ------------------------ | ------------------------------------------------- | :----: |
+| `clone`                  | Output help if no arguments                       |  [x]   |
+| `clone <url>`            | Initialize grove workspace in current directory   |  [x]   |
+| `clone <url>`            | Clone specific URL into grove workspace           |  [x]   |
+| `clone <url>`            | Progress bar for cloning                          |  [x]   |
+| `clone <url> --branches` | Setup worktrees for each branch                   |  [x]   |
+| `clone <url> --branches` | Provide completions for branch name               |  [x]   |
+| `clone <url> <dir>`      | Initialize grove workspace in specified directory |  [x]   |
+| `clone <url> <dir>`      | Clone specific URL into grove workspace           |  [x]   |
+| `clone <url> <dir>`      | Provide completions for directory name            |  [x]   |
+
+**Failure conditions:**
+
+-   [x] Should accept 1 or 2 arguments.
+-   [x] Not inside a grove workspace already
+-   [x] Current/specified directory is not empty
+-   [x] Current/specified directory is a Git repository
+-   [x] Convert branch name to safe directory name
 
 ### `config`
 
