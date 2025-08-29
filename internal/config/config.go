@@ -1,6 +1,10 @@
 package config
 
-import "os"
+import (
+	"os"
+	"os/exec"
+	"strings"
+)
 
 // Global holds the global configuration state for Grove
 var Global struct {
@@ -32,7 +36,33 @@ func LoadFromEnv() {
 
 // LoadFromGitConfig loads configuration from git config
 func LoadFromGitConfig() {
-	// TODO: implement git config loading
+	if value := getGitConfig("grove.plain"); value != "" {
+		if isTruthy(value) {
+			Global.Plain = true
+		}
+	}
+
+	if value := getGitConfig("grove.debug"); value != "" {
+		if isTruthy(value) {
+			Global.Debug = true
+		}
+	}
+}
+
+// getGitConfig gets a single config value, returns empty string if not found
+func getGitConfig(key string) string {
+	cmd := exec.Command("git", "config", "--get", key)
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// isTruthy checks if a string represents a truthy value
+func isTruthy(value string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	return lower == "true" || lower == "yes" || lower == "on" || lower == "1"
 }
 
 // GetDefaultPreserveIgnoredPatterns returns default patterns to preserve
@@ -50,6 +80,26 @@ func GetDefaultPreserveIgnoredPatterns() []string {
 
 // GetPreserveIgnoredPatterns returns all preserve ignored patterns
 func GetPreserveIgnoredPatterns() []string {
-	// TODO: implement git config reading for grove.convert.preserveIgnored
+	patterns := getGitConfigMultiValue("grove.convert.preserve")
+	if len(patterns) > 0 {
+		return patterns
+	}
 	return GetDefaultPreserveIgnoredPatterns()
+}
+
+// getGitConfigMultiValue gets all values for a multi-value config key
+func getGitConfigMultiValue(key string) []string {
+	cmd := exec.Command("git", "config", "--get-all", key)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var result []string
+	for _, line := range lines {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

@@ -356,12 +356,12 @@ func TestMultiValueParsing(t *testing.T) {
 	t.Run("parses multiple preserve ignored patterns", func(t *testing.T) {
 		patterns := []string{".env", "*.secret", ".local"}
 		for _, pattern := range patterns {
-			if err := exec.Command("git", "config", "--add", "grove.convert.preserveIgnored", pattern).Run(); err != nil { //nolint:gosec
+			if err := exec.Command("git", "config", "--add", "grove.convert.preserve", pattern).Run(); err != nil { //nolint:gosec
 				t.Fatal(err)
 			}
 		}
 		defer func() {
-			_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserveIgnored").Run()
+			_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run()
 		}()
 
 		got := GetPreserveIgnoredPatterns()
@@ -381,12 +381,12 @@ func TestMultiValueParsing(t *testing.T) {
 	t.Run("preserves order of patterns", func(t *testing.T) {
 		orderedPatterns := []string{"first.pattern", "second.pattern", "third.pattern"}
 		for _, pattern := range orderedPatterns {
-			if err := exec.Command("git", "config", "--add", "grove.convert.preserveIgnored", pattern).Run(); err != nil { //nolint:gosec
+			if err := exec.Command("git", "config", "--add", "grove.convert.preserve", pattern).Run(); err != nil { //nolint:gosec
 				t.Fatal(err)
 			}
 		}
 		defer func() {
-			_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserveIgnored").Run()
+			_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run()
 		}()
 
 		got := GetPreserveIgnoredPatterns()
