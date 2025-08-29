@@ -369,8 +369,8 @@ func TestMultiValueParsing(t *testing.T) {
 
 		got := GetPreserveIgnoredPatterns()
 
-		if len(got) < len(patterns) {
-			t.Errorf("Expected at least %d patterns (configured), got %d", len(patterns), len(got))
+		if len(got) != len(patterns) {
+			t.Errorf("Expected exactly %d patterns (configured), got %d", len(patterns), len(got))
 		}
 
 		gotStr := strings.Join(got, ",")
@@ -411,6 +411,37 @@ func TestMultiValueParsing(t *testing.T) {
 		for i, expected := range orderedPatterns {
 			if i >= len(foundPatterns) || foundPatterns[i] != expected {
 				t.Errorf("Pattern order[%d] = %q, want %q", i, foundPatterns[i], expected)
+			}
+		}
+	})
+
+	t.Run("custom patterns completely replace defaults", func(t *testing.T) {
+		customPattern := ".custom-only"
+		if err := exec.Command("git", "config", "grove.convert.preserve", customPattern).Run(); err != nil { //nolint:gosec
+			t.Fatal(err)
+		}
+		defer func() {
+			_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run()
+		}()
+
+		got := GetPreserveIgnoredPatterns()
+		defaults := GetDefaultPreserveIgnoredPatterns()
+
+		// Should contain exactly one pattern: our custom one
+		if len(got) != 1 {
+			t.Errorf("Expected exactly 1 pattern, got %d: %v", len(got), got)
+		}
+
+		if got[0] != customPattern {
+			t.Errorf("Expected custom pattern %q, got %q", customPattern, got[0])
+		}
+
+		// Should NOT contain any default patterns
+		for _, defaultPattern := range defaults {
+			for _, actualPattern := range got {
+				if actualPattern == defaultPattern {
+					t.Errorf("Found default pattern %q in results, but custom values should completely replace defaults", defaultPattern)
+				}
 			}
 		}
 	})
