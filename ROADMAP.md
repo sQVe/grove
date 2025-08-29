@@ -4,13 +4,13 @@
 
 | Command | Beautify | --plain | --debug | --help |
 | ------- | :------: | :-----: | :-----: | :----: |
-| clone   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | create  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | switch  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
-| config  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| config  |   [x]    |   [x]   |   [x]   |  [x]   |
 
 ## Commands
 
@@ -72,7 +72,7 @@
 | `init convert`            | Create .git file pointing to .bare                  |  [x]   |
 | `init convert --branches` | Setup worktrees for local and remote branches       |  [x]   |
 | `init convert --branches` | Preserve git-ignored files in all created worktrees |  [ ]   |
-| `init convert --branches` | Use grove.convert.preserveIgnored config patterns   |  [ ]   |
+| `init convert --branches` | Use grove.convert.preserve config patterns          |  [ ]   |
 | `init convert --branches` | Provide completions for branch names                |  [x]   |
 
 **Notes:**
@@ -98,22 +98,22 @@
 
 | Command                    | Features                                   | Status |
 | -------------------------- | ------------------------------------------ | :----: |
-| `config`                   | Output help if no arguments                |  [ ]   |
-| `config list`              | Show all grove.\* settings from git config |  [ ]   |
-| `config list --global`     | Show only global grove.\* settings         |  [ ]   |
-| `config get <key>`         | Get specific config value                  |  [ ]   |
-| `config get --global`      | Get specific global config value           |  [ ]   |
-| `config set <key> <value>` | Set config value (defaults to local)       |  [ ]   |
-| `config set --global`      | Set global config value                    |  [ ]   |
-| `config add <key> <value>` | Add to multi-value key (defaults to local) |  [ ]   |
-| `config add --global`      | Add to global multi-value key              |  [ ]   |
-| `config unset <key>`       | Remove config setting (defaults to local)  |  [ ]   |
-| `config unset --global`    | Remove global config setting               |  [ ]   |
+| `config`                   | Output help if no arguments                |  [x]   |
+| `config list`              | Show all grove.\* settings from git config |  [x]   |
+| `config list --global`     | Show only global grove.\* settings         |  [x]   |
+| `config get <key>`         | Get specific config value                  |  [x]   |
+| `config get --global`      | Get specific global config value           |  [x]   |
+| `config set <key> <value>` | Set config value (defaults to local)       |  [x]   |
+| `config set --global`      | Set global config value                    |  [x]   |
+| `config add <key> <value>` | Add to multi-value key (defaults to local) |  [x]   |
+| `config add --global`      | Add to global multi-value key              |  [x]   |
+| `config unset <key>`       | Remove config setting (defaults to local)  |  [x]   |
+| `config unset --global`    | Remove global config setting               |  [x]   |
 
 **Notes:**
 
 -   Uses Git's existing config system (no new dependencies)
--   Multi-value support for patterns (e.g., grove.convert.preserveIgnored)
+-   Multi-value support for patterns (e.g., grove.convert.preserve)
 
 **Implementation approach:**
 
@@ -125,7 +125,7 @@
 
 -   `grove.plain` - Disable colors/symbols (boolean, default: false)
 -   `grove.debug` - Enable debug output (boolean, default: false)
--   `grove.convert.preserveIgnored` - Patterns for ignored files to preserve in new worktrees (multi-value)
+-   `grove.convert.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
     -   Default patterns: `.env`, `.env.local`, `.env.development.local`, `*.local.json`, `*.local.yaml`, `*.local.yml`, `*.local.toml`
     -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
 
