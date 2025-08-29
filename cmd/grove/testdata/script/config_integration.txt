@@ -88,3 +88,41 @@ stdout 'grove.convert.preserve=\*\.global'
 
 exec grove config unset --global grove.convert.preserve
 exec grove config unset --global grove.plain
+
+# Test that grove.plain config affects actual command output
+exec grove config set grove.plain true
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'test commit'
+exec grove init convert
+! stdout '✓'  # No checkmark in plain mode
+! stdout '→'  # No arrow in plain mode
+stdout 'Converted repository to grove workspace'
+
+# Clean up
+exec rm -rf .bare main
+exec git reset --hard HEAD~1
+
+# Test precedence: flags > env > git config
+exec grove config set grove.plain true
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'test commit'
+
+# With plain=true in git config, env=false should override
+env GROVE_PLAIN=false
+exec grove init convert
+stdout '✓'  # Checkmark should appear (env overrides git config)
+
+# Clean up and reset for flag test
+exec rm -rf .bare main
+exec git reset --hard HEAD~1
+
+# With plain=true in git config, --plain=false flag should override
+exec grove --plain=false init convert
+stdout '✓'  # Checkmark should appear (flag overrides git config)
+
+# Clean up
+exec rm -rf .bare main
+exec git reset --hard HEAD~1
+exec grove config unset grove.plain

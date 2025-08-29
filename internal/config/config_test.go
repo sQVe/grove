@@ -211,6 +211,9 @@ func TestLoadFromGitConfig(t *testing.T) {
 			Debug bool
 		}{}
 
+		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
+		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
+
 		LoadFromGitConfig()
 		if IsPlain() || IsDebug() {
 			t.Error("Expected modes to remain false on git config error")
@@ -409,6 +412,77 @@ func TestMultiValueParsing(t *testing.T) {
 			if i >= len(foundPatterns) || foundPatterns[i] != expected {
 				t.Errorf("Pattern order[%d] = %q, want %q", i, foundPatterns[i], expected)
 			}
+		}
+	})
+}
+
+func TestMainLoadingSequence(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not found in PATH, skipping test")
+	}
+
+	tmpDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := exec.Command("git", "init").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "user.name", "Test").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("main loading sequence works correctly", func(t *testing.T) {
+		Global = struct {
+			Plain bool
+			Debug bool
+		}{}
+
+		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
+
+		_ = os.Unsetenv("GROVE_PLAIN")
+		_ = os.Unsetenv("GROVE_DEBUG")
+
+		LoadFromGitConfig()
+		LoadFromEnv()
+
+		if !IsPlain() {
+			t.Error("Expected git config to be loaded when env not set")
+		}
+	})
+
+	t.Run("env overrides git config in loading sequence", func(t *testing.T) {
+		Global = struct {
+			Plain bool
+			Debug bool
+		}{}
+
+		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
+
+		_ = os.Setenv("GROVE_PLAIN", "false")
+		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
+
+		LoadFromGitConfig()
+		LoadFromEnv()
+
+		if !IsPlain() {
+			t.Error("Expected git config value to remain when env has invalid value")
 		}
 	})
 }
