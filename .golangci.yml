@@ -58,6 +58,14 @@ linters:
     unparam:
       check-exported: true # Check exported functions for unused params
 
+    # Configure goconst to ignore common boolean and numeric strings
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+      ignore-string-values:
+        - '^(true|false|yes|no|on|off)$' # Boolean strings
+        - '^[0-9]+$' # Numeric strings like "1", "0"
+
     gocritic:
       enabled-tags:
         - diagnostic
