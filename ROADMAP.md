@@ -113,6 +113,7 @@
 
 **Notes:**
 
+-   Ensure that it is possible to override the default config values when you're setting them in your config.
 -   Uses Git's existing config system (no new dependencies)
 -   Multi-value support for patterns (e.g., grove.convert.preserve)
 
