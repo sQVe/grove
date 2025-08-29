@@ -104,11 +104,15 @@
 | `config get <key>`         | Get specific config value                  |  [x]   |
 | `config get --global`      | Get specific global config value           |  [x]   |
 | `config set <key> <value>` | Set config value (defaults to local)       |  [x]   |
+| `config set <key> <value>` | Provide completions for boolean values     |  [x]   |
 | `config set --global`      | Set global config value                    |  [x]   |
 | `config add <key> <value>` | Add to multi-value key (defaults to local) |  [x]   |
+| `config add <key> <value>` | Provide completions for boolean values     |  [x]   |
 | `config add --global`      | Add to global multi-value key              |  [x]   |
 | `config unset <key>`       | Remove config setting (defaults to local)  |  [x]   |
+| `config unset <key>`       | Provide completions for existing keys      |  [x]   |
 | `config unset <key>`       | Unset specific multi-value key             |  [ ]   |
+| `config unset <key> <val>` | Provide completions for existing values    |  [x]   |
 | `config unset --global`    | Remove global config setting               |  [x]   |
 
 **Notes:**
