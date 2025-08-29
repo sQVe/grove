@@ -97,6 +97,7 @@ func cloneWithProgress(url, bareDir string, verbose bool) error {
 		return err
 	}
 
+	stop()
 	logger.Success("Repository cloned")
 	return nil
 }

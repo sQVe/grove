@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/sqve/grove/internal/config"
@@ -74,6 +75,7 @@ func StartSpinner(message string) func() {
 	}
 
 	done := make(chan bool)
+	var once sync.Once
 
 	go func() {
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -96,7 +98,9 @@ func StartSpinner(message string) func() {
 	}()
 
 	return func() {
-		close(done)
-		time.Sleep(10 * time.Millisecond)
+		once.Do(func() {
+			close(done)
+			time.Sleep(10 * time.Millisecond)
+		})
 	}
 }
