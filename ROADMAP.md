@@ -19,7 +19,7 @@
 -   [x] Should output help if no arguments are passed
 -   [x] Should fail if given a sub-command that does not exist
 
-#### `init new` variants
+#### `init new`
 
 | Command          | Features                                          | Status |
 | ---------------- | ------------------------------------------------- | :----: |
@@ -108,6 +108,7 @@
 | `config add <key> <value>` | Add to multi-value key (defaults to local) |  [x]   |
 | `config add --global`      | Add to global multi-value key              |  [x]   |
 | `config unset <key>`       | Remove config setting (defaults to local)  |  [x]   |
+| `config unset <key>`       | Unset specific multi-value key             |  [ ]   |
 | `config unset --global`    | Remove global config setting               |  [x]   |
 
 **Notes:**
