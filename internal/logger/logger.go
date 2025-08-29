@@ -100,7 +100,7 @@ func StartSpinner(message string) func() {
 	return func() {
 		once.Do(func() {
 			close(done)
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond) // Give goroutine time to clear the line
 		})
 	}
 }
