@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	config.LoadFromGitConfig()
 	config.LoadFromEnv()
 
 	rootCmd := &cobra.Command{
@@ -19,11 +20,19 @@ func main() {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if plain, _ := cmd.Flags().GetBool("plain"); plain && !config.Global.Plain {
-				config.Global.Plain = true
+			if cmd.Flags().Changed("plain") {
+				if plain, _ := cmd.Flags().GetBool("plain"); plain {
+					config.Global.Plain = true
+				} else {
+					config.Global.Plain = false
+				}
 			}
-			if debug, _ := cmd.Flags().GetBool("debug"); debug && !config.Global.Debug {
-				config.Global.Debug = true
+			if cmd.Flags().Changed("debug") {
+				if debug, _ := cmd.Flags().GetBool("debug"); debug {
+					config.Global.Debug = true
+				} else {
+					config.Global.Debug = false
+				}
 			}
 			logger.Debug("Grove starting with config: plain=%v, debug=%v",
 				config.IsPlain(), config.IsDebug())
