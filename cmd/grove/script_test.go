@@ -14,7 +14,6 @@ func TestScript(t *testing.T) {
 	testscript.Run(t, testscript.Params{
 		Dir: "testdata/script",
 		Setup: func(env *testscript.Env) error {
-			env.Vars = append(env.Vars, "GROVE_PLAIN=true")
 			homeDir := filepath.Join(env.WorkDir, ".home")
 			if err := os.MkdirAll(homeDir, 0755); err != nil {
 				return err
@@ -34,6 +33,7 @@ func TestScript(t *testing.T) {
 			if err := os.WriteFile(gitConfigPath, []byte(gitConfigContent), 0644); err != nil {
 				return err
 			}
+			env.Vars = append(env.Vars, "GIT_CONFIG_GLOBAL="+gitConfigPath)
 			return nil
 		},
 	})
