@@ -46,6 +46,43 @@ func getConfigCompletions(toComplete string) []string {
 	return completions
 }
 
+// getExistingConfigCompletions returns completion suggestions for existing config keys
+func getExistingConfigCompletions(toComplete string, global bool) []string {
+	configs, err := git.GetConfigs("grove.", global)
+	if err != nil {
+		return getConfigCompletions(toComplete)
+	}
+
+	var completions []string
+	for key := range configs {
+		if strings.HasPrefix(key, toComplete) {
+			completions = append(completions, key)
+		}
+	}
+	return completions
+}
+
+// getExistingConfigValues returns existing values for a config key
+func getExistingConfigValues(key, toComplete string, global bool) []string {
+	configs, err := git.GetConfigs("grove.", global)
+	if err != nil {
+		return nil
+	}
+
+	values, exists := configs[key]
+	if !exists {
+		return nil
+	}
+
+	var completions []string
+	for _, value := range values {
+		if strings.HasPrefix(value, toComplete) {
+			completions = append(completions, value)
+		}
+	}
+	return completions
+}
+
 // getBooleanCompletions returns completion suggestions for boolean values
 func getBooleanCompletions(toComplete string) []string {
 	booleans := []string{"true", "false"}
@@ -131,6 +168,9 @@ func NewConfigCmd() *cobra.Command {
 			if len(args) == 0 {
 				return getConfigCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
 			}
+			if len(args) == 1 && isBooleanKey(args[0]) {
+				return getBooleanCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
+			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -145,8 +185,12 @@ func NewConfigCmd() *cobra.Command {
 		Short: "Remove a configuration setting (optionally by value pattern)",
 		Args:  cobra.RangeArgs(1, 2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			global, _ := cmd.Flags().GetBool("global")
 			if len(args) == 0 {
-				return getConfigCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
+				return getExistingConfigCompletions(toComplete, global), cobra.ShellCompDirectiveNoFileComp
+			}
+			if len(args) == 1 {
+				return getExistingConfigValues(args[0], toComplete, global), cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
