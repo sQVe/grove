@@ -234,8 +234,16 @@ func runConfigUnset(key, value string, global bool) error {
 	}
 
 	if value != "" {
-		return git.UnsetConfigValue(key, value, global)
+		err := git.UnsetConfigValue(key, value, global)
+		if git.IsConfigNotFoundError(err) {
+			return nil // Unsetting nonexistent value is a no-op
+		}
+		return err
 	}
 
-	return git.UnsetConfig(key, global)
+	err := git.UnsetConfig(key, global)
+	if git.IsConfigNotFoundError(err) {
+		return nil // Unsetting nonexistent key is a no-op
+	}
+	return err
 }

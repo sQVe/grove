@@ -616,7 +616,7 @@ func UnsetConfig(key string, global bool) error {
 
 	if err := cmd.Run(); err != nil {
 		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 5 {
-			return nil
+			return ErrConfigNotFound
 		}
 		if stderr.Len() > 0 {
 			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
@@ -643,7 +643,7 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 
 	if err := cmd.Run(); err != nil {
 		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 5 {
-			return nil
+			return ErrConfigNotFound
 		}
 		if stderr.Len() > 0 {
 			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
