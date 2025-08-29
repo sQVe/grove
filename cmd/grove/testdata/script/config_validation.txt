@@ -33,7 +33,7 @@ stderr 'accepts 2 arg'
 
 # Test argument validation - unset
 ! exec grove config unset
-stderr 'accepts 1 arg'
+stderr 'accepts between 1 and 2 arg'
 
 # Test non-grove.* keys rejected - get
 ! exec grove config get user.name

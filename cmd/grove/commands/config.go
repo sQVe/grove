@@ -141,9 +141,9 @@ func NewConfigCmd() *cobra.Command {
 	addCmd.Flags().Bool("global", false, "Add to global setting")
 
 	unsetCmd := &cobra.Command{
-		Use:   "unset <key>",
-		Short: "Remove a configuration setting",
-		Args:  cobra.ExactArgs(1),
+		Use:   "unset <key> [<value>]",
+		Short: "Remove a configuration setting (optionally by value pattern)",
+		Args:  cobra.RangeArgs(1, 2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
 				return getConfigCompletions(toComplete), cobra.ShellCompDirectiveNoFileComp
@@ -152,7 +152,11 @@ func NewConfigCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			global, _ := cmd.Flags().GetBool("global")
-			return runConfigUnset(args[0], global)
+			var value string
+			if len(args) > 1 {
+				value = args[1]
+			}
+			return runConfigUnset(args[0], value, global)
 		},
 	}
 	unsetCmd.Flags().Bool("global", false, "Remove global setting")
@@ -224,9 +228,13 @@ func runConfigAdd(key, value string, global bool) error {
 	return git.AddConfig(key, value, global)
 }
 
-func runConfigUnset(key string, global bool) error {
+func runConfigUnset(key, value string, global bool) error {
 	if !isValidConfigKey(key) {
 		return errors.New("only grove.* settings are supported")
+	}
+
+	if value != "" {
+		return git.UnsetConfigValue(key, value, global)
 	}
 
 	return git.UnsetConfig(key, global)

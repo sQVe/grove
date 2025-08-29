@@ -60,6 +60,51 @@ stderr 'not found'
 exec grove config list
 ! stdout 'grove.convert.preserve'
 
+# Test pattern-based unset for multi-value keys
+exec grove config add grove.convert.preserve '.env'
+exec grove config add grove.convert.preserve '*.secret'
+exec grove config add grove.convert.preserve '.env.local'
+exec grove config add grove.convert.preserve '*.log'
+
+# List should show all values
+exec grove config list
+stdout 'grove.convert.preserve=.env'
+stdout 'grove.convert.preserve=\*\.secret'
+stdout 'grove.convert.preserve=.env.local'
+stdout 'grove.convert.preserve=\*\.log'
+
+# Remove specific pattern - should only remove matching value
+exec grove config unset grove.convert.preserve '*.secret'
+
+# Verify only the matching pattern was removed
+exec grove config list
+stdout 'grove.convert.preserve=.env'
+! stdout 'grove.convert.preserve=\*\.secret'
+stdout 'grove.convert.preserve=.env.local'
+stdout 'grove.convert.preserve=\*\.log'
+
+# Remove another specific pattern
+exec grove config unset grove.convert.preserve '.env.local'
+
+# Verify only the specified pattern was removed
+exec grove config list
+stdout 'grove.convert.preserve=.env'
+! stdout 'grove.convert.preserve=.env.local'
+stdout 'grove.convert.preserve=\*\.log'
+
+# Test unset with pattern that doesn't exist (should not error)
+exec grove config unset grove.convert.preserve 'nonexistent'
+
+# Verify existing patterns are still there
+exec grove config list
+stdout 'grove.convert.preserve=.env'
+stdout 'grove.convert.preserve=\*\.log'
+
+# Test unset without pattern removes all values (backward compatibility)
+exec grove config unset grove.convert.preserve
+! exec grove config get grove.convert.preserve
+stderr 'not found'
+
 # Test unset for single-value keys
 exec grove config unset grove.plain
 ! exec grove config get grove.plain

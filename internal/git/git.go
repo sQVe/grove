@@ -626,3 +626,30 @@ func UnsetConfig(key string, global bool) error {
 
 	return nil
 }
+
+// UnsetConfigValue removes a specific value from a config key using pattern matching
+func UnsetConfigValue(key, valuePattern string, global bool) error {
+	logger.Debug("Unsetting git config value: %s=%s (global=%v)", key, valuePattern, global)
+
+	args := []string{"config", "--unset", "--fixed-value"}
+	if global {
+		args = append(args, "--global")
+	}
+	args = append(args, key, valuePattern)
+
+	cmd := exec.Command("git", args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 5 {
+			return nil
+		}
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return err
+	}
+
+	return nil
+}
