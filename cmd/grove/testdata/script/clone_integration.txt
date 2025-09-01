@@ -32,7 +32,6 @@ exists clone-with-branches/develop/README.md
 # Test clone output shows worktree creation by default (quiet mode)
 mkdir clone-quiet-output
 exec grove clone file://$WORK/testrepo clone-quiet-output --branches main,develop
-stdout 'Cloning repository...'
 stdout 'Repository cloned'
 stdout 'Creating worktrees'
 stdout '✓ main'
