@@ -6,51 +6,78 @@ import (
 	"testing"
 )
 
-func TestGlobalConfig(t *testing.T) {
-	t.Run("initial state is false for both modes", func(t *testing.T) {
-		Global = struct {
-			Plain bool
-			Debug bool
-		}{}
+// setupGitRepo creates a temporary git repo and changes to it
+// Returns a cleanup function that restores the original working directory
+func setupGitRepo(t *testing.T) func() {
+	t.Helper()
 
-		if IsPlain() {
-			t.Error("Expected plain mode to be false initially")
-		}
-		if IsDebug() {
-			t.Error("Expected debug mode to be false initially")
-		}
-	})
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not found in PATH, skipping test")
+	}
 
-	t.Run("plain mode can be enabled", func(t *testing.T) {
-		Global = struct {
-			Plain bool
-			Debug bool
-		}{}
+	tmpDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		Global.Plain = true
-		if !IsPlain() {
-			t.Error("Expected plain mode to be true after setting Global.Plain = true")
-		}
-	})
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
 
-	t.Run("debug mode can be enabled", func(t *testing.T) {
-		Global = struct {
-			Plain bool
-			Debug bool
-		}{}
+	if err := exec.Command("git", "init").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "user.name", "Test").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
+		t.Fatal(err)
+	}
 
-		Global.Debug = true
-		if !IsDebug() {
-			t.Error("Expected debug mode to be true after setting Global.Debug = true")
-		}
-	})
+	return func() { _ = os.Chdir(oldWd) }
+}
+
+func TestIsTruthy(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"true", true},
+		{"1", true},
+		{"True", true},
+		{"TRUE", true},
+		{"TrUe", true},
+		{" true ", true},
+		{" 1 ", true},
+		{"  true  ", true},
+		{"false", false},
+		{"0", false},
+		{"no", false},
+		{"yes", false},
+		{"on", false},
+		{"", false},
+		{" ", false},
+		{"   ", false},
+		{"anything", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := isTruthy(tt.input)
+			if result != tt.expected {
+				t.Errorf("isTruthy(%q) = %v, expected %v", tt.input, result, tt.expected)
+			}
+		})
+	}
 }
 
 func TestLoadFromEnv(t *testing.T) {
 	t.Run("both false with no env vars", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
@@ -63,8 +90,9 @@ func TestLoadFromEnv(t *testing.T) {
 
 	t.Run("plain true with GROVE_PLAIN=1", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_DEBUG")
 		_ = os.Setenv("GROVE_PLAIN", "1")
@@ -78,8 +106,9 @@ func TestLoadFromEnv(t *testing.T) {
 
 	t.Run("debug true with GROVE_DEBUG=1", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Setenv("GROVE_DEBUG", "1")
@@ -91,40 +120,11 @@ func TestLoadFromEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("plain true with GROVE_PLAIN=true", func(t *testing.T) {
-		Global = struct {
-			Plain bool
-			Debug bool
-		}{}
-		_ = os.Unsetenv("GROVE_DEBUG")
-		_ = os.Setenv("GROVE_PLAIN", "true")
-		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
-
-		LoadFromEnv()
-		if !IsPlain() {
-			t.Error("Expected plain mode to be true with GROVE_PLAIN=true")
-		}
-	})
-
-	t.Run("debug true with GROVE_DEBUG=true", func(t *testing.T) {
-		Global = struct {
-			Plain bool
-			Debug bool
-		}{}
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Setenv("GROVE_DEBUG", "true")
-		defer func() { _ = os.Unsetenv("GROVE_DEBUG") }()
-
-		LoadFromEnv()
-		if !IsDebug() {
-			t.Error("Expected debug mode to be true with GROVE_DEBUG=true")
-		}
-	})
-
 	t.Run("both false with invalid env values", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Setenv("GROVE_PLAIN", "yes")
 		_ = os.Setenv("GROVE_DEBUG", "on")
@@ -141,35 +141,14 @@ func TestLoadFromEnv(t *testing.T) {
 }
 
 func TestLoadFromGitConfig(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not found in PATH, skipping test")
-	}
-
-	tmpDir := t.TempDir()
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := exec.Command("git", "init").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.name", "Test").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
-		t.Fatal(err)
-	}
+	cleanup := setupGitRepo(t)
+	defer cleanup()
 
 	t.Run("loads grove.plain from git config", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
@@ -187,8 +166,9 @@ func TestLoadFromGitConfig(t *testing.T) {
 
 	t.Run("loads grove.debug from git config", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
@@ -206,8 +186,9 @@ func TestLoadFromGitConfig(t *testing.T) {
 
 	t.Run("handles git config errors gracefully", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
@@ -221,35 +202,14 @@ func TestLoadFromGitConfig(t *testing.T) {
 }
 
 func TestPrecedence(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not found in PATH, skipping test")
-	}
-
-	tmpDir := t.TempDir()
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := exec.Command("git", "init").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.name", "Test").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
-		t.Fatal(err)
-	}
+	cleanup := setupGitRepo(t)
+	defer cleanup()
 
 	t.Run("ENV overrides git config", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 
 		if err := exec.Command("git", "config", "grove.plain", "false").Run(); err != nil {
@@ -270,8 +230,9 @@ func TestPrecedence(t *testing.T) {
 
 	t.Run("git config used when ENV not set", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
@@ -290,35 +251,14 @@ func TestPrecedence(t *testing.T) {
 }
 
 func TestMainLoadingSequence(t *testing.T) {
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not found in PATH, skipping test")
-	}
-
-	tmpDir := t.TempDir()
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := exec.Command("git", "init").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.name", "Test").Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := exec.Command("git", "config", "user.email", "test@example.com").Run(); err != nil {
-		t.Fatal(err)
-	}
+	cleanup := setupGitRepo(t)
+	defer cleanup()
 
 	t.Run("main loading sequence works correctly", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
@@ -339,8 +279,9 @@ func TestMainLoadingSequence(t *testing.T) {
 
 	t.Run("env overrides git config in loading sequence", func(t *testing.T) {
 		Global = struct {
-			Plain bool
-			Debug bool
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
 		}{}
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
@@ -354,8 +295,212 @@ func TestMainLoadingSequence(t *testing.T) {
 		LoadFromGitConfig()
 		LoadFromEnv()
 
-		if !IsPlain() {
-			t.Error("Expected git config value to remain when env has invalid value")
+		if IsPlain() {
+			t.Error("Expected env variable to override git config (env=false should win over git=true)")
+		}
+	})
+}
+
+func TestDefaults(t *testing.T) {
+	t.Run("DefaultConfig has expected values", func(t *testing.T) {
+		if DefaultConfig.Plain != false {
+			t.Error("Expected DefaultConfig.Plain to be false")
+		}
+		if DefaultConfig.Debug != false {
+			t.Error("Expected DefaultConfig.Debug to be false")
+		}
+
+		expectedPatterns := []string{
+			".env",
+			".env.local",
+			".env.development.local",
+			".env.test.local",
+			".env.production.local",
+			"*.local.json",
+			"*.local.yaml",
+			"*.local.yml",
+			"*.local.toml",
+		}
+
+		if len(DefaultConfig.PreservePatterns) != len(expectedPatterns) {
+			t.Errorf("Expected %d preserve patterns, got %d", len(expectedPatterns), len(DefaultConfig.PreservePatterns))
+		}
+
+		for i, expected := range expectedPatterns {
+			if i >= len(DefaultConfig.PreservePatterns) || DefaultConfig.PreservePatterns[i] != expected {
+				t.Errorf("Expected preserve pattern %d to be %q, got %q", i, expected, DefaultConfig.PreservePatterns[i])
+			}
+		}
+	})
+}
+
+func TestGetPreservePatterns(t *testing.T) {
+	t.Run("returns defaults when Global is empty", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		patterns := GetPreservePatterns()
+		if len(patterns) != len(DefaultConfig.PreservePatterns) {
+			t.Errorf("Expected %d patterns, got %d", len(DefaultConfig.PreservePatterns), len(patterns))
+		}
+
+		for i, expected := range DefaultConfig.PreservePatterns {
+			if i >= len(patterns) || patterns[i] != expected {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, expected, patterns[i])
+			}
+		}
+	})
+
+	t.Run("returns Global patterns when set", func(t *testing.T) {
+		customPatterns := []string{".custom", "*.test"}
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{
+			PreservePatterns: customPatterns,
+		}
+
+		patterns := GetPreservePatterns()
+		if len(patterns) != len(customPatterns) {
+			t.Errorf("Expected %d patterns, got %d", len(customPatterns), len(patterns))
+		}
+
+		for i, expected := range customPatterns {
+			if i >= len(patterns) || patterns[i] != expected {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, expected, patterns[i])
+			}
+		}
+	})
+
+	t.Run("returns consistent patterns", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		patterns1 := GetPreservePatterns()
+		patterns2 := GetPreservePatterns()
+
+		if len(patterns1) != len(patterns2) {
+			t.Errorf("Expected consistent length, got %d and %d", len(patterns1), len(patterns2))
+		}
+
+		for i, expected := range patterns1 {
+			if i >= len(patterns2) || patterns2[i] != expected {
+				t.Errorf("Expected pattern %d to be %q in both calls", i, expected)
+			}
+		}
+	})
+}
+
+func TestLoadFromGitConfigWithDefaults(t *testing.T) {
+	cleanup := setupGitRepo(t)
+	defer cleanup()
+
+	t.Run("uses defaults when no git config set", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
+		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
+		_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run()
+
+		LoadFromGitConfig()
+
+		if Global.Plain != DefaultConfig.Plain {
+			t.Errorf("Expected Plain to be %v (default), got %v", DefaultConfig.Plain, Global.Plain)
+		}
+		if Global.Debug != DefaultConfig.Debug {
+			t.Errorf("Expected Debug to be %v (default), got %v", DefaultConfig.Debug, Global.Debug)
+		}
+		if len(Global.PreservePatterns) != len(DefaultConfig.PreservePatterns) {
+			t.Errorf("Expected %d preserve patterns (default), got %d", len(DefaultConfig.PreservePatterns), len(Global.PreservePatterns))
+		}
+	})
+
+	t.Run("git config overrides defaults", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "config", "grove.debug", "false").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
+			_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
+		}()
+
+		LoadFromGitConfig()
+
+		if Global.Plain != true {
+			t.Error("Expected git config to override Plain default")
+		}
+		if Global.Debug != false {
+			t.Error("Expected git config to override Debug default")
+		}
+	})
+
+	t.Run("preserve patterns replace defaults", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		if err := exec.Command("git", "config", "grove.convert.preserve", ".custom").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run() }()
+
+		LoadFromGitConfig()
+
+		if len(Global.PreservePatterns) != 1 || Global.PreservePatterns[0] != ".custom" {
+			t.Errorf("Expected preserve patterns to be replaced with ['.custom'], got %v", Global.PreservePatterns)
+		}
+	})
+
+	t.Run("multiple preserve patterns from git config", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+
+		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", ".env").Run(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", "*.local").Run(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", ".secret").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run() }()
+
+		LoadFromGitConfig()
+
+		expected := []string{".env", "*.local", ".secret"}
+		if len(Global.PreservePatterns) != len(expected) {
+			t.Errorf("Expected %d patterns, got %d: %v", len(expected), len(Global.PreservePatterns), Global.PreservePatterns)
+		}
+		for i, exp := range expected {
+			if i >= len(Global.PreservePatterns) || Global.PreservePatterns[i] != exp {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, exp, Global.PreservePatterns[i])
+			}
 		}
 	})
 }
