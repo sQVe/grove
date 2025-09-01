@@ -100,6 +100,28 @@ exec grove config list
 stdout 'grove.convert.preserve=.env'
 stdout 'grove.convert.preserve=\*\.log'
 
+# Test unset with duplicate values - should remove all occurrences
+exec grove config add grove.convert.preserve '.test'
+exec grove config add grove.convert.preserve '.test'
+exec grove config add grove.convert.preserve '.test'
+exec grove config add grove.convert.preserve '.other'
+
+# Verify duplicates exist
+exec grove config list
+stdout 'grove.convert.preserve=\.test'
+stdout 'grove.convert.preserve=\.other'
+
+# Remove specific value - should remove ALL occurrences
+exec grove config unset grove.convert.preserve '.test'
+
+# Verify all .test values were removed but .other remains
+exec grove config list
+! stdout 'grove.convert.preserve=\.test'
+stdout 'grove.convert.preserve=\.other'
+
+# Clean up
+exec grove config unset grove.convert.preserve
+
 # Test unset without pattern removes all values (backward compatibility)
 exec grove config unset grove.convert.preserve
 ! exec grove config get grove.convert.preserve

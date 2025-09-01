@@ -631,7 +631,7 @@ func UnsetConfig(key string, global bool) error {
 func UnsetConfigValue(key, valuePattern string, global bool) error {
 	logger.Debug("Unsetting git config value: %s=%s (global=%v)", key, valuePattern, global)
 
-	args := []string{"config", "--unset", "--fixed-value"}
+	args := []string{"config", "--unset-all", "--fixed-value"}
 	if global {
 		args = append(args, "--global")
 	}
