@@ -111,7 +111,7 @@
 | `config add --global`      | Add to global multi-value key              |  [x]   |
 | `config unset <key>`       | Remove config setting (defaults to local)  |  [x]   |
 | `config unset <key>`       | Provide completions for existing keys      |  [x]   |
-| `config unset <key>`       | Unset specific multi-value key             |  [ ]   |
+| `config unset <key>`       | Unset specific multi-value key             |  [x]   |
 | `config unset <key> <val>` | Provide completions for existing values    |  [x]   |
 | `config unset --global`    | Remove global config setting               |  [x]   |
 
