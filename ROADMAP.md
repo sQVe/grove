@@ -5,12 +5,16 @@
 | Command | Beautify | --plain | --debug | --help |
 | ------- | :------: | :-----: | :-----: | :----: |
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
+| config  |   [x]    |   [x]   |   [x]   |  [x]   |
 | create  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| prune   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | switch  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
-| config  |   [x]    |   [x]   |   [x]   |  [x]   |
 
 ## Commands
 
@@ -49,8 +53,8 @@
 | `init convert`            | Move all files to worktree directory                |  [x]   |
 | `init convert`            | Create .git file pointing to .bare                  |  [x]   |
 | `init convert --branches` | Setup worktrees for local and remote branches       |  [x]   |
-| `init convert --branches` | Preserve git-ignored files in all created worktrees |  [ ]   |
-| `init convert --branches` | Use grove.convert.preserve config patterns          |  [ ]   |
+| `init convert --branches` | Preserve git-ignored files in all created worktrees |  [x]   |
+| `init convert --branches` | Use grove.convert.preserve config patterns          |  [x]   |
 | `init convert --branches` | Provide completions for branch names                |  [x]   |
 
 **Notes:**
@@ -141,14 +145,107 @@
 | ----------------- | -------------------------------------- | :----: |
 | `switch <branch>` | Switch to existing worktree for branch |  [ ]   |
 
-### `list`
-
-| Command | Features                            | Status |
-| ------- | ----------------------------------- | :----: |
-| `list`  | Show all worktrees and their status |  [ ]   |
-
 ### `status`
 
 | Command  | Features                                    | Status |
 | -------- | ------------------------------------------- | :----: |
 | `status` | Show current worktree and repository status |  [ ]   |
+
+### `prune`
+
+| Command          | Features                                                   | Status |
+| ---------------- | ---------------------------------------------------------- | :----: |
+| `prune`          | Output help if no arguments                                |  [ ]   |
+| `prune`          | Show worktrees linked to deleted remote branches (dry-run) |  [ ]   |
+| `prune --commit` | Remove worktrees for branches with `[gone]` upstream       |  [ ]   |
+| `prune --force`  | Remove worktrees even if dirty or locked                   |  [ ]   |
+
+**Notes:**
+
+-   Uses `git branch -vv` to detect `[gone]` remote tracking branches
+-   Dry-run by default for safety
+-   Skips dirty worktrees and locked worktrees unless `--force`
+-   Most critical feature - solves biggest daily pain point
+
+**Failure conditions:**
+
+-   Should not remove worktrees with uncommitted changes without `--force`
+-   Should not remove locked worktrees without `--force`
+-   Should require confirmation before destructive operations
+
+### `list`
+
+| Command               | Features                                        | Status |
+| --------------------- | ----------------------------------------------- | :----: |
+| `list`                | Show all worktrees and their status             |  [ ]   |
+| `list --dirty`        | Show count of uncommitted changes per worktree  |  [ ]   |
+| `list --stashes`      | Show stash count per worktree                   |  [ ]   |
+| `list --ahead-behind` | Show sync status with upstream branches         |  [ ]   |
+| `list --json`         | Machine-readable output for tooling integration |  [ ]   |
+| `list --gone`         | Highlight worktrees with deleted upstream       |  [ ]   |
+
+**Notes:**
+
+-   Single command to answer "where is my work?"
+-   Combines multiple git status checks efficiently
+-   JSON output enables editor/IDE integration
+
+### `exec`
+
+| Command                   | Features                                  | Status |
+| ------------------------- | ----------------------------------------- | :----: |
+| `exec --all -- <command>` | Run command in all worktree directories   |  [ ]   |
+| `exec --all -- <command>` | Interactive confirmation before execution |  [ ]   |
+| `exec --all -- <command>` | Sequential execution with prefixed output |  [ ]   |
+| `exec --worktree <name>`  | Run command in specific worktree          |  [ ]   |
+
+**Notes:**
+
+-   Uses `--` separator to clearly delineate Grove args from command
+-   Always asks for confirmation to prevent accidental damage
+-   Perfect for `npm install`, dependency updates across branches
+-   Sequential execution keeps output readable
+
+**Failure conditions:**
+
+-   Should require explicit confirmation for all executions
+-   Should handle command failures gracefully without stopping
+-   Should clearly identify which worktree each output comes from
+
+### `rename`
+
+| Command                  | Features                                        | Status |
+| ------------------------ | ----------------------------------------------- | :----: |
+| `rename <old> <new>`     | Rename branch and associated worktree directory |  [ ]   |
+| `rename <old> <new>`     | Update upstream tracking references             |  [ ]   |
+| `rename <old> <new>`     | Provide completions for existing branch names   |  [ ]   |
+| `rename --follow-remote` | Detect and migrate from remote branch renames   |  [ ]   |
+
+**Notes:**
+
+-   Atomically handles git branch -m, directory rename, and upstream updates
+-   Eliminates the painful 4-step manual process
+-   Maintains worktree functionality throughout rename
+
+**Failure conditions:**
+
+-   Should not rename if worktree has uncommitted changes
+-   Should not rename if target branch name already exists
+-   Should revert all changes if any step fails
+
+### `doctor`
+
+| Command        | Features                                      | Status |
+| -------------- | --------------------------------------------- | :----: |
+| `doctor`       | Check git safe.directory entries              |  [ ]   |
+| `doctor`       | Detect detached HEAD worktrees                |  [ ]   |
+| `doctor`       | Find missing upstream tracking                |  [ ]   |
+| `doctor`       | Identify worktrees pointing at gone upstreams |  [ ]   |
+| `doctor --fix` | Automatically fix common issues               |  [ ]   |
+
+**Notes:**
+
+-   Diagnoses common worktree setup problems
+-   Safe.directory issues prevent Git operations
+-   Detached HEADs indicate incomplete setup
+-   Missing upstreams break sync operations
