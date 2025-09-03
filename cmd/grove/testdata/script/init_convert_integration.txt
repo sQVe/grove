@@ -70,28 +70,80 @@ exists develop/test-file.txt
 exists feat-user-auth/test-file.txt
 cd ..
 
-# TODO: Test init convert copies untracked files to worktrees (not yet implemented)
-# mkdir convert-untracked
-# cd convert-untracked
-# exec git init
-# cp ../test-file.txt .
-# exec git add .
-# exec git commit -m 'initial commit'
-# exec git checkout -b develop
-# exec git checkout main
-# cp ../untracked.txt .
-# exec grove init convert --branches main,develop
-# stdout 'Converted repository to grove workspace'
-# stdout 'convert-untracked'
-# stdout 'Creating worktrees:'
-# stdout '✓ main'
-# stdout '✓ develop'
-# stdout 'Copying untracked files'
-# exists main/test-file.txt
-# exists main/untracked.txt
-# exists develop/test-file.txt
-# exists develop/untracked.txt
-# cd ..
+# Test init convert preserves git-ignored files in worktrees
+mkdir convert-preserve
+cd convert-preserve
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Create ignored files that match default preserve patterns
+exec sh -c 'echo "NODE_ENV=development" > .env'
+exec sh -c 'echo "LOCAL=true" > .env.local'
+exec sh -c 'echo "{\"debug\": true}" > config.local.json'
+exec sh -c 'echo "logs/" > .gitignore'
+exec sh -c 'echo ".env*" >> .gitignore'
+exec sh -c 'echo "*.local.*" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+exec grove init convert --branches main,develop
+stdout 'Converted repository to grove workspace'
+stdout 'convert-preserve'
+stdout 'Creating worktrees'
+stdout '✓ main'
+stdout '✓ develop'
+exists .bare
+exists .git
+# Verify preserved files exist in all worktrees
+exists main/test-file.txt
+exists main/.env
+exists main/.env.local
+exists main/config.local.json
+exists develop/test-file.txt
+exists develop/.env
+exists develop/.env.local
+exists develop/config.local.json
+cd ..
+
+# Test init convert with custom preserve patterns from config
+mkdir convert-custom-patterns
+cd convert-custom-patterns
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Set custom preserve patterns
+exec git config grove.convert.preserve '*.secret'
+exec git config --add grove.convert.preserve 'custom.*'
+# Create files that match custom patterns
+exec sh -c 'echo "secret data" > api.secret'
+exec sh -c 'echo "custom config" > custom.config'
+exec sh -c 'echo "logs/" > .gitignore'
+exec sh -c 'echo "*.secret" >> .gitignore'
+exec sh -c 'echo "custom.*" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+exec grove init convert --branches main,develop
+stdout 'Converted repository to grove workspace'
+stdout 'convert-custom-patterns'
+stdout 'Creating worktrees'
+stdout '✓ main'
+stdout '✓ develop'
+stdout 'Found 2 ignored files/directories matching patterns'
+exists .bare
+exists .git
+# Verify custom pattern files are preserved in all worktrees
+exists main/test-file.txt
+exists main/api.secret
+exists main/custom.config
+exists develop/test-file.txt
+exists develop/api.secret
+exists develop/custom.config
+cd ..
 
 # Test init convert fails with mixed tracked and untracked files
 mkdir convert-mixed-files
