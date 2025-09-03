@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
@@ -428,7 +429,7 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 }
 
 // createWorktreesForConversion creates worktrees for specified branches and moves files to current branch
-func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool) error {
+func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles []string) error {
 	bareDir := filepath.Join(targetDir, ".bare")
 	cleanedBranches := parseBranches(branches, "")
 
@@ -458,13 +459,41 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		return err
 	}
 
-	for _, branch := range cleanedBranches {
+	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles)
+	if err != nil {
+		return err
+	}
+
+	for i, branch := range cleanedBranches {
 		sanitizedName := sanitizeBranchName(branch)
 		if branch == currentBranch {
 			fmt.Printf("  %s %s %s\n",
 				styles.Render(&styles.Success, "✓"),
 				styles.Render(&styles.Worktree, sanitizedName),
 				styles.Render(&styles.Dimmed, "(current)"))
+			if i == 0 && preservedCount > 0 {
+				var styledPatterns []string
+				for _, pattern := range matchedPatterns {
+					styledPatterns = append(styledPatterns, styles.Render(&styles.Path, pattern))
+				}
+
+				itemText := "file/directory"
+				if preservedCount > 1 {
+					itemText = "files/directories"
+				}
+
+				patternText := "pattern"
+				if len(matchedPatterns) > 1 {
+					patternText = "patterns"
+				}
+
+				fmt.Printf("    %s\n",
+					styles.Render(&styles.Dimmed, fmt.Sprintf("↳ Found %d ignored %s matching %s: %s",
+						preservedCount,
+						itemText,
+						patternText,
+						strings.Join(styledPatterns, ", "))))
+			}
 		} else {
 			fmt.Printf("  %s %s\n",
 				styles.Render(&styles.Success, "✓"),
@@ -495,6 +524,100 @@ func parseBranches(branches, skipBranch string) []string {
 	}
 	logger.Debug("Parsed branches for worktree creation: %v", cleanedBranches)
 	return cleanedBranches
+}
+
+// findIgnoredFiles returns a list of git-ignored files in the given directory
+func findIgnoredFiles(dir string) ([]string, error) {
+	cmd := exec.Command("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	cmd.Dir = dir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ignored files: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var files []string
+	for _, line := range lines {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			files = append(files, trimmed)
+		}
+	}
+	return files, nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	content, err := os.ReadFile(src) // nolint:gosec // Controlled path from git ignored files
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(dst, content, fs.FileGit) // nolint:gosec // Controlled path for worktree files
+}
+
+// matchesPattern checks if a file path matches a single pattern
+func matchesPattern(filePath, pattern string) bool {
+	fileName := filepath.Base(filePath)
+	if matched, _ := filepath.Match(pattern, fileName); matched {
+		return true
+	}
+	if matched, _ := filepath.Match(pattern, filePath); matched {
+		return true
+	}
+	return false
+}
+
+// preserveIgnoredFilesFromList copies matching ignored files to all worktrees
+func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []string) (count int, matchedPatterns []string, err error) {
+	if len(ignoredFiles) == 0 {
+		return 0, nil, nil
+	}
+
+	patterns := config.GetPreservePatterns()
+
+	var filesToCopy []string
+	matchedPatternsMap := make(map[string]bool)
+	for _, file := range ignoredFiles {
+		for _, pattern := range patterns {
+			if matchesPattern(file, pattern) {
+				filesToCopy = append(filesToCopy, file)
+				matchedPatternsMap[pattern] = true
+				break // File matches this pattern, no need to check others
+			}
+		}
+	}
+
+	if len(filesToCopy) == 0 {
+		return 0, nil, nil
+	}
+
+	logger.Debug("Preserving ignored files: %v", filesToCopy)
+
+	for _, branch := range branches {
+		sanitizedName := sanitizeBranchName(branch)
+		worktreeDir := filepath.Join(sourceDir, sanitizedName)
+
+		for _, file := range filesToCopy {
+			sourcePath := filepath.Join(sourceDir, file)
+			destPath := filepath.Join(worktreeDir, file)
+
+			destDir := filepath.Dir(destPath)
+			if err := os.MkdirAll(destDir, fs.DirGit); err != nil {
+				return 0, nil, fmt.Errorf("failed to create directory for preserved file %s: %w", file, err)
+			}
+
+			if err := copyFile(sourcePath, destPath); err != nil {
+				return 0, nil, fmt.Errorf("failed to preserve file %s in worktree %s: %w", file, sanitizedName, err)
+			}
+		}
+	}
+
+	for pattern := range matchedPatternsMap {
+		matchedPatterns = append(matchedPatterns, pattern)
+	}
+
+	return len(filesToCopy), matchedPatterns, nil
 }
 
 // validateBranchesForConvert validates that all specified branches exist before conversion
@@ -528,13 +651,23 @@ func Convert(targetDir, branches string, verbose bool) error {
 		}
 	}
 
+	var ignoredFiles []string
+	if branches != "" {
+		files, err := findIgnoredFiles(targetDir)
+		if err != nil {
+			logger.Debug("Failed to find ignored files (continuing anyway): %v", err)
+		} else {
+			ignoredFiles = files
+		}
+	}
+
 	currentBranch, err := setupBareRepo(targetDir)
 	if err != nil {
 		return err
 	}
 
 	if branches != "" {
-		if err := createWorktreesForConversion(targetDir, currentBranch, branches, verbose); err != nil {
+		if err := createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles); err != nil {
 			return err
 		}
 	} else {
