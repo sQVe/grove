@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/sqve/grove/internal/fs"
 )
 
 // TestRepo provides a test git repository with proper configuration
@@ -22,7 +24,7 @@ func NewTestRepo(t *testing.T, skipInitialCommit ...bool) *TestRepo {
 	dir := t.TempDir()
 	repoPath := filepath.Join(dir, "repo")
 
-	if err := os.MkdirAll(repoPath, 0o755); err != nil { // nolint:gosec // Test helper needs git-compatible perms
+	if err := os.MkdirAll(repoPath, fs.DirGit); err != nil {
 		t.Fatalf("Failed to create repo dir: %v", err)
 	}
 
@@ -49,7 +51,7 @@ func NewTestRepo(t *testing.T, skipInitialCommit ...bool) *TestRepo {
 	skip := len(skipInitialCommit) > 0 && skipInitialCommit[0]
 	if !skip {
 		testFile := filepath.Join(repoPath, "test.txt")
-		if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil { // nolint:gosec // Test file needs git-compatible perms
+		if err := os.WriteFile(testFile, []byte("test"), fs.FileGit); err != nil {
 			t.Fatalf("Failed to create test file: %v", err)
 		}
 

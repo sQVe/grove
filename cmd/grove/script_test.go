@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
+	"github.com/sqve/grove/internal/fs"
 )
 
 func TestScript(t *testing.T) {
@@ -15,7 +16,7 @@ func TestScript(t *testing.T) {
 		Dir: "testdata/script",
 		Setup: func(env *testscript.Env) error {
 			homeDir := filepath.Join(env.WorkDir, ".home")
-			if err := os.MkdirAll(homeDir, 0755); err != nil {
+			if err := os.MkdirAll(homeDir, fs.DirGit); err != nil {
 				return err
 			}
 			env.Vars = append(env.Vars, "HOME="+homeDir)
@@ -30,7 +31,7 @@ func TestScript(t *testing.T) {
 [commit]
 	gpgsign = false
 `
-			if err := os.WriteFile(gitConfigPath, []byte(gitConfigContent), 0644); err != nil {
+			if err := os.WriteFile(gitConfigPath, []byte(gitConfigContent), fs.FileGit); err != nil {
 				return err
 			}
 			env.Vars = append(env.Vars, "GIT_CONFIG_GLOBAL="+gitConfigPath)
