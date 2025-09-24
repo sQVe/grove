@@ -73,7 +73,7 @@
 -   [x] Repository has ongoing merge/rebase
 -   [x] Should not convert when in a dirty state
 -   [x] Should not output double error message:
--   [ ] Should revert all changes on failure
+-   [x] Should revert all changes on failure
 -   [x] Convert branch names to safe directory names
 
 ### `clone`
