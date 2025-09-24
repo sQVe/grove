@@ -287,10 +287,7 @@ func setupBareRepo(targetDir string) (string, error) {
 
 	logger.Info("Configuring repository as bare...")
 	if err := git.ConfigureBare(bareDir); err != nil {
-		if renameErr := fs.RenameWithFallback(bareDir, gitDir); renameErr != nil {
-			logger.Error("Failed to restore .git directory: %v", renameErr)
-		}
-		return "", fmt.Errorf("failed to configure as bare repository: %w (recovery: mv %s %s)", err, bareDir, gitDir)
+		return "", fmt.Errorf("failed to configure as bare repository: %w", err)
 	}
 
 	logger.Debug("Repository converted to bare successfully, current branch: %s", currentBranch)
@@ -298,37 +295,38 @@ func setupBareRepo(targetDir string) (string, error) {
 }
 
 // createMainWorktree creates worktree for current branch and moves files into it
-func createMainWorktree(targetDir, currentBranch string, verbose bool) error {
+func createMainWorktree(targetDir, currentBranch string, verbose bool, movedFiles *[]string) ([]string, error) {
 	bareDir := filepath.Join(targetDir, ".bare")
 	branches := []string{currentBranch}
 
-	if err := createWorktreesOnly(bareDir, branches, verbose); err != nil {
-		gitDir := filepath.Join(targetDir, ".git")
-		if renameErr := fs.RenameWithFallback(bareDir, gitDir); renameErr != nil {
-			logger.Error("Failed to restore .git directory: %v", renameErr)
-		}
-		return err
+	createdWorktrees, err := createWorktreesOnly(bareDir, branches, verbose)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := moveFilesToFirstWorktree(targetDir, branches); err != nil {
-		return err
+	if err := moveFilesToFirstWorktree(targetDir, branches, movedFiles); err != nil {
+		return createdWorktrees, err
 	}
 
 	if err := checkoutFirstWorktree(targetDir, currentBranch, verbose); err != nil {
-		return err
+		return createdWorktrees, err
 	}
 
-	return nil
+	return createdWorktrees, nil
 }
 
 // createWorktreesOnly creates worktrees for all specified branches
-func createWorktreesOnly(bareDir string, branches []string, verbose bool) error {
+func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]string, error) {
 	logger.Info("Creating worktrees...")
+	var createdPaths []string
+
 	for i, branch := range branches {
 		sanitizedName := sanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
+		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
 		if i == 0 {
+			logger.Debug("Executing: git worktree add --no-checkout %s %s in %s", worktreePath, branch, bareDir)
 			cmd := exec.Command("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
 			cmd.Dir = bareDir
 
@@ -342,21 +340,22 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) error 
 
 			if err := cmd.Run(); err != nil {
 				if !verbose && stderr.Len() > 0 {
-					return fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
+					return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
 				}
-				return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+				return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 			}
 		} else {
 			if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-				return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+				return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 			}
 		}
+		createdPaths = append(createdPaths, absWorktreePath)
 	}
-	return nil
+	return createdPaths, nil
 }
 
 // moveFilesToFirstWorktree moves all files from targetDir to the first worktree
-func moveFilesToFirstWorktree(targetDir string, branches []string) error {
+func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[]string) error {
 	firstSanitizedName := sanitizeBranchName(branches[0])
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
@@ -374,27 +373,35 @@ func moveFilesToFirstWorktree(targetDir string, branches []string) error {
 		worktreeDirs[sanitizeBranchName(branch)] = true
 	}
 
-	var filesToMove []string
+	// Count files to move for progress reporting
+	var filesToMoveCount int
 	for _, entry := range entries {
-		if entry.Name() == ".bare" || worktreeDirs[entry.Name()] {
-			continue
+		if entry.Name() != ".bare" && !worktreeDirs[entry.Name()] {
+			filesToMoveCount++
 		}
-		filesToMove = append(filesToMove, entry.Name())
 	}
 
-	logger.Debug("Preparing to move files to first worktree: %s -> %s, count: %d", targetDir, firstWorktreeAbsPath, len(filesToMove))
+	logger.Debug("Preparing to move files to first worktree: %s -> %s, count: %d", targetDir, firstWorktreeAbsPath, filesToMoveCount)
 	logger.Info("Reorganizing repository files...")
+
+	// Pre-allocate movedFiles slice if tracking is enabled
+	if movedFiles != nil && filesToMoveCount > 0 {
+		*movedFiles = make([]string, 0, filesToMoveCount)
+	}
 
 	movedCount := 0
 	for _, entry := range entries {
-		if entry.Name() == ".bare" || worktreeDirs[entry.Name()] {
+		if entry.Name() == ".bare" || worktreeDirs[entry.Name()] || entry.Name() == ".grove-convert.lock" {
 			continue
 		}
 
 		oldPath := filepath.Join(targetDir, entry.Name())
 		newPath := filepath.Join(firstWorktreeAbsPath, entry.Name())
 		if err := fs.RenameWithFallback(oldPath, newPath); err != nil {
-			return fmt.Errorf("failed to move %s to worktree: %w (moved %d/%d files)", entry.Name(), err, movedCount, len(filesToMove))
+			return fmt.Errorf("failed to move %s to worktree: %w (moved %d/%d files)", entry.Name(), err, movedCount, filesToMoveCount)
+		}
+		if movedFiles != nil {
+			*movedFiles = append(*movedFiles, entry.Name())
 		}
 		movedCount++
 	}
@@ -408,6 +415,7 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	firstSanitizedName := sanitizeBranchName(firstBranch)
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
+	logger.Debug("Executing: git checkout -f %s in %s", firstBranch, firstWorktreeAbsPath)
 	checkoutCmd := exec.Command("git", "checkout", "-f", firstBranch) // nolint:gosec
 	checkoutCmd.Dir = firstWorktreeAbsPath
 
@@ -429,12 +437,12 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 }
 
 // createWorktreesForConversion creates worktrees for specified branches and moves files to current branch
-func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles []string) error {
+func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles []string, movedFiles *[]string) ([]string, error) {
 	bareDir := filepath.Join(targetDir, ".bare")
 	cleanedBranches := parseBranches(branches, "")
 
 	if len(cleanedBranches) == 0 {
-		return fmt.Errorf("no valid branches specified")
+		return nil, fmt.Errorf("no valid branches specified")
 	}
 
 	found := false
@@ -451,17 +459,14 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		cleanedBranches = append([]string{currentBranch}, cleanedBranches...)
 	}
 
-	if err := createWorktreesOnly(bareDir, cleanedBranches, verbose); err != nil {
-		gitDir := filepath.Join(targetDir, ".git")
-		if renameErr := fs.RenameWithFallback(bareDir, gitDir); renameErr != nil {
-			logger.Error("Failed to restore .git directory: %v", renameErr)
-		}
-		return err
+	createdWorktrees, err := createWorktreesOnly(bareDir, cleanedBranches, verbose)
+	if err != nil {
+		return nil, err
 	}
 
 	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles)
 	if err != nil {
-		return err
+		return createdWorktrees, err
 	}
 
 	for i, branch := range cleanedBranches {
@@ -501,15 +506,15 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		}
 	}
 
-	if err := moveFilesToFirstWorktree(targetDir, cleanedBranches); err != nil {
-		return err
+	if err := moveFilesToFirstWorktree(targetDir, cleanedBranches, movedFiles); err != nil {
+		return createdWorktrees, err
 	}
 
 	if err := checkoutFirstWorktree(targetDir, cleanedBranches[0], verbose); err != nil {
-		return err
+		return createdWorktrees, err
 	}
 
-	return nil
+	return createdWorktrees, nil
 }
 
 // parseBranches splits and cleans a comma-separated list of branches
@@ -528,6 +533,7 @@ func parseBranches(branches, skipBranch string) []string {
 
 // findIgnoredFiles returns a list of git-ignored files in the given directory
 func findIgnoredFiles(dir string) ([]string, error) {
+	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
 	cmd := exec.Command("git", "ls-files", "--others", "--ignored", "--exclude-standard")
 	cmd.Dir = dir
 
@@ -544,16 +550,6 @@ func findIgnoredFiles(dir string) ([]string, error) {
 		}
 	}
 	return files, nil
-}
-
-// copyFile copies a file from src to dst
-func copyFile(src, dst string) error {
-	content, err := os.ReadFile(src) // nolint:gosec // Controlled path from git ignored files
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(dst, content, fs.FileGit) // nolint:gosec // Controlled path for worktree files
 }
 
 // matchesPattern checks if a file path matches a single pattern
@@ -607,7 +603,7 @@ func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []str
 				return 0, nil, fmt.Errorf("failed to create directory for preserved file %s: %w", file, err)
 			}
 
-			if err := copyFile(sourcePath, destPath); err != nil {
+			if err := fs.CopyFile(sourcePath, destPath, fs.FileGit); err != nil {
 				return 0, nil, fmt.Errorf("failed to preserve file %s in worktree %s: %w", file, sanitizedName, err)
 			}
 		}
@@ -651,6 +647,16 @@ func Convert(targetDir, branches string, verbose bool) error {
 		}
 	}
 
+	lockFile := filepath.Join(targetDir, ".grove-convert.lock")
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit) // nolint:gosec // Controlled path from validated directory
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("conversion already in progress or failed previously; remove %s to proceed", lockFile)
+		}
+		return fmt.Errorf("failed to acquire conversion lock: %w", err)
+	}
+	_ = lockHandle.Close()
+
 	var ignoredFiles []string
 	if branches != "" {
 		files, err := findIgnoredFiles(targetDir)
@@ -666,20 +672,97 @@ func Convert(targetDir, branches string, verbose bool) error {
 		return err
 	}
 
+	// From this point on, we have destructive changes that need rollback on failure
+	var movedFiles []string
+	var createdWorktrees []string
+	conversionSucceeded := false
+
+	defer func() { _ = os.Remove(lockFile) }()
+
+	defer func() {
+		if conversionSucceeded {
+			return
+		}
+
+		logger.Error("Conversion failed, attempting to restore repository...")
+
+		for _, worktreePath := range createdWorktrees {
+			logger.Debug("Removing worktree: %s", worktreePath)
+			if err := fs.RemoveAll(worktreePath); err != nil {
+				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
+			}
+		}
+
+		fileRestoreFailed := false
+		if len(movedFiles) > 0 && len(createdWorktrees) > 0 {
+			firstWorktree := createdWorktrees[0]
+			for i := len(movedFiles) - 1; i >= 0; i-- {
+				fileName := movedFiles[i]
+				src := filepath.Join(firstWorktree, fileName)
+				dst := filepath.Join(targetDir, fileName)
+				logger.Debug("Moving file back: %s -> %s", src, dst)
+				if err := fs.RenameWithFallback(src, dst); err != nil {
+					logger.Error("Failed to move file back %s: %v", fileName, err)
+					fileRestoreFailed = true
+				}
+			}
+		}
+
+		if fileRestoreFailed {
+			logger.Error("CRITICAL: Files are trapped in worktree directories")
+			logger.Error("NOT restoring .git to prevent confusion about missing files")
+			logger.Error("Your files are safe but located in: %v", createdWorktrees)
+			logger.Error("To recover manually:")
+			logger.Error("1. Move all files from %s back to repository root", createdWorktrees[0])
+			logger.Error("2. Remove worktree directories: %v", createdWorktrees)
+			logger.Error("3. Run: mv %s %s", filepath.Join(targetDir, ".bare"), filepath.Join(targetDir, ".git"))
+			return
+		}
+
+		gitDir := filepath.Join(targetDir, ".git")
+		bareDir := filepath.Join(targetDir, ".bare")
+		logger.Info("Restoring .git directory...")
+
+		_ = fs.RemoveAll(gitDir)
+
+		if err := fs.RenameWithFallback(bareDir, gitDir); err != nil {
+			logger.Error("CRITICAL: Failed to restore .git directory: %v", err)
+			logger.Error("Your repository is in an inconsistent state.")
+			logger.Error("To recover manually:")
+			logger.Error("1. Remove any worktree directories: %v", createdWorktrees)
+			logger.Error("2. Run: mv %s %s", bareDir, gitDir)
+			return
+		}
+
+		// Restore git config to normal (non-bare) state
+		if err := git.RestoreNormalConfig(targetDir); err != nil {
+			logger.Error("Failed to restore git config: %v", err)
+			logger.Warning("Repository directory restored but git config may be inconsistent")
+			logger.Warning("Run: git config --bool core.bare false")
+		}
+
+		logger.Success("Repository restored to original state")
+	}()
+
 	if branches != "" {
-		if err := createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles); err != nil {
+		var err error
+		createdWorktrees, err = createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles, &movedFiles)
+		if err != nil {
 			return err
 		}
 	} else {
-		if err := createMainWorktree(targetDir, currentBranch, verbose); err != nil {
+		var err error
+		createdWorktrees, err = createMainWorktree(targetDir, currentBranch, verbose, &movedFiles)
+		if err != nil {
 			return err
 		}
 	}
 
 	gitFile := filepath.Join(targetDir, ".git")
-	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+	if err := fs.WriteFileAtomic(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
+	conversionSucceeded = true
 	return nil
 }

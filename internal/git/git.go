@@ -60,6 +60,17 @@ func ConfigureBare(path string) error {
 	return runGitCommand(cmd, true)
 }
 
+// RestoreNormalConfig restores git repository to normal (non-bare) configuration
+func RestoreNormalConfig(path string) error {
+	if path == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	logger.Debug("Executing: git config --bool core.bare false in %s", path)
+	cmd := exec.Command("git", "config", "--bool", "core.bare", "false")
+	cmd.Dir = path
+	return runGitCommand(cmd, true)
+}
+
 // Clone clones a git repository as bare into the specified path
 func Clone(url, path string, quiet bool) error {
 	if url == "" {

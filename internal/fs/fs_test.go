@@ -315,3 +315,75 @@ func TestRenameWithFallback(t *testing.T) {
 		}
 	})
 }
+
+func TestCopyFile(t *testing.T) {
+	t.Run("copies file with correct content and permissions", func(t *testing.T) {
+		tempDir := t.TempDir()
+		srcFile := filepath.Join(tempDir, "source.txt")
+		dstFile := filepath.Join(tempDir, "dest.txt")
+		content := []byte("test content for copy")
+
+		if err := os.WriteFile(srcFile, content, FileStrict); err != nil {
+			t.Fatalf("failed to create source file: %v", err)
+		}
+
+		if err := CopyFile(srcFile, dstFile, FileGit); err != nil {
+			t.Fatalf("CopyFile should not fail: %v", err)
+		}
+
+		readContent, err := os.ReadFile(dstFile) // nolint:gosec // Controlled test path
+		if err != nil {
+			t.Fatalf("failed to read destination file: %v", err)
+		}
+		if !bytes.Equal(readContent, content) {
+			t.Error("copied file content should match original")
+		}
+
+		info, err := os.Stat(dstFile)
+		if err != nil {
+			t.Fatalf("failed to stat destination file: %v", err)
+		}
+		if info.Mode() != FileGit {
+			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		}
+	})
+
+	t.Run("fails when source file does not exist", func(t *testing.T) {
+		tempDir := t.TempDir()
+		srcFile := filepath.Join(tempDir, "nonexistent.txt")
+		dstFile := filepath.Join(tempDir, "dest.txt")
+
+		err := CopyFile(srcFile, dstFile, FileGit)
+		if err == nil {
+			t.Error("CopyFile should fail for non-existent source")
+		}
+	})
+}
+
+func TestWriteFileAtomic(t *testing.T) {
+	t.Run("writes file with correct content and permissions", func(t *testing.T) {
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "atomic.txt")
+		content := []byte("atomic write test")
+
+		if err := WriteFileAtomic(testFile, content, FileGit); err != nil {
+			t.Fatalf("WriteFileAtomic should not fail: %v", err)
+		}
+
+		readContent, err := os.ReadFile(testFile) // nolint:gosec // Controlled test path
+		if err != nil {
+			t.Fatalf("failed to read atomic file: %v", err)
+		}
+		if !bytes.Equal(readContent, content) {
+			t.Error("atomic file content should match written data")
+		}
+
+		info, err := os.Stat(testFile)
+		if err != nil {
+			t.Fatalf("failed to stat atomic file: %v", err)
+		}
+		if info.Mode() != FileGit {
+			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		}
+	})
+}

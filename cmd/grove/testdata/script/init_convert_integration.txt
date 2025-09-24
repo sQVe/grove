@@ -177,7 +177,7 @@ exec git commit -m 'nested structure'
 exec sh -c 'find . -type f ! -path "./.git/*" | wc -l > ../before_count.txt'
 exec grove init convert
 # Count files after convert in worktree (excluding .git file created during conversion)
-exec sh -c 'find main -type f ! -path "*/.git/*" ! -name ".git" | wc -l > ../after_count.txt'
+exec sh -c 'find main -type f -not -name ".git" | wc -l > ../after_count.txt'
 # Files should match
 exec diff ../before_count.txt ../after_count.txt
 # Verify structure preserved
@@ -264,6 +264,55 @@ exists .git
 exists main/test-file.txt
 exists feature-branch
 cd ..
+
+## Rollback scenarios
+
+# Test rollback when worktree creation is blocked by existing directory
+mkdir convert-rollback-test
+cd convert-rollback-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Create a directory that will block the main worktree creation
+mkdir main
+exec sh -c 'echo "blocking file" > main/blocker.txt'
+exec git add .
+exec git commit -m 'add blocking directory'
+! exec grove init convert --branches main,develop
+stderr 'failed to create worktree'
+# Verify rollback restored original state
+! exists .bare
+exists .git
+exists test-file.txt
+# Verify git repository still works
+exec git log --oneline -n 1
+stdout 'add blocking directory'
+# Clean up blocking directory
+exec rm -rf main
+cd ..
+
+# Test early validation prevents conversion with nonexistent branch
+mkdir convert-invalid-branch-test  
+cd convert-invalid-branch-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+# Try to convert with nonexistent branch - should fail during validation
+! exec grove init convert --branches main,nonexistent-branch
+stderr 'branch.*does not exist'
+# Verify no changes were made since validation failed early
+! exists .bare
+exists .git
+exists test-file.txt
+cd ..
+
+# Note: Additional rollback scenarios could include permission denied or disk full,
+# but these are difficult to test reliably in a cross-platform manner.
+# The directory blocking test above provides good coverage of the rollback mechanism.
 
 -- test-file.txt --
 This is a test file
