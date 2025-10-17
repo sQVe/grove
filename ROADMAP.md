@@ -175,19 +175,49 @@
 
 ### `list`
 
-| Command               | Features                                        | Status |
-| --------------------- | ----------------------------------------------- | :----: |
-| `list`                | Show all worktrees and their status             |  [ ]   |
-| `list --dirty`        | Show count of uncommitted changes per worktree  |  [ ]   |
-| `list --stashes`      | Show stash count per worktree                   |  [ ]   |
-| `list --ahead-behind` | Show sync status with upstream branches         |  [ ]   |
-| `list --json`         | Machine-readable output for tooling integration |  [ ]   |
-| `list --gone`         | Highlight worktrees with deleted upstream       |  [ ]   |
+| Command          | Features                                        | Status |
+| ---------------- | ----------------------------------------------- | :----: |
+| `list`           | Show all worktrees with status by default       |  [ ]   |
+| `list --fast`    | Skip sync status for faster output              |  [ ]   |
+| `list --json`    | Machine-readable output for tooling integration |  [ ]   |
+| `list --verbose` | Show extra details (paths, upstream names)      |  [ ]   |
+
+**Default output format:**
+
+```
+● main              [clean]    ↑2
+  feature-auth      [dirty]    ↓5
+  bugfix-timeout    [clean]    ↑1↓3
+  old-experiment    [dirty]    ×
+  release-2.0       [clean]    =
+```
+
+**ASCII fallback (when unicode not supported):**
+
+```
+* main              [clean]    +2
+  feature-auth      [dirty]    -5
+  bugfix-timeout    [clean]    +1-3
+  old-experiment    [dirty]    gone
+  release-2.0       [clean]    =
+```
+
+**Status symbols:**
+
+-   `●` / `*` Current worktree
+-   `[dirty]` Uncommitted changes (blocks switching)
+-   `[clean]` No uncommitted changes
+-   `↑N` / `+N` N commits ahead of upstream
+-   `↓N` / `-N` N commits behind upstream
+-   `↑N↓M` / `+N-M` N commits ahead, M commits behind (diverged)
+-   `×` / `gone` Upstream branch deleted
+-   `=` In sync with upstream
 
 **Notes:**
 
--   Single command to answer "where is my work?"
--   Combines multiple git status checks efficiently
+-   Single command answers "where is my work?" and "what needs attention?"
+-   Rich default shows everything useful at a glance
+-   Performance-conscious with --fast escape hatch
 -   JSON output enables editor/IDE integration
 
 ### `exec`
