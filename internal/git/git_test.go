@@ -955,8 +955,8 @@ func TestGetWorktreeInfo(t *testing.T) {
 			t.Fatalf("GetWorktreeInfo failed: %v", err)
 		}
 
-		if info.Branch != "main" {
-			t.Errorf("expected branch main, got %s", info.Branch)
+		if info.Branch != testDefaultBranch {
+			t.Errorf("expected branch %s, got %s", testDefaultBranch, info.Branch)
 		}
 		if info.Dirty {
 			t.Error("expected clean worktree")

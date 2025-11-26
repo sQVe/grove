@@ -178,18 +178,24 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	}
 
 	bareDir := filepath.Join(path, ".bare")
+	gitFile := filepath.Join(path, ".git")
+
+	cleanup := func(worktrees []string) {
+		_ = os.Remove(gitFile)
+		_ = fs.RemoveAll(bareDir)
+		for i := len(worktrees) - 1; i >= 0; i-- {
+			_ = fs.RemoveAll(worktrees[i])
+		}
+	}
 
 	if err := cloneWithProgress(url, bareDir, verbose); err != nil {
-		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
-			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
-		}
+		cleanup(nil)
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	// Create .git file pointing to .bare directory
-	gitFile := filepath.Join(path, ".git")
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-		_ = fs.RemoveAll(bareDir)
+		cleanup(nil)
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
@@ -199,8 +205,7 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 		// No branches specified - use the default branch
 		defaultBranch, err := git.GetDefaultBranch(bareDir)
 		if err != nil {
-			_ = os.Remove(gitFile)
-			_ = fs.RemoveAll(bareDir)
+			cleanup(nil)
 			return fmt.Errorf("failed to determine default branch: %w", err)
 		}
 		branchesToCreate = defaultBranch
@@ -208,13 +213,7 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 
 	createdWorktrees, err := createWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
 	if err != nil {
-		_ = os.Remove(gitFile)
-		_ = fs.RemoveAll(bareDir)
-		for i := len(createdWorktrees) - 1; i >= 0; i-- {
-			if cleanupErr := fs.RemoveAll(createdWorktrees[i]); cleanupErr != nil {
-				logger.Warning("Failed to cleanup worktree %s: %v", createdWorktrees[i], cleanupErr)
-			}
-		}
+		cleanup(createdWorktrees)
 		return err
 	}
 
