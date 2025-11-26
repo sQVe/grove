@@ -67,6 +67,48 @@ func Dimmed(format string, args ...any) {
 	}
 }
 
+// ListItem prints a list item (used for worktree creation output, etc.)
+func ListItem(format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	if config.IsPlain() {
+		fmt.Printf("  - %s\n", message)
+	} else {
+		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), message)
+	}
+}
+
+// ListItemWithNote prints a list item with an optional note in parentheses
+func ListItemWithNote(main, note string) {
+	if config.IsPlain() {
+		if note != "" {
+			fmt.Printf("  - %s (%s)\n", main, note)
+		} else {
+			fmt.Printf("  - %s\n", main)
+		}
+	} else {
+		if note != "" {
+			fmt.Printf("  %s %s %s\n",
+				styles.Render(&styles.Success, "✓"),
+				styles.Render(&styles.Worktree, main),
+				styles.Render(&styles.Dimmed, "("+note+")"))
+		} else {
+			fmt.Printf("  %s %s\n",
+				styles.Render(&styles.Success, "✓"),
+				styles.Render(&styles.Worktree, main))
+		}
+	}
+}
+
+// ListSubItem prints an indented sub-item (used for additional details under a list item)
+func ListSubItem(format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	if config.IsPlain() {
+		fmt.Printf("      %s\n", message)
+	} else {
+		fmt.Printf("    %s\n", styles.Render(&styles.Dimmed, "↳ "+message))
+	}
+}
+
 // StartSpinner starts a spinner with a message and returns a stop function
 func StartSpinner(message string) func() {
 	if config.IsPlain() {
