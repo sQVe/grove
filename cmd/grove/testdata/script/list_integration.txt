@@ -50,12 +50,21 @@ stdout 'workspace/main'
 ## Dirty detection
 
 # Create uncommitted file
-cp ../../README.md dirty.txt
+cp $WORK/README.md dirty.txt
 exec grove list
 stdout '\[dirty\]'
 
 # Clean up for next test
 rm dirty.txt
+
+## Workspace root behavior
+
+# From workspace root, no branch should be marked as current (we're not in a worktree)
+cd $WORK/workspace
+exec grove list
+stdout 'main'
+stdout 'develop'
+! stdout '^●'
 
 ## Error handling
 

@@ -53,16 +53,19 @@ func runList(fast, jsonOutput, verbose bool) error {
 		return err
 	}
 
-	// Get current worktree to mark it
-	currentBranch := ""
-	if git.IsWorktree(cwd) {
-		currentBranch, _ = git.GetCurrentBranch(cwd)
-	}
-
 	// Get worktree info
 	infos, err := git.ListWorktreesWithInfo(bareDir, fast)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	// Determine current branch - only if cwd is an actual worktree
+	currentBranch := ""
+	for _, info := range infos {
+		if info.Path == cwd {
+			currentBranch = info.Branch
+			break
+		}
 	}
 
 	if jsonOutput {
@@ -85,7 +88,7 @@ type worktreeJSON struct {
 }
 
 func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
-	var output []worktreeJSON
+	output := []worktreeJSON{}
 	for _, info := range infos {
 		output = append(output, worktreeJSON{
 			Name:       info.Branch,

@@ -28,7 +28,7 @@ func NewTestRepo(t *testing.T, skipInitialCommit ...bool) *TestRepo {
 		t.Fatalf("Failed to create repo dir: %v", err)
 	}
 
-	cmd := exec.Command("git", "init")
+	cmd := exec.Command("git", "init", "-b", "main")
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
