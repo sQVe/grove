@@ -722,5 +722,70 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	}
 	info.Dirty = hasChanges
 
+	// Get sync status
+	syncStatus := GetSyncStatus(path)
+	info.Upstream = syncStatus.Upstream
+	info.Ahead = syncStatus.Ahead
+	info.Behind = syncStatus.Behind
+	info.Gone = syncStatus.Gone
+	info.NoUpstream = syncStatus.NoUpstream
+
 	return info, nil
+}
+
+// SyncStatus contains sync information relative to upstream
+type SyncStatus struct {
+	Upstream   string // Upstream branch name (e.g., "origin/main")
+	Ahead      int    // Commits ahead of upstream
+	Behind     int    // Commits behind upstream
+	Gone       bool   // Upstream branch deleted
+	NoUpstream bool   // No upstream configured
+}
+
+// GetSyncStatus returns sync status relative to upstream.
+// Expected conditions (no upstream, gone) are returned as status fields, not errors.
+func GetSyncStatus(path string) *SyncStatus {
+	status := &SyncStatus{}
+
+	// Check if upstream is configured and get its name
+	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmdUpstream.Dir = path
+	var upstreamOut bytes.Buffer
+	cmdUpstream.Stdout = &upstreamOut
+
+	if cmdUpstream.Run() != nil {
+		// No upstream configured - this is an expected condition
+		status.NoUpstream = true
+		return status
+	}
+	status.Upstream = strings.TrimSpace(upstreamOut.String())
+
+	// Check if upstream still exists (gone detection)
+	cmdCheck := exec.Command("git", "rev-parse", "@{u}")
+	cmdCheck.Dir = path
+	if cmdCheck.Run() != nil {
+		// Upstream is gone - this is an expected condition
+		status.Gone = true
+		return status
+	}
+
+	// Get ahead count
+	cmdAhead := exec.Command("git", "rev-list", "--count", "@{u}..HEAD")
+	cmdAhead.Dir = path
+	var aheadOut bytes.Buffer
+	cmdAhead.Stdout = &aheadOut
+	if cmdAhead.Run() == nil {
+		_, _ = fmt.Sscanf(strings.TrimSpace(aheadOut.String()), "%d", &status.Ahead)
+	}
+
+	// Get behind count
+	cmdBehind := exec.Command("git", "rev-list", "--count", "HEAD..@{u}")
+	cmdBehind.Dir = path
+	var behindOut bytes.Buffer
+	cmdBehind.Stdout = &behindOut
+	if cmdBehind.Run() == nil {
+		_, _ = fmt.Sscanf(strings.TrimSpace(behindOut.String()), "%d", &status.Behind)
+	}
+
+	return status
 }

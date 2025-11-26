@@ -1012,3 +1012,153 @@ func TestGetWorktreeInfo(t *testing.T) {
 		}
 	})
 }
+
+func TestGetSyncStatus(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns no upstream when none configured", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		status := GetSyncStatus(repo.Path)
+
+		if !status.NoUpstream {
+			t.Error("expected NoUpstream to be true")
+		}
+		if status.Upstream != "" {
+			t.Errorf("expected empty upstream, got %s", status.Upstream)
+		}
+		if status.Ahead != 0 || status.Behind != 0 {
+			t.Errorf("expected 0 ahead/behind, got %d/%d", status.Ahead, status.Behind)
+		}
+		if status.Gone {
+			t.Error("expected Gone to be false")
+		}
+	})
+
+	t.Run("detects commits ahead of upstream", func(t *testing.T) {
+		t.Parallel()
+		// Create bare repo to act as remote
+		remoteDir := t.TempDir()
+		remoteRepo := filepath.Join(remoteDir, "remote.git")
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create local repo and push
+		repo := testgit.NewTestRepo(t)
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create local commit
+		testFile := filepath.Join(repo.Path, "new.txt")
+		if err := os.WriteFile(testFile, []byte("new"), fs.FileStrict); err != nil { // nolint:gosec // Test uses controlled temp directory
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "local commit")
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+
+		status := GetSyncStatus(repo.Path)
+
+		if status.NoUpstream {
+			t.Error("expected NoUpstream to be false")
+		}
+		if status.Upstream != "origin/main" {
+			t.Errorf("expected upstream origin/main, got %s", status.Upstream)
+		}
+		if status.Ahead != 1 {
+			t.Errorf("expected 1 commit ahead, got %d", status.Ahead)
+		}
+		if status.Behind != 0 {
+			t.Errorf("expected 0 commits behind, got %d", status.Behind)
+		}
+		if status.Gone {
+			t.Error("expected Gone to be false")
+		}
+	})
+
+	t.Run("detects commits behind upstream", func(t *testing.T) {
+		t.Parallel()
+		// Create bare repo to act as remote
+		remoteDir := t.TempDir()
+		remoteRepo := filepath.Join(remoteDir, "remote.git")
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create local repo and push
+		repo := testgit.NewTestRepo(t)
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create commit on remote (via a separate clone)
+		tempClone := t.TempDir()
+		cmd = exec.Command("git", "clone", remoteRepo, tempClone) // nolint:gosec // Test uses controlled temp directory
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "config", "user.email", "test@test.com")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "user.name", "Test")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
+		testFile := filepath.Join(tempClone, "remote.txt")
+		if err := os.WriteFile(testFile, []byte("remote"), fs.FileStrict); err != nil { // nolint:gosec // Test uses controlled temp directory
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "remote commit")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
+
+		// Fetch in original repo
+		cmd = exec.Command("git", "fetch")
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+
+		status := GetSyncStatus(repo.Path)
+
+		if status.Ahead != 0 {
+			t.Errorf("expected 0 commits ahead, got %d", status.Ahead)
+		}
+		if status.Behind != 1 {
+			t.Errorf("expected 1 commit behind, got %d", status.Behind)
+		}
+	})
+}
