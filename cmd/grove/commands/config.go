@@ -131,6 +131,9 @@ func NewConfigCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all grove.* configuration settings",
 		Args:  cobra.NoArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			global, _ := cmd.Flags().GetBool("global")
 			return runConfigList(global)

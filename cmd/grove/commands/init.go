@@ -95,6 +95,9 @@ func NewInitCmd() *cobra.Command {
 		Use:   "convert",
 		Short: "Convert existing Git repository to a grove workspace",
 		Args:  cobra.NoArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetDir := "."
 

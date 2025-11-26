@@ -26,6 +26,9 @@ func NewListCmd() *cobra.Command {
 		Short: "List all worktrees with status",
 		Long:  `Show all worktrees in the grove workspace with their status and sync information.`,
 		Args:  cobra.NoArgs,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(fast, jsonOutput, verbose)
 		},
