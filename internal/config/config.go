@@ -116,5 +116,5 @@ func getGitConfigs(key string) []string {
 // isTruthy checks if a string represents a truthy value
 func isTruthy(value string) bool {
 	lower := strings.ToLower(strings.TrimSpace(value))
-	return lower == "true" || lower == "1"
+	return lower == "true" || lower == "1" || lower == "yes" || lower == "on"
 }

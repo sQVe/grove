@@ -51,11 +51,18 @@ func TestIsTruthy(t *testing.T) {
 		{" true ", true},
 		{" 1 ", true},
 		{"  true  ", true},
+		{"yes", true},
+		{"YES", true},
+		{"Yes", true},
+		{" yes ", true},
+		{"on", true},
+		{"ON", true},
+		{"On", true},
+		{" on ", true},
 		{"false", false},
 		{"0", false},
 		{"no", false},
-		{"yes", false},
-		{"on", false},
+		{"off", false},
 		{"", false},
 		{" ", false},
 		{"   ", false},
@@ -120,7 +127,7 @@ func TestLoadFromEnv(t *testing.T) {
 		}
 	})
 
-	t.Run("both false with invalid env values", func(t *testing.T) {
+	t.Run("both true with yes/on env values", func(t *testing.T) {
 		Global = struct {
 			Plain            bool
 			Debug            bool
@@ -128,6 +135,25 @@ func TestLoadFromEnv(t *testing.T) {
 		}{}
 		_ = os.Setenv("GROVE_PLAIN", "yes")
 		_ = os.Setenv("GROVE_DEBUG", "on")
+		defer func() {
+			_ = os.Unsetenv("GROVE_PLAIN")
+			_ = os.Unsetenv("GROVE_DEBUG")
+		}()
+
+		LoadFromEnv()
+		if !IsPlain() || !IsDebug() {
+			t.Error("Expected both modes to be true with yes/on env values")
+		}
+	})
+
+	t.Run("both false with invalid env values", func(t *testing.T) {
+		Global = struct {
+			Plain            bool
+			Debug            bool
+			PreservePatterns []string
+		}{}
+		_ = os.Setenv("GROVE_PLAIN", "invalid")
+		_ = os.Setenv("GROVE_DEBUG", "nope")
 		defer func() {
 			_ = os.Unsetenv("GROVE_PLAIN")
 			_ = os.Unsetenv("GROVE_DEBUG")
