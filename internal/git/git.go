@@ -687,3 +687,40 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 
 	return nil
 }
+
+// WorktreeInfo contains status information about a worktree
+type WorktreeInfo struct {
+	Path       string // Absolute path to worktree
+	Branch     string // Branch name
+	Upstream   string // Upstream branch name (e.g., "origin/main")
+	Dirty      bool   // Has uncommitted changes
+	Ahead      int    // Commits ahead of upstream
+	Behind     int    // Commits behind upstream
+	Gone       bool   // Upstream branch deleted
+	NoUpstream bool   // No upstream configured
+}
+
+// GetWorktreeInfo returns status information for a worktree
+func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
+	if path == "" {
+		return nil, errors.New("worktree path cannot be empty")
+	}
+
+	info := &WorktreeInfo{Path: path}
+
+	// Get branch name
+	branch, err := GetCurrentBranch(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get branch: %w", err)
+	}
+	info.Branch = branch
+
+	// Check for dirty state
+	hasChanges, _, err := CheckGitChanges(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check changes: %w", err)
+	}
+	info.Dirty = hasChanges
+
+	return info, nil
+}

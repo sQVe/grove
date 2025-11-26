@@ -940,3 +940,75 @@ func TestIsInsideGitRepo_ValidRepo(t *testing.T) {
 		t.Error("Expected IsInsideGitRepo to return true for valid git repository")
 	}
 }
+
+func TestGetWorktreeInfo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns info for clean worktree", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		info, err := GetWorktreeInfo(repo.Path)
+		if err != nil {
+			t.Fatalf("GetWorktreeInfo failed: %v", err)
+		}
+
+		if info.Branch != "main" {
+			t.Errorf("expected branch main, got %s", info.Branch)
+		}
+		if info.Dirty {
+			t.Error("expected clean worktree")
+		}
+		if info.Path != repo.Path {
+			t.Errorf("expected path %s, got %s", repo.Path, info.Path)
+		}
+	})
+
+	t.Run("detects dirty worktree", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// Create uncommitted file
+		testFile := filepath.Join(repo.Path, "dirty.txt")
+		if err := os.WriteFile(testFile, []byte("dirty"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		info, err := GetWorktreeInfo(repo.Path)
+		if err != nil {
+			t.Fatalf("GetWorktreeInfo failed: %v", err)
+		}
+
+		if !info.Dirty {
+			t.Error("expected dirty worktree")
+		}
+	})
+
+	t.Run("fails with empty path", func(t *testing.T) {
+		t.Parallel()
+		_, err := GetWorktreeInfo("")
+		if err == nil {
+			t.Fatal("expected error for empty path")
+		}
+	})
+
+	t.Run("fails for detached HEAD", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
+
+		headFile := filepath.Join(gitDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte("abc1234567890\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create HEAD file: %v", err)
+		}
+
+		_, err := GetWorktreeInfo(tempDir)
+		if err == nil {
+			t.Fatal("expected error for detached HEAD")
+		}
+	})
+}
