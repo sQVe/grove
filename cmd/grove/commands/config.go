@@ -11,6 +11,18 @@ import (
 	"github.com/sqve/grove/internal/git"
 )
 
+const (
+	configKeyPlain    = "grove.plain"
+	configKeyDebug    = "grove.debug"
+	configKeyPreserve = "grove.convert.preserve"
+)
+
+var (
+	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyPreserve}
+	booleanConfigKeys = []string{configKeyPlain, configKeyDebug}
+	multiValueKeys    = []string{configKeyPreserve}
+)
+
 // isValidConfigKey validates that key is in grove.* namespace
 func isValidConfigKey(key string) bool {
 	if key == "" {
@@ -31,14 +43,15 @@ func isValidBooleanValue(value string) bool {
 
 // isMultiValueKey returns true if the key supports multiple values
 func isMultiValueKey(key string) bool {
-	return strings.EqualFold(key, "grove.convert.preserve")
+	return slices.ContainsFunc(multiValueKeys, func(k string) bool {
+		return strings.EqualFold(key, k)
+	})
 }
 
 // getConfigCompletions returns completion suggestions for config keys
 func getConfigCompletions(toComplete string) []string {
-	allKeys := []string{"grove.plain", "grove.debug", "grove.convert.preserve"}
 	var completions []string
-	for _, key := range allKeys {
+	for _, key := range allConfigKeys {
 		if strings.HasPrefix(key, toComplete) {
 			completions = append(completions, key)
 		}
@@ -97,7 +110,9 @@ func getBooleanCompletions(toComplete string) []string {
 
 // isBooleanKey returns true if the key expects boolean values
 func isBooleanKey(key string) bool {
-	return strings.EqualFold(key, "grove.plain") || strings.EqualFold(key, "grove.debug")
+	return slices.ContainsFunc(booleanConfigKeys, func(k string) bool {
+		return strings.EqualFold(key, k)
+	})
 }
 
 // NewConfigCmd creates the config command with all subcommands
