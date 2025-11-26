@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,14 +10,6 @@ import (
 	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
-
-// resolveInitTargetDirectory resolves the target directory from command arguments
-func resolveInitTargetDirectory(args []string, argIndex int) (string, error) {
-	if len(args) <= argIndex {
-		return os.Getwd()
-	}
-	return filepath.Abs(args[argIndex])
-}
 
 // getBranchCompletions provides completion suggestions for comma-separated branches
 func getBranchCompletions(toComplete string, allBranches []string) []string {
@@ -82,7 +73,7 @@ func NewInitCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			targetDir, err := resolveInitTargetDirectory(args, 0)
+			targetDir, err := resolveTargetDirectory(args, 0)
 			if err != nil {
 				return err
 			}
