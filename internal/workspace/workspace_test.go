@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,9 +23,9 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 
 	t.Run("returns true for grove workspace root", func(t *testing.T) {
 		tempDir := t.TempDir()
-		gitFile := filepath.Join(tempDir, ".git")
-		if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-			t.Fatalf("failed to create .git file: %v", err)
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create .bare directory: %v", err)
 		}
 
 		result := IsInsideGroveWorkspace(tempDir)
@@ -35,9 +36,9 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 
 	t.Run("returns true for subdirectory of grove workspace", func(t *testing.T) {
 		tempDir := t.TempDir()
-		gitFile := filepath.Join(tempDir, ".git")
-		if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-			t.Fatalf("failed to create .git file: %v", err)
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create .bare directory: %v", err)
 		}
 
 		subDir := filepath.Join(tempDir, "subdir", "nested")
@@ -246,4 +247,54 @@ func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to preserve file") {
 		t.Errorf("expected error message about failing to preserve file, got: %v", err)
 	}
+}
+
+func TestFindBareDir(t *testing.T) {
+	t.Run("returns bare dir path from workspace root", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := FindBareDir(workspaceDir)
+		if err != nil {
+			t.Fatalf("FindBareDir failed: %v", err)
+		}
+		if result != bareDir {
+			t.Errorf("expected %s, got %s", bareDir, result)
+		}
+	})
+
+	t.Run("returns bare dir from subdirectory", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+		subDir := filepath.Join(workspaceDir, "main", "src")
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(subDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := FindBareDir(subDir)
+		if err != nil {
+			t.Fatalf("FindBareDir failed: %v", err)
+		}
+		if result != bareDir {
+			t.Errorf("expected %s, got %s", bareDir, result)
+		}
+	})
+
+	t.Run("returns error outside workspace", func(t *testing.T) {
+		dir := t.TempDir()
+
+		_, err := FindBareDir(dir)
+		if err == nil {
+			t.Error("expected error for non-workspace dir")
+		}
+		if !errors.Is(err, ErrNotInWorkspace) {
+			t.Errorf("expected ErrNotInWorkspace, got %v", err)
+		}
+	})
 }

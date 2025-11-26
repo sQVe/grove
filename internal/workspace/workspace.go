@@ -18,6 +18,9 @@ import (
 
 const groveGitContent = "gitdir: .bare"
 
+// ErrNotInWorkspace is returned when not inside a grove workspace
+var ErrNotInWorkspace = errors.New("not in a grove workspace")
+
 // sanitizeBranchName replaces filesystem-problematic characters with dash
 func sanitizeBranchName(branch string) string {
 	replacer := strings.NewReplacer(
@@ -30,35 +33,33 @@ func sanitizeBranchName(branch string) string {
 	return replacer.Replace(branch)
 }
 
-// IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
-func IsInsideGroveWorkspace(path string) bool {
-	absPath, err := filepath.Abs(path)
+// FindBareDir finds the .bare directory for a grove workspace
+// by walking up the directory tree from the given path
+func FindBareDir(startPath string) (string, error) {
+	absPath, err := filepath.Abs(startPath)
 	if err != nil {
-		return false
+		return "", err
 	}
 
 	dir := absPath
 	for {
 		bareDir := filepath.Join(dir, ".bare")
 		if fs.DirectoryExists(bareDir) {
-			return true
-		}
-
-		gitFile := filepath.Join(dir, ".git")
-		if content, err := os.ReadFile(gitFile); err == nil { // nolint:gosec // Controlled path for workspace validation
-			if strings.TrimSpace(string(content)) == groveGitContent {
-				return true
-			}
+			return bareDir, nil
 		}
 
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			break
+			return "", ErrNotInWorkspace
 		}
 		dir = parent
 	}
+}
 
-	return false
+// IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
+func IsInsideGroveWorkspace(path string) bool {
+	_, err := FindBareDir(path)
+	return err == nil
 }
 
 // validateAndPrepareDirectory validates and prepares a directory for grove workspace
