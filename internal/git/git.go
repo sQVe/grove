@@ -237,6 +237,29 @@ func GetCurrentBranch(path string) (string, error) {
 	return "", fmt.Errorf("detached HEAD state")
 }
 
+// GetDefaultBranch returns the default branch for a bare repository
+func GetDefaultBranch(bareDir string) (string, error) {
+	if bareDir == "" {
+		return "", errors.New("repository path cannot be empty")
+	}
+
+	// For bare repos, HEAD is at the root
+	headFile := filepath.Join(bareDir, "HEAD")
+
+	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	if err != nil {
+		return "", fmt.Errorf("failed to read HEAD: %w", err)
+	}
+
+	line := strings.TrimSpace(string(content))
+
+	if after, ok := strings.CutPrefix(line, "ref: refs/heads/"); ok {
+		return after, nil
+	}
+
+	return "", fmt.Errorf("could not determine default branch from HEAD")
+}
+
 // IsDetachedHead checks if the repository is in detached HEAD state
 func IsDetachedHead(path string) (bool, error) {
 	headFile := filepath.Join(path, ".git", "HEAD")

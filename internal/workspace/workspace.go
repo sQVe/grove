@@ -103,32 +103,42 @@ func cloneWithProgress(url, bareDir string, verbose bool) error {
 	return nil
 }
 
-// createWorktreesFromBranches creates worktrees for the specified branches, optionally skipping one
-func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBranch string) error {
+// createWorktreesFromBranches creates worktrees for the specified branches, optionally skipping one.
+// Returns the absolute paths to created worktrees for cleanup on failure.
+func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBranch string) ([]string, error) {
 	filteredBranches := parseBranches(branches, skipBranch)
 
 	if len(filteredBranches) == 0 {
 		logger.Debug("No branches to create (all branches filtered out)")
-		return nil
+		return nil, nil
 	}
 
 	logger.Info("Creating worktrees:")
+	var createdPaths []string
 
 	for _, branch := range filteredBranches {
 		sanitizedName := sanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
+		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-			return fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+			// Best-effort cleanup of any partially created worktrees
+			for i := len(createdPaths) - 1; i >= 0; i-- {
+				if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
+					logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
+				}
+			}
+			return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 		}
+		createdPaths = append(createdPaths, absWorktreePath)
 	}
 
 	for _, branch := range filteredBranches {
 		sanitizedName := sanitizeBranchName(branch)
-		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), styles.Render(&styles.Worktree, sanitizedName))
+		logger.ListItemWithNote(sanitizedName, "")
 	}
 
-	return nil
+	return createdPaths, nil
 }
 
 // Initialize creates a new grove workspace in the specified directory
@@ -178,11 +188,33 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	// Create .git file pointing to .bare directory
 	gitFile := filepath.Join(path, ".git")
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
+		_ = fs.RemoveAll(bareDir)
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
-	if branches != "" {
-		return createWorktreesFromBranches(bareDir, branches, verbose, "")
+	// Determine which branches to create worktrees for
+	branchesToCreate := branches
+	if branchesToCreate == "" {
+		// No branches specified - use the default branch
+		defaultBranch, err := git.GetDefaultBranch(bareDir)
+		if err != nil {
+			_ = os.Remove(gitFile)
+			_ = fs.RemoveAll(bareDir)
+			return fmt.Errorf("failed to determine default branch: %w", err)
+		}
+		branchesToCreate = defaultBranch
+	}
+
+	createdWorktrees, err := createWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
+	if err != nil {
+		_ = os.Remove(gitFile)
+		_ = fs.RemoveAll(bareDir)
+		for i := len(createdWorktrees) - 1; i >= 0; i-- {
+			if cleanupErr := fs.RemoveAll(createdWorktrees[i]); cleanupErr != nil {
+				logger.Warning("Failed to cleanup worktree %s: %v", createdWorktrees[i], cleanupErr)
+			}
+		}
+		return err
 	}
 
 	return nil
@@ -472,16 +504,8 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 	for i, branch := range cleanedBranches {
 		sanitizedName := sanitizeBranchName(branch)
 		if branch == currentBranch {
-			fmt.Printf("  %s %s %s\n",
-				styles.Render(&styles.Success, "✓"),
-				styles.Render(&styles.Worktree, sanitizedName),
-				styles.Render(&styles.Dimmed, "(current)"))
+			logger.ListItemWithNote(sanitizedName, "current")
 			if i == 0 && preservedCount > 0 {
-				var styledPatterns []string
-				for _, pattern := range matchedPatterns {
-					styledPatterns = append(styledPatterns, styles.Render(&styles.Path, pattern))
-				}
-
 				itemText := "file/directory"
 				if preservedCount > 1 {
 					itemText = "files/directories"
@@ -492,17 +516,14 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 					patternText = "patterns"
 				}
 
-				fmt.Printf("    %s\n",
-					styles.Render(&styles.Dimmed, fmt.Sprintf("↳ Found %d ignored %s matching %s: %s",
-						preservedCount,
-						itemText,
-						patternText,
-						strings.Join(styledPatterns, ", "))))
+				logger.ListSubItem("Found %d ignored %s matching %s: %s",
+					preservedCount,
+					itemText,
+					patternText,
+					strings.Join(matchedPatterns, ", "))
 			}
 		} else {
-			fmt.Printf("  %s %s\n",
-				styles.Render(&styles.Success, "✓"),
-				styles.Render(&styles.Worktree, sanitizedName))
+			logger.ListItemWithNote(sanitizedName, "")
 		}
 	}
 
@@ -656,6 +677,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 		return fmt.Errorf("failed to acquire conversion lock: %w", err)
 	}
 	_ = lockHandle.Close()
+	defer func() { _ = os.Remove(lockFile) }()
 
 	var ignoredFiles []string
 	if branches != "" {
@@ -676,8 +698,6 @@ func Convert(targetDir, branches string, verbose bool) error {
 	var movedFiles []string
 	var createdWorktrees []string
 	conversionSucceeded := false
-
-	defer func() { _ = os.Remove(lockFile) }()
 
 	defer func() {
 		if conversionSucceeded {
