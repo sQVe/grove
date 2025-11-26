@@ -1,0 +1,68 @@
+# Create grove workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+# Use repo-local config (not global) to avoid CI conflicts
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace --branches main,develop
+cd workspace/main
+# Set local git config in worktree too
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Basic list tests
+
+# Test basic list shows branches and status
+exec grove list
+stdout 'main'
+stdout 'develop'
+stdout '\[clean\]'
+
+# Test list with --fast skips status
+exec grove list --fast
+stdout 'main'
+stdout 'develop'
+! stdout '\[clean\]'
+! stdout '\[dirty\]'
+
+# Test list with --json
+exec grove list --json
+stdout '"name":'
+stdout '"main"'
+stdout '"develop"'
+stdout '"path":'
+
+# Test list with --verbose shows path and upstream
+exec grove list --verbose
+stdout 'main'
+stdout 'develop'
+stdout 'workspace/main'
+
+## Dirty detection
+
+# Create uncommitted file
+cp ../../README.md dirty.txt
+exec grove list
+stdout '\[dirty\]'
+
+# Clean up for next test
+rm dirty.txt
+
+## Error handling
+
+# Test not in workspace error
+cd /tmp
+! exec grove list
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test
