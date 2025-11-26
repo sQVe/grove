@@ -51,6 +51,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewCloneCmd())
 	rootCmd.AddCommand(commands.NewConfigCmd())
+	rootCmd.AddCommand(commands.NewListCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.Error("%s", err)
