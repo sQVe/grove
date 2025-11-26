@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/sqve/grove/internal/fs"
@@ -221,8 +222,14 @@ func GetCurrentBranch(path string) (string, error) {
 	if path == "" {
 		return "", errors.New("repository path cannot be empty")
 	}
-	headFile := filepath.Join(path, ".git", "HEAD")
 
+	// Resolve the git directory - handles both regular repos and worktrees
+	gitDir, err := resolveGitDir(path)
+	if err != nil {
+		return "", err
+	}
+
+	headFile := filepath.Join(gitDir, "HEAD")
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
 	if err != nil {
 		return "", err
@@ -235,6 +242,40 @@ func GetCurrentBranch(path string) (string, error) {
 	}
 
 	return "", fmt.Errorf("detached HEAD state")
+}
+
+// resolveGitDir returns the actual git directory for a repository or worktree.
+// In a regular repo, .git is a directory. In a worktree, .git is a file containing
+// "gitdir: <path>" pointing to the actual git directory.
+func resolveGitDir(path string) (string, error) {
+	gitPath := filepath.Join(path, ".git")
+
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return "", err
+	}
+
+	// Regular repo: .git is a directory
+	if info.IsDir() {
+		return gitPath, nil
+	}
+
+	// Worktree: .git is a file with "gitdir: <path>"
+	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
+	if err != nil {
+		return "", err
+	}
+
+	line := strings.TrimSpace(string(content))
+	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
+		// gitdir can be relative or absolute
+		if filepath.IsAbs(after) {
+			return after, nil
+		}
+		return filepath.Join(path, after), nil
+	}
+
+	return "", fmt.Errorf("invalid .git file format")
 }
 
 // GetDefaultBranch returns the default branch for a bare repository
@@ -788,4 +829,43 @@ func GetSyncStatus(path string) *SyncStatus {
 	}
 
 	return status
+}
+
+// ListWorktreesWithInfo returns info for all worktrees in a grove workspace.
+// Results are sorted alphabetically by branch name.
+func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
+	paths, err := ListWorktrees(bareDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var infos []*WorktreeInfo
+	for _, path := range paths {
+		if fast {
+			// Fast mode: only get branch name
+			branch, err := GetCurrentBranch(path)
+			if err != nil {
+				logger.Debug("Skipping worktree %s: %v", path, err)
+				continue
+			}
+			infos = append(infos, &WorktreeInfo{
+				Path:   path,
+				Branch: branch,
+			})
+		} else {
+			info, err := GetWorktreeInfo(path)
+			if err != nil {
+				logger.Debug("Skipping worktree %s: %v", path, err)
+				continue
+			}
+			infos = append(infos, info)
+		}
+	}
+
+	// Sort alphabetically by branch name
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Branch < infos[j].Branch
+	})
+
+	return infos, nil
 }

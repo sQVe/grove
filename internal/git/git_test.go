@@ -13,6 +13,8 @@ import (
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
+const testDefaultBranch = "main"
+
 func TestInitBare(t *testing.T) {
 	tempDir := t.TempDir()
 	bareDir := filepath.Join(tempDir, "test.bare")
@@ -208,8 +210,8 @@ func TestGetCurrentBranch(t *testing.T) {
 			t.Fatalf("GetCurrentBranch failed: %v", err)
 		}
 
-		if branch != "main" {
-			t.Errorf("expected branch 'main', got '%s'", branch)
+		if branch != testDefaultBranch {
+			t.Errorf("expected branch '%s', got '%s'", testDefaultBranch, branch)
 		}
 	})
 
@@ -1009,6 +1011,92 @@ func TestGetWorktreeInfo(t *testing.T) {
 		_, err := GetWorktreeInfo(tempDir)
 		if err == nil {
 			t.Fatal("expected error for detached HEAD")
+		}
+	})
+}
+
+func TestListWorktreesWithInfo(t *testing.T) {
+	t.Run("returns worktree info for repo with worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create a worktree
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		infos, err := ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree, got %d", len(infos))
+		}
+
+		if infos[0].Path != worktreeDir {
+			t.Errorf("expected path %s, got %s", worktreeDir, infos[0].Path)
+		}
+		if infos[0].Branch != "feature" {
+			t.Errorf("expected branch feature, got %s", infos[0].Branch)
+		}
+	})
+
+	t.Run("fast mode skips status checks", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Make worktree dirty
+		_ = os.WriteFile(filepath.Join(worktreeDir, "dirty.txt"), []byte("dirty"), fs.FileStrict)
+
+		infos, err := ListWorktreesWithInfo(repo.Path, true)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree, got %d", len(infos))
+		}
+
+		// In fast mode, dirty should not be checked (stays false)
+		if infos[0].Dirty {
+			t.Error("in fast mode, Dirty should be false (not checked)")
+		}
+	})
+
+	t.Run("results are sorted alphabetically", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create worktrees in unsorted order
+		cmd := exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "zebra-wt"), "-b", "zebra") // nolint:gosec // Test
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "alpha-wt"), "-b", "alpha") // nolint:gosec // Test
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "mid-wt"), "-b", "mid") // nolint:gosec // Test
+		cmd.Dir = repo.Path
+		_ = cmd.Run()
+
+		infos, _ := ListWorktreesWithInfo(repo.Path, true)
+
+		if len(infos) != 3 {
+			t.Fatalf("expected 3 worktrees, got %d", len(infos))
+		}
+
+		expected := []string{"alpha", "mid", "zebra"}
+		for i, exp := range expected {
+			if infos[i].Branch != exp {
+				t.Errorf("at index %d: expected branch %s, got %s", i, exp, infos[i].Branch)
+			}
 		}
 	})
 }
