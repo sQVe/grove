@@ -153,3 +153,77 @@ func TestInfoAndWarning(t *testing.T) {
 		}
 	})
 }
+
+func TestWorktreeListItem(t *testing.T) {
+	t.Run("formats current worktree with bullet in plain mode", func(t *testing.T) {
+		config.Global.Plain = true
+		defer func() { config.Global.Plain = false }()
+
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		WorktreeListItem("main", true, "[clean]", "=")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+
+		if !strings.Contains(output, "* main") {
+			t.Errorf("expected '* main' in output, got: %s", output)
+		}
+		if !strings.Contains(output, "[clean]") {
+			t.Errorf("expected '[clean]' in output, got: %s", output)
+		}
+	})
+
+	t.Run("formats non-current worktree without bullet in plain mode", func(t *testing.T) {
+		config.Global.Plain = true
+		defer func() { config.Global.Plain = false }()
+
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		WorktreeListItem("feature", false, "[dirty]", "↑2")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+
+		if strings.Contains(output, "*") {
+			t.Errorf("non-current worktree should not have '*', got: %s", output)
+		}
+		if !strings.Contains(output, "feature") {
+			t.Errorf("expected 'feature' in output, got: %s", output)
+		}
+	})
+
+	t.Run("formats current worktree with unicode bullet in colored mode", func(t *testing.T) {
+		config.Global.Plain = false
+		t.Setenv("GROVE_TEST_COLORS", "true")
+
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		WorktreeListItem("main", true, "[clean]", "=")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+
+		if !strings.Contains(output, "●") {
+			t.Errorf("expected '●' bullet in colored output, got: %s", output)
+		}
+	})
+}

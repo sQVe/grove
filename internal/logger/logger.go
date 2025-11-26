@@ -109,6 +109,31 @@ func ListSubItem(format string, args ...any) {
 	}
 }
 
+// WorktreeListItem prints a worktree entry in list format
+func WorktreeListItem(name string, current bool, status, syncStatus string) {
+	marker := " "
+	if current {
+		marker = "*"
+	}
+
+	if config.IsPlain() {
+		fmt.Printf("%s %-20s %s %s\n", marker, name, status, syncStatus)
+	} else {
+		markerStyled := " "
+		if current {
+			markerStyled = styles.Render(&styles.Success, "●")
+		}
+		nameStyled := styles.Render(&styles.Worktree, name)
+		var statusStyled string
+		if status == "[dirty]" {
+			statusStyled = styles.Render(&styles.Warning, status)
+		} else {
+			statusStyled = styles.Render(&styles.Dimmed, status)
+		}
+		fmt.Printf("%s %-20s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus)
+	}
+}
+
 // StartSpinner starts a spinner with a message and returns a stop function
 func StartSpinner(message string) func() {
 	if config.IsPlain() {
