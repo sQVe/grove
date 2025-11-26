@@ -10,7 +10,7 @@
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
-| list    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| list    |   [x]    |   [x]   |   [x]   |  [x]   |
 | prune   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
@@ -177,10 +177,10 @@
 
 | Command          | Features                                        | Status |
 | ---------------- | ----------------------------------------------- | :----: |
-| `list`           | Show all worktrees with status by default       |  [ ]   |
-| `list --fast`    | Skip sync status for faster output              |  [ ]   |
-| `list --json`    | Machine-readable output for tooling integration |  [ ]   |
-| `list --verbose` | Show extra details (paths, upstream names)      |  [ ]   |
+| `list`           | Show all worktrees with status by default       |  [x]   |
+| `list --fast`    | Skip sync status for faster output              |  [x]   |
+| `list --json`    | Machine-readable output for tooling integration |  [x]   |
+| `list --verbose` | Show extra details (paths, upstream names)      |  [x]   |
 
 **Default output format:**
 
