@@ -1,0 +1,135 @@
+# Setup: Create source repository with branches
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature-to-delete
+exec git checkout -b feature-dirty
+exec git checkout main
+cd ..
+
+# Create grove workspace with --branches to set up tracking
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace --branches main,feature-to-delete,feature-dirty
+
+# Configure bare repo to have proper remote tracking refs
+# By default, bare clone maps refs/heads/* directly, we need origin/* refs
+cd $WORK/workspace/.bare
+exec git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+exec git fetch origin
+
+# Configure git user and set up upstream tracking for each worktree
+cd $WORK/workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/main main
+
+cd $WORK/workspace/feature-to-delete
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/feature-to-delete feature-to-delete
+
+cd $WORK/workspace/feature-dirty
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/feature-dirty feature-dirty
+
+## Test: No stale worktrees initially
+cd $WORK/workspace/main
+exec grove prune
+stdout 'No stale worktrees found'
+
+## Test: Detect gone worktree after remote branch deleted
+# Delete branch on "remote" (source repo)
+exec git -C $WORK/testrepo branch -D feature-to-delete
+
+# Run prune - should detect gone worktree after fetching
+exec grove prune
+stdout 'Stale worktrees'
+stdout 'feature-to-delete'
+stdout '\[clean\]'
+stdout 'Run with --commit to remove'
+
+# Worktree should still exist (dry-run)
+exists $WORK/workspace/feature-to-delete
+
+## Test: --commit removes worktree
+exec grove prune --commit
+stdout 'Removing stale worktrees'
+stdout 'Removed feature-to-delete'
+stdout 'Removed 1 worktree'
+
+# Worktree should be gone now
+! exists $WORK/workspace/feature-to-delete
+
+## Test: Dirty worktree skipped
+# Make feature-dirty worktree dirty
+cp $WORK/README.md $WORK/workspace/feature-dirty/dirty.txt
+
+# Delete branch on "remote"
+exec git -C $WORK/testrepo branch -D feature-dirty
+
+# Prune should show it as dirty
+exec grove prune
+stdout 'feature-dirty'
+stdout '\[dirty\]'
+
+# --commit should skip dirty worktree
+exec grove prune --commit
+stdout 'Skipped feature-dirty'
+stdout 'dirty, use --force'
+
+# Worktree should still exist
+exists $WORK/workspace/feature-dirty
+
+## Test: --force removes dirty worktree
+exec grove prune --commit --force
+stdout 'Removed feature-dirty'
+
+# Worktree should be gone now
+! exists $WORK/workspace/feature-dirty
+
+## Test: Current worktree protected
+# Create new branch on remote and then create worktree for it
+exec git -C $WORK/testrepo checkout -b feature-current
+exec git -C $WORK/testrepo checkout main
+
+# Fetch the new branch and create a worktree
+cd $WORK/workspace/.bare
+exec git fetch origin
+cd $WORK/workspace/main
+exec grove create feature-current
+
+cd $WORK/workspace/feature-current
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/feature-current feature-current
+
+# Delete branch on "remote"
+exec git -C $WORK/testrepo branch -D feature-current
+
+# Prune from inside the worktree should show it as current
+exec grove prune
+stdout 'feature-current'
+stdout '\(current\)'
+
+# --commit should skip current worktree
+exec grove prune --commit
+stdout 'Skipped feature-current'
+stdout 'current worktree'
+
+# Worktree should still exist
+exists $WORK/workspace/feature-current
+
+## Test: Error not in workspace
+cd /tmp
+! exec grove prune
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test
