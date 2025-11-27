@@ -151,6 +151,13 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 		return false // Keep alphabetical order from ListWorktreesWithInfo
 	})
 
+	maxNameLen := 0
+	for _, info := range infos {
+		if len(info.Branch) > maxNameLen {
+			maxNameLen = len(info.Branch)
+		}
+	}
+
 	for _, info := range infos {
 		isCurrent := info.Branch == currentBranch
 
@@ -165,7 +172,7 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 			syncStatus = formatSyncStatus(info, config.IsPlain())
 		}
 
-		logger.WorktreeListItem(info.Branch, isCurrent, status, syncStatus)
+		logger.WorktreeListItem(info.Branch, isCurrent, status, syncStatus, maxNameLen)
 
 		if verbose {
 			logger.ListSubItem("%s", info.Path)
