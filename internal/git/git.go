@@ -93,6 +93,14 @@ func Clone(url, path string, quiet bool) error {
 	return runGitCommand(cmd, quiet)
 }
 
+// FetchPrune runs git fetch --prune to update remote tracking refs and remove stale ones
+func FetchPrune(repoPath string) error {
+	logger.Debug("Executing: git fetch --prune in %s", repoPath)
+	cmd := exec.Command("git", "fetch", "--prune")
+	cmd.Dir = repoPath
+	return runGitCommand(cmd, true)
+}
+
 // ListBranches returns a list of all branches in a bare repository
 func ListBranches(bareRepo string) ([]string, error) {
 	logger.Debug("Executing: git branch -a --format=%%(refname:short) in %s", bareRepo)
@@ -192,6 +200,31 @@ func IsInsideGitRepo(path string) bool {
 func IsWorktree(path string) bool {
 	gitPath := filepath.Join(path, ".git")
 	return fs.FileExists(gitPath)
+}
+
+// IsWorktreeLocked checks if a worktree is locked.
+// Locked worktrees have a worktrees/<name>/locked file inside the git directory.
+func IsWorktreeLocked(repoPath, worktreeName string) bool {
+	lockFile := filepath.Join(repoPath, "worktrees", worktreeName, "locked")
+	if _, err := os.Stat(lockFile); err == nil {
+		return true
+	}
+
+	lockFile = filepath.Join(repoPath, ".git", "worktrees", worktreeName, "locked")
+	_, err := os.Stat(lockFile)
+	return err == nil
+}
+
+// RemoveWorktree removes a worktree directory
+func RemoveWorktree(bareDir, worktreePath string, force bool) error {
+	args := []string{"worktree", "remove", worktreePath}
+	if force {
+		args = append(args, "--force")
+	}
+	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
+	cmd := exec.Command("git", args...) // nolint:gosec // Worktree path comes from git worktree list
+	cmd.Dir = bareDir
+	return runGitCommand(cmd, true)
 }
 
 // CheckGitChanges runs git status once and returns both tracked and any changes
@@ -759,6 +792,7 @@ type WorktreeInfo struct {
 	Behind     int    // Commits behind upstream
 	Gone       bool   // Upstream branch deleted
 	NoUpstream bool   // No upstream configured
+	Locked     bool   // Worktree is locked
 }
 
 // GetWorktreeInfo returns status information for a worktree
@@ -808,30 +842,43 @@ type SyncStatus struct {
 func GetSyncStatus(path string) *SyncStatus {
 	status := &SyncStatus{}
 
-	// Check if upstream is configured and get its name
-	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-	cmdUpstream.Dir = path
-	var upstreamOut bytes.Buffer
-	cmdUpstream.Stdout = &upstreamOut
-
-	if cmdUpstream.Run() != nil {
-		// No upstream configured - this is an expected condition
+	branch, err := GetCurrentBranch(path)
+	if err != nil {
 		status.NoUpstream = true
 		return status
 	}
-	status.Upstream = strings.TrimSpace(upstreamOut.String())
 
-	// Check if upstream still exists (gone detection)
-	cmdCheck := exec.Command("git", "rev-parse", "@{u}")
+	cmdRemote := exec.Command("git", "config", "--get", fmt.Sprintf("branch.%s.remote", branch)) // nolint:gosec // Branch name from GetCurrentBranch
+	cmdRemote.Dir = path
+	var remoteOut bytes.Buffer
+	cmdRemote.Stdout = &remoteOut
+	if cmdRemote.Run() != nil {
+		status.NoUpstream = true
+		return status
+	}
+	remote := strings.TrimSpace(remoteOut.String())
+
+	cmdMerge := exec.Command("git", "config", "--get", fmt.Sprintf("branch.%s.merge", branch)) // nolint:gosec // Branch name from GetCurrentBranch
+	cmdMerge.Dir = path
+	var mergeOut bytes.Buffer
+	cmdMerge.Stdout = &mergeOut
+	if cmdMerge.Run() != nil {
+		status.NoUpstream = true
+		return status
+	}
+	mergeRef := strings.TrimSpace(mergeOut.String())
+
+	upstreamBranch := strings.TrimPrefix(mergeRef, "refs/heads/")
+	status.Upstream = fmt.Sprintf("%s/%s", remote, upstreamBranch)
+
+	cmdCheck := exec.Command("git", "rev-parse", "--verify", fmt.Sprintf("refs/remotes/%s", status.Upstream)) // nolint:gosec // Upstream from git config
 	cmdCheck.Dir = path
 	if cmdCheck.Run() != nil {
-		// Upstream is gone - this is an expected condition
 		status.Gone = true
 		return status
 	}
 
-	// Get ahead count
-	cmdAhead := exec.Command("git", "rev-list", "--count", "@{u}..HEAD")
+	cmdAhead := exec.Command("git", "rev-list", "--count", fmt.Sprintf("%s..HEAD", status.Upstream)) // nolint:gosec // Upstream from git config
 	cmdAhead.Dir = path
 	var aheadOut bytes.Buffer
 	cmdAhead.Stdout = &aheadOut
@@ -839,8 +886,7 @@ func GetSyncStatus(path string) *SyncStatus {
 		_, _ = fmt.Sscanf(strings.TrimSpace(aheadOut.String()), "%d", &status.Ahead)
 	}
 
-	// Get behind count
-	cmdBehind := exec.Command("git", "rev-list", "--count", "HEAD..@{u}")
+	cmdBehind := exec.Command("git", "rev-list", "--count", fmt.Sprintf("HEAD..%s", status.Upstream)) // nolint:gosec // Upstream from git config
 	cmdBehind.Dir = path
 	var behindOut bytes.Buffer
 	cmdBehind.Stdout = &behindOut
@@ -861,25 +907,30 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 
 	var infos []*WorktreeInfo
 	for _, path := range paths {
+		var info *WorktreeInfo
 		if fast {
-			// Fast mode: only get branch name
 			branch, err := GetCurrentBranch(path)
 			if err != nil {
 				logger.Debug("Skipping worktree %s: %v", path, err)
 				continue
 			}
-			infos = append(infos, &WorktreeInfo{
+			info = &WorktreeInfo{
 				Path:   path,
 				Branch: branch,
-			})
+			}
 		} else {
-			info, err := GetWorktreeInfo(path)
+			var err error
+			info, err = GetWorktreeInfo(path)
 			if err != nil {
 				logger.Debug("Skipping worktree %s: %v", path, err)
 				continue
 			}
-			infos = append(infos, info)
 		}
+
+		worktreeName := filepath.Base(path)
+		info.Locked = IsWorktreeLocked(bareDir, worktreeName)
+
+		infos = append(infos, info)
 	}
 
 	// Sort alphabetically by branch name

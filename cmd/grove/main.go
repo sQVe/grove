@@ -53,6 +53,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewConfigCmd())
 	rootCmd.AddCommand(commands.NewCreateCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
+	rootCmd.AddCommand(commands.NewPruneCmd())
 	rootCmd.AddCommand(commands.NewSwitchCmd())
 
 	if err := rootCmd.Execute(); err != nil {

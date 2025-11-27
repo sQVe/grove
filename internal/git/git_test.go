@@ -1099,6 +1099,45 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("populates Locked field for locked worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		infos, err := ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree, got %d", len(infos))
+		}
+		if infos[0].Locked {
+			t.Error("expected Locked to be false for unlocked worktree")
+		}
+
+		cmd = exec.Command("git", "worktree", "lock", worktreeDir) // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to lock worktree: %v", err)
+		}
+
+		infos, err = ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree, got %d", len(infos))
+		}
+		if !infos[0].Locked {
+			t.Error("expected Locked to be true for locked worktree")
+		}
+	})
 }
 
 func TestCreateWorktreeWithNewBranch(t *testing.T) {
@@ -1311,6 +1350,278 @@ func TestGetSyncStatus(t *testing.T) {
 		}
 		if status.Behind != 1 {
 			t.Errorf("expected 1 commit behind, got %d", status.Behind)
+		}
+	})
+}
+
+func TestFetchPrune(t *testing.T) {
+	t.Run("fetches and prunes stale remote refs", func(t *testing.T) {
+		t.Parallel()
+
+		remoteDir := t.TempDir()
+		remoteRepo := filepath.Join(remoteDir, "remote.git")
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		repo := testgit.NewTestRepo(t)
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd = exec.Command("git", "checkout", "-b", "feature-to-delete")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "feature-to-delete")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd = exec.Command("git", "checkout", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd = exec.Command("git", "branch", "-r")
+		cmd.Dir = repo.Path
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "origin/feature-to-delete") {
+			t.Fatal("expected origin/feature-to-delete to exist before prune")
+		}
+
+		cmd = exec.Command("git", "branch", "-D", "feature-to-delete")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := FetchPrune(repo.Path); err != nil {
+			t.Fatalf("FetchPrune failed: %v", err)
+		}
+
+		cmd = exec.Command("git", "branch", "-r")
+		cmd.Dir = repo.Path
+		out.Reset()
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.String(), "origin/feature-to-delete") {
+			t.Error("expected origin/feature-to-delete to be pruned, but it still exists")
+		}
+	})
+
+	t.Run("returns error for non-git directory", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		err := FetchPrune(tempDir)
+		if err == nil {
+			t.Fatal("expected error for non-git directory")
+		}
+	})
+}
+
+func TestIsWorktreeLocked(t *testing.T) {
+	t.Run("returns false for unlocked worktree", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreesDir := filepath.Join(bareDir, "worktrees", "feature")
+		if err := os.MkdirAll(worktreesDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		if IsWorktreeLocked(bareDir, "feature") {
+			t.Error("expected unlocked worktree to return false")
+		}
+	})
+
+	t.Run("returns true for locked worktree", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreesDir := filepath.Join(bareDir, "worktrees", "feature")
+		if err := os.MkdirAll(worktreesDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		lockFile := filepath.Join(worktreesDir, "locked")
+		if err := os.WriteFile(lockFile, []byte("locked by test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		if !IsWorktreeLocked(bareDir, "feature") {
+			t.Error("expected locked worktree to return true")
+		}
+	})
+
+	t.Run("returns false for non-existent worktree", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		if IsWorktreeLocked(bareDir, "nonexistent") {
+			t.Error("expected non-existent worktree to return false")
+		}
+	})
+}
+
+func TestRemoveWorktree(t *testing.T) {
+	t.Run("removes clean worktree", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreePath := filepath.Join(tempDir, "feature")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+			t.Fatal("worktree should exist before removal")
+		}
+
+		if err := RemoveWorktree(bareDir, worktreePath, false); err != nil {
+			t.Fatalf("RemoveWorktree failed: %v", err)
+		}
+
+		if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+			t.Error("worktree should not exist after removal")
+		}
+	})
+
+	t.Run("fails for dirty worktree without force", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreePath := filepath.Join(tempDir, "feature")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		dirtyFile := filepath.Join(worktreePath, "untracked.txt")
+		if err := os.WriteFile(dirtyFile, []byte("dirty"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		err := RemoveWorktree(bareDir, worktreePath, false)
+		if err == nil {
+			t.Fatal("expected error when removing dirty worktree without force")
+		}
+
+		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+			t.Error("worktree should still exist after failed removal")
+		}
+	})
+
+	t.Run("removes dirty worktree with force", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreePath := filepath.Join(tempDir, "feature")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		dirtyFile := filepath.Join(worktreePath, "untracked.txt")
+		if err := os.WriteFile(dirtyFile, []byte("dirty"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := RemoveWorktree(bareDir, worktreePath, true); err != nil {
+			t.Fatalf("RemoveWorktree with force failed: %v", err)
+		}
+
+		if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+			t.Error("worktree should not exist after forced removal")
+		}
+	})
+
+	t.Run("returns error for non-existent worktree", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		err := RemoveWorktree(bareDir, "/nonexistent/path", false)
+		if err == nil {
+			t.Fatal("expected error for non-existent worktree")
 		}
 	})
 }
