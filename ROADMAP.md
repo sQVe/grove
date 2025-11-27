@@ -151,7 +151,6 @@
 | `create <branch>`    | Preserve configured files from source         |  [x]   |
 | `create <branch>`    | Run configured hooks after creation           |  [x]   |
 | `create -s <branch>` | Switch to worktree after creation             |  [x]   |
-| `create --no-hooks`  | Skip running create hooks                     |  [x]   |
 
 ### `status`
 

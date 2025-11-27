@@ -31,14 +31,6 @@ func TestNewCreateCmd_HasSwitchFlag(t *testing.T) {
 	}
 }
 
-func TestNewCreateCmd_HasNoHooksFlag(t *testing.T) {
-	cmd := NewCreateCmd()
-	flag := cmd.Flags().Lookup("no-hooks")
-	if flag == nil {
-		t.Fatal("expected --no-hooks flag to exist")
-	}
-}
-
 func TestRunCreate_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -51,7 +43,7 @@ func TestRunCreate_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runCreate("feature-test", false, false)
+	err = runCreate("feature-test", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}

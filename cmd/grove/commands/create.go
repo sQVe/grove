@@ -31,19 +31,17 @@ Examples:
 		ValidArgsFunction: completeCreateArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			noHooks, _ := cmd.Flags().GetBool("no-hooks")
-			return runCreate(args[0], switchTo, noHooks)
+			return runCreate(args[0], switchTo)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
-	cmd.Flags().Bool("no-hooks", false, "Skip running create hooks")
 	cmd.Flags().BoolP("help", "h", false, "Help for create")
 
 	return cmd
 }
 
-func runCreate(branch string, switchTo, noHooks bool) error {
+func runCreate(branch string, switchTo bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -89,11 +87,7 @@ func runCreate(branch string, switchTo, noHooks bool) error {
 	}
 
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-
-	var hookResult *hooks.RunResult
-	if !noHooks {
-		hookResult = runCreateHooks(sourceWorktree, worktreePath)
-	}
+	hookResult := runCreateHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
 		fmt.Println(worktreePath) // Path for shell wrapper to cd into
