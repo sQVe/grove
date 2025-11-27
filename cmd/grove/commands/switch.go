@@ -15,8 +15,8 @@ var ErrWorktreeNotFound = errors.New("worktree not found")
 
 func NewSwitchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "switch <branch>",
-		Short:             "Switch to a worktree",
+		Use:   "switch <branch>",
+		Short: "Switch to a worktree",
 		Long: `Output the path to a worktree for the given branch.
 
 Setup shell integration for seamless directory switching:
@@ -39,10 +39,11 @@ Then use 'grove switch <branch>' to switch between worktrees.`,
 
 func newShellInitCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "shell-init",
-		Short: "Output shell function for directory switching",
-		Long:  `Output a shell function that wraps grove to enable seamless directory changes with 'grove switch'. Add to your shell config with: eval "$(grove switch shell-init)"`,
-		Args:  cobra.NoArgs,
+		Use:    "shell-init",
+		Short:  "Output shell function for directory switching",
+		Long:   `Output a shell function that wraps grove to enable seamless directory changes with 'grove switch'. Add to your shell config with: eval "$(grove switch shell-init)"`,
+		Hidden: true,
+		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shellFunc := `# Grove shell integration
 # Wraps grove to enable 'grove switch' to change directories
