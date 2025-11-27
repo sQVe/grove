@@ -21,8 +21,8 @@ func TestValidateConfigKey(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "valid grove.convert.preserve key",
-			key:   "grove.convert.preserve",
+			name:  "valid grove.preserve key",
+			key:   "grove.preserve",
 			valid: true,
 		},
 		{
@@ -145,8 +145,8 @@ func TestIsMultiValueKey(t *testing.T) {
 		multiValue bool
 	}{
 		{
-			name:       "grove.convert.preserve is multi-value",
-			key:        "grove.convert.preserve",
+			name:       "grove.preserve is multi-value",
+			key:        "grove.preserve",
 			multiValue: true,
 		},
 		{
@@ -161,7 +161,7 @@ func TestIsMultiValueKey(t *testing.T) {
 		},
 		{
 			name:       "case insensitive multi-value",
-			key:        "Grove.Convert.Preserve",
+			key:        "Grove.Preserve",
 			multiValue: true,
 		},
 	}
@@ -184,17 +184,17 @@ func TestGetConfigCompletions(t *testing.T) {
 		{
 			name:       "empty completion shows all keys",
 			toComplete: "",
-			want:       []string{"grove.plain", "grove.debug", "grove.convert.preserve"},
+			want:       []string{"grove.plain", "grove.debug", "grove.preserve"},
 		},
 		{
-			name:       "partial grove completion",
+			name:       "partial grove.p completion",
 			toComplete: "grove.p",
-			want:       []string{"grove.plain"},
+			want:       []string{"grove.plain", "grove.preserve"},
 		},
 		{
-			name:       "partial grove.c completion",
-			toComplete: "grove.c",
-			want:       []string{"grove.convert.preserve"},
+			name:       "partial grove.d completion",
+			toComplete: "grove.d",
+			want:       []string{"grove.debug"},
 		},
 	}
 
