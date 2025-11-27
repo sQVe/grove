@@ -3,8 +3,10 @@ package commands
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -29,6 +31,14 @@ func TestNewCreateCmd_HasSwitchFlag(t *testing.T) {
 	}
 }
 
+func TestNewCreateCmd_HasNoHooksFlag(t *testing.T) {
+	cmd := NewCreateCmd()
+	flag := cmd.Flags().Lookup("no-hooks")
+	if flag == nil {
+		t.Fatal("expected --no-hooks flag to exist")
+	}
+}
+
 func TestRunCreate_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -41,7 +51,7 @@ func TestRunCreate_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runCreate("feature-test", false)
+	err = runCreate("feature-test", false, false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -67,4 +77,69 @@ func TestSanitizeBranchName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFindSourceWorktree(t *testing.T) {
+	t.Run("returns empty at workspace root", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+
+		result := findSourceWorktree(workspaceRoot, workspaceRoot)
+		if result != "" {
+			t.Errorf("expected empty string at workspace root, got %q", result)
+		}
+	})
+
+	t.Run("returns worktree path when in worktree", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+
+		// Create a fake worktree directory with .git file
+		worktreeDir := filepath.Join(workspaceRoot, "main")
+		if err := os.MkdirAll(worktreeDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		gitFile := filepath.Join(worktreeDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: ../.bare"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result := findSourceWorktree(worktreeDir, workspaceRoot)
+		if result != worktreeDir {
+			t.Errorf("expected %q, got %q", worktreeDir, result)
+		}
+	})
+
+	t.Run("returns worktree from subdirectory", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+
+		// Create worktree with subdirectory
+		worktreeDir := filepath.Join(workspaceRoot, "main")
+		subDir := filepath.Join(worktreeDir, "src", "pkg")
+		if err := os.MkdirAll(subDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		gitFile := filepath.Join(worktreeDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: ../.bare"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result := findSourceWorktree(subDir, workspaceRoot)
+		if result != worktreeDir {
+			t.Errorf("expected %q, got %q", worktreeDir, result)
+		}
+	})
+
+	t.Run("returns empty when not in worktree", func(t *testing.T) {
+		workspaceRoot := t.TempDir()
+
+		// Create a directory that's not a worktree
+		otherDir := filepath.Join(workspaceRoot, "other")
+		if err := os.MkdirAll(otherDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result := findSourceWorktree(otherDir, workspaceRoot)
+		if result != "" {
+			t.Errorf("expected empty string, got %q", result)
+		}
+	})
 }
