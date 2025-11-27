@@ -149,12 +149,13 @@
 
 ### `create`
 
-| Command           | Features                                      | Status |
-| ----------------- | --------------------------------------------- | :----: |
-| `create <branch>` | Create worktree for existing branch           |  [x]   |
-| `create <branch>` | Create worktree with new branch if not exists |  [x]   |
-| `create <branch>` | Provide completions for branch names          |  [x]   |
-| `create <branch>` | Sanitize branch name for directory name       |  [x]   |
+| Command              | Features                                      | Status |
+| -------------------- | --------------------------------------------- | :----: |
+| `create <branch>`    | Create worktree for existing branch           |  [x]   |
+| `create <branch>`    | Create worktree with new branch if not exists |  [x]   |
+| `create <branch>`    | Provide completions for branch names          |  [x]   |
+| `create <branch>`    | Sanitize branch name for directory name       |  [x]   |
+| `create -s <branch>` | Switch to worktree after creation             |  [x]   |
 
 ### `status`
 
