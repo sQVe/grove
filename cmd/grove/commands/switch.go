@@ -17,7 +17,12 @@ func NewSwitchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "switch <branch>",
 		Short:             "Switch to a worktree",
-		Long:              `Output the path to a worktree for the given branch. Use with the gw shell function for seamless directory switching.`,
+		Long: `Output the path to a worktree for the given branch.
+
+Setup shell integration for seamless directory switching:
+  eval "$(grove switch shell-init)"
+
+Then use 'grove switch <branch>' to switch between worktrees.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeSwitchArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
