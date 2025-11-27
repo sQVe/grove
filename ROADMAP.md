@@ -14,7 +14,7 @@
 | prune   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
-| switch  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| switch  |   [x]    |   [x]   |   [x]   |  [x]   |
 
 ## Commands
 
@@ -141,9 +141,11 @@
 
 ### `switch`
 
-| Command           | Features                               | Status |
-| ----------------- | -------------------------------------- | :----: |
-| `switch <branch>` | Switch to existing worktree for branch |  [ ]   |
+| Command             | Features                                    | Status |
+| ------------------- | ------------------------------------------- | :----: |
+| `switch <branch>`   | Output path to worktree for branch          |  [x]   |
+| `switch <branch>`   | Provide completions for worktree names      |  [x]   |
+| `switch shell-init` | Output shell function for directory changes |  [x]   |
 
 ### `status`
 
