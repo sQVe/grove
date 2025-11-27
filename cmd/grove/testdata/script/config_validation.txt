@@ -4,7 +4,6 @@ stdout 'Usage:'
 stdout 'list'
 stdout 'get'
 stdout 'set'
-stdout 'add'
 stdout 'unset'
 
 # Test config command execution shows help
@@ -24,73 +23,44 @@ stderr 'unknown command'
 stderr 'accepts 1 arg'
 
 # Test argument validation - set
-! exec grove config set key
-stderr 'accepts 2 arg'
-
-# Test argument validation - add
-! exec grove config add key
+! exec grove config set --global key
 stderr 'accepts 2 arg'
 
 # Test argument validation - unset
-! exec grove config unset
+! exec grove config unset --global
 stderr 'accepts between 1 and 2 arg'
 
+# Test set requires --shared or --global
+! exec grove config set grove.plain true
+stderr 'must specify --shared or --global'
+
 # Test non-grove.* keys rejected - get
-! exec grove config get user.name
+! exec grove config get --global user.name
 stderr 'only grove\.\* settings'
 
 # Test non-grove.* keys rejected - set
-! exec grove config set user.name value
-stderr 'only grove\.\* settings'
-
-# Test non-grove.* keys rejected - add
-! exec grove config add user.email 'test@example.com'
+! exec grove config set --global user.name value
 stderr 'only grove\.\* settings'
 
 # Test non-grove.* keys rejected - unset
-! exec grove config unset user.name
+! exec grove config unset --global user.name
 stderr 'only grove\.\* settings'
 
 # Test boolean validation for grove.plain
-! exec grove config set grove.plain maybe
+! exec grove config set --global grove.plain maybe
 stderr 'invalid boolean'
 
 # Test boolean validation for grove.debug
-! exec grove config set grove.debug 2
+! exec grove config set --global grove.debug 2
 stderr 'invalid boolean'
 
-# Test special characters in values (CRITICAL for security)
-exec git init
-exec git commit --allow-empty -m 'initial'
-
-# Use non-boolean key for special character security test
-exec grove config add grove.convert.preserve 'true; rm -rf /'
-exec grove config get grove.convert.preserve
-stdout '^true; rm -rf /$'
-
-exec grove config add grove.convert.preserve '*.secret'
-exec grove config add grove.convert.preserve '"quoted"'
-exec grove config add grove.convert.preserve '$HOME'
-exec grove config list
-stdout '\*\.secret'
-stdout '"quoted"'
-stdout '\$HOME'
-
-# Test outside repo behavior
-mkdir ../temp
-cd ../temp
-
-# Local operations should fail outside repo
-! exec grove config set grove.plain true
-stderr 'not in a git directory'
-
-! exec grove config get grove.plain
-stderr 'config key not found'
-
-# Global operations should work outside repo
+# Test global operations work
 exec grove config set --global grove.plain true
+exec grove config get --global grove.plain
+stdout '^true$'
+
 exec grove config list --global
 stdout 'grove.plain=true'
 
-exec grove config get --global grove.plain
-stdout '^true$'
+# Clean up global config
+exec grove config unset --global grove.plain

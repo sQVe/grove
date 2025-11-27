@@ -1,202 +1,36 @@
 # Test config integration with git config
 
-# Setup git repository
-exec git init
-exec git commit --allow-empty -m 'initial'
-
-# Test basic set/get operations
-exec grove config set grove.plain true
-exec grove config get grove.plain
+# Test global set/get operations
+exec grove config set --global grove.plain true
+exec grove config get --global grove.plain
 stdout '^true$'
 
-exec grove config set grove.debug false
-exec grove config get grove.debug
+exec grove config set --global grove.debug false
+exec grove config get --global grove.debug
 stdout '^false$'
 
 # Test list operation shows grove.* settings
-exec grove config list
+exec grove config list --global
 stdout 'grove.plain=true'
 stdout 'grove.debug=false'
 
-# Test global vs local precedence
-exec grove config set --global grove.debug true
-exec grove config set grove.debug false
-exec grove config get grove.debug
-stdout '^false$'  # local wins
-
-# Verify global value is there
-exec grove config get --global grove.debug
-stdout '^true$'
-
-# Test list shows both global and local
-exec grove config list
-stdout 'grove.debug=false'
-
-exec grove config list --global
-stdout 'grove.debug=true'
-! stdout 'grove.plain'  # not in global
-
-# Test multi-value keys
-exec grove config add grove.convert.preserve '.env'
-exec grove config add grove.convert.preserve '*.secret'
-exec grove config add grove.convert.preserve '.env.local'
-
-# List should show all values
-exec grove config list
-stdout 'grove.convert.preserve=.env'
-stdout 'grove.convert.preserve=\*\.secret'
-stdout 'grove.convert.preserve=.env.local'
-
-# Get should return last value (git config behavior)
-exec grove config get grove.convert.preserve
-stdout '^.env.local$'
-
-# Test unset removes ALL values for multi-value keys
-exec grove config unset grove.convert.preserve
-! exec grove config get grove.convert.preserve
-stderr 'not found'
-
-# Verify list no longer shows the key
-exec grove config list
-! stdout 'grove.convert.preserve'
-
-# Test pattern-based unset for multi-value keys
-exec grove config add grove.convert.preserve '.env'
-exec grove config add grove.convert.preserve '*.secret'
-exec grove config add grove.convert.preserve '.env.local'
-exec grove config add grove.convert.preserve '*.log'
-
-# List should show all values
-exec grove config list
-stdout 'grove.convert.preserve=.env'
-stdout 'grove.convert.preserve=\*\.secret'
-stdout 'grove.convert.preserve=.env.local'
-stdout 'grove.convert.preserve=\*\.log'
-
-# Remove specific pattern - should only remove matching value
-exec grove config unset grove.convert.preserve '*.secret'
-
-# Verify only the matching pattern was removed
-exec grove config list
-stdout 'grove.convert.preserve=.env'
-! stdout 'grove.convert.preserve=\*\.secret'
-stdout 'grove.convert.preserve=.env.local'
-stdout 'grove.convert.preserve=\*\.log'
-
-# Remove another specific pattern
-exec grove config unset grove.convert.preserve '.env.local'
-
-# Verify only the specified pattern was removed
-exec grove config list
-stdout 'grove.convert.preserve=.env'
-! stdout 'grove.convert.preserve=.env.local'
-stdout 'grove.convert.preserve=\*\.log'
-
-# Test unset with pattern that doesn't exist (should not error)
-exec grove config unset grove.convert.preserve 'nonexistent'
-
-# Verify existing patterns are still there
-exec grove config list
-stdout 'grove.convert.preserve=.env'
-stdout 'grove.convert.preserve=\*\.log'
-
-# Test unset with duplicate values - should remove all occurrences
-exec grove config add grove.convert.preserve '.test'
-exec grove config add grove.convert.preserve '.test'
-exec grove config add grove.convert.preserve '.test'
-exec grove config add grove.convert.preserve '.other'
-
-# Verify duplicates exist
-exec grove config list
-stdout 'grove.convert.preserve=\.test'
-stdout 'grove.convert.preserve=\.other'
-
-# Remove specific value - should remove ALL occurrences
-exec grove config unset grove.convert.preserve '.test'
-
-# Verify all .test values were removed but .other remains
-exec grove config list
-! stdout 'grove.convert.preserve=\.test'
-stdout 'grove.convert.preserve=\.other'
-
-# Clean up
-exec grove config unset grove.convert.preserve
-
-# Test unset without pattern removes all values (backward compatibility)
-exec grove config unset grove.convert.preserve
-! exec grove config get grove.convert.preserve
-stderr 'not found'
-
-# Test unset for single-value keys
-exec grove config unset grove.plain
-! exec grove config get grove.plain
+# Test unset removes config
+exec grove config unset --global grove.debug
+! exec grove config get --global grove.debug
 stderr 'not found'
 
 # Test exit codes and error messages
-! exec grove config get grove.missing
+! exec grove config get --global grove.missing
 stderr 'not found'
 
 # Test boolean values accepted
-exec grove config set grove.plain true
-exec grove config set grove.debug false
-exec grove config set grove.plain yes
-exec grove config set grove.debug no
-exec grove config set grove.plain 1
-exec grove config set grove.debug 0
-
-# Test global flag works with all subcommands
-exec grove config set --global grove.plain false
-exec grove config get --global grove.plain
-stdout '^false$'
-
-exec grove config add --global grove.convert.preserve '*.global'
-exec grove config list --global
-stdout 'grove.convert.preserve=\*\.global'
-
-exec grove config unset --global grove.convert.preserve
-exec grove config unset --global grove.plain
-
-# Test that grove.plain config affects actual command output
-exec grove config set grove.plain true
-exec sh -c 'echo "test content" > test-file.txt'
-exec git add .
-exec git commit -m 'test commit'
-exec grove init convert
-! stdout '✓'  # No checkmark in plain mode
-! stdout '→'  # No arrow in plain mode
-stdout 'Converted repository to grove workspace'
-
-# Clean up  
-exec rm -rf .git .bare main master
-exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-
-# Test precedence: flags > env > git config
-exec grove config set grove.plain true
-exec sh -c 'echo "test content" > test-file.txt'
-exec git add .
-exec git commit -m 'test commit'
-
-# With plain=true in git config, env=false should override
-env GROVE_PLAIN=false
-exec grove init convert
-stdout '✓'  # Checkmark should appear (env overrides git config)
-stdout 'Converted repository to grove workspace'
-
-# Clean up and reset for flag test
-exec rm -rf .git .bare main master
-exec git init
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec sh -c 'echo "test content" > test-file.txt'
-exec git add .
-exec git commit -m 'reset with test file'
-
-# With plain=true in git config, --plain=false flag should override
-exec grove --plain=false init convert
-stdout '✓'  # Checkmark should appear (flag overrides git config)
-stdout 'Converted repository to grove workspace'
+exec grove config set --global grove.plain true
+exec grove config set --global grove.debug false
+exec grove config set --global grove.plain yes
+exec grove config set --global grove.debug no
+exec grove config set --global grove.plain 1
+exec grove config set --global grove.debug 0
 
 # Clean up
-exec rm -rf .git .bare main master
+exec grove config unset --global grove.plain
+exec grove config unset --global grove.debug

@@ -117,8 +117,8 @@ exec git commit -m 'initial commit'
 exec git checkout -b develop
 exec git checkout main
 # Set custom preserve patterns
-exec git config grove.convert.preserve '*.secret'
-exec git config --add grove.convert.preserve 'custom.*'
+exec git config grove.preserve '*.secret'
+exec git config --add grove.preserve 'custom.*'
 # Create files that match custom patterns
 exec sh -c 'echo "secret data" > api.secret'
 exec sh -c 'echo "custom config" > custom.config'
@@ -133,7 +133,7 @@ stdout 'convert-custom-patterns'
 stdout 'Creating worktrees'
 stdout '✓ main'
 stdout '✓ develop'
-stdout 'Found 2 ignored files/directories matching patterns'
+stdout 'Found 2 ignored files/directories matching patterns:'
 exists .bare
 exists .git
 # Verify custom pattern files are preserved in all worktrees
