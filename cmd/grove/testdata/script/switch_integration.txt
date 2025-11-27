@@ -38,5 +38,14 @@ cd /tmp
 ! exec grove switch main
 stderr 'not in a grove workspace'
 
+## Shell init
+
+# Test shell-init outputs function
+cd $WORK/workspace/main
+exec grove switch shell-init
+stdout 'gw\(\)'
+stdout 'grove switch'
+stdout 'cd "\$target"'
+
 -- README.md --
 # Test
