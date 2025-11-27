@@ -1,0 +1,42 @@
+# Create grove workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace --branches main,develop
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Basic switch tests
+
+# Test switch outputs path to worktree
+exec grove switch develop
+stdout 'workspace/develop$'
+
+# Test switch to current branch works too
+exec grove switch main
+stdout 'workspace/main$'
+
+## Error handling
+
+# Test switch to non-existent branch
+! exec grove switch nonexistent
+stderr 'worktree not found'
+
+# Test not in workspace error
+cd /tmp
+! exec grove switch main
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test
