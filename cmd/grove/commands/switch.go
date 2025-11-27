@@ -26,7 +26,29 @@ func NewSwitchCmd() *cobra.Command {
 
 	cmd.Flags().BoolP("help", "h", false, "Help for switch")
 
+	cmd.AddCommand(newShellInitCmd())
+
 	return cmd
+}
+
+func newShellInitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "shell-init",
+		Short: "Output shell function for directory switching",
+		Long:  `Output a shell function that wraps grove switch to enable seamless directory changes. Add to your shell config with: eval "$(grove switch shell-init)"`,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			shellFunc := `# Grove worktree switcher
+gw() {
+    local target
+    target="$(grove switch "$@")" || return $?
+    cd "$target" || return $?
+}
+`
+			fmt.Print(shellFunc)
+			return nil
+		},
+	}
 }
 
 func runSwitch(branch string) error {

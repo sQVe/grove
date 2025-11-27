@@ -35,3 +35,14 @@ func TestRunSwitch_NotInWorkspace(t *testing.T) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
 }
+
+func TestNewSwitchCmd_HasShellInitSubcommand(t *testing.T) {
+	cmd := NewSwitchCmd()
+	subCmd, _, err := cmd.Find([]string{"shell-init"})
+	if err != nil {
+		t.Fatalf("expected shell-init subcommand, got error: %v", err)
+	}
+	if subCmd.Name() != "shell-init" {
+		t.Errorf("expected subcommand name 'shell-init', got %q", subCmd.Name())
+	}
+}
