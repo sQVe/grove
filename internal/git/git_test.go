@@ -1101,6 +1101,70 @@ func TestListWorktreesWithInfo(t *testing.T) {
 	})
 }
 
+func TestCreateWorktreeWithNewBranch(t *testing.T) {
+	t.Run("creates worktree with new branch", func(t *testing.T) {
+		// Create a regular repo first to have something to clone
+		sourceRepo := testgit.NewTestRepo(t)
+
+		// Clone it as bare to simulate grove workspace structure
+		bareDir := filepath.Join(t.TempDir(), ".bare")
+		cmd := exec.Command("git", "clone", "--bare", sourceRepo.Path, bareDir) // nolint:gosec // Test
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create bare clone: %v", err)
+		}
+
+		worktreePath := filepath.Join(filepath.Dir(bareDir), "feature-test")
+		err := CreateWorktreeWithNewBranch(bareDir, worktreePath, "feature-test", true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify worktree exists
+		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+			t.Error("worktree directory was not created")
+		}
+
+		// Verify branch was created
+		branch, err := GetCurrentBranch(worktreePath)
+		if err != nil {
+			t.Fatalf("failed to get branch: %v", err)
+		}
+		if branch != "feature-test" {
+			t.Errorf("expected branch 'feature-test', got '%s'", branch)
+		}
+	})
+
+	t.Run("fails with empty bare repo path", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranch("", "/tmp/wt", "branch", true)
+		if err == nil {
+			t.Fatal("expected error for empty bare repo path")
+		}
+		if err.Error() != "bare repository path cannot be empty" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("fails with empty worktree path", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranch("/some/repo", "", "branch", true)
+		if err == nil {
+			t.Fatal("expected error for empty worktree path")
+		}
+		if err.Error() != "worktree path cannot be empty" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("fails with empty branch name", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranch("/some/repo", "/tmp/wt", "", true)
+		if err == nil {
+			t.Fatal("expected error for empty branch name")
+		}
+		if err.Error() != "branch name cannot be empty" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
 func TestGetSyncStatus(t *testing.T) {
 	t.Parallel()
 

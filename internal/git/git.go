@@ -161,6 +161,26 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 	return runGitCommand(cmd, quiet)
 }
 
+// CreateWorktreeWithNewBranch creates a new worktree with a new branch.
+// Uses: git worktree add -b <branch> <path>
+func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bool) error {
+	if bareRepo == "" {
+		return errors.New("bare repository path cannot be empty")
+	}
+	if worktreePath == "" {
+		return errors.New("worktree path cannot be empty")
+	}
+	if branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
+
+	logger.Debug("Executing: git worktree add -b %s %s", branch, worktreePath)
+	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
+	cmd.Dir = bareRepo
+
+	return runGitCommand(cmd, quiet)
+}
+
 // IsInsideGitRepo checks if the given path is inside an existing git repository
 func IsInsideGitRepo(path string) bool {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
