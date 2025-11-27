@@ -1,0 +1,51 @@
+# Create grove workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b existing-branch
+exec git checkout main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Create worktree for existing branch
+
+exec grove create existing-branch
+stdout 'Created worktree'
+exists ../existing-branch
+
+## Create worktree for new branch
+
+exec grove create feature/new-thing
+stdout 'Created worktree'
+exists ../feature-new-thing
+
+## Error: branch already has worktree
+
+! exec grove create existing-branch
+stderr 'worktree already exists'
+
+## Error: directory already exists (main already has worktree directory)
+
+mkdir ../test-dir
+! exec grove create test-dir
+stderr 'directory already exists'
+
+## Error: not in workspace
+
+cd /tmp
+! exec grove create feature
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test

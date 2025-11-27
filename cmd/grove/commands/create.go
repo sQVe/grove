@@ -54,12 +54,7 @@ func runCreate(branch string) error {
 	dirName := sanitizeBranchName(branch)
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
-	// Check if worktree directory already exists
-	if _, err := os.Stat(worktreePath); err == nil {
-		return fmt.Errorf("directory already exists: %s", worktreePath)
-	}
-
-	// Check if branch already has a worktree
+	// Check if branch already has a worktree (check this first for better error message)
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
@@ -68,6 +63,11 @@ func runCreate(branch string) error {
 		if info.Branch == branch {
 			return fmt.Errorf("worktree already exists for branch %q at %s", branch, info.Path)
 		}
+	}
+
+	// Check if worktree directory already exists
+	if _, err := os.Stat(worktreePath); err == nil {
+		return fmt.Errorf("directory already exists: %s", worktreePath)
 	}
 
 	// Check if branch exists
