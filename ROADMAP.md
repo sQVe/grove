@@ -6,7 +6,7 @@
 | ------- | :------: | :-----: | :-----: | :----: |
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | config  |   [x]    |   [x]   |   [x]   |  [x]   |
-| create  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| create  |   [x]    |   [x]   |   [x]   |  [x]   |
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
@@ -146,6 +146,15 @@
 | `switch <branch>`   | Output path to worktree for branch          |  [x]   |
 | `switch <branch>`   | Provide completions for worktree names      |  [x]   |
 | `switch shell-init` | Output shell function for directory changes |  [x]   |
+
+### `create`
+
+| Command           | Features                                      | Status |
+| ----------------- | --------------------------------------------- | :----: |
+| `create <branch>` | Create worktree for existing branch           |  [x]   |
+| `create <branch>` | Create worktree with new branch if not exists |  [x]   |
+| `create <branch>` | Provide completions for branch names          |  [x]   |
+| `create <branch>` | Sanitize branch name for directory name       |  [x]   |
 
 ### `status`
 
