@@ -487,10 +487,10 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 			PreservePatterns []string
 		}{}
 
-		if err := exec.Command("git", "config", "grove.convert.preserve", ".custom").Run(); err != nil {
+		if err := exec.Command("git", "config", "grove.preserve", ".custom").Run(); err != nil {
 			t.Fatal(err)
 		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run() }()
+		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
 
 		LoadFromGitConfig()
 
@@ -506,16 +506,16 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 			PreservePatterns []string
 		}{}
 
-		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", ".env").Run(); err != nil {
+		if err := exec.Command("git", "config", "--add", "grove.preserve", ".env").Run(); err != nil {
 			t.Fatal(err)
 		}
-		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", "*.local").Run(); err != nil {
+		if err := exec.Command("git", "config", "--add", "grove.preserve", "*.local").Run(); err != nil {
 			t.Fatal(err)
 		}
-		if err := exec.Command("git", "config", "--add", "grove.convert.preserve", ".secret").Run(); err != nil {
+		if err := exec.Command("git", "config", "--add", "grove.preserve", ".secret").Run(); err != nil {
 			t.Fatal(err)
 		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run() }()
+		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
 
 		LoadFromGitConfig()
 

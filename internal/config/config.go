@@ -79,7 +79,7 @@ func LoadFromGitConfig() {
 		Global.Debug = isTruthy(value)
 	}
 
-	patterns := getGitConfigs("grove.convert.preserve")
+	patterns := getGitConfigs("grove.preserve")
 	if len(patterns) > 0 {
 		Global.PreservePatterns = patterns
 	}
