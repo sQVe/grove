@@ -41,6 +41,21 @@ mkdir ../test-dir
 ! exec grove create test-dir
 stderr 'directory already exists'
 
+## Create with --switch outputs path only
+
+cd $WORK/workspace/main
+exec grove create --switch feature/switch-test
+stdout '^.*/feature-switch-test$'
+! stdout 'Created worktree'
+exists ../feature-switch-test
+
+## Create with -s shorthand outputs path only
+
+exec grove create -s feature/short-flag
+stdout '^.*/feature-short-flag$'
+! stdout 'Created worktree'
+exists ../feature-short-flag
+
 ## Error: not in workspace
 
 cd /tmp

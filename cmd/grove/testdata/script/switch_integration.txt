@@ -48,5 +48,9 @@ stdout 'command grove switch'
 stdout 'cd "\$target"'
 ! stdout 'gw\(\)'
 
+# Test shell-init includes create --switch handling
+stdout 'grove create'
+stdout '\-\-switch'
+
 -- README.md --
 # Test
