@@ -54,7 +54,7 @@
 | `init convert`            | Create .git file pointing to .bare                  |  [x]   |
 | `init convert --branches` | Setup worktrees for local and remote branches       |  [x]   |
 | `init convert --branches` | Preserve git-ignored files in all created worktrees |  [x]   |
-| `init convert --branches` | Use grove.convert.preserve config patterns          |  [x]   |
+| `init convert --branches` | Use grove.preserve config patterns                  |  [x]   |
 | `init convert --branches` | Provide completions for branch names                |  [x]   |
 
 **Notes:**
@@ -100,44 +100,37 @@
 
 ### `config`
 
-| Command                    | Features                                   | Status |
-| -------------------------- | ------------------------------------------ | :----: |
-| `config`                   | Output help if no arguments                |  [x]   |
-| `config list`              | Show all grove.\* settings from git config |  [x]   |
-| `config list --global`     | Show only global grove.\* settings         |  [x]   |
-| `config get <key>`         | Get specific config value                  |  [x]   |
-| `config get --global`      | Get specific global config value           |  [x]   |
-| `config set <key> <value>` | Set config value (defaults to local)       |  [x]   |
-| `config set <key> <value>` | Provide completions for boolean values     |  [x]   |
-| `config set --global`      | Set global config value                    |  [x]   |
-| `config add <key> <value>` | Add to multi-value key (defaults to local) |  [x]   |
-| `config add <key> <value>` | Provide completions for boolean values     |  [x]   |
-| `config add --global`      | Add to global multi-value key              |  [x]   |
-| `config unset <key>`       | Remove config setting (defaults to local)  |  [x]   |
-| `config unset <key>`       | Provide completions for existing keys      |  [x]   |
-| `config unset <key>`       | Unset specific multi-value key             |  [x]   |
-| `config unset <key> <val>` | Provide completions for existing values    |  [x]   |
-| `config unset --global`    | Remove global config setting               |  [x]   |
+| Command                 | Features                                   | Status |
+| ----------------------- | ------------------------------------------ | :----: |
+| `config`                | Output help if no arguments                |  [x]   |
+| `config init`           | Create .grove.toml in current worktree     |  [x]   |
+| `config list`           | Show all grove.\* settings from git config |  [x]   |
+| `config list --shared`  | Show .grove.toml settings                  |  [x]   |
+| `config list --global`  | Show only global grove.\* settings         |  [x]   |
+| `config get <key>`      | Get effective config value (merged)        |  [x]   |
+| `config get --shared`   | Get value from .grove.toml                 |  [x]   |
+| `config get --global`   | Get value from git config                  |  [x]   |
+| `config set --shared`   | Set value in .grove.toml                   |  [x]   |
+| `config set --global`   | Set value in git config                    |  [x]   |
+| `config unset --shared` | Remove setting from .grove.toml            |  [x]   |
+| `config unset --global` | Remove setting from git config             |  [x]   |
 
 **Notes:**
 
--   Ensure that it is possible to override the default config values when you're setting them in your config.
--   Uses Git's existing config system (no new dependencies)
--   Multi-value support for patterns (e.g., grove.convert.preserve)
-
-**Implementation approach:**
-
--   Shell out to `git config` commands
--   Read with `git config --get` and `git config --get-all`
--   Same precedence as delta: CLI > ENV > git config > defaults
+-   Two config layers: `.grove.toml` (team-shareable) and git config (personal)
+-   Config precedence varies by setting type:
+    -   Team settings (preserve patterns): TOML > git config > defaults
+    -   Personal settings (plain, debug): git config > TOML > defaults
+-   `--shared` and `--global` flags required for set/unset operations
 
 **Config keys:**
 
 -   `grove.plain` - Disable colors/symbols (boolean, default: false)
 -   `grove.debug` - Enable debug output (boolean, default: false)
--   `grove.convert.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
+-   `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
     -   Default patterns: `.env`, `.env.local`, `.env.development.local`, `*.local.json`, `*.local.yaml`, `*.local.yml`, `*.local.toml`
     -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
+-   `hooks.create` - Commands to run after creating worktrees (TOML only, array)
 
 ### `switch`
 
@@ -155,7 +148,10 @@
 | `create <branch>`    | Create worktree with new branch if not exists |  [x]   |
 | `create <branch>`    | Provide completions for branch names          |  [x]   |
 | `create <branch>`    | Sanitize branch name for directory name       |  [x]   |
+| `create <branch>`    | Preserve configured files from source         |  [x]   |
+| `create <branch>`    | Run configured hooks after creation           |  [x]   |
 | `create -s <branch>` | Switch to worktree after creation             |  [x]   |
+| `create --no-hooks`  | Skip running create hooks                     |  [x]   |
 
 ### `status`
 
