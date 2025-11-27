@@ -18,6 +18,17 @@ func TestNewCreateCmd(t *testing.T) {
 	}
 }
 
+func TestNewCreateCmd_HasSwitchFlag(t *testing.T) {
+	cmd := NewCreateCmd()
+	flag := cmd.Flags().Lookup("switch")
+	if flag == nil {
+		t.Fatal("expected --switch flag to exist")
+	}
+	if flag.Shorthand != "s" {
+		t.Errorf("expected shorthand 's', got %q", flag.Shorthand)
+	}
+}
+
 func TestRunCreate_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -30,7 +41,7 @@ func TestRunCreate_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runCreate("feature-test")
+	err = runCreate("feature-test", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}

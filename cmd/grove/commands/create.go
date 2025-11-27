@@ -22,21 +22,24 @@ If the branch exists (locally or on remote), creates a worktree for it.
 If the branch doesn't exist, creates both the branch and worktree.
 
 Examples:
-  grove create feature/auth     # Create worktree for new branch
-  grove create main             # Create worktree for existing branch`,
+  grove create feature/auth        # Create worktree for new branch
+  grove create main                # Create worktree for existing branch
+  grove create -s feature/auth     # Create and switch to worktree`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeCreateArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(args[0])
+			switchTo, _ := cmd.Flags().GetBool("switch")
+			return runCreate(args[0], switchTo)
 		},
 	}
 
+	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
 	cmd.Flags().BoolP("help", "h", false, "Help for create")
 
 	return cmd
 }
 
-func runCreate(branch string) error {
+func runCreate(branch string, switchTo bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -88,7 +91,12 @@ func runCreate(branch string) error {
 		}
 	}
 
-	logger.Success("Created worktree at %s", worktreePath)
+	if switchTo {
+		// Output just the path for shell wrapper to cd into
+		fmt.Println(worktreePath)
+	} else {
+		logger.Success("Created worktree at %s", worktreePath)
+	}
 	return nil
 }
 
