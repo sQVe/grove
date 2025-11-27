@@ -41,16 +41,26 @@ func newShellInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:    "shell-init",
 		Short:  "Output shell function for directory switching",
-		Long:   `Output a shell function that wraps grove to enable seamless directory changes with 'grove switch'. Add to your shell config with: eval "$(grove switch shell-init)"`,
+		Long:   `Output a shell function that wraps grove to enable seamless directory changes with 'grove switch' and 'grove create --switch'. Add to your shell config with: eval "$(grove switch shell-init)"`,
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			shellFunc := `# Grove shell integration
-# Wraps grove to enable 'grove switch' to change directories
+# Wraps grove to enable 'grove switch' and 'grove create --switch' to change directories
 grove() {
     if [[ "$1" == "switch" ]]; then
         local target exit_code
         target="$(command grove switch "${@:2}")"
+        exit_code=$?
+        if [[ $exit_code -eq 0 && -d "$target" ]]; then
+            cd "$target"
+        else
+            [[ -n "$target" ]] && printf '%s\n' "$target"
+            return $exit_code
+        fi
+    elif [[ "$1" == "create" ]] && [[ " ${*:2} " =~ " -s " || " ${*:2} " =~ " --switch " ]]; then
+        local target exit_code
+        target="$(command grove create "${@:2}")"
         exit_code=$?
         if [[ $exit_code -eq 0 && -d "$target" ]]; then
             cd "$target"
