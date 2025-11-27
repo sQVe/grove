@@ -79,13 +79,17 @@ func TestIsTruthy(t *testing.T) {
 	}
 }
 
+// resetGlobal resets the global config to zero values
+func resetGlobal() {
+	Global.Plain = false
+	Global.Debug = false
+	Global.PreservePatterns = nil
+	Global.StaleThreshold = ""
+}
+
 func TestLoadFromEnv(t *testing.T) {
 	t.Run("both false with no env vars", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
 
@@ -96,11 +100,7 @@ func TestLoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("plain true with GROVE_PLAIN=1", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_DEBUG")
 		_ = os.Setenv("GROVE_PLAIN", "1")
 		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
@@ -112,11 +112,7 @@ func TestLoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("debug true with GROVE_DEBUG=1", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Setenv("GROVE_DEBUG", "1")
 		defer func() { _ = os.Unsetenv("GROVE_DEBUG") }()
@@ -128,11 +124,7 @@ func TestLoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("both true with yes/on env values", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Setenv("GROVE_PLAIN", "yes")
 		_ = os.Setenv("GROVE_DEBUG", "on")
 		defer func() {
@@ -147,11 +139,7 @@ func TestLoadFromEnv(t *testing.T) {
 	})
 
 	t.Run("both false with invalid env values", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Setenv("GROVE_PLAIN", "invalid")
 		_ = os.Setenv("GROVE_DEBUG", "nope")
 		defer func() {
@@ -171,11 +159,7 @@ func TestLoadFromGitConfig(t *testing.T) {
 	defer cleanup()
 
 	t.Run("loads grove.plain from git config", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
 
@@ -191,11 +175,7 @@ func TestLoadFromGitConfig(t *testing.T) {
 	})
 
 	t.Run("loads grove.debug from git config", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
 
@@ -211,11 +191,7 @@ func TestLoadFromGitConfig(t *testing.T) {
 	})
 
 	t.Run("handles git config errors gracefully", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
 		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
@@ -232,11 +208,7 @@ func TestPrecedence(t *testing.T) {
 	defer cleanup()
 
 	t.Run("ENV overrides git config", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "grove.plain", "false").Run(); err != nil {
 			t.Fatal(err)
@@ -255,11 +227,7 @@ func TestPrecedence(t *testing.T) {
 	})
 
 	t.Run("git config used when ENV not set", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 		_ = os.Unsetenv("GROVE_PLAIN")
 		_ = os.Unsetenv("GROVE_DEBUG")
 
@@ -281,11 +249,7 @@ func TestMainLoadingSequence(t *testing.T) {
 	defer cleanup()
 
 	t.Run("main loading sequence works correctly", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
 			t.Fatal(err)
@@ -304,11 +268,7 @@ func TestMainLoadingSequence(t *testing.T) {
 	})
 
 	t.Run("env overrides git config in loading sequence", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
 			t.Fatal(err)
@@ -362,11 +322,7 @@ func TestDefaults(t *testing.T) {
 
 func TestGetPreservePatterns(t *testing.T) {
 	t.Run("returns defaults when Global is empty", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		patterns := GetPreservePatterns()
 		if len(patterns) != len(DefaultConfig.PreservePatterns) {
@@ -381,14 +337,9 @@ func TestGetPreservePatterns(t *testing.T) {
 	})
 
 	t.Run("returns Global patterns when set", func(t *testing.T) {
+		resetGlobal()
 		customPatterns := []string{".custom", "*.test"}
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{
-			PreservePatterns: customPatterns,
-		}
+		Global.PreservePatterns = customPatterns
 
 		patterns := GetPreservePatterns()
 		if len(patterns) != len(customPatterns) {
@@ -403,11 +354,7 @@ func TestGetPreservePatterns(t *testing.T) {
 	})
 
 	t.Run("returns consistent patterns", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		patterns1 := GetPreservePatterns()
 		patterns2 := GetPreservePatterns()
@@ -429,11 +376,7 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 	defer cleanup()
 
 	t.Run("uses defaults when no git config set", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
 		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
@@ -453,11 +396,7 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 	})
 
 	t.Run("git config overrides defaults", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
 			t.Fatal(err)
@@ -481,11 +420,7 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 	})
 
 	t.Run("preserve patterns replace defaults", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "grove.preserve", ".custom").Run(); err != nil {
 			t.Fatal(err)
@@ -500,11 +435,7 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 	})
 
 	t.Run("multiple preserve patterns from git config", func(t *testing.T) {
-		Global = struct {
-			Plain            bool
-			Debug            bool
-			PreservePatterns []string
-		}{}
+		resetGlobal()
 
 		if err := exec.Command("git", "config", "--add", "grove.preserve", ".env").Run(); err != nil {
 			t.Fatal(err)
@@ -527,6 +458,27 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 			if i >= len(Global.PreservePatterns) || Global.PreservePatterns[i] != exp {
 				t.Errorf("Expected pattern %d to be %q, got %q", i, exp, Global.PreservePatterns[i])
 			}
+		}
+	})
+}
+
+func TestGetStaleThreshold(t *testing.T) {
+	t.Run("returns default when Global is empty", func(t *testing.T) {
+		resetGlobal()
+
+		threshold := GetStaleThreshold()
+		if threshold != DefaultConfig.StaleThreshold {
+			t.Errorf("Expected %q, got %q", DefaultConfig.StaleThreshold, threshold)
+		}
+	})
+
+	t.Run("returns Global threshold when set", func(t *testing.T) {
+		resetGlobal()
+		Global.StaleThreshold = "90d"
+
+		threshold := GetStaleThreshold()
+		if threshold != "90d" {
+			t.Errorf("Expected '90d', got %q", threshold)
 		}
 	})
 }

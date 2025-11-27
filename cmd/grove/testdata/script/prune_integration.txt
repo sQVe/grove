@@ -42,7 +42,7 @@ exec git branch --set-upstream-to=origin/feature-dirty feature-dirty
 ## Test: No stale worktrees initially
 cd $WORK/workspace/main
 exec grove prune
-stdout 'No stale worktrees found'
+stdout 'No worktrees to prune'
 
 ## Test: Detect gone worktree after remote branch deleted
 # Delete branch on "remote" (source repo)
@@ -50,9 +50,9 @@ exec git -C $WORK/testrepo branch -D feature-to-delete
 
 # Run prune - should detect gone worktree after fetching
 exec grove prune
-stdout 'Stale worktrees'
+stdout 'Worktrees to remove'
 stdout 'feature-to-delete'
-stdout '\[clean\]'
+stdout '\[gone\]'
 stdout 'Run with --commit to remove'
 
 # Worktree should still exist (dry-run)
@@ -60,7 +60,7 @@ exists $WORK/workspace/feature-to-delete
 
 ## Test: --commit removes worktree
 exec grove prune --commit
-stdout 'Removing stale worktrees'
+stdout 'Removing worktrees'
 stdout 'Removed feature-to-delete'
 stdout 'Removed 1 worktree'
 

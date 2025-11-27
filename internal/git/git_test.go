@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sqve/grove/internal/fs"
 	testgit "github.com/sqve/grove/internal/testutil/git"
@@ -1503,6 +1504,54 @@ func TestIsWorktreeLocked(t *testing.T) {
 
 		if IsWorktreeLocked(bareDir, "nonexistent") {
 			t.Error("expected non-existent worktree to return false")
+		}
+	})
+}
+
+func TestGetLastCommitTime(t *testing.T) {
+	t.Run("returns timestamp for repo with commits", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		timestamp := GetLastCommitTime(repo.Path)
+		if timestamp == 0 {
+			t.Error("expected non-zero timestamp for repo with commits")
+		}
+
+		now := time.Now().Unix()
+		if timestamp > now {
+			t.Errorf("timestamp %d is in the future (now: %d)", timestamp, now)
+		}
+		// Should be within last hour (test just created the repo)
+		if now-timestamp > 3600 {
+			t.Errorf("timestamp %d is too old (more than 1 hour ago)", timestamp)
+		}
+	})
+
+	t.Run("returns 0 for empty repo", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "empty.bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		timestamp := GetLastCommitTime(bareDir)
+		if timestamp != 0 {
+			t.Errorf("expected 0 for empty repo, got %d", timestamp)
+		}
+	})
+
+	t.Run("returns 0 for non-git directory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		timestamp := GetLastCommitTime(tempDir)
+		if timestamp != 0 {
+			t.Errorf("expected 0 for non-git directory, got %d", timestamp)
 		}
 	})
 }

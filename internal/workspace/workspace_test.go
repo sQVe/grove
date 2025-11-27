@@ -12,6 +12,8 @@ import (
 	"github.com/sqve/grove/internal/fs"
 )
 
+const testEnvFile = ".env"
+
 func TestIsInsideGroveWorkspace(t *testing.T) {
 	t.Run("returns false for non-grove directory", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -123,7 +125,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 	}
 
 	// Create a file that matches default ".env" preserve pattern
-	envPath := filepath.Join(tempDir, ".env")
+	envPath := filepath.Join(tempDir, testEnvFile)
 	content := []byte("preserve test content")
 	if err := os.WriteFile(envPath, content, fs.FileStrict); err != nil {
 		t.Fatalf("failed to create file %s: %v", envPath, err)
@@ -147,7 +149,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 	}
 	found := false
 	for _, pat := range matched {
-		if pat == ".env" {
+		if pat == testEnvFile {
 			found = true
 			break
 		}
@@ -159,7 +161,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 	// Verify the preserved file exists in each worktree directory
 	for _, branch := range branches {
 		branchDir := filepath.Join(tempDir, sanitizeBranchName(branch))
-		preservedFile := filepath.Join(branchDir, ".env")
+		preservedFile := filepath.Join(branchDir, testEnvFile)
 		if _, err := os.Stat(preservedFile); err != nil {
 			t.Errorf("expected preserved file %s in branch %q, error: %v", preservedFile, branch, err)
 		} else {

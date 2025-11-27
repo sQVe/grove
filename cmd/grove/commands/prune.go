@@ -3,6 +3,9 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
@@ -23,16 +26,27 @@ const (
 	skipUnpushed skipReason = "unpushed commits, use --force"
 )
 
+// pruneType describes why a worktree is a prune candidate
+type pruneType string
+
+const (
+	pruneGone  pruneType = "gone"
+	pruneStale pruneType = "stale"
+)
+
 // pruneCandidate represents a worktree that could be pruned
 type pruneCandidate struct {
-	info   *git.WorktreeInfo
-	reason skipReason
+	info      *git.WorktreeInfo
+	reason    skipReason
+	pruneType pruneType
+	staleAge  string // Human-readable age for stale worktrees
 }
 
 // NewPruneCmd creates the prune command
 func NewPruneCmd() *cobra.Command {
 	var commit bool
 	var force bool
+	var stale string
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -43,18 +57,33 @@ func NewPruneCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPrune(commit, force)
+			// If --stale was passed but no value given, use configured default
+			if cmd.Flags().Changed("stale") && stale == "" {
+				stale = config.GetStaleThreshold()
+			}
+			return runPrune(commit, force, stale)
 		},
 	}
 
 	cmd.Flags().BoolVar(&commit, "commit", false, "Actually remove worktrees (default is dry-run)")
 	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty, locked, or has unpushed commits")
+	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Also include worktrees with no commits in duration (e.g., 30d, 2w, 6m; default: %s)", config.GetStaleThreshold()))
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	return cmd
 }
 
-func runPrune(commit, force bool) error {
+func runPrune(commit, force bool, stale string) error {
+	// Parse stale threshold if provided
+	var staleCutoff int64
+	if stale != "" {
+		duration, err := parseDuration(stale)
+		if err != nil {
+			return err
+		}
+		staleCutoff = time.Now().Add(-duration).Unix()
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -78,20 +107,37 @@ func runPrune(commit, force bool) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Find worktrees with deleted upstream
-	var goneWorktrees []pruneCandidate
+	// Find prune candidates
+	var candidates []pruneCandidate
 	for _, info := range infos {
+		// Check for gone upstream
 		if info.Gone {
 			reason := determineSkipReason(info, cwd, force)
-			goneWorktrees = append(goneWorktrees, pruneCandidate{info: info, reason: reason})
+			candidates = append(candidates, pruneCandidate{
+				info:      info,
+				reason:    reason,
+				pruneType: pruneGone,
+			})
+			continue // Don't double-count as stale
+		}
+
+		// Check for stale (only if --stale flag was passed)
+		if staleCutoff > 0 && info.LastCommitTime > 0 && info.LastCommitTime < staleCutoff {
+			reason := determineSkipReason(info, cwd, force)
+			candidates = append(candidates, pruneCandidate{
+				info:      info,
+				reason:    reason,
+				pruneType: pruneStale,
+				staleAge:  formatAge(info.LastCommitTime),
+			})
 		}
 	}
 
 	// Output results
 	if commit {
-		return executePrune(bareDir, goneWorktrees, force)
+		return executePrune(bareDir, candidates, force)
 	}
-	return displayDryRun(goneWorktrees)
+	return displayDryRun(candidates, stale != "")
 }
 
 func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipReason {
@@ -116,29 +162,33 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 	return skipNone
 }
 
-func displayDryRun(goneWorktrees []pruneCandidate) error {
-	if len(goneWorktrees) == 0 {
-		logger.Info("No stale worktrees found.")
+func displayDryRun(candidates []pruneCandidate, includesStale bool) error {
+	if len(candidates) == 0 {
+		logger.Info("No worktrees to prune.")
 		return nil
 	}
 
 	plain := config.IsPlain()
 
 	fmt.Println()
-	logger.Info("Stale worktrees (upstream deleted):")
+	if includesStale {
+		logger.Info("Worktrees to remove:")
+	} else {
+		logger.Info("Worktrees to remove (upstream deleted):")
+	}
 	fmt.Println()
 
 	hasSkipped := false
-	for _, candidate := range goneWorktrees {
-		status := formatWorktreeStatus(candidate.info, plain)
+	for _, candidate := range candidates {
+		label := formatCandidateLabel(candidate, plain)
 		switch candidate.reason {
 		case skipCurrent:
 			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), styles.Render(&styles.Dimmed, "(current)"))
 		case skipNone:
-			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), status)
+			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), label)
 		default:
 			hasSkipped = true
-			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), status)
+			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), label)
 		}
 	}
 
@@ -152,20 +202,39 @@ func displayDryRun(goneWorktrees []pruneCandidate) error {
 	return nil
 }
 
-func executePrune(bareDir string, goneWorktrees []pruneCandidate, force bool) error {
-	if len(goneWorktrees) == 0 {
-		logger.Info("No stale worktrees to remove.")
+func formatCandidateLabel(candidate pruneCandidate, plain bool) string {
+	switch candidate.pruneType {
+	case pruneGone:
+		status := formatWorktreeStatus(candidate.info, plain)
+		if plain {
+			return fmt.Sprintf("[gone] %s", status)
+		}
+		return fmt.Sprintf("%s %s", styles.Render(&styles.Dimmed, "[gone]"), status)
+	case pruneStale:
+		status := formatWorktreeStatus(candidate.info, plain)
+		if plain {
+			return fmt.Sprintf("[stale] (%s) %s", candidate.staleAge, status)
+		}
+		return fmt.Sprintf("%s (%s) %s", styles.Render(&styles.Dimmed, "[stale]"), candidate.staleAge, status)
+	default:
+		return formatWorktreeStatus(candidate.info, plain)
+	}
+}
+
+func executePrune(bareDir string, candidates []pruneCandidate, force bool) error {
+	if len(candidates) == 0 {
+		logger.Info("No worktrees to remove.")
 		return nil
 	}
 
 	fmt.Println()
-	logger.Info("Removing stale worktrees:")
+	logger.Info("Removing worktrees:")
 	fmt.Println()
 
 	removed := 0
 	skipped := 0
 
-	for _, candidate := range goneWorktrees {
+	for _, candidate := range candidates {
 		if candidate.reason != skipNone {
 			skipped++
 			if config.IsPlain() {
@@ -236,4 +305,74 @@ func formatWorktreeStatus(info *git.WorktreeInfo, plain bool) string {
 		return "[clean]"
 	}
 	return styles.Render(&styles.Success, "[clean]")
+}
+
+// parseDuration parses human-friendly durations like "30d", "2w", "6m"
+func parseDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("duration cannot be empty")
+	}
+
+	s = strings.ToLower(s)
+	if len(s) < 2 {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+
+	unit := s[len(s)-1]
+	numStr := s[:len(s)-1]
+
+	num, err := strconv.Atoi(numStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration number: %s", s)
+	}
+
+	if num <= 0 {
+		return 0, fmt.Errorf("duration must be positive: %s", s)
+	}
+
+	switch unit {
+	case 'd':
+		return time.Duration(num) * 24 * time.Hour, nil
+	case 'w':
+		return time.Duration(num) * 7 * 24 * time.Hour, nil
+	case 'm':
+		return time.Duration(num) * 30 * 24 * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("unknown duration unit: %c (use d, w, or m)", unit)
+	}
+}
+
+// formatAge returns a human-readable string describing how long ago a timestamp was
+func formatAge(timestamp int64) string {
+	if timestamp == 0 {
+		return ""
+	}
+
+	age := time.Since(time.Unix(timestamp, 0))
+	days := int(age.Hours() / 24)
+
+	switch {
+	case days == 0:
+		return "today"
+	case days == 1:
+		return "yesterday"
+	case days < 7:
+		return fmt.Sprintf("%d days ago", days)
+	case days < 14:
+		return "1 week ago"
+	case days < 30:
+		weeks := days / 7
+		return fmt.Sprintf("%d weeks ago", weeks)
+	case days < 60:
+		return "1 month ago"
+	case days < 365:
+		months := days / 30
+		return fmt.Sprintf("%d months ago", months)
+	case days < 730:
+		return "1 year ago"
+	default:
+		years := days / 365
+		return fmt.Sprintf("%d years ago", years)
+	}
 }

@@ -11,6 +11,7 @@ var Global struct {
 	Plain            bool     // Disable colors and symbols
 	Debug            bool     // Enable debug logging
 	PreservePatterns []string // Patterns for ignored files to preserve in new worktrees
+	StaleThreshold   string   // Default threshold for stale worktree detection (e.g., "30d")
 }
 
 // DefaultConfig contains the default configuration values
@@ -18,9 +19,11 @@ var DefaultConfig = struct {
 	Plain            bool
 	Debug            bool
 	PreservePatterns []string
+	StaleThreshold   string
 }{
-	Plain: false,
-	Debug: false,
+	Plain:          false,
+	Debug:          false,
+	StaleThreshold: "30d",
 	PreservePatterns: []string{
 		".env",
 		".env.local",
@@ -52,6 +55,14 @@ func GetPreservePatterns() []string {
 	return DefaultConfig.PreservePatterns
 }
 
+// GetStaleThreshold returns the configured stale threshold or default
+func GetStaleThreshold() string {
+	if Global.StaleThreshold != "" {
+		return Global.StaleThreshold
+	}
+	return DefaultConfig.StaleThreshold
+}
+
 // LoadFromEnv loads configuration from environment variables
 func LoadFromEnv() {
 	plain := os.Getenv("GROVE_PLAIN")
@@ -68,6 +79,7 @@ func LoadFromEnv() {
 func LoadFromGitConfig() {
 	Global.Plain = DefaultConfig.Plain
 	Global.Debug = DefaultConfig.Debug
+	Global.StaleThreshold = DefaultConfig.StaleThreshold
 	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
 
@@ -77,6 +89,10 @@ func LoadFromGitConfig() {
 
 	if value := getGitConfig("grove.debug"); value != "" {
 		Global.Debug = isTruthy(value)
+	}
+
+	if value := getGitConfig("grove.staleThreshold"); value != "" {
+		Global.StaleThreshold = value
 	}
 
 	patterns := getGitConfigs("grove.preserve")

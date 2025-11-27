@@ -784,15 +784,37 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 
 // WorktreeInfo contains status information about a worktree
 type WorktreeInfo struct {
-	Path       string // Absolute path to worktree
-	Branch     string // Branch name
-	Upstream   string // Upstream branch name (e.g., "origin/main")
-	Dirty      bool   // Has uncommitted changes
-	Ahead      int    // Commits ahead of upstream
-	Behind     int    // Commits behind upstream
-	Gone       bool   // Upstream branch deleted
-	NoUpstream bool   // No upstream configured
-	Locked     bool   // Worktree is locked
+	Path           string // Absolute path to worktree
+	Branch         string // Branch name
+	Upstream       string // Upstream branch name (e.g., "origin/main")
+	Dirty          bool   // Has uncommitted changes
+	Ahead          int    // Commits ahead of upstream
+	Behind         int    // Commits behind upstream
+	Gone           bool   // Upstream branch deleted
+	NoUpstream     bool   // No upstream configured
+	Locked         bool   // Worktree is locked
+	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
+}
+
+// GetLastCommitTime returns the Unix timestamp of the last commit in a repository.
+// Returns 0 if the repository has no commits or on error.
+func GetLastCommitTime(path string) int64 {
+	cmd := exec.Command("git", "log", "-1", "--format=%ct", "HEAD")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return 0
+	}
+
+	var timestamp int64
+	if _, err := fmt.Sscanf(strings.TrimSpace(out.String()), "%d", &timestamp); err != nil {
+		return 0
+	}
+
+	return timestamp
 }
 
 // GetWorktreeInfo returns status information for a worktree
@@ -824,6 +846,9 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	info.Behind = syncStatus.Behind
 	info.Gone = syncStatus.Gone
 	info.NoUpstream = syncStatus.NoUpstream
+
+	// Get last commit time
+	info.LastCommitTime = GetLastCommitTime(path)
 
 	return info, nil
 }
