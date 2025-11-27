@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
@@ -110,7 +111,9 @@ func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([
 
 	var completions []string
 	for _, info := range infos {
-		if info.Path != cwd {
+		// Exclude current worktree (check if cwd is at root or inside this worktree)
+		inWorktree := cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(os.PathSeparator))
+		if !inWorktree {
 			completions = append(completions, info.Branch)
 		}
 	}
