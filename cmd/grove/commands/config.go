@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	configKeyPlain       = "grove.plain"
-	configKeyDebug       = "grove.debug"
-	configKeyPreserve    = "grove.preserve"
-	configKeyHooksCreate = "hooks.create"
-	tomlKeyPlain         = "plain"
-	tomlKeyDebug         = "debug"
-	tomlKeyPreserve      = "preserve.patterns"
+	configKeyPlain    = "grove.plain"
+	configKeyDebug    = "grove.debug"
+	configKeyPreserve = "grove.preserve"
+	configKeyHooksAdd = "hooks.add"
+	tomlKeyPlain      = "plain"
+	tomlKeyDebug      = "debug"
+	tomlKeyPreserve   = "preserve.patterns"
 )
 
 var (
@@ -229,7 +229,7 @@ Use --global to write to global git config (personal settings).
 
 One of --shared or --global must be specified.
 
-Note: Array values (preserve.patterns, hooks.create) cannot be set via this command.
+Note: Array values (preserve.patterns, hooks.add) cannot be set via this command.
 Edit .grove.toml directly for array values.`,
 		Args: cobra.ExactArgs(2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -342,8 +342,8 @@ func runConfigListShared() error {
 	for _, p := range cfg.Preserve.Patterns {
 		fmt.Printf("preserve.patterns=%s\n", p)
 	}
-	for _, h := range cfg.Hooks.Create {
-		fmt.Printf("hooks.create=%s\n", h)
+	for _, h := range cfg.Hooks.Add {
+		fmt.Printf("hooks.add=%s\n", h)
 	}
 
 	return nil
@@ -400,8 +400,8 @@ func runConfigListEffective() error {
 	if worktreeDir != "" {
 		cfg, err := config.LoadFromFile(worktreeDir)
 		if err == nil {
-			for _, h := range cfg.Hooks.Create {
-				fmt.Printf("hooks.create=%s\n", h)
+			for _, h := range cfg.Hooks.Add {
+				fmt.Printf("hooks.add=%s\n", h)
 			}
 		}
 	}
@@ -450,8 +450,8 @@ func runConfigGetShared(key string) error {
 		for _, p := range cfg.Preserve.Patterns {
 			fmt.Println(p)
 		}
-	case configKeyHooksCreate:
-		for _, h := range cfg.Hooks.Create {
+	case configKeyHooksAdd:
+		for _, h := range cfg.Hooks.Add {
 			fmt.Println(h)
 		}
 	default:
@@ -490,11 +490,11 @@ func runConfigGetEffective(key string) error {
 		for _, p := range config.GetMergedPreservePatterns(worktreeDir) {
 			fmt.Println(p)
 		}
-	case configKeyHooksCreate:
+	case configKeyHooksAdd:
 		if worktreeDir != "" {
 			cfg, err := config.LoadFromFile(worktreeDir)
 			if err == nil {
-				for _, h := range cfg.Hooks.Create {
+				for _, h := range cfg.Hooks.Add {
 					fmt.Println(h)
 				}
 			}
@@ -611,8 +611,8 @@ func runConfigUnsetShared(key string) error {
 		cfg.Debug = false
 	case "grove.preserve", "preserve.patterns":
 		cfg.Preserve.Patterns = nil
-	case "hooks.create":
-		cfg.Hooks.Create = nil
+	case "hooks.add":
+		cfg.Hooks.Add = nil
 	default:
 		return fmt.Errorf("unknown key: %s", key)
 	}

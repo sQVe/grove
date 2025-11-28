@@ -103,7 +103,7 @@ exec git -C $WORK/testrepo checkout main
 cd $WORK/workspace/.bare
 exec git fetch origin
 cd $WORK/workspace/main
-exec grove create feature-current
+exec grove add feature-current
 
 cd $WORK/workspace/feature-current
 exec git config user.name "Test"

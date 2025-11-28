@@ -48,14 +48,14 @@ func main() {
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 	rootCmd.Flags().BoolP("help", "h", false, "Help for grove")
 
-	rootCmd.AddCommand(commands.NewInitCmd())
+	rootCmd.AddCommand(commands.NewAddCmd())
 	rootCmd.AddCommand(commands.NewCloneCmd())
 	rootCmd.AddCommand(commands.NewConfigCmd())
-	rootCmd.AddCommand(commands.NewCreateCmd())
-	rootCmd.AddCommand(commands.NewDeleteCmd())
+	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
+	rootCmd.AddCommand(commands.NewMoveCmd())
 	rootCmd.AddCommand(commands.NewPruneCmd())
-	rootCmd.AddCommand(commands.NewRenameCmd())
+	rootCmd.AddCommand(commands.NewRemoveCmd())
 	rootCmd.AddCommand(commands.NewStatusCmd())
 	rootCmd.AddCommand(commands.NewSwitchCmd())
 

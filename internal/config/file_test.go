@@ -37,7 +37,7 @@ patterns = [".env", ".env.local", "*.secret"]
 	t.Run("parses hooks from TOML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		tomlContent := `[hooks]
-create = ["pnpm i", "pnpm build"]
+add = ["pnpm i", "pnpm build"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
@@ -50,12 +50,12 @@ create = ["pnpm i", "pnpm build"]
 		}
 
 		expected := []string{"pnpm i", "pnpm build"}
-		if len(cfg.Hooks.Create) != len(expected) {
-			t.Errorf("Expected %d hooks, got %d", len(expected), len(cfg.Hooks.Create))
+		if len(cfg.Hooks.Add) != len(expected) {
+			t.Errorf("Expected %d hooks, got %d", len(expected), len(cfg.Hooks.Add))
 		}
 		for i, exp := range expected {
-			if i >= len(cfg.Hooks.Create) || cfg.Hooks.Create[i] != exp {
-				t.Errorf("Expected hook %d to be %q, got %q", i, exp, cfg.Hooks.Create[i])
+			if i >= len(cfg.Hooks.Add) || cfg.Hooks.Add[i] != exp {
+				t.Errorf("Expected hook %d to be %q, got %q", i, exp, cfg.Hooks.Add[i])
 			}
 		}
 	})
@@ -94,8 +94,8 @@ debug = false
 		if len(cfg.Preserve.Patterns) != 0 {
 			t.Errorf("Expected empty patterns, got %v", cfg.Preserve.Patterns)
 		}
-		if len(cfg.Hooks.Create) != 0 {
-			t.Errorf("Expected empty hooks, got %v", cfg.Hooks.Create)
+		if len(cfg.Hooks.Add) != 0 {
+			t.Errorf("Expected empty hooks, got %v", cfg.Hooks.Add)
 		}
 	})
 
@@ -125,7 +125,7 @@ func TestWriteToFile(t *testing.T) {
 			Debug: false,
 		}
 		cfg.Preserve.Patterns = []string{".env", ".secret"}
-		cfg.Hooks.Create = []string{"npm install"}
+		cfg.Hooks.Add = []string{"npm install"}
 
 		if err := WriteToFile(tmpDir, cfg); err != nil {
 			t.Fatalf("WriteToFile failed: %v", err)
@@ -143,8 +143,8 @@ func TestWriteToFile(t *testing.T) {
 		if len(loaded.Preserve.Patterns) != 2 {
 			t.Errorf("Expected 2 patterns, got %d", len(loaded.Preserve.Patterns))
 		}
-		if len(loaded.Hooks.Create) != 1 {
-			t.Errorf("Expected 1 hook, got %d", len(loaded.Hooks.Create))
+		if len(loaded.Hooks.Add) != 1 {
+			t.Errorf("Expected 1 hook, got %d", len(loaded.Hooks.Add))
 		}
 	})
 

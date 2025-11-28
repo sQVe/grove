@@ -4,17 +4,17 @@
 
 | Command | Beautify | --plain | --debug | --help |
 | ------- | :------: | :-----: | :-----: | :----: |
+| add     |   [x]    |   [x]   |   [x]   |  [x]   |
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | config  |   [x]    |   [x]   |   [x]   |  [x]   |
-| create  |   [x]    |   [x]   |   [x]   |  [x]   |
-| delete  |   [x]    |   [x]   |   [x]   |  [x]   |
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
 | lock    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| move    |   [x]    |   [x]   |   [x]   |  [x]   |
 | prune   |   [x]    |   [x]   |   [x]   |  [x]   |
-| rename  |   [x]    |   [x]   |   [x]   |  [x]   |
+| remove  |   [x]    |   [x]   |   [x]   |  [x]   |
 | status  |   [x]    |   [x]   |   [x]   |  [x]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
 | unlock  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
@@ -142,7 +142,7 @@
 -   `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
     -   Default patterns: `.env`, `.env.local`, `.env.development.local`, `*.local.json`, `*.local.yaml`, `*.local.yml`, `*.local.toml`
     -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
--   `hooks.create` - Commands to run after creating worktrees (TOML only, array)
+-   `hooks.add` - Commands to run after adding worktrees (TOML only, array)
 
 ### `switch`
 
@@ -152,21 +152,21 @@
 | `switch <branch>`   | Provide completions for worktree names      |  [x]   |
 | `switch shell-init` | Output shell function for directory changes |  [x]   |
 
-### `create`
+### `add`
 
-| Command                 | Features                                      | Status |
-| ----------------------- | --------------------------------------------- | :----: |
-| `create <branch>`       | Create worktree for existing branch           |  [x]   |
-| `create <branch>`       | Create worktree with new branch if not exists |  [x]   |
-| `create <branch>`       | Provide completions for branch names          |  [x]   |
-| `create <branch>`       | Sanitize branch name for directory name       |  [x]   |
-| `create <branch>`       | Preserve configured files from source         |  [x]   |
-| `create <branch>`       | Run configured hooks after creation           |  [x]   |
-| `create -s <branch>`    | Switch to worktree after creation             |  [x]   |
-| `create #<number>`      | Create worktree from GitHub PR number         |  [x]   |
-| `create <pr-url>`       | Create worktree from GitHub PR URL            |  [x]   |
-| `create <pr-ref>`       | Support fork PRs with automatic remote setup  |  [x]   |
-| `create --detach <ref>` | Create worktree at commit/tag without branch  |  [ ]   |
+| Command              | Features                                     | Status |
+| -------------------- | -------------------------------------------- | :----: |
+| `add <branch>`       | Add worktree for existing branch             |  [x]   |
+| `add <branch>`       | Add worktree with new branch if not exists   |  [x]   |
+| `add <branch>`       | Provide completions for branch names         |  [x]   |
+| `add <branch>`       | Sanitize branch name for directory name      |  [x]   |
+| `add <branch>`       | Preserve configured files from source        |  [x]   |
+| `add <branch>`       | Run configured hooks after creation          |  [x]   |
+| `add -s <branch>`    | Switch to worktree after creation            |  [x]   |
+| `add #<number>`      | Add worktree from GitHub PR number           |  [x]   |
+| `add <pr-url>`       | Add worktree from GitHub PR URL              |  [x]   |
+| `add <pr-ref>`       | Support fork PRs with automatic remote setup |  [x]   |
+| `add --detach <ref>` | Add worktree at commit/tag without branch    |  [ ]   |
 
 **Notes:**
 
@@ -278,46 +278,46 @@
 -   Should handle command failures gracefully without stopping
 -   Should clearly identify which worktree each output comes from
 
-### `rename`
+### `move`
 
-| Command              | Features                                        | Status |
-| -------------------- | ----------------------------------------------- | :----: |
-| `rename <old> <new>` | Rename branch and associated worktree directory |  [x]   |
-| `rename <old> <new>` | Update upstream tracking references             |  [x]   |
-| `rename <old> <new>` | Provide completions for existing branch names   |  [x]   |
+| Command            | Features                                      | Status |
+| ------------------ | --------------------------------------------- | :----: |
+| `move <old> <new>` | Move branch and associated worktree directory |  [x]   |
+| `move <old> <new>` | Update upstream tracking references           |  [x]   |
+| `move <old> <new>` | Provide completions for existing branch names |  [x]   |
 
 **Notes:**
 
 -   Atomically handles git branch -m, directory rename, and upstream updates
 -   Eliminates the painful 4-step manual process
--   Maintains worktree functionality throughout rename
+-   Maintains worktree functionality throughout move
 
 **Failure conditions:**
 
--   [x] Should not rename if worktree has uncommitted changes
--   [x] Should not rename if target branch name already exists
+-   [x] Should not move if worktree has uncommitted changes
+-   [x] Should not move if target branch name already exists
 -   [x] Should revert all changes if any step fails
 
-### `delete`
+### `remove`
 
 | Command                    | Features                               | Status |
 | -------------------------- | -------------------------------------- | :----: |
-| `delete <branch>`          | Remove worktree and optionally branch  |  [x]   |
-| `delete <branch>`          | Provide completions for worktree names |  [x]   |
-| `delete --force <branch>`  | Force delete even if dirty/locked      |  [x]   |
-| `delete --branch <branch>` | Also delete the branch after removal   |  [x]   |
+| `remove <branch>`          | Remove worktree and optionally branch  |  [x]   |
+| `remove <branch>`          | Provide completions for worktree names |  [x]   |
+| `remove --force <branch>`  | Force remove even if dirty/locked      |  [x]   |
+| `remove --branch <branch>` | Also delete the branch after removal   |  [x]   |
 
 **Notes:**
 
 -   Wraps `git worktree remove` with Grove conventions
--   Safe by default: refuses to delete dirty or locked worktrees
+-   Safe by default: refuses to remove dirty or locked worktrees
 -   `--branch` flag provides convenient cleanup of merged branches
 
 **Failure conditions:**
 
--   [x] Should not delete worktree with uncommitted changes without `--force`
--   [x] Should not delete locked worktrees without `--force`
--   [x] Should not delete the current worktree
+-   [x] Should not remove worktree with uncommitted changes without `--force`
+-   [x] Should not remove locked worktrees without `--force`
+-   [x] Should not remove the current worktree
 -   [x] Should warn if branch has unpushed commits when using `--branch`
 
 ### `lock`

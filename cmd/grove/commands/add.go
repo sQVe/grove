@@ -18,37 +18,37 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func NewCreateCmd() *cobra.Command {
+func NewAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create <branch|#PR|PR-URL>",
-		Short: "Create a new worktree",
-		Long: `Create a new worktree for a branch or GitHub pull request.
+		Use:   "add <branch|#PR|PR-URL>",
+		Short: "Add a new worktree",
+		Long: `Add a new worktree for a branch or GitHub pull request.
 
 If the branch exists (locally or on remote), creates a worktree for it.
 If the branch doesn't exist, creates both the branch and worktree.
 If a PR reference is given, fetches PR metadata and creates a worktree for the PR's branch.
 
 Examples:
-  grove create feature/auth                              # Create worktree for new branch
-  grove create main                                      # Create worktree for existing branch
-  grove create -s feature/auth                           # Create and switch to worktree
-  grove create #123                                      # Create worktree for PR #123
-  grove create https://github.com/owner/repo/pull/123    # Create worktree from PR URL`,
+  grove add feature/auth                              # Add worktree for new branch
+  grove add main                                      # Add worktree for existing branch
+  grove add -s feature/auth                           # Add and switch to worktree
+  grove add #123                                      # Add worktree for PR #123
+  grove add https://github.com/owner/repo/pull/123    # Add worktree from PR URL`,
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeCreateArgs,
+		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runCreate(args[0], switchTo)
+			return runAdd(args[0], switchTo)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
-	cmd.Flags().BoolP("help", "h", false, "Help for create")
+	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	return cmd
 }
 
-func runCreate(branchOrPR string, switchTo bool) error {
+func runAdd(branchOrPR string, switchTo bool) error {
 	branchOrPR = strings.TrimSpace(branchOrPR)
 
 	cwd, err := os.Getwd()
@@ -81,14 +81,14 @@ func runCreate(branchOrPR string, switchTo bool) error {
 
 	// Check if this is a PR reference
 	if github.IsPRReference(branchOrPR) {
-		return runCreateFromPR(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+		return runAddFromPR(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
 	}
 
 	// Regular branch creation
-	return runCreateFromBranch(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+	return runAddFromBranch(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
 }
 
-func runCreateFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
 	dirName := workspace.SanitizeBranchName(branch)
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
@@ -122,7 +122,7 @@ func runCreateFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, s
 	}
 
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-	hookResult := runCreateHooks(sourceWorktree, worktreePath)
+	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
 		fmt.Println(worktreePath) // Path for shell wrapper to cd into
@@ -134,7 +134,7 @@ func runCreateFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, s
 	return nil
 }
 
-func runCreateFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -227,7 +227,7 @@ func runCreateFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, source
 	}
 
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-	hookResult := runCreateHooks(sourceWorktree, worktreePath)
+	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
 		fmt.Println(worktreePath)
@@ -334,19 +334,19 @@ func logPreserveResult(result *workspace.PreserveResult) {
 	}
 }
 
-func runCreateHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
-	var createHooks []string
+func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
+	var addHooks []string
 	if sourceWorktree != "" {
-		createHooks = hooks.GetCreateHooks(sourceWorktree)
+		addHooks = hooks.GetAddHooks(sourceWorktree)
 	}
 
-	if len(createHooks) == 0 {
-		logger.Debug("No create hooks configured")
+	if len(addHooks) == 0 {
+		logger.Debug("No add hooks configured")
 		return nil
 	}
 
-	logger.Debug("Found %d create hooks", len(createHooks))
-	return hooks.RunCreateHooks(destWorktree, createHooks)
+	logger.Debug("Found %d add hooks", len(addHooks))
+	return hooks.RunAddHooks(destWorktree, addHooks)
 }
 
 func logHookResult(result *hooks.RunResult) {
@@ -373,7 +373,7 @@ func logHookResult(result *hooks.RunResult) {
 	}
 }
 
-func completeCreateArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completeAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

@@ -17,7 +17,7 @@ type FileConfig struct {
 		Patterns []string `toml:"patterns"`
 	} `toml:"preserve"`
 	Hooks struct {
-		Create []string `toml:"create"`
+		Add []string `toml:"add"`
 	} `toml:"hooks"`
 	Plain bool `toml:"plain"`
 	Debug bool `toml:"debug"`

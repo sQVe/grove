@@ -18,40 +18,40 @@ cd workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 
-## Create worktree for existing branch
+## Add worktree for existing branch
 
-exec grove create existing-branch
+exec grove add existing-branch
 stdout 'Created worktree'
 exists ../existing-branch
 
-## Create worktree for new branch
+## Add worktree for new branch
 
-exec grove create feature/new-thing
+exec grove add feature/new-thing
 stdout 'Created worktree'
 exists ../feature-new-thing
 
 ## Error: branch already has worktree
 
-! exec grove create existing-branch
+! exec grove add existing-branch
 stderr 'worktree already exists'
 
 ## Error: directory already exists (main already has worktree directory)
 
 mkdir ../test-dir
-! exec grove create test-dir
+! exec grove add test-dir
 stderr 'directory already exists'
 
-## Create with --switch outputs path only
+## Add with --switch outputs path only
 
 cd $WORK/workspace/main
-exec grove create --switch feature/switch-test
+exec grove add --switch feature/switch-test
 stdout '^.*/feature-switch-test$'
 ! stdout 'Created worktree'
 exists ../feature-switch-test
 
-## Create with -s shorthand outputs path only
+## Add with -s shorthand outputs path only
 
-exec grove create -s feature/short-flag
+exec grove add -s feature/short-flag
 stdout '^.*/feature-short-flag$'
 ! stdout 'Created worktree'
 exists ../feature-short-flag
@@ -59,7 +59,7 @@ exists ../feature-short-flag
 ## Error: not in workspace
 
 cd /tmp
-! exec grove create feature
+! exec grove add feature
 stderr 'not in a grove workspace'
 
 -- README.md --

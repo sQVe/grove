@@ -14,11 +14,11 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func TestNewDeleteCmd(t *testing.T) {
-	cmd := NewDeleteCmd()
+func TestNewRemoveCmd(t *testing.T) {
+	cmd := NewRemoveCmd()
 
-	if cmd.Use != "delete <branch>" {
-		t.Errorf("expected Use 'delete <branch>', got %q", cmd.Use)
+	if cmd.Use != "remove <branch>" {
+		t.Errorf("expected Use 'remove <branch>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description")
@@ -31,20 +31,20 @@ func TestNewDeleteCmd(t *testing.T) {
 	}
 }
 
-func TestRunDelete_NotInWorkspace(t *testing.T) {
+func TestRunRemove_NotInWorkspace(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
 	tmpDir := t.TempDir()
 	_ = os.Chdir(tmpDir)
 
-	err := runDelete("some-branch", false, false)
+	err := runRemove("some-branch", false, false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
 }
 
-func TestRunDelete_BranchNotFound(t *testing.T) {
+func TestRunRemove_BranchNotFound(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -69,7 +69,7 @@ func TestRunDelete_BranchNotFound(t *testing.T) {
 	// Change to workspace
 	_ = os.Chdir(mainPath)
 
-	err := runDelete("nonexistent", false, false)
+	err := runRemove("nonexistent", false, false)
 	if err == nil {
 		t.Error("expected error for non-existent branch")
 	}
@@ -78,7 +78,7 @@ func TestRunDelete_BranchNotFound(t *testing.T) {
 	}
 }
 
-func TestRunDelete_CurrentWorktree(t *testing.T) {
+func TestRunRemove_CurrentWorktree(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -100,19 +100,19 @@ func TestRunDelete_CurrentWorktree(t *testing.T) {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
-	// Change to workspace (the worktree we'll try to delete)
+	// Change to workspace (the worktree we'll try to remove)
 	_ = os.Chdir(mainPath)
 
-	err := runDelete("main", false, false)
+	err := runRemove("main", false, false)
 	if err == nil {
-		t.Error("expected error when deleting current worktree")
+		t.Error("expected error when removing current worktree")
 	}
 	if !strings.Contains(err.Error(), "current worktree") {
 		t.Errorf("expected 'current worktree' error, got: %v", err)
 	}
 }
 
-func TestRunDelete_DirtyWorktree(t *testing.T) {
+func TestRunRemove_DirtyWorktree(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -148,10 +148,10 @@ func TestRunDelete_DirtyWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Change to main worktree (not the one we're deleting)
+	// Change to main worktree (not the one we're removing)
 	_ = os.Chdir(mainPath)
 
-	err := runDelete("feature", false, false)
+	err := runRemove("feature", false, false)
 	if err == nil {
 		t.Error("expected error for dirty worktree")
 	}
@@ -160,7 +160,7 @@ func TestRunDelete_DirtyWorktree(t *testing.T) {
 	}
 }
 
-func TestRunDelete_LockedWorktree(t *testing.T) {
+func TestRunRemove_LockedWorktree(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -200,7 +200,7 @@ func TestRunDelete_LockedWorktree(t *testing.T) {
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	err := runDelete("feature", false, false)
+	err := runRemove("feature", false, false)
 	if err == nil {
 		t.Error("expected error for locked worktree")
 	}
@@ -209,7 +209,7 @@ func TestRunDelete_LockedWorktree(t *testing.T) {
 	}
 }
 
-func TestRunDelete_Success(t *testing.T) {
+func TestRunRemove_Success(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -263,14 +263,14 @@ func TestRunDelete_Success(t *testing.T) {
 		t.Fatal("feature worktree should exist before deletion")
 	}
 
-	err := runDelete("feature", false, false)
+	err := runRemove("feature", false, false)
 	if err != nil {
-		t.Fatalf("runDelete failed: %v", err)
+		t.Fatalf("runRemove failed: %v", err)
 	}
 
 	// Verify worktree is removed
 	if _, err := os.Stat(featurePath); !os.IsNotExist(err) {
-		t.Error("feature worktree should not exist after deletion")
+		t.Error("feature worktree should not exist after removal")
 	}
 
 	// Verify branch still exists (--branch not used)
@@ -283,7 +283,7 @@ func TestRunDelete_Success(t *testing.T) {
 	}
 }
 
-func TestRunDelete_ForceDirty(t *testing.T) {
+func TestRunRemove_ForceDirty(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -322,19 +322,19 @@ func TestRunDelete_ForceDirty(t *testing.T) {
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	// Force delete dirty worktree
-	err := runDelete("feature", true, false)
+	// Force remove dirty worktree
+	err := runRemove("feature", true, false)
 	if err != nil {
-		t.Fatalf("runDelete with force failed: %v", err)
+		t.Fatalf("runRemove with force failed: %v", err)
 	}
 
 	// Verify worktree is removed
 	if _, err := os.Stat(featurePath); !os.IsNotExist(err) {
-		t.Error("feature worktree should not exist after forced deletion")
+		t.Error("feature worktree should not exist after forced removal")
 	}
 }
 
-func TestRunDelete_ForceLocked(t *testing.T) {
+func TestRunRemove_ForceLocked(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -374,19 +374,19 @@ func TestRunDelete_ForceLocked(t *testing.T) {
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	// Force delete locked worktree
-	err := runDelete("feature", true, false)
+	// Force remove locked worktree
+	err := runRemove("feature", true, false)
 	if err != nil {
-		t.Fatalf("runDelete with force failed: %v", err)
+		t.Fatalf("runRemove with force failed: %v", err)
 	}
 
 	// Verify worktree is removed
 	if _, err := os.Stat(featurePath); !os.IsNotExist(err) {
-		t.Error("feature worktree should not exist after forced deletion")
+		t.Error("feature worktree should not exist after forced removal")
 	}
 }
 
-func TestRunDelete_WithBranchFlag(t *testing.T) {
+func TestRunRemove_WithBranchFlag(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -435,15 +435,15 @@ func TestRunDelete_WithBranchFlag(t *testing.T) {
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	// Delete with --branch flag
-	err := runDelete("feature", false, true)
+	// Remove with --branch flag
+	err := runRemove("feature", false, true)
 	if err != nil {
-		t.Fatalf("runDelete with --branch failed: %v", err)
+		t.Fatalf("runRemove with --branch failed: %v", err)
 	}
 
 	// Verify worktree is removed
 	if _, err := os.Stat(featurePath); !os.IsNotExist(err) {
-		t.Error("feature worktree should not exist after deletion")
+		t.Error("feature worktree should not exist after removal")
 	}
 
 	// Verify branch is also deleted
@@ -456,7 +456,7 @@ func TestRunDelete_WithBranchFlag(t *testing.T) {
 	}
 }
 
-func TestCompleteDeleteArgs(t *testing.T) {
+func TestCompleteRemoveArgs(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
@@ -498,8 +498,8 @@ func TestCompleteDeleteArgs(t *testing.T) {
 	_ = os.Chdir(mainPath)
 
 	// Get completions
-	deleteCmd := NewDeleteCmd()
-	completions, directive := completeDeleteArgs(deleteCmd, nil, "")
+	removeCmd := NewRemoveCmd()
+	completions, directive := completeRemoveArgs(removeCmd, nil, "")
 
 	// Should not include current worktree (main)
 	for _, c := range completions {

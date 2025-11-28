@@ -9,17 +9,17 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func TestNewRenameCmd(t *testing.T) {
-	cmd := NewRenameCmd()
-	if cmd.Use != "rename <old-branch> <new-branch>" {
-		t.Errorf("expected Use to be 'rename <old-branch> <new-branch>', got %q", cmd.Use)
+func TestNewMoveCmd(t *testing.T) {
+	cmd := NewMoveCmd()
+	if cmd.Use != "move <old-branch> <new-branch>" {
+		t.Errorf("expected Use to be 'move <old-branch> <new-branch>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")
 	}
 }
 
-func TestRunRename_NotInWorkspace(t *testing.T) {
+func TestRunMove_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -31,14 +31,14 @@ func TestRunRename_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runRename("old-branch", "new-branch")
+	err = runMove("old-branch", "new-branch")
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
 }
 
-func TestRunRename_SameBranchName(t *testing.T) {
-	err := runRename("same-branch", "same-branch")
+func TestRunMove_SameBranchName(t *testing.T) {
+	err := runMove("same-branch", "same-branch")
 	if err == nil {
 		t.Fatal("expected error for same branch names")
 	}

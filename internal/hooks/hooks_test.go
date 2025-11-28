@@ -8,14 +8,14 @@ import (
 	"github.com/sqve/grove/internal/fs"
 )
 
-func TestRunCreateHooks(t *testing.T) {
+func TestRunAddHooks(t *testing.T) {
 	t.Run("runs single command successfully", func(t *testing.T) {
 		workDir := t.TempDir()
 
 		// Create a simple test file to prove we ran in the right directory
 		commands := []string{"touch test-file.txt"}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if len(result.Succeeded) != 1 {
 			t.Errorf("Expected 1 succeeded command, got %d", len(result.Succeeded))
@@ -36,7 +36,7 @@ func TestRunCreateHooks(t *testing.T) {
 			"touch second.txt",
 		}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if len(result.Succeeded) != 2 {
 			t.Errorf("Expected 2 succeeded commands, got %d", len(result.Succeeded))
@@ -60,7 +60,7 @@ func TestRunCreateHooks(t *testing.T) {
 			"touch third.txt",
 		}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if len(result.Succeeded) != 1 {
 			t.Errorf("Expected 1 succeeded command, got %d", len(result.Succeeded))
@@ -83,7 +83,7 @@ func TestRunCreateHooks(t *testing.T) {
 	t.Run("returns empty result for empty commands", func(t *testing.T) {
 		workDir := t.TempDir()
 
-		result := RunCreateHooks(workDir, nil)
+		result := RunAddHooks(workDir, nil)
 
 		if len(result.Succeeded) != 0 || result.Failed != nil {
 			t.Error("Expected empty result for no commands")
@@ -95,7 +95,7 @@ func TestRunCreateHooks(t *testing.T) {
 
 		commands := []string{"exit 42"}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if result.Failed == nil {
 			t.Fatal("Expected a failed command")
@@ -111,7 +111,7 @@ func TestRunCreateHooks(t *testing.T) {
 
 		commands := []string{"echo 'out message'; echo 'err message' >&2; false"}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if result.Failed == nil {
 			t.Fatal("Expected a failed command")
@@ -134,7 +134,7 @@ func TestRunCreateHooks(t *testing.T) {
 
 		commands := []string{"echo $GROVE_TEST_VAR > env-output.txt"}
 
-		result := RunCreateHooks(workDir, commands)
+		result := RunAddHooks(workDir, commands)
 
 		if len(result.Succeeded) != 1 {
 			t.Fatalf("Expected command to succeed, got failed: %v", result.Failed)
@@ -151,20 +151,20 @@ func TestRunCreateHooks(t *testing.T) {
 	})
 }
 
-func TestGetCreateHooks(t *testing.T) {
+func TestGetAddHooks(t *testing.T) {
 	t.Run("returns hooks from TOML config", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create .grove.toml with hooks
 		tomlContent := `[hooks]
-create = ["pnpm i", "pnpm build"]
+add = ["pnpm i", "pnpm build"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 		if err := os.WriteFile(tomlPath, []byte(tomlContent), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
 
-		hooks := GetCreateHooks(tmpDir)
+		hooks := GetAddHooks(tmpDir)
 
 		if len(hooks) != 2 {
 			t.Fatalf("Expected 2 hooks, got %d", len(hooks))
@@ -178,14 +178,14 @@ create = ["pnpm i", "pnpm build"]
 		tmpDir := t.TempDir()
 		// No .grove.toml
 
-		hooks := GetCreateHooks(tmpDir)
+		hooks := GetAddHooks(tmpDir)
 
 		if len(hooks) != 0 {
 			t.Errorf("Expected empty hooks, got %v", hooks)
 		}
 	})
 
-	t.Run("returns empty when no create hooks defined", func(t *testing.T) {
+	t.Run("returns empty when no add hooks defined", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
 		// Create .grove.toml without hooks section
@@ -197,7 +197,7 @@ patterns = [".env"]
 			t.Fatal(err)
 		}
 
-		hooks := GetCreateHooks(tmpDir)
+		hooks := GetAddHooks(tmpDir)
 
 		if len(hooks) != 0 {
 			t.Errorf("Expected empty hooks, got %v", hooks)

@@ -13,28 +13,28 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func NewRenameCmd() *cobra.Command {
+func NewMoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rename <old-branch> <new-branch>",
-		Short: "Rename a branch and its worktree",
-		Long: `Rename a branch and its associated worktree directory.
+		Use:   "move <old-branch> <new-branch>",
+		Short: "Move a branch and its worktree",
+		Long: `Move a branch and its associated worktree directory.
 
 This command atomically renames both the git branch and the worktree directory,
 updating all necessary references.
 
 Examples:
-  grove rename feature/old feature/new`,
+  grove move feature/old feature/new`,
 		Args:              cobra.ExactArgs(2),
-		ValidArgsFunction: completeRenameArgs,
+		ValidArgsFunction: completeMoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRename(args[0], args[1])
+			return runMove(args[0], args[1])
 		},
 	}
 
 	return cmd
 }
 
-func runRename(oldBranch, newBranch string) error {
+func runMove(oldBranch, newBranch string) error {
 	oldBranch = strings.TrimSpace(oldBranch)
 	newBranch = strings.TrimSpace(newBranch)
 
@@ -198,7 +198,7 @@ func runRename(oldBranch, newBranch string) error {
 	return nil
 }
 
-func completeRenameArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completeMoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Only complete first argument (old branch name)
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp

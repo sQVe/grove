@@ -10,18 +10,18 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func TestNewCreateCmd(t *testing.T) {
-	cmd := NewCreateCmd()
-	if cmd.Use != "create <branch|#PR|PR-URL>" {
-		t.Errorf("expected Use to be 'create <branch|#PR|PR-URL>', got %q", cmd.Use)
+func TestNewAddCmd(t *testing.T) {
+	cmd := NewAddCmd()
+	if cmd.Use != "add <branch|#PR|PR-URL>" {
+		t.Errorf("expected Use to be 'add <branch|#PR|PR-URL>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")
 	}
 }
 
-func TestNewCreateCmd_HasSwitchFlag(t *testing.T) {
-	cmd := NewCreateCmd()
+func TestNewAddCmd_HasSwitchFlag(t *testing.T) {
+	cmd := NewAddCmd()
 	flag := cmd.Flags().Lookup("switch")
 	if flag == nil {
 		t.Fatal("expected --switch flag to exist")
@@ -31,7 +31,7 @@ func TestNewCreateCmd_HasSwitchFlag(t *testing.T) {
 	}
 }
 
-func TestRunCreate_NotInWorkspace(t *testing.T) {
+func TestRunAdd_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestRunCreate_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runCreate("feature-test", false)
+	err = runAdd("feature-test", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}

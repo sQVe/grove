@@ -12,35 +12,35 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-// NewDeleteCmd creates the delete command
-func NewDeleteCmd() *cobra.Command {
+// NewRemoveCmd creates the remove command
+func NewRemoveCmd() *cobra.Command {
 	var force bool
 	var deleteBranch bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <branch>",
+		Use:   "remove <branch>",
 		Short: "Remove a worktree",
 		Long: `Remove a worktree directory. Optionally delete the branch as well.
 
 Examples:
-  grove delete feature-auth        # Remove worktree only
-  grove delete --branch feature    # Remove worktree and delete branch
-  grove delete --force dirty-work  # Force remove even if dirty/locked`,
+  grove remove feature-auth        # Remove worktree only
+  grove remove --branch feature    # Remove worktree and delete branch
+  grove remove --force dirty-work  # Force remove even if dirty/locked`,
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeDeleteArgs,
+		ValidArgsFunction: completeRemoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDelete(args[0], force, deleteBranch)
+			return runRemove(args[0], force, deleteBranch)
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty or locked")
 	cmd.Flags().BoolVar(&deleteBranch, "branch", false, "Also delete the branch")
-	cmd.Flags().BoolP("help", "h", false, "Help for delete")
+	cmd.Flags().BoolP("help", "h", false, "Help for remove")
 
 	return cmd
 }
 
-func runDelete(branch string, force, deleteBranch bool) error {
+func runRemove(branch string, force, deleteBranch bool) error {
 	branch = strings.TrimSpace(branch)
 
 	cwd, err := os.Getwd()
@@ -123,7 +123,7 @@ func runDelete(branch string, force, deleteBranch bool) error {
 	return nil
 }
 
-func completeDeleteArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Only complete first argument
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp

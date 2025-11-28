@@ -21,15 +21,15 @@ type RunResult struct {
 	Failed    *HookResult
 }
 
-// RunCreateHooks runs commands sequentially, stops on first failure.
-func RunCreateHooks(workDir string, commands []string) *RunResult {
+// RunAddHooks runs commands sequentially, stops on first failure.
+func RunAddHooks(workDir string, commands []string) *RunResult {
 	result := &RunResult{}
 
 	if len(commands) == 0 {
 		return result
 	}
 
-	logger.Debug("Running %d create hooks in %s", len(commands), workDir)
+	logger.Debug("Running %d add hooks in %s", len(commands), workDir)
 
 	for _, cmdStr := range commands {
 		logger.Debug("Executing hook: %s", cmdStr)
@@ -67,7 +67,7 @@ func RunCreateHooks(workDir string, commands []string) *RunResult {
 	return result
 }
 
-func GetCreateHooks(worktreeDir string) []string {
+func GetAddHooks(worktreeDir string) []string {
 	cfg, err := config.LoadFromFile(worktreeDir)
 	if err != nil {
 		// LoadFromFile returns nil error when file doesn't exist,
@@ -76,5 +76,5 @@ func GetCreateHooks(worktreeDir string) []string {
 		return nil
 	}
 
-	return cfg.Hooks.Create
+	return cfg.Hooks.Add
 }
