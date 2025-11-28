@@ -202,6 +202,62 @@ func IsWorktree(path string) bool {
 	return fs.FileExists(gitPath)
 }
 
+// FindWorktreeRoot walks up from the given path to find the worktree root.
+// Returns the path containing the .git file, or error if not in a worktree.
+func FindWorktreeRoot(startPath string) (string, error) {
+	absPath, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", err
+	}
+
+	dir := absPath
+	for {
+		gitPath := filepath.Join(dir, ".git")
+		if fs.FileExists(gitPath) {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("not in a worktree")
+		}
+		dir = parent
+	}
+}
+
+// GetGitDir returns the path to the git directory for the given path.
+// For worktrees, this resolves the gitdir from the .git file.
+func GetGitDir(path string) (string, error) {
+	gitPath := filepath.Join(path, ".git")
+
+	// Check if .git is a directory (regular repo)
+	if fs.DirectoryExists(gitPath) {
+		return gitPath, nil
+	}
+
+	// Check if .git is a file (worktree)
+	if fs.FileExists(gitPath) {
+		content, err := os.ReadFile(gitPath) // nolint:gosec // Path is constructed internally
+		if err != nil {
+			return "", err
+		}
+
+		// Parse "gitdir: <path>"
+		line := strings.TrimSpace(string(content))
+		if !strings.HasPrefix(line, "gitdir: ") {
+			return "", fmt.Errorf("invalid .git file format")
+		}
+
+		gitdir := strings.TrimPrefix(line, "gitdir: ")
+		if !filepath.IsAbs(gitdir) {
+			gitdir = filepath.Join(path, gitdir)
+		}
+		return filepath.Clean(gitdir), nil
+	}
+
+	return "", fmt.Errorf("not a git repository")
+}
+
 // IsWorktreeLocked checks if a worktree is locked.
 // Locked worktrees have a worktrees/<name>/locked file inside the git directory.
 func IsWorktreeLocked(repoPath, worktreeName string) bool {
@@ -396,10 +452,9 @@ func HasOngoingOperation(path string) (bool, error) {
 // GetOngoingOperation returns the name of any ongoing git operation, or empty string if none.
 // Returns: "merging", "rebasing", "cherry-picking", "reverting", or ""
 func GetOngoingOperation(path string) (string, error) {
-	gitDir := filepath.Join(path, ".git")
-
-	if !fs.DirectoryExists(gitDir) {
-		return "", fmt.Errorf("not a git repository")
+	gitDir, err := GetGitDir(path)
+	if err != nil {
+		return "", err
 	}
 
 	// Check in order of most common operations

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -59,10 +60,10 @@ func runList(fast, jsonOutput, verbose bool) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Determine current branch - only if cwd is an actual worktree
+	// Determine current branch (also works from subdirectories)
 	currentBranch := ""
 	for _, info := range infos {
-		if info.Path == cwd {
+		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
 			currentBranch = info.Branch
 			break
 		}

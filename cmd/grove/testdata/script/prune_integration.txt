@@ -126,6 +126,24 @@ stdout 'current worktree'
 # Worktree should still exist
 exists $WORK/workspace/feature-current
 
+## Test: Current worktree protected from subdirectory
+# Create subdirectory inside the worktree
+mkdir -p $WORK/workspace/feature-current/src/components
+cd $WORK/workspace/feature-current/src/components
+
+# Prune from inside subdirectory should still show it as current
+exec grove prune
+stdout 'feature-current'
+stdout '\(current\)'
+
+# --commit from subdirectory should still skip current worktree
+exec grove prune --commit
+stdout 'Skipped feature-current'
+stdout 'current worktree'
+
+# Worktree should still exist
+exists $WORK/workspace/feature-current
+
 ## Test: Error not in workspace
 cd /tmp
 ! exec grove prune

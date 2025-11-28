@@ -1862,3 +1862,173 @@ func TestGetStashCount(t *testing.T) {
 		}
 	})
 }
+
+func TestFindWorktreeRoot(t *testing.T) {
+	t.Run("returns root when called from worktree root", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create a .git file (simulating a worktree)
+		gitFile := filepath.Join(tempDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: /some/path"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		root, err := FindWorktreeRoot(tempDir)
+		if err != nil {
+			t.Fatalf("FindWorktreeRoot failed: %v", err)
+		}
+		if root != tempDir {
+			t.Errorf("expected %s, got %s", tempDir, root)
+		}
+	})
+
+	t.Run("returns root when called from subdirectory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create a .git file at root
+		gitFile := filepath.Join(tempDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: /some/path"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		// Create subdirectory
+		subDir := filepath.Join(tempDir, "src")
+		if err := os.Mkdir(subDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create subdirectory: %v", err)
+		}
+
+		root, err := FindWorktreeRoot(subDir)
+		if err != nil {
+			t.Fatalf("FindWorktreeRoot failed: %v", err)
+		}
+		if root != tempDir {
+			t.Errorf("expected %s, got %s", tempDir, root)
+		}
+	})
+
+	t.Run("returns root when called from deeply nested subdirectory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create a .git file at root
+		gitFile := filepath.Join(tempDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: /some/path"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		// Create deeply nested subdirectory
+		deepDir := filepath.Join(tempDir, "src", "components", "auth")
+		if err := os.MkdirAll(deepDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create nested directories: %v", err)
+		}
+
+		root, err := FindWorktreeRoot(deepDir)
+		if err != nil {
+			t.Fatalf("FindWorktreeRoot failed: %v", err)
+		}
+		if root != tempDir {
+			t.Errorf("expected %s, got %s", tempDir, root)
+		}
+	})
+
+	t.Run("returns error when not in a worktree", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		_, err := FindWorktreeRoot(tempDir)
+		if err == nil {
+			t.Fatal("expected error when not in a worktree")
+		}
+	})
+}
+
+func TestGetGitDir(t *testing.T) {
+	t.Run("returns .git directory for regular repos", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		gitDir, err := GetGitDir(repo.Path)
+		if err != nil {
+			t.Fatalf("GetGitDir failed: %v", err)
+		}
+
+		expected := filepath.Join(repo.Path, ".git")
+		if gitDir != expected {
+			t.Errorf("expected %s, got %s", expected, gitDir)
+		}
+	})
+
+	t.Run("resolves gitdir from .git file in worktrees", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create fake git dir
+		fakeGitDir := filepath.Join(tempDir, "fake-git-dir")
+		if err := os.Mkdir(fakeGitDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create fake git dir: %v", err)
+		}
+
+		// Create worktree directory with .git file
+		worktreeDir := filepath.Join(tempDir, "worktree")
+		if err := os.Mkdir(worktreeDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create worktree dir: %v", err)
+		}
+
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content := "gitdir: " + fakeGitDir
+		if err := os.WriteFile(gitFile, []byte(content), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		gitDir, err := GetGitDir(worktreeDir)
+		if err != nil {
+			t.Fatalf("GetGitDir failed: %v", err)
+		}
+		if gitDir != fakeGitDir {
+			t.Errorf("expected %s, got %s", fakeGitDir, gitDir)
+		}
+	})
+
+	t.Run("handles relative paths in .git file", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create fake git dir as sibling
+		fakeGitDir := filepath.Join(tempDir, ".bare", "worktrees", "feature")
+		if err := os.MkdirAll(fakeGitDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create fake git dir: %v", err)
+		}
+
+		// Create worktree directory with .git file using relative path
+		worktreeDir := filepath.Join(tempDir, "feature")
+		if err := os.Mkdir(worktreeDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create worktree dir: %v", err)
+		}
+
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content := "gitdir: ../.bare/worktrees/feature"
+		if err := os.WriteFile(gitFile, []byte(content), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		gitDir, err := GetGitDir(worktreeDir)
+		if err != nil {
+			t.Fatalf("GetGitDir failed: %v", err)
+		}
+		if gitDir != fakeGitDir {
+			t.Errorf("expected %s, got %s", fakeGitDir, gitDir)
+		}
+	})
+
+	t.Run("returns error for non-git directories", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		_, err := GetGitDir(tempDir)
+		if err == nil {
+			t.Fatal("expected error for non-git directory")
+		}
+	})
+}

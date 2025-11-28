@@ -59,6 +59,20 @@ stdout 'stashed'
 # Clear stash
 exec git stash drop
 
+## Subdirectory handling
+
+# Test status from subdirectory
+cd $WORK/workspace/main
+mkdir -p src/components
+cd src/components
+exec grove status --plain
+stdout '\* main'
+stdout 'clean'
+
+# Test status --json from subdirectory
+exec grove status --json
+stdout '"branch": "main"'
+
 ## Error handling
 
 # Test not in workspace error

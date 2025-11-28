@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -141,8 +142,8 @@ func runPrune(commit, force bool, stale string) error {
 }
 
 func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipReason {
-	// Current worktree is always protected
-	if info.Path == cwd {
+	// Current worktree is always protected (also from subdirectories)
+	if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
 		return skipCurrent
 	}
 

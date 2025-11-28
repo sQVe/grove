@@ -66,6 +66,16 @@ stdout 'main'
 stdout 'develop'
 ! stdout '^●'
 
+## Subdirectory handling
+
+# Test list from subdirectory marks correct current worktree
+cd $WORK/workspace/main
+mkdir -p src/components
+cd src/components
+exec grove list
+stdout '^●'
+stdout 'main'
+
 ## Error handling
 
 # Test not in workspace error

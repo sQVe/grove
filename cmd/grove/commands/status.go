@@ -70,12 +70,13 @@ func runStatus(verbose, jsonOutput bool) error {
 		return err
 	}
 
-	// Verify we're in a worktree, not the bare repo
-	if !git.IsWorktree(cwd) {
+	// Find worktree root (works from subdirectories)
+	worktreeRoot, err := git.FindWorktreeRoot(cwd)
+	if err != nil {
 		return fmt.Errorf("not inside a worktree (run from a worktree directory)")
 	}
 
-	info, err := gatherStatusInfo(cwd, bareDir)
+	info, err := gatherStatusInfo(worktreeRoot, bareDir)
 	if err != nil {
 		return err
 	}
