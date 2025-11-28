@@ -80,6 +80,8 @@ grove() {
 }
 
 func runSwitch(branch string) error {
+	branch = strings.TrimSpace(branch)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
