@@ -2,8 +2,10 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -46,7 +48,9 @@ func FileConfigExists(dir string) bool {
 // GetMergedPreservePatterns: TOML > git config > defaults
 func GetMergedPreservePatterns(worktreeDir string) []string {
 	cfg, err := LoadFromFile(worktreeDir)
-	if err == nil && len(cfg.Preserve.Patterns) > 0 {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
+	} else if len(cfg.Preserve.Patterns) > 0 {
 		return cfg.Preserve.Patterns
 	}
 
@@ -65,7 +69,9 @@ func GetMergedPlain(worktreeDir string) bool {
 	}
 
 	cfg, err := LoadFromFile(worktreeDir)
-	if err == nil && cfg.Plain {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
+	} else if cfg.Plain {
 		return true
 	}
 
@@ -79,7 +85,9 @@ func GetMergedDebug(worktreeDir string) bool {
 	}
 
 	cfg, err := LoadFromFile(worktreeDir)
-	if err == nil && cfg.Debug {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
+	} else if cfg.Debug {
 		return true
 	}
 
@@ -89,7 +97,7 @@ func GetMergedDebug(worktreeDir string) bool {
 // WriteToFile uses atomic write (temp file + rename) to prevent corruption.
 func WriteToFile(dir string, cfg FileConfig) error {
 	path := filepath.Join(dir, FileName)
-	tmpPath := path + ".tmp"
+	tmpPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())
 
 	f, err := os.Create(tmpPath) //nolint:gosec // Path is derived from user-provided dir, not external input
 	if err != nil {

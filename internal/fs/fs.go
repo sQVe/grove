@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 )
 
 const (
@@ -148,7 +149,7 @@ func CopyFile(src, dst string, perm os.FileMode) error {
 
 // WriteFileAtomic writes data to a file atomically by writing to a temp file then renaming
 func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
-	tmpPath := fmt.Sprintf("%s.tmp.%d", path, os.Getpid())
+	tmpPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())
 	if err := os.WriteFile(tmpPath, data, perm); err != nil {
 		return err
 	}

@@ -763,7 +763,7 @@ func GetConfig(key string, global bool) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 1 {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
 			return "", ErrConfigNotFound
 		}
 		if stderr.Len() > 0 {
@@ -791,7 +791,7 @@ func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 1 {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
 			return make(map[string][]string), nil
 		}
 		if stderr.Len() > 0 {
@@ -877,7 +877,7 @@ func UnsetConfig(key string, global bool) error {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 5 {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
 			return ErrConfigNotFound
 		}
 		if stderr.Len() > 0 {
@@ -904,7 +904,7 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		if exitCode := cmd.ProcessState.ExitCode(); exitCode == 5 {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
 			return ErrConfigNotFound
 		}
 		if stderr.Len() > 0 {
