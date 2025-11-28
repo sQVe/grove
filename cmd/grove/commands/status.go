@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -129,19 +130,25 @@ func gatherStatusInfo(worktreePath, bareDir string) (*StatusInfo, error) {
 
 	// Get stash count
 	stashes, err := git.GetStashCount(worktreePath)
-	if err == nil {
+	if err != nil {
+		logger.Debug("Failed to get stash count: %v", err)
+	} else {
 		info.Stashes = stashes
 	}
 
 	// Get ongoing operation
 	operation, err := git.GetOngoingOperation(worktreePath)
-	if err == nil {
+	if err != nil {
+		logger.Debug("Failed to get ongoing operation: %v", err)
+	} else {
 		info.Operation = operation
 	}
 
 	// Get conflict count
 	conflicts, err := git.GetConflictCount(worktreePath)
-	if err == nil {
+	if err != nil {
+		logger.Debug("Failed to get conflict count: %v", err)
+	} else {
 		info.Conflicts = conflicts
 	}
 
