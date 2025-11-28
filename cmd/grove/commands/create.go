@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,6 +43,8 @@ Examples:
 }
 
 func runCreate(branch string, switchTo bool) error {
+	branch = strings.TrimSpace(branch)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -53,6 +56,21 @@ func runCreate(branch string, switchTo bool) error {
 	}
 
 	workspaceRoot := filepath.Dir(bareDir)
+
+	// Acquire workspace lock to prevent concurrent worktree creation
+	lockFile := filepath.Join(workspaceRoot, ".grove-worktree.lock")
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("another grove operation is in progress; if this is wrong, remove %s", lockFile)
+		}
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer func() {
+		_ = lockHandle.Close()
+		_ = os.Remove(lockFile)
+	}()
+
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
 	dirName := sanitizeBranchName(branch)
 	worktreePath := filepath.Join(workspaceRoot, dirName)
@@ -220,10 +238,14 @@ func logHookResult(result *hooks.RunResult) {
 func sanitizeBranchName(branch string) string {
 	replacer := strings.NewReplacer(
 		"/", "-",
+		"\\", "-",
 		"<", "-",
 		">", "-",
 		"|", "-",
 		`"`, "-",
+		"?", "-",
+		"*", "-",
+		":", "-",
 	)
 	return replacer.Replace(branch)
 }
