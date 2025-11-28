@@ -7,7 +7,7 @@
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | config  |   [x]    |   [x]   |   [x]   |  [x]   |
 | create  |   [x]    |   [x]   |   [x]   |  [x]   |
-| delete  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| delete  |   [x]    |   [x]   |   [x]   |  [x]   |
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
@@ -302,10 +302,10 @@
 
 | Command                    | Features                               | Status |
 | -------------------------- | -------------------------------------- | :----: |
-| `delete <branch>`          | Remove worktree and optionally branch  |  [ ]   |
-| `delete <branch>`          | Provide completions for worktree names |  [ ]   |
-| `delete --force <branch>`  | Force delete even if dirty/locked      |  [ ]   |
-| `delete --branch <branch>` | Also delete the branch after removal   |  [ ]   |
+| `delete <branch>`          | Remove worktree and optionally branch  |  [x]   |
+| `delete <branch>`          | Provide completions for worktree names |  [x]   |
+| `delete --force <branch>`  | Force delete even if dirty/locked      |  [x]   |
+| `delete --branch <branch>` | Also delete the branch after removal   |  [x]   |
 
 **Notes:**
 
@@ -315,10 +315,10 @@
 
 **Failure conditions:**
 
--   [ ] Should not delete worktree with uncommitted changes without `--force`
--   [ ] Should not delete locked worktrees without `--force`
--   [ ] Should not delete the current worktree
--   [ ] Should warn if branch has unpushed commits when using `--branch`
+-   [x] Should not delete worktree with uncommitted changes without `--force`
+-   [x] Should not delete locked worktrees without `--force`
+-   [x] Should not delete the current worktree
+-   [x] Should warn if branch has unpushed commits when using `--branch`
 
 ### `lock`
 

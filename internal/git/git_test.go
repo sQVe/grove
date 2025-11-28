@@ -2311,3 +2311,218 @@ func TestFetchBranch(t *testing.T) {
 		}
 	})
 }
+
+func TestDeleteBranch(t *testing.T) {
+	t.Run("deletes existing branch", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a worktree to have something to work with
+		worktreePath := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Create an initial commit (needed before creating additional branches)
+		testFile := filepath.Join(worktreePath, "init.txt")
+		if err := os.WriteFile(testFile, []byte("init"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", "init.txt") //nolint:gosec
+		cmd.Dir = worktreePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add file: %v", err)
+		}
+		cmd = exec.Command("git", "commit", "-m", "initial commit") //nolint:gosec
+		cmd.Dir = worktreePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit: %v", err)
+		}
+
+		// Create a feature branch
+		cmd = exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd.Dir = worktreePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature branch: %v", err)
+		}
+
+		// Verify branch exists
+		exists, err := BranchExists(bareDir, "feature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !exists {
+			t.Fatal("feature branch should exist before deletion")
+		}
+
+		// Delete the branch
+		if err := DeleteBranch(bareDir, "feature", false); err != nil {
+			t.Fatalf("DeleteBranch failed: %v", err)
+		}
+
+		// Verify branch no longer exists
+		exists, err = BranchExists(bareDir, "feature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exists {
+			t.Error("feature branch should not exist after deletion")
+		}
+	})
+
+	t.Run("returns error for non-existent branch", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a worktree to initialize the repo
+		worktreePath := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		err := DeleteBranch(bareDir, "nonexistent", false)
+		if err == nil {
+			t.Error("expected error for non-existent branch")
+		}
+	})
+
+	t.Run("fails on unmerged branch without force", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create main worktree
+		mainPath := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create main worktree: %v", err)
+		}
+
+		// Create feature worktree with new branch
+		featurePath := filepath.Join(tempDir, "feature")
+		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature worktree: %v", err)
+		}
+
+		// Add a commit to feature branch (making it unmerged)
+		testFile := filepath.Join(featurePath, "test.txt")
+		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", "test.txt") //nolint:gosec
+		cmd.Dir = featurePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add file: %v", err)
+		}
+		cmd = exec.Command("git", "commit", "-m", "test commit") //nolint:gosec
+		cmd.Dir = featurePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit: %v", err)
+		}
+
+		// Remove the worktree first (required before branch deletion)
+		if err := RemoveWorktree(bareDir, featurePath, true); err != nil {
+			t.Fatalf("failed to remove worktree: %v", err)
+		}
+
+		// Try to delete unmerged branch without force - should fail
+		err := DeleteBranch(bareDir, "feature", false)
+		if err == nil {
+			t.Error("expected error when deleting unmerged branch without force")
+		}
+	})
+
+	t.Run("force deletes unmerged branch", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create main worktree
+		mainPath := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create main worktree: %v", err)
+		}
+
+		// Create feature worktree with new branch
+		featurePath := filepath.Join(tempDir, "feature")
+		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature worktree: %v", err)
+		}
+
+		// Add a commit to feature branch (making it unmerged)
+		testFile := filepath.Join(featurePath, "test.txt")
+		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", "test.txt") //nolint:gosec
+		cmd.Dir = featurePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add file: %v", err)
+		}
+		cmd = exec.Command("git", "commit", "-m", "test commit") //nolint:gosec
+		cmd.Dir = featurePath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit: %v", err)
+		}
+
+		// Remove the worktree first
+		if err := RemoveWorktree(bareDir, featurePath, true); err != nil {
+			t.Fatalf("failed to remove worktree: %v", err)
+		}
+
+		// Force delete unmerged branch - should succeed
+		if err := DeleteBranch(bareDir, "feature", true); err != nil {
+			t.Fatalf("DeleteBranch with force failed: %v", err)
+		}
+
+		// Verify branch no longer exists
+		exists, err := BranchExists(bareDir, "feature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exists {
+			t.Error("feature branch should not exist after forced deletion")
+		}
+	})
+}

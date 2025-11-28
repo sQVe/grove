@@ -276,6 +276,14 @@ func IsWorktreeLocked(repoPath, worktreeName string) bool {
 	return err == nil
 }
 
+// UnlockWorktree unlocks a locked worktree
+func UnlockWorktree(bareDir, worktreePath string) error {
+	logger.Debug("Executing: git worktree unlock %s in %s", worktreePath, bareDir)
+	cmd := exec.Command("git", "worktree", "unlock", worktreePath) //nolint:gosec // Worktree path validated
+	cmd.Dir = bareDir
+	return runGitCommand(cmd, true)
+}
+
 // RemoveWorktree removes a worktree directory
 func RemoveWorktree(bareDir, worktreePath string, force bool) error {
 	args := []string{"worktree", "remove", worktreePath}
@@ -285,6 +293,18 @@ func RemoveWorktree(bareDir, worktreePath string, force bool) error {
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
 	cmd := exec.Command("git", args...) // nolint:gosec // Worktree path comes from git worktree list
 	cmd.Dir = bareDir
+	return runGitCommand(cmd, true)
+}
+
+// DeleteBranch deletes a local branch
+func DeleteBranch(repoPath, branchName string, force bool) error {
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	logger.Debug("Executing: git branch %s %s in %s", flag, branchName, repoPath)
+	cmd := exec.Command("git", "branch", flag, branchName) //nolint:gosec // Branch name comes from validated input
+	cmd.Dir = repoPath
 	return runGitCommand(cmd, true)
 }
 
