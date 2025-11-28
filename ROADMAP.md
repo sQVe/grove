@@ -92,6 +92,15 @@
 | `clone <url> <dir>`      | Initialize grove workspace in specified directory |  [x]   |
 | `clone <url> <dir>`      | Clone specific URL into grove workspace           |  [x]   |
 | `clone <url> <dir>`      | Provide completions for directory name            |  [x]   |
+| `clone <pr-url>`         | Clone repo and create worktree for PR             |  [x]   |
+| `clone <pr-url>`         | Support fork PRs with automatic remote setup      |  [x]   |
+| `clone <pr-url> <dir>`   | Clone PR to specified directory                   |  [x]   |
+
+**Notes:**
+
+-   PR cloning requires `gh` CLI to be installed and authenticated
+-   Uses `gh repo clone` to respect user's protocol preference (SSH/HTTPS)
+-   Fork PRs automatically add a remote named `pr-{number}-{owner}`
 
 **Failure conditions:**
 
@@ -154,11 +163,17 @@
 | `create <branch>`       | Preserve configured files from source         |  [x]   |
 | `create <branch>`       | Run configured hooks after creation           |  [x]   |
 | `create -s <branch>`    | Switch to worktree after creation             |  [x]   |
+| `create #<number>`      | Create worktree from GitHub PR number         |  [x]   |
+| `create <pr-url>`       | Create worktree from GitHub PR URL            |  [x]   |
+| `create <pr-ref>`       | Support fork PRs with automatic remote setup  |  [x]   |
 | `create --detach <ref>` | Create worktree at commit/tag without branch  |  [ ]   |
 
 **Notes:**
 
 -   `--detach` useful for inspecting releases, hotfixes on tags
+-   PR support requires `gh` CLI to be installed and authenticated
+-   PR format: `#123` (requires being in a grove workspace) or full GitHub PR URL
+-   Fork PRs automatically add a remote named `pr-{number}-{owner}`
 
 ### `status`
 
@@ -307,11 +322,11 @@
 
 ### `lock`
 
-| Command                        | Features                               | Status |
-| ------------------------------ | -------------------------------------- | :----: |
-| `lock <branch>`                | Lock worktree to prevent removal       |  [ ]   |
-| `lock <branch>`                | Provide completions for worktree names |  [ ]   |
-| `lock --reason <msg> <branch>` | Add reason for locking                 |  [ ]   |
+| Command                        | Features                                          | Status |
+| ------------------------------ | ------------------------------------------------- | :----: |
+| `lock <branch>`                | Lock worktree to prevent removal                  |  [ ]   |
+| `lock <branch>`                | Provide completions for non-locked worktree names |  [ ]   |
+| `lock --reason <msg> <branch>` | Add reason for locking                            |  [ ]   |
 
 **Notes:**
 
