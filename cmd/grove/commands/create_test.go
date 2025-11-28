@@ -49,28 +49,6 @@ func TestRunCreate_NotInWorkspace(t *testing.T) {
 	}
 }
 
-func TestSanitizeBranchName(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"feature/auth", "feature-auth"},
-		{"simple", "simple"},
-		{"feature/auth/login", "feature-auth-login"},
-		{"has<brackets>", "has-brackets-"},
-		{"has|pipe", "has-pipe"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.input, func(t *testing.T) {
-			result := sanitizeBranchName(tc.input)
-			if result != tc.expected {
-				t.Errorf("sanitizeBranchName(%q) = %q, want %q", tc.input, result, tc.expected)
-			}
-		})
-	}
-}
-
 func TestFindSourceWorktree(t *testing.T) {
 	t.Run("returns empty at workspace root", func(t *testing.T) {
 		workspaceRoot := t.TempDir()

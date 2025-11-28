@@ -72,7 +72,7 @@ func runCreate(branch string, switchTo bool) error {
 	}()
 
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
-	dirName := sanitizeBranchName(branch)
+	dirName := workspace.SanitizeBranchName(branch)
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
@@ -233,21 +233,6 @@ func logHookResult(result *hooks.RunResult) {
 			}
 		}
 	}
-}
-
-func sanitizeBranchName(branch string) string {
-	replacer := strings.NewReplacer(
-		"/", "-",
-		"\\", "-",
-		"<", "-",
-		">", "-",
-		"|", "-",
-		`"`, "-",
-		"?", "-",
-		"*", "-",
-		":", "-",
-	)
-	return replacer.Replace(branch)
 }
 
 func completeCreateArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

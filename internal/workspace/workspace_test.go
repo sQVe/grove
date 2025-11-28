@@ -88,7 +88,7 @@ func TestSanitizeBranchName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.branch, func(t *testing.T) {
-			result := sanitizeBranchName(tt.branch)
+			result := SanitizeBranchName(tt.branch)
 			if result != tt.expected {
 				t.Errorf("expected '%s', got '%s'", tt.expected, result)
 			}
@@ -118,7 +118,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 
 	// Create worktree directories
 	for _, branch := range branches {
-		branchDir := filepath.Join(tempDir, sanitizeBranchName(branch))
+		branchDir := filepath.Join(tempDir, SanitizeBranchName(branch))
 		if err := os.MkdirAll(branchDir, fs.DirGit); err != nil {
 			t.Fatalf("failed to create branch directory %s: %v", branchDir, err)
 		}
@@ -160,7 +160,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 
 	// Verify the preserved file exists in each worktree directory
 	for _, branch := range branches {
-		branchDir := filepath.Join(tempDir, sanitizeBranchName(branch))
+		branchDir := filepath.Join(tempDir, SanitizeBranchName(branch))
 		preservedFile := filepath.Join(branchDir, testEnvFile)
 		if _, err := os.Stat(preservedFile); err != nil {
 			t.Errorf("expected preserved file %s in branch %q, error: %v", preservedFile, branch, err)
@@ -181,7 +181,7 @@ func TestPreserveIgnoredFilesFromList_CustomPattern(t *testing.T) {
 	branches := []string{"feature"}
 
 	// Create worktree directory
-	branchDir := filepath.Join(tempDir, sanitizeBranchName("feature"))
+	branchDir := filepath.Join(tempDir, SanitizeBranchName("feature"))
 	if err := os.MkdirAll(branchDir, fs.DirGit); err != nil {
 		t.Fatalf("failed to create branch directory %s: %v", branchDir, err)
 	}
@@ -235,7 +235,7 @@ func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 	branches := []string{"main"}
 
 	// Create worktree directory
-	branchDir := filepath.Join(tempDir, sanitizeBranchName("main"))
+	branchDir := filepath.Join(tempDir, SanitizeBranchName("main"))
 	if err := os.MkdirAll(branchDir, fs.DirGit); err != nil {
 		t.Fatalf("failed to create branch directory %s: %v", branchDir, err)
 	}

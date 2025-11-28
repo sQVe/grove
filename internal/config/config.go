@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -106,6 +108,18 @@ func getGitConfig(key string) string {
 	cmd := exec.Command("git", "config", "--get", key)
 	output, err := cmd.Output()
 	if err != nil {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
+			// Exit code 1 = key not found (expected)
+			if exitErr.ExitCode() == 1 {
+				return ""
+			}
+		}
+		// Real error (git not found, permission denied, etc.)
+		// Log directly to stderr to avoid import cycle with logger package
+		if Global.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
+		}
 		return ""
 	}
 	return strings.TrimSpace(string(output))
@@ -116,6 +130,18 @@ func getGitConfigs(key string) []string {
 	cmd := exec.Command("git", "config", "--get-all", key)
 	output, err := cmd.Output()
 	if err != nil {
+		exitErr := &exec.ExitError{}
+		if errors.As(err, &exitErr) {
+			// Exit code 1 = key not found (expected)
+			if exitErr.ExitCode() == 1 {
+				return nil
+			}
+		}
+		// Real error (git not found, permission denied, etc.)
+		// Log directly to stderr to avoid import cycle with logger package
+		if Global.Debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
+		}
 		return nil
 	}
 

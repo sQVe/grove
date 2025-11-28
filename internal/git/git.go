@@ -701,32 +701,42 @@ func ListLocalBranches(path string) ([]string, error) {
 	return branches, scanner.Err()
 }
 
-// BranchExists checks if a branch exists locally or on the remote
+// BranchExists checks if a branch exists locally or on any remote
 func BranchExists(repoPath, branchName string) (bool, error) {
 	if repoPath == "" || branchName == "" {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
 
+	// Check if branch exists locally
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
 	cmd.Dir = repoPath
-	err := cmd.Run()
-	if err == nil {
+	if cmd.Run() == nil {
 		return true, nil
 	}
 
-	remoteBranch := "origin/" + branchName
-	cmd = exec.Command("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
-	cmd.Dir = repoPath
-	err = cmd.Run()
+	// Get list of remotes and check each
+	remotesCmd := exec.Command("git", "remote")
+	remotesCmd.Dir = repoPath
+	output, err := remotesCmd.Output()
 	if err != nil {
-		exitError := &exec.ExitError{}
-		if errors.As(err, &exitError) {
-			return false, nil
-		}
-		return false, err
+		// No remotes configured or error - treat as branch doesn't exist remotely
+		return false, nil //nolint:nilerr // Intentional: remote errors mean branch not found remotely
 	}
 
-	return true, nil
+	remotes := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, remote := range remotes {
+		if remote == "" {
+			continue
+		}
+		remoteBranch := remote + "/" + branchName
+		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
+		cmd.Dir = repoPath
+		if cmd.Run() == nil {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ErrConfigNotFound is returned when a config key is not found

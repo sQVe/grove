@@ -70,7 +70,9 @@ func RunCreateHooks(workDir string, commands []string) *RunResult {
 func GetCreateHooks(worktreeDir string) []string {
 	cfg, err := config.LoadFromFile(worktreeDir)
 	if err != nil {
-		logger.Debug("Failed to load config for hooks: %v", err)
+		// LoadFromFile returns nil error when file doesn't exist,
+		// so any error means the file exists but is invalid TOML
+		logger.Warning("Config file has errors, hooks disabled: %v", err)
 		return nil
 	}
 

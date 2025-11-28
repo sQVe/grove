@@ -21,9 +21,9 @@ const groveGitContent = "gitdir: .bare"
 // ErrNotInWorkspace is returned when not inside a grove workspace
 var ErrNotInWorkspace = errors.New("not in a grove workspace")
 
-// sanitizeBranchName replaces filesystem-problematic characters with dash.
+// SanitizeBranchName replaces filesystem-problematic characters with dash.
 // Includes all characters that are unsafe on Windows filesystems.
-func sanitizeBranchName(branch string) string {
+func SanitizeBranchName(branch string) string {
 	replacer := strings.NewReplacer(
 		"/", "-",
 		"\\", "-",
@@ -128,7 +128,7 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 	var createdPaths []string
 
 	for _, branch := range filteredBranches {
-		sanitizedName := sanitizeBranchName(branch)
+		sanitizedName := SanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
@@ -145,7 +145,7 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 	}
 
 	for _, branch := range filteredBranches {
-		sanitizedName := sanitizeBranchName(branch)
+		sanitizedName := SanitizeBranchName(branch)
 		logger.ListItemWithNote(sanitizedName, "")
 	}
 
@@ -369,7 +369,7 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 	var createdPaths []string
 
 	for i, branch := range branches {
-		sanitizedName := sanitizeBranchName(branch)
+		sanitizedName := SanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
@@ -404,7 +404,10 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 
 // moveFilesToFirstWorktree moves all files from targetDir to the first worktree
 func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[]string) error {
-	firstSanitizedName := sanitizeBranchName(branches[0])
+	if len(branches) == 0 {
+		return errors.New("no branches provided")
+	}
+	firstSanitizedName := SanitizeBranchName(branches[0])
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
 	if !fs.PathExists(firstWorktreeAbsPath) {
@@ -418,7 +421,7 @@ func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[
 
 	worktreeDirs := make(map[string]bool)
 	for _, branch := range branches {
-		worktreeDirs[sanitizeBranchName(branch)] = true
+		worktreeDirs[SanitizeBranchName(branch)] = true
 	}
 
 	// Count files to move for progress reporting
@@ -460,7 +463,7 @@ func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[
 
 // checkoutFirstWorktree checks out the first worktree
 func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
-	firstSanitizedName := sanitizeBranchName(firstBranch)
+	firstSanitizedName := SanitizeBranchName(firstBranch)
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
 	logger.Debug("Executing: git checkout -f %s in %s", firstBranch, firstWorktreeAbsPath)
@@ -518,7 +521,7 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 	}
 
 	for i, branch := range cleanedBranches {
-		sanitizedName := sanitizeBranchName(branch)
+		sanitizedName := SanitizeBranchName(branch)
 		if branch == currentBranch {
 			logger.ListItemWithNote(sanitizedName, "current")
 			if i == 0 && preservedCount > 0 {
@@ -628,7 +631,7 @@ func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []str
 	logger.Debug("Preserving ignored files: %v", filesToCopy)
 
 	for _, branch := range branches {
-		sanitizedName := sanitizeBranchName(branch)
+		sanitizedName := SanitizeBranchName(branch)
 		worktreeDir := filepath.Join(sourceDir, sanitizedName)
 
 		for _, file := range filesToCopy {
