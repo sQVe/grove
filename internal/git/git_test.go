@@ -1674,3 +1674,191 @@ func TestRemoveWorktree(t *testing.T) {
 		}
 	})
 }
+
+func TestGetOngoingOperation(t *testing.T) {
+	t.Run("returns empty for clean repo", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		op, err := GetOngoingOperation(repo.Path)
+		if err != nil {
+			t.Fatalf("GetOngoingOperation failed: %v", err)
+		}
+		if op != "" {
+			t.Errorf("expected empty operation, got %q", op)
+		}
+	})
+
+	t.Run("detects merge operation", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+		if err := os.WriteFile(mergeHead, []byte("commit-hash"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		op, err := GetOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("GetOngoingOperation failed: %v", err)
+		}
+		if op != "merging" {
+			t.Errorf("expected 'merging', got %q", op)
+		}
+	})
+
+	t.Run("detects rebase operation", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		rebaseDir := filepath.Join(gitDir, "rebase-merge")
+		if err := os.Mkdir(rebaseDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		op, err := GetOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("GetOngoingOperation failed: %v", err)
+		}
+		if op != "rebasing" {
+			t.Errorf("expected 'rebasing', got %q", op)
+		}
+	})
+
+	t.Run("detects cherry-pick operation", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		cherryHead := filepath.Join(gitDir, "CHERRY_PICK_HEAD")
+		if err := os.WriteFile(cherryHead, []byte("commit-hash"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		op, err := GetOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("GetOngoingOperation failed: %v", err)
+		}
+		if op != "cherry-picking" {
+			t.Errorf("expected 'cherry-picking', got %q", op)
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		_, err := GetOngoingOperation(tempDir)
+		if err == nil {
+			t.Fatal("expected error for non-git directory")
+		}
+	})
+}
+
+func TestGetConflictCount(t *testing.T) {
+	t.Run("returns 0 for repo with no conflicts", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		count, err := GetConflictCount(repo.Path)
+		if err != nil {
+			t.Fatalf("GetConflictCount failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 conflicts, got %d", count)
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		_, err := GetConflictCount(tempDir)
+		if err == nil {
+			t.Fatal("expected error for non-git directory")
+		}
+	})
+}
+
+func TestGetStashCount(t *testing.T) {
+	t.Run("returns 0 for repo with no stashes", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		count, err := GetStashCount(repo.Path)
+		if err != nil {
+			t.Fatalf("GetStashCount failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 stashes, got %d", count)
+		}
+	})
+
+	t.Run("returns correct count for repo with stashes", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// Create a file and stash it
+		testFile := filepath.Join(repo.Path, "stash-me.txt")
+		if err := os.WriteFile(testFile, []byte("stash content"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git add failed: %v", err)
+		}
+		cmd = exec.Command("git", "stash", "push", "-m", "test stash 1")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git stash failed: %v", err)
+		}
+
+		// Create another stash
+		if err := os.WriteFile(testFile, []byte("stash content 2"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git add failed: %v", err)
+		}
+		cmd = exec.Command("git", "stash", "push", "-m", "test stash 2")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git stash failed: %v", err)
+		}
+
+		count, err := GetStashCount(repo.Path)
+		if err != nil {
+			t.Fatalf("GetStashCount failed: %v", err)
+		}
+		if count != 2 {
+			t.Errorf("expected 2 stashes, got %d", count)
+		}
+	})
+
+	t.Run("fails for non-git directory", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		_, err := GetStashCount(tempDir)
+		if err == nil {
+			t.Fatal("expected error for non-git directory")
+		}
+	})
+}

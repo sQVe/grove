@@ -1,0 +1,75 @@
+# Create grove workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace --branches main
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Basic status tests
+
+# Test basic status shows branch and state
+exec grove status --plain
+stdout '\* main'
+stdout 'clean'
+
+# Test status with --json
+exec grove status --json
+stdout '"branch":'
+stdout '"main"'
+stdout '"path":'
+stdout '"dirty": false'
+
+# Test status with --verbose
+exec grove status --verbose --plain
+stdout 'Worktree'
+stdout 'Branch: main'
+stdout 'Working Tree'
+stdout 'State: clean'
+
+## Dirty detection
+
+# Create uncommitted file
+cp $WORK/README.md dirty.txt
+exec grove status --plain
+stdout 'dirty'
+
+# Clean up
+rm dirty.txt
+
+## Stash detection
+
+# Create and stash a change
+cp $WORK/README.md stash-me.txt
+exec git add stash-me.txt
+exec git stash
+exec grove status --plain
+stdout 'stashed'
+
+# Clear stash
+exec git stash drop
+
+## Error handling
+
+# Test not in workspace error
+cd /tmp
+! exec grove status
+stderr 'not in a grove workspace'
+
+# Test not in worktree error (from workspace root)
+cd $WORK/workspace
+! exec grove status
+stderr 'must be run in a work tree'
+
+-- README.md --
+# Test

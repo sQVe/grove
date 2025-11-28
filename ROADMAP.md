@@ -13,7 +13,7 @@
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
 | prune   |   [x]    |   [x]   |   [x]   |  [x]   |
 | rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
-| status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| status  |   [x]    |   [x]   |   [x]   |  [x]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
 
 ## Commands
@@ -154,9 +154,14 @@
 
 ### `status`
 
-| Command  | Features                                    | Status |
-| -------- | ------------------------------------------- | :----: |
-| `status` | Show current worktree and repository status |  [ ]   |
+| Command            | Features                                         | Status |
+| ------------------ | ------------------------------------------------ | :----: |
+| `status`           | Show current worktree status (branch, sync, etc) |  [x]   |
+| `status`           | Show dirty state and stash count                 |  [x]   |
+| `status`           | Show ongoing operations (merge/rebase)           |  [x]   |
+| `status`           | Show conflicts and lock status                   |  [x]   |
+| `status --verbose` | Full sectioned diagnostic output                 |  [x]   |
+| `status --json`    | Machine-readable JSON output                     |  [x]   |
 
 ### `prune`
 

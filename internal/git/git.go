@@ -393,6 +393,32 @@ func HasOngoingOperation(path string) (bool, error) {
 	return false, nil
 }
 
+// GetOngoingOperation returns the name of any ongoing git operation, or empty string if none.
+// Returns: "merging", "rebasing", "cherry-picking", "reverting", or ""
+func GetOngoingOperation(path string) (string, error) {
+	gitDir := filepath.Join(path, ".git")
+
+	if !fs.DirectoryExists(gitDir) {
+		return "", fmt.Errorf("not a git repository")
+	}
+
+	// Check in order of most common operations
+	if fs.PathExists(filepath.Join(gitDir, "MERGE_HEAD")) {
+		return "merging", nil
+	}
+	if fs.PathExists(filepath.Join(gitDir, "rebase-merge")) || fs.PathExists(filepath.Join(gitDir, "rebase-apply")) {
+		return "rebasing", nil
+	}
+	if fs.PathExists(filepath.Join(gitDir, "CHERRY_PICK_HEAD")) {
+		return "cherry-picking", nil
+	}
+	if fs.PathExists(filepath.Join(gitDir, "REVERT_HEAD")) {
+		return "reverting", nil
+	}
+
+	return "", nil
+}
+
 // ListWorktrees returns paths to existing worktrees, excluding the main repository
 func ListWorktrees(repoPath string) ([]string, error) {
 	logger.Debug("Executing: git worktree list in %s", repoPath)
@@ -485,6 +511,41 @@ func HasUnresolvedConflicts(path string) (bool, error) {
 	}
 
 	return strings.TrimSpace(out.String()) != "", nil
+}
+
+// GetConflictCount returns the number of files with unresolved merge conflicts
+func GetConflictCount(path string) (int, error) {
+	cmd := exec.Command("git", "ls-files", "-u")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return 0, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return 0, err
+	}
+
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		return 0, nil
+	}
+
+	// Each conflicted file appears multiple times (stages 1, 2, 3)
+	// Count unique file paths
+	files := make(map[string]bool)
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 4 {
+			files[fields[3]] = true
+		}
+	}
+
+	return len(files), nil
 }
 
 // HasSubmodules checks if the repository has submodules
@@ -964,4 +1025,29 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 	})
 
 	return infos, nil
+}
+
+// GetStashCount returns the number of stashes in a repository
+func GetStashCount(path string) (int, error) {
+	cmd := exec.Command("git", "stash", "list")
+	cmd.Dir = path
+
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return 0, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return 0, err
+	}
+
+	output := strings.TrimSpace(out.String())
+	if output == "" {
+		return 0, nil
+	}
+
+	return len(strings.Split(output, "\n")), nil
 }
