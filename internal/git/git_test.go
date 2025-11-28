@@ -2167,3 +2167,147 @@ func TestGetGitDir(t *testing.T) {
 		}
 	})
 }
+
+func TestAddRemote(t *testing.T) {
+	t.Run("adds new remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		err := AddRemote(repo.Path, "fork", "https://github.com/fork/repo.git")
+		if err != nil {
+			t.Fatalf("AddRemote failed: %v", err)
+		}
+
+		// Verify remote was added
+		cmd := exec.Command("git", "remote", "get-url", "fork")
+		cmd.Dir = repo.Path
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("remote was not added: %v", err)
+		}
+
+		if strings.TrimSpace(out.String()) != "https://github.com/fork/repo.git" {
+			t.Errorf("unexpected remote URL: %s", out.String())
+		}
+	})
+
+	t.Run("fails with empty path", func(t *testing.T) {
+		err := AddRemote("", "fork", "https://github.com/fork/repo.git")
+		if err == nil {
+			t.Fatal("expected error for empty path")
+		}
+	})
+
+	t.Run("fails with empty name", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		err := AddRemote(repo.Path, "", "https://github.com/fork/repo.git")
+		if err == nil {
+			t.Fatal("expected error for empty name")
+		}
+	})
+}
+
+func TestRemoteExists(t *testing.T) {
+	t.Run("returns true for existing remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Add a remote first
+		cmd := exec.Command("git", "remote", "add", "upstream", "https://github.com/upstream/repo.git")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		exists, err := RemoteExists(repo.Path, "upstream")
+		if err != nil {
+			t.Fatalf("RemoteExists failed: %v", err)
+		}
+		if !exists {
+			t.Error("expected remote to exist")
+		}
+	})
+
+	t.Run("returns false for non-existing remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		exists, err := RemoteExists(repo.Path, "nonexistent")
+		if err != nil {
+			t.Fatalf("RemoteExists failed: %v", err)
+		}
+		if exists {
+			t.Error("expected remote to not exist")
+		}
+	})
+}
+
+func TestFetchBranch(t *testing.T) {
+	t.Run("fetches branch from remote", func(t *testing.T) {
+		// Create an "upstream" repo to fetch from
+		upstream := testgit.NewTestRepo(t)
+
+		// Create a branch in upstream
+		cmd := exec.Command("git", "checkout", "-b", "feature-branch")
+		cmd.Dir = upstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create branch: %v", err)
+		}
+
+		// Create another file and commit
+		testFile := filepath.Join(upstream.Path, "feature.txt")
+		if err := os.WriteFile(testFile, []byte("feature"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create file: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = upstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "feature commit")
+		cmd.Dir = upstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit: %v", err)
+		}
+
+		// Create a downstream repo
+		downstream := testgit.NewTestRepo(t)
+
+		// Add upstream as remote
+		cmd = exec.Command("git", "remote", "add", "upstream", upstream.Path) //nolint:gosec // Test helper
+		cmd.Dir = downstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		// Fetch the branch
+		err := FetchBranch(downstream.Path, "upstream", "feature-branch")
+		if err != nil {
+			t.Fatalf("FetchBranch failed: %v", err)
+		}
+
+		// Verify the branch was fetched
+		cmd = exec.Command("git", "rev-parse", "--verify", "upstream/feature-branch")
+		cmd.Dir = downstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Error("branch was not fetched")
+		}
+	})
+
+	t.Run("fails for non-existing branch", func(t *testing.T) {
+		upstream := testgit.NewTestRepo(t)
+		downstream := testgit.NewTestRepo(t)
+
+		// Add upstream as remote
+		cmd := exec.Command("git", "remote", "add", "upstream", upstream.Path) //nolint:gosec // Test helper
+		cmd.Dir = downstream.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		err := FetchBranch(downstream.Path, "upstream", "nonexistent-branch")
+		if err == nil {
+			t.Error("expected error for non-existing branch")
+		}
+	})
+}

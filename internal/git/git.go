@@ -1173,3 +1173,61 @@ func SetUpstreamBranch(worktreePath, upstream string) error {
 
 	return runGitCommand(cmd, true)
 }
+
+// AddRemote adds a new remote to the repository.
+func AddRemote(repoPath, name, url string) error {
+	if repoPath == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	if name == "" {
+		return errors.New("remote name cannot be empty")
+	}
+	if url == "" {
+		return errors.New("remote URL cannot be empty")
+	}
+
+	logger.Debug("Executing: git remote add %s %s in %s", name, url, repoPath)
+	cmd := exec.Command("git", "remote", "add", name, url) // nolint:gosec // Validated input
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}
+
+// RemoteExists checks if a remote with the given name exists.
+func RemoteExists(repoPath, name string) (bool, error) {
+	if repoPath == "" {
+		return false, errors.New("repository path cannot be empty")
+	}
+	if name == "" {
+		return false, errors.New("remote name cannot be empty")
+	}
+
+	cmd := exec.Command("git", "remote", "get-url", name) // nolint:gosec // Validated input
+	cmd.Dir = repoPath
+
+	if err := cmd.Run(); err != nil {
+		// Exit code 2 means remote not found - this is expected, not an error
+		return false, nil //nolint:nilerr // Expected: remote not found is not an error condition
+	}
+
+	return true, nil
+}
+
+// FetchBranch fetches a specific branch from a remote.
+func FetchBranch(repoPath, remote, branch string) error {
+	if repoPath == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	if remote == "" {
+		return errors.New("remote name cannot be empty")
+	}
+	if branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
+
+	logger.Debug("Executing: git fetch %s %s in %s", remote, branch, repoPath)
+	cmd := exec.Command("git", "fetch", remote, branch) // nolint:gosec // Validated input
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}

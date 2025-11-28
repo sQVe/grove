@@ -1,11 +1,16 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
@@ -24,9 +29,18 @@ func NewCloneCmd() *cobra.Command {
 	var verbose bool
 
 	cloneCmd := &cobra.Command{
-		Use:   "clone <url> [directory]",
+		Use:   "clone <url|PR-URL> [directory]",
 		Short: "Clone a repository and create a grove workspace",
-		Args:  cobra.RangeArgs(1, 2),
+		Long: `Clone a repository and create a grove workspace.
+
+Can clone from a repository URL or a GitHub pull request URL.
+When cloning from a PR URL, creates a worktree for the PR's branch.
+
+Examples:
+  grove clone https://github.com/owner/repo                  # Clone repo
+  grove clone https://github.com/owner/repo my-project       # Clone to directory
+  grove clone https://github.com/owner/repo/pull/123         # Clone and checkout PR`,
+		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("branches") && len(args) == 0 {
 				return fmt.Errorf("--branches requires a repository URL to be specified")
@@ -44,14 +58,20 @@ func NewCloneCmd() *cobra.Command {
 				return fmt.Errorf("no branches specified")
 			}
 
-			url := args[0]
+			urlOrPR := args[0]
 
 			targetDir, err := resolveTargetDirectory(args, 1)
 			if err != nil {
 				return err
 			}
 
-			if err := workspace.CloneAndInitialize(url, targetDir, branches, verbose); err != nil {
+			// Check if this is a PR URL
+			if github.IsPRReference(urlOrPR) {
+				return runCloneFromPR(urlOrPR, targetDir, verbose)
+			}
+
+			// Regular clone
+			if err := workspace.CloneAndInitialize(urlOrPR, targetDir, branches, verbose); err != nil {
 				return err
 			}
 
@@ -64,4 +84,112 @@ func NewCloneCmd() *cobra.Command {
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 
 	return cloneCmd
+}
+
+func runCloneFromPR(prURL, targetDir string, verbose bool) error {
+	// Check gh is available
+	if err := github.CheckGhAvailable(); err != nil {
+		return err
+	}
+
+	// Parse PR URL
+	ref, err := github.ParsePRReference(prURL)
+	if err != nil {
+		return err
+	}
+
+	// PR URL always has owner/repo
+	if ref.Owner == "" || ref.Repo == "" {
+		return fmt.Errorf("PR URL must include owner and repo")
+	}
+
+	// Determine workspace directory
+	workspaceDir := targetDir
+	if workspaceDir == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
+		workspaceDir = filepath.Join(cwd, ref.Repo)
+	}
+
+	// Create workspace directory
+	if err := os.MkdirAll(workspaceDir, 0o755); err != nil { //nolint:gosec // Directory needs to be accessible
+		return fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	bareDir := filepath.Join(workspaceDir, ".bare")
+
+	// Clone using gh repo clone (respects user's protocol preference)
+	logger.Info("Cloning %s/%s...", ref.Owner, ref.Repo)
+	repoSpec := fmt.Sprintf("%s/%s", ref.Owner, ref.Repo)
+
+	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
+	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		errStr := strings.TrimSpace(stderr.String())
+		if errStr != "" {
+			return fmt.Errorf("clone failed: %s", errStr)
+		}
+		return fmt.Errorf("clone failed: %w", err)
+	}
+
+	// Create .git file pointing to .bare
+	gitFile := filepath.Join(workspaceDir, ".git")
+	if err := os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o644); err != nil { //nolint:gosec // .git file needs standard permissions
+		return fmt.Errorf("failed to create .git file: %w", err)
+	}
+
+	// Fetch PR info
+	logger.Info("Fetching PR #%d...", ref.Number)
+	prInfo, err := github.FetchPRInfo(ref.Owner, ref.Repo, ref.Number)
+	if err != nil {
+		return err
+	}
+
+	branch := prInfo.HeadRef
+	dirName := workspace.SanitizeBranchName(branch)
+	worktreePath := filepath.Join(workspaceDir, dirName)
+
+	// Handle fork PRs
+	if prInfo.IsFork {
+		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
+		remoteURL := github.GetForkRemoteURL(prInfo.HeadOwner, prInfo.HeadRepo)
+
+		logger.Info("Adding remote %s for fork...", remoteName)
+		if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
+			return fmt.Errorf("failed to add fork remote: %w", err)
+		}
+
+		logger.Info("Fetching branch %s from fork...", branch)
+		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
+			return fmt.Errorf("failed to fetch fork branch: %w", err)
+		}
+
+		// Create worktree tracking the fork's branch
+		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
+		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, !verbose); err != nil {
+			return fmt.Errorf("failed to create worktree: %w", err)
+		}
+	} else {
+		// Same-repo PR: fetch and create worktree
+		logger.Info("Fetching branch %s...", branch)
+		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+			return fmt.Errorf("failed to fetch branch: %w", err)
+		}
+
+		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
+			return fmt.Errorf("failed to create worktree: %w", err)
+		}
+	}
+
+	logger.Info("Initialized grove workspace for PR #%d in: %s", ref.Number, styles.Render(&styles.Path, workspaceDir))
+	return nil
 }
