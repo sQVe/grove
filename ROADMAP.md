@@ -12,7 +12,7 @@
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
 | prune   |   [x]    |   [x]   |   [x]   |  [x]   |
-| rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| rename  |   [x]    |   [x]   |   [x]   |  [x]   |
 | status  |   [x]    |   [x]   |   [x]   |  [x]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
 
@@ -257,12 +257,11 @@
 
 ### `rename`
 
-| Command                  | Features                                        | Status |
-| ------------------------ | ----------------------------------------------- | :----: |
-| `rename <old> <new>`     | Rename branch and associated worktree directory |  [ ]   |
-| `rename <old> <new>`     | Update upstream tracking references             |  [ ]   |
-| `rename <old> <new>`     | Provide completions for existing branch names   |  [ ]   |
-| `rename --follow-remote` | Detect and migrate from remote branch renames   |  [ ]   |
+| Command              | Features                                        | Status |
+| -------------------- | ----------------------------------------------- | :----: |
+| `rename <old> <new>` | Rename branch and associated worktree directory |  [x]   |
+| `rename <old> <new>` | Update upstream tracking references             |  [x]   |
+| `rename <old> <new>` | Provide completions for existing branch names   |  [x]   |
 
 **Notes:**
 
@@ -272,9 +271,9 @@
 
 **Failure conditions:**
 
--   Should not rename if worktree has uncommitted changes
--   Should not rename if target branch name already exists
--   Should revert all changes if any step fails
+-   [x] Should not rename if worktree has uncommitted changes
+-   [x] Should not rename if target branch name already exists
+-   [x] Should revert all changes if any step fails
 
 ### `doctor`
 
