@@ -185,7 +185,6 @@ func runCreateFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, source
 	// Handle fork PRs: add remote and fetch
 	if prInfo.IsFork {
 		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
-		remoteURL := github.GetForkRemoteURL(prInfo.HeadOwner, prInfo.HeadRepo)
 
 		// Check if remote already exists
 		exists, err := git.RemoteExists(bareDir, remoteName)
@@ -194,6 +193,11 @@ func runCreateFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, source
 		}
 
 		if !exists {
+			remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
+			if err != nil {
+				return fmt.Errorf("failed to get fork URL: %w", err)
+			}
+
 			logger.Info("Adding remote %s for fork...", remoteName)
 			if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
 				return fmt.Errorf("failed to add fork remote: %w", err)

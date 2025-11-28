@@ -65,8 +65,8 @@ Examples:
 				return err
 			}
 
-			// Check if this is a PR URL
-			if github.IsPRReference(urlOrPR) {
+			// Check if this is a PR URL (full URL only, not #N format)
+			if github.IsPRURL(urlOrPR) {
 				return runCloneFromPR(urlOrPR, targetDir, verbose)
 			}
 
@@ -161,7 +161,10 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	// Handle fork PRs
 	if prInfo.IsFork {
 		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
-		remoteURL := github.GetForkRemoteURL(prInfo.HeadOwner, prInfo.HeadRepo)
+		remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
+		if err != nil {
+			return fmt.Errorf("failed to get fork URL: %w", err)
+		}
 
 		logger.Info("Adding remote %s for fork...", remoteName)
 		if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {

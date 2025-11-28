@@ -23,7 +23,7 @@ var (
 	prURLRegex    = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)$`)
 )
 
-// IsPRReference returns true if the input looks like a PR reference.
+// IsPRReference returns true if the input looks like a PR reference (#N or URL).
 func IsPRReference(s string) bool {
 	if prNumberRegex.MatchString(s) {
 		return true
@@ -32,6 +32,12 @@ func IsPRReference(s string) bool {
 		return true
 	}
 	return false
+}
+
+// IsPRURL returns true if the input is a full GitHub PR URL.
+// Unlike IsPRReference, this does not match #N format.
+func IsPRURL(s string) bool {
+	return prURLRegex.MatchString(s)
 }
 
 // ParsePRReference parses a PR reference (#N or URL) into its components.
@@ -113,7 +119,7 @@ type ghUser struct {
 }
 
 // parsePRInfoJSON parses the JSON output from `gh pr view --json`.
-func parsePRInfoJSON(data []byte, baseOwner, _ string) (*PRInfo, error) {
+func parsePRInfoJSON(data []byte, baseOwner string) (*PRInfo, error) {
 	var resp ghPRResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse gh output: %w", err)
@@ -159,7 +165,7 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 		return nil, fmt.Errorf("gh failed: %w", err)
 	}
 
-	return parsePRInfoJSON(stdout.Bytes(), owner, repo)
+	return parsePRInfoJSON(stdout.Bytes(), owner)
 }
 
 // CheckGhAvailable checks if gh CLI is installed and authenticated.
@@ -181,7 +187,23 @@ func CheckGhAvailable() error {
 	return nil
 }
 
-// GetForkRemoteURL returns the clone URL for a fork's repository.
-func GetForkRemoteURL(owner, repo string) string {
-	return fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+// GetRepoCloneURL returns the clone URL for a repository, respecting user's protocol preference.
+// Uses gh CLI to get the URL with the user's configured protocol (SSH or HTTPS).
+func GetRepoCloneURL(owner, repo string) (string, error) {
+	repoSpec := fmt.Sprintf("%s/%s", owner, repo)
+	cmd := exec.Command("gh", "repo", "view", repoSpec, "--json", "url", "-q", ".url") //nolint:gosec // Args are constructed from validated input
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		stderrStr := strings.TrimSpace(stderr.String())
+		if stderrStr != "" {
+			return "", fmt.Errorf("failed to get repo URL: %s", stderrStr)
+		}
+		return "", fmt.Errorf("failed to get repo URL: %w", err)
+	}
+
+	return strings.TrimSpace(stdout.String()), nil
 }

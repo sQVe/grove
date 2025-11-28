@@ -41,6 +41,38 @@ func TestIsPRReference(t *testing.T) {
 	}
 }
 
+func TestIsPRURL(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		// PR URL format - should match
+		{"https://github.com/owner/repo/pull/123", true},
+		{"https://github.com/some-org/some-repo/pull/1", true},
+		{"http://github.com/owner/repo/pull/123", true},
+
+		// PR number format - should NOT match (use IsPRReference for that)
+		{"#123", false},
+		{"#1", false},
+
+		// Not PR URLs
+		{"main", false},
+		{"https://github.com/owner/repo", false},
+		{"https://github.com/owner/repo/issues/123", false},
+		{"https://gitlab.com/owner/repo/pull/123", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := IsPRURL(tt.input)
+			if result != tt.expected {
+				t.Errorf("IsPRURL(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestParsePRReference_Number(t *testing.T) {
 	ref, err := ParsePRReference("#123")
 	if err != nil {
@@ -186,7 +218,7 @@ func TestParsePRInfoJSON_SameRepo(t *testing.T) {
 		"headRepositoryOwner": {"login": "sqve"}
 	}`)
 
-	info, err := parsePRInfoJSON(jsonData, "sqve", "grove")
+	info, err := parsePRInfoJSON(jsonData, "sqve")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +244,7 @@ func TestParsePRInfoJSON_Fork(t *testing.T) {
 		"headRepositoryOwner": {"login": "contributor"}
 	}`)
 
-	info, err := parsePRInfoJSON(jsonData, "sqve", "grove")
+	info, err := parsePRInfoJSON(jsonData, "sqve")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +275,7 @@ func TestParsePRInfoJSON_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := parsePRInfoJSON([]byte(tt.json), "owner", "repo")
+			_, err := parsePRInfoJSON([]byte(tt.json), "owner")
 			if err == nil {
 				t.Error("expected error, got nil")
 			}
