@@ -202,6 +202,10 @@ func IsWorktree(path string) bool {
 	return fs.FileExists(gitPath)
 }
 
+// maxDirectoryIterations limits directory traversal to prevent infinite loops
+// from symlink cycles. 100 levels is generous for any sane filesystem depth.
+const maxDirectoryIterations = 100
+
 // FindWorktreeRoot walks up from the given path to find the worktree root.
 // Returns the path containing the .git file, or error if not in a worktree.
 func FindWorktreeRoot(startPath string) (string, error) {
@@ -211,7 +215,7 @@ func FindWorktreeRoot(startPath string) (string, error) {
 	}
 
 	dir := absPath
-	for {
+	for i := 0; i < maxDirectoryIterations; i++ {
 		gitPath := filepath.Join(dir, ".git")
 		if fs.FileExists(gitPath) {
 			return dir, nil
@@ -223,6 +227,7 @@ func FindWorktreeRoot(startPath string) (string, error) {
 		}
 		dir = parent
 	}
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
 }
 
 // GetGitDir returns the path to the git directory for the given path.
@@ -412,7 +417,12 @@ func GetDefaultBranch(bareDir string) (string, error) {
 
 // IsDetachedHead checks if the repository is in detached HEAD state
 func IsDetachedHead(path string) (bool, error) {
-	headFile := filepath.Join(path, ".git", "HEAD")
+	gitDir, err := GetGitDir(path)
+	if err != nil {
+		return false, err
+	}
+
+	headFile := filepath.Join(gitDir, "HEAD")
 
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
 	if err != nil {
@@ -426,10 +436,9 @@ func IsDetachedHead(path string) (bool, error) {
 
 // HasOngoingOperation checks for merge/rebase/cherry-pick operations
 func HasOngoingOperation(path string) (bool, error) {
-	gitDir := filepath.Join(path, ".git")
-
-	if !fs.DirectoryExists(gitDir) {
-		return false, fmt.Errorf("not a git repository")
+	gitDir, err := GetGitDir(path)
+	if err != nil {
+		return false, err
 	}
 
 	markers := []string{
@@ -534,10 +543,9 @@ func ListWorktrees(repoPath string) ([]string, error) {
 
 // HasLockFiles checks if there are any active git lock files
 func HasLockFiles(path string) (bool, error) {
-	gitDir := filepath.Join(path, ".git")
-
-	if !fs.DirectoryExists(gitDir) {
-		return false, fmt.Errorf("not a git repository")
+	gitDir, err := GetGitDir(path)
+	if err != nil {
+		return false, err
 	}
 
 	lockFiles, err := filepath.Glob(filepath.Join(gitDir, "*.lock"))
@@ -1024,7 +1032,9 @@ func GetSyncStatus(path string) *SyncStatus {
 	var aheadOut bytes.Buffer
 	cmdAhead.Stdout = &aheadOut
 	if cmdAhead.Run() == nil {
-		_, _ = fmt.Sscanf(strings.TrimSpace(aheadOut.String()), "%d", &status.Ahead)
+		if _, err := fmt.Sscanf(strings.TrimSpace(aheadOut.String()), "%d", &status.Ahead); err != nil {
+			logger.Debug("Failed to parse ahead count from %q: %v", aheadOut.String(), err)
+		}
 	}
 
 	cmdBehind := exec.Command("git", "rev-list", "--count", fmt.Sprintf("HEAD..%s", status.Upstream)) // nolint:gosec // Upstream from git config
@@ -1032,7 +1042,9 @@ func GetSyncStatus(path string) *SyncStatus {
 	var behindOut bytes.Buffer
 	cmdBehind.Stdout = &behindOut
 	if cmdBehind.Run() == nil {
-		_, _ = fmt.Sscanf(strings.TrimSpace(behindOut.String()), "%d", &status.Behind)
+		if _, err := fmt.Sscanf(strings.TrimSpace(behindOut.String()), "%d", &status.Behind); err != nil {
+			logger.Debug("Failed to parse behind count from %q: %v", behindOut.String(), err)
+		}
 	}
 
 	return status
@@ -1052,7 +1064,7 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 		if fast {
 			branch, err := GetCurrentBranch(path)
 			if err != nil {
-				logger.Debug("Skipping worktree %s: %v", path, err)
+				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
 				continue
 			}
 			info = &WorktreeInfo{
@@ -1063,7 +1075,7 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 			var err error
 			info, err = GetWorktreeInfo(path)
 			if err != nil {
-				logger.Debug("Skipping worktree %s: %v", path, err)
+				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
 				continue
 			}
 		}

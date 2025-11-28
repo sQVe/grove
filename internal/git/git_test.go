@@ -300,6 +300,38 @@ func TestIsDetachedHead(t *testing.T) {
 			t.Fatal("IsDetachedHead should fail for non-git directory")
 		}
 	})
+
+	t.Run("works for git worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "wt-detached")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		isDetached, err := IsDetachedHead(worktreePath)
+		if err != nil {
+			t.Fatalf("IsDetachedHead failed for worktree: %v", err)
+		}
+		if isDetached {
+			t.Fatal("expected worktree to be attached initially")
+		}
+
+		cmd = exec.Command("git", "-C", worktreePath, "checkout", "--detach") // nolint:gosec // test-controlled path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to detach HEAD in worktree: %v", err)
+		}
+
+		isDetached, err = IsDetachedHead(worktreePath)
+		if err != nil {
+			t.Fatalf("IsDetachedHead failed for detached worktree: %v", err)
+		}
+		if !isDetached {
+			t.Fatal("expected detached HEAD to be detected in worktree")
+		}
+	})
 }
 
 func TestHasOngoingOperation(t *testing.T) {
@@ -370,6 +402,35 @@ func TestHasOngoingOperation(t *testing.T) {
 		_, err := HasOngoingOperation(tempDir)
 		if err == nil {
 			t.Fatal("HasOngoingOperation should fail for non-git directory")
+		}
+	})
+
+	t.Run("detects operations in worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "wt-ongoing")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		worktreeGitDir, err := GetGitDir(worktreePath)
+		if err != nil {
+			t.Fatalf("failed to resolve worktree git dir: %v", err)
+		}
+
+		mergeHead := filepath.Join(worktreeGitDir, "MERGE_HEAD")
+		if err := os.WriteFile(mergeHead, []byte("commit-hash"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create MERGE_HEAD in worktree: %v", err)
+		}
+
+		hasOperation, err := HasOngoingOperation(worktreePath)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed for worktree: %v", err)
+		}
+		if !hasOperation {
+			t.Error("expected merge operation to be detected in worktree")
 		}
 	})
 }
@@ -545,6 +606,43 @@ func TestHasLockFiles(t *testing.T) {
 		expected := "not a git repository"
 		if err.Error() != expected {
 			t.Errorf("expected '%s', got '%s'", expected, err.Error())
+		}
+	})
+
+	t.Run("handles git worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "wt-locks")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		hasLocks, err := HasLockFiles(worktreePath)
+		if err != nil {
+			t.Fatalf("HasLockFiles failed for worktree: %v", err)
+		}
+		if hasLocks {
+			t.Fatal("expected worktree to be reported clean")
+		}
+
+		worktreeGitDir, err := GetGitDir(worktreePath)
+		if err != nil {
+			t.Fatalf("failed to resolve worktree git dir: %v", err)
+		}
+
+		lockFile := filepath.Join(worktreeGitDir, "index.lock")
+		if err := os.WriteFile(lockFile, []byte("lock content"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create index.lock in worktree: %v", err)
+		}
+
+		hasLocks, err = HasLockFiles(worktreePath)
+		if err != nil {
+			t.Fatalf("HasLockFiles failed for worktree with lock: %v", err)
+		}
+		if !hasLocks {
+			t.Error("expected lock file in worktree to be detected")
 		}
 	})
 }
@@ -1325,19 +1423,28 @@ func TestGetSyncStatus(t *testing.T) {
 		cmd = exec.Command("git", "config", "user.name", "Test")
 		cmd.Dir = tempClone
 		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
+		cmd.Dir = tempClone
+		_ = cmd.Run()
 		testFile := filepath.Join(tempClone, "remote.txt")
 		if err := os.WriteFile(testFile, []byte("remote"), fs.FileStrict); err != nil { // nolint:gosec // Test uses controlled temp directory
 			t.Fatal(err)
 		}
 		cmd = exec.Command("git", "add", ".")
 		cmd.Dir = tempClone
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add files in temp clone: %v", err)
+		}
 		cmd = exec.Command("git", "commit", "-m", "remote commit")
 		cmd.Dir = tempClone
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to commit in temp clone: %v", err)
+		}
 		cmd = exec.Command("git", "push")
 		cmd.Dir = tempClone
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to push from temp clone: %v", err)
+		}
 
 		// Fetch in original repo
 		cmd = exec.Command("git", "fetch")
@@ -1940,6 +2047,34 @@ func TestFindWorktreeRoot(t *testing.T) {
 		_, err := FindWorktreeRoot(tempDir)
 		if err == nil {
 			t.Fatal("expected error when not in a worktree")
+		}
+	})
+
+	t.Run("returns root from deeply nested subdirectory (50 levels)", func(t *testing.T) {
+		t.Parallel()
+		tempDir := t.TempDir()
+
+		// Create a .git file at root
+		gitFile := filepath.Join(tempDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: /some/path"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create .git file: %v", err)
+		}
+
+		// Create 50-level deep directory structure
+		deepDir := tempDir
+		for i := 0; i < 50; i++ {
+			deepDir = filepath.Join(deepDir, "level")
+		}
+		if err := os.MkdirAll(deepDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create deep directory: %v", err)
+		}
+
+		root, err := FindWorktreeRoot(deepDir)
+		if err != nil {
+			t.Fatalf("FindWorktreeRoot failed for deep path: %v", err)
+		}
+		if root != tempDir {
+			t.Errorf("expected %s, got %s", tempDir, root)
 		}
 	})
 }

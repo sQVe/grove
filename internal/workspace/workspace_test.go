@@ -299,4 +299,29 @@ func TestFindBareDir(t *testing.T) {
 			t.Errorf("expected ErrNotInWorkspace, got %v", err)
 		}
 	})
+
+	t.Run("returns bare dir from deeply nested subdirectory (50 levels)", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a 50-level deep directory structure
+		deepDir := workspaceDir
+		for i := 0; i < 50; i++ {
+			deepDir = filepath.Join(deepDir, "level")
+		}
+		if err := os.MkdirAll(deepDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := FindBareDir(deepDir)
+		if err != nil {
+			t.Fatalf("FindBareDir failed for deep path: %v", err)
+		}
+		if result != bareDir {
+			t.Errorf("expected %s, got %s", bareDir, result)
+		}
+	})
 }

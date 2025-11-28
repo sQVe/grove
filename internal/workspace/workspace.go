@@ -21,17 +21,26 @@ const groveGitContent = "gitdir: .bare"
 // ErrNotInWorkspace is returned when not inside a grove workspace
 var ErrNotInWorkspace = errors.New("not in a grove workspace")
 
-// sanitizeBranchName replaces filesystem-problematic characters with dash
+// sanitizeBranchName replaces filesystem-problematic characters with dash.
+// Includes all characters that are unsafe on Windows filesystems.
 func sanitizeBranchName(branch string) string {
 	replacer := strings.NewReplacer(
 		"/", "-",
+		"\\", "-",
 		"<", "-",
 		">", "-",
 		"|", "-",
 		`"`, "-",
+		"?", "-",
+		"*", "-",
+		":", "-",
 	)
 	return replacer.Replace(branch)
 }
+
+// maxDirectoryIterations limits directory traversal to prevent infinite loops
+// from symlink cycles. 100 levels is generous for any sane filesystem depth.
+const maxDirectoryIterations = 100
 
 // FindBareDir finds the .bare directory for a grove workspace
 // by walking up the directory tree from the given path
@@ -42,7 +51,7 @@ func FindBareDir(startPath string) (string, error) {
 	}
 
 	dir := absPath
-	for {
+	for i := 0; i < maxDirectoryIterations; i++ {
 		bareDir := filepath.Join(dir, ".bare")
 		if fs.DirectoryExists(bareDir) {
 			return bareDir, nil
@@ -54,6 +63,7 @@ func FindBareDir(startPath string) (string, error) {
 		}
 		dir = parent
 	}
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
 }
 
 // IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
@@ -181,10 +191,16 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 	gitFile := filepath.Join(path, ".git")
 
 	cleanup := func(worktrees []string) {
-		_ = os.Remove(gitFile)
-		_ = fs.RemoveAll(bareDir)
+		if err := os.Remove(gitFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+			logger.Warning("Failed to remove .git file during cleanup: %v", err)
+		}
+		if err := fs.RemoveAll(bareDir); err != nil {
+			logger.Warning("Failed to remove .bare during cleanup: %v", err)
+		}
 		for i := len(worktrees) - 1; i >= 0; i-- {
-			_ = fs.RemoveAll(worktrees[i])
+			if err := fs.RemoveAll(worktrees[i]); err != nil {
+				logger.Warning("Failed to remove worktree %s during cleanup: %v", worktrees[i], err)
+			}
 		}
 	}
 
@@ -705,7 +721,9 @@ func Convert(targetDir, branches string, verbose bool) error {
 		}
 
 		logger.Error("Conversion failed, attempting to restore repository...")
+		var restoreErrors []string
 
+		// Step 1: Remove created worktrees (best effort)
 		for _, worktreePath := range createdWorktrees {
 			logger.Debug("Removing worktree: %s", worktreePath)
 			if err := fs.RemoveAll(worktreePath); err != nil {
@@ -713,7 +731,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 			}
 		}
 
-		fileRestoreFailed := false
+		// Step 2: Move files back from first worktree (best effort, track failures)
 		if len(movedFiles) > 0 && len(createdWorktrees) > 0 {
 			firstWorktree := createdWorktrees[0]
 			for i := len(movedFiles) - 1; i >= 0; i-- {
@@ -723,45 +741,42 @@ func Convert(targetDir, branches string, verbose bool) error {
 				logger.Debug("Moving file back: %s -> %s", src, dst)
 				if err := fs.RenameWithFallback(src, dst); err != nil {
 					logger.Error("Failed to move file back %s: %v", fileName, err)
-					fileRestoreFailed = true
+					restoreErrors = append(restoreErrors, fileName)
 				}
 			}
 		}
 
-		if fileRestoreFailed {
-			logger.Error("CRITICAL: Files are trapped in worktree directories")
-			logger.Error("NOT restoring .git to prevent confusion about missing files")
-			logger.Error("Your files are safe but located in: %v", createdWorktrees)
-			logger.Error("To recover manually:")
-			logger.Error("1. Move all files from %s back to repository root", createdWorktrees[0])
-			logger.Error("2. Remove worktree directories: %v", createdWorktrees)
-			logger.Error("3. Run: mv %s %s", filepath.Join(targetDir, ".bare"), filepath.Join(targetDir, ".git"))
-			return
-		}
-
+		// Step 3: Always attempt to restore .git directory
 		gitDir := filepath.Join(targetDir, ".git")
 		bareDir := filepath.Join(targetDir, ".bare")
 		logger.Info("Restoring .git directory...")
 
-		_ = fs.RemoveAll(gitDir)
+		_ = fs.RemoveAll(gitDir) // Remove any partial .git file
 
 		if err := fs.RenameWithFallback(bareDir, gitDir); err != nil {
-			logger.Error("CRITICAL: Failed to restore .git directory: %v", err)
-			logger.Error("Your repository is in an inconsistent state.")
-			logger.Error("To recover manually:")
-			logger.Error("1. Remove any worktree directories: %v", createdWorktrees)
-			logger.Error("2. Run: mv %s %s", bareDir, gitDir)
-			return
+			logger.Error("Failed to restore .git directory: %v", err)
+			restoreErrors = append(restoreErrors, ".git")
 		}
 
-		// Restore git config to normal (non-bare) state
+		// Step 4: Always attempt to restore git config
 		if err := git.RestoreNormalConfig(targetDir); err != nil {
 			logger.Error("Failed to restore git config: %v", err)
-			logger.Warning("Repository directory restored but git config may be inconsistent")
-			logger.Warning("Run: git config --bool core.bare false")
+			restoreErrors = append(restoreErrors, "git config")
 		}
 
-		logger.Success("Repository restored to original state")
+		// Report final status
+		if len(restoreErrors) > 0 {
+			logger.Error("CRITICAL: Restoration incomplete. Failed to restore: %v", restoreErrors)
+			logger.Error("Your repository may be in an inconsistent state.")
+			logger.Error("To recover manually:")
+			if len(createdWorktrees) > 0 {
+				logger.Error("1. Check for files in: %s", createdWorktrees[0])
+			}
+			logger.Error("2. Ensure .git directory exists and is not bare")
+			logger.Error("3. Run: git config --bool core.bare false")
+		} else {
+			logger.Success("Repository restored to original state")
+		}
 	}()
 
 	if branches != "" {
