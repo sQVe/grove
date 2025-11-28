@@ -1128,3 +1128,48 @@ func GetStashCount(path string) (int, error) {
 
 	return len(strings.Split(output, "\n")), nil
 }
+
+// RenameBranch renames a branch using git branch -m
+func RenameBranch(repoPath, oldName, newName string) error {
+	if repoPath == "" || oldName == "" || newName == "" {
+		return errors.New("repository path, old name, and new name cannot be empty")
+	}
+
+	logger.Debug("Executing: git branch -m %s %s in %s", oldName, newName, repoPath)
+	cmd := exec.Command("git", "branch", "-m", oldName, newName) // nolint:gosec // Branch names from validated input
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}
+
+// RepairWorktree runs git worktree repair to fix worktree paths after directory moves.
+// If worktreePath is provided, it tells git where the moved worktree now lives.
+func RepairWorktree(bareDir, worktreePath string) error {
+	if bareDir == "" {
+		return errors.New("bare directory path cannot be empty")
+	}
+
+	args := []string{"worktree", "repair"}
+	if worktreePath != "" {
+		args = append(args, worktreePath)
+	}
+
+	logger.Debug("Executing: git %v in %s", args, bareDir)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = bareDir
+
+	return runGitCommand(cmd, true)
+}
+
+// SetUpstreamBranch sets the upstream tracking branch for a local branch
+func SetUpstreamBranch(worktreePath, upstream string) error {
+	if worktreePath == "" || upstream == "" {
+		return errors.New("worktree path and upstream cannot be empty")
+	}
+
+	logger.Debug("Executing: git branch --set-upstream-to=%s in %s", upstream, worktreePath)
+	cmd := exec.Command("git", "branch", "--set-upstream-to="+upstream) // nolint:gosec // Upstream from validated input
+	cmd.Dir = worktreePath
+
+	return runGitCommand(cmd, true)
+}

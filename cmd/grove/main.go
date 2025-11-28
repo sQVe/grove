@@ -54,6 +54,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewCreateCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewPruneCmd())
+	rootCmd.AddCommand(commands.NewRenameCmd())
 	rootCmd.AddCommand(commands.NewStatusCmd())
 	rootCmd.AddCommand(commands.NewSwitchCmd())
 
