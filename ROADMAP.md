@@ -11,7 +11,7 @@
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
-| prune   |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| prune   |   [x]    |   [x]   |   [x]   |  [x]   |
 | rename  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | status  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
@@ -162,10 +162,11 @@
 
 | Command          | Features                                                   | Status |
 | ---------------- | ---------------------------------------------------------- | :----: |
-| `prune`          | Output help if no arguments                                |  [ ]   |
-| `prune`          | Show worktrees linked to deleted remote branches (dry-run) |  [ ]   |
-| `prune --commit` | Remove worktrees for branches with `[gone]` upstream       |  [ ]   |
-| `prune --force`  | Remove worktrees even if dirty or locked                   |  [ ]   |
+| `prune`          | Output help if no arguments                                |  [x]   |
+| `prune`          | Show worktrees linked to deleted remote branches (dry-run) |  [x]   |
+| `prune --commit` | Remove worktrees for branches with `[gone]` upstream       |  [x]   |
+| `prune --force`  | Remove worktrees even if dirty or locked                   |  [x]   |
+| `prune --stale`  | Also prune worktrees with no commits in specified duration |  [x]   |
 
 **Notes:**
 
@@ -176,9 +177,9 @@
 
 **Failure conditions:**
 
--   Should not remove worktrees with uncommitted changes without `--force`
--   Should not remove locked worktrees without `--force`
--   Should require confirmation before destructive operations
+-   [x] Should not remove worktrees with uncommitted changes without `--force`
+-   [x] Should not remove locked worktrees without `--force`
+-   [x] Should require confirmation before destructive operations
 
 ### `list`
 

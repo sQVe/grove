@@ -1,0 +1,59 @@
+# Setup git config once
+exec git config --global user.name "Test"
+exec git config --global user.email "test@example.com"
+exec git config --global commit.gpgsign false
+
+## Help and basic functionality
+
+# Test prune command help
+exec grove prune --help
+stdout 'Remove worktrees whose upstream branches have been deleted'
+stdout 'Usage:'
+
+# Test prune flags exist in help
+exec grove prune --help
+stdout '--commit'
+stdout '--force'
+stdout '--stale'
+
+## Argument validation
+
+# Test prune rejects arguments
+! exec grove prune extra-arg
+stderr 'unknown command'
+
+## Workspace validation
+
+# Test prune fails outside grove workspace
+mkdir not-a-workspace
+cd not-a-workspace
+! exec grove prune
+stderr 'not in a grove workspace'
+cd ..
+
+# Test prune fails in regular git repo
+mkdir git-repo
+cd git-repo
+exec git init
+! exec grove prune
+stderr 'not in a grove workspace'
+cd ..
+
+## Stale duration validation
+# Duration parsing happens before workspace check, so these test error messages
+
+# Test invalid stale duration - invalid unit
+! exec grove prune --stale 30x
+stderr 'unknown duration unit'
+
+# Test invalid stale duration - negative
+! exec grove prune --stale -5d
+stderr 'duration must be positive'
+
+# Test invalid stale duration - zero
+! exec grove prune --stale 0d
+stderr 'duration must be positive'
+
+# Test invalid stale duration - non-numeric
+! exec grove prune --stale abcd
+stderr 'invalid duration'
