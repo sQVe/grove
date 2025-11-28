@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -147,7 +148,7 @@ func findWorktreeDir() string {
 		if git.IsWorktree(dir) {
 			return dir
 		}
-		dir = dir[:strings.LastIndex(dir, "/")]
+		dir = filepath.Dir(dir)
 	}
 
 	return ""
