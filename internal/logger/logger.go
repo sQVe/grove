@@ -116,23 +116,25 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 		marker = "*"
 	}
 
-	format := fmt.Sprintf("%%s %%-%ds %%s %%s\n", nameWidth)
+	// Create padded name (raw text, no ANSI codes)
+	namePadded := fmt.Sprintf("%-*s", nameWidth, name)
 
 	if config.IsPlain() {
-		fmt.Printf(format, marker, name, status, syncStatus)
+		fmt.Printf("%s %s %s %s\n", marker, namePadded, status, syncStatus)
 	} else {
 		markerStyled := " "
 		if current {
 			markerStyled = styles.Render(&styles.Success, "●")
 		}
-		nameStyled := styles.Render(&styles.Worktree, name)
+		// Style the name, then append padding spaces (unstyled)
+		nameStyled := styles.Render(&styles.Worktree, name) + namePadded[len(name):]
 		var statusStyled string
 		if status == "[dirty]" {
 			statusStyled = styles.Render(&styles.Warning, status)
 		} else {
 			statusStyled = styles.Render(&styles.Dimmed, status)
 		}
-		fmt.Printf(format, markerStyled, nameStyled, statusStyled, syncStatus)
+		fmt.Printf("%s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus)
 	}
 }
 
