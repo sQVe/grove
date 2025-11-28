@@ -7,14 +7,17 @@
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | config  |   [x]    |   [x]   |   [x]   |  [x]   |
 | create  |   [x]    |   [x]   |   [x]   |  [x]   |
+| delete  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
+| lock    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | prune   |   [x]    |   [x]   |   [x]   |  [x]   |
 | rename  |   [x]    |   [x]   |   [x]   |  [x]   |
 | status  |   [x]    |   [x]   |   [x]   |  [x]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
+| unlock  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 
 ## Commands
 
@@ -142,15 +145,20 @@
 
 ### `create`
 
-| Command              | Features                                      | Status |
-| -------------------- | --------------------------------------------- | :----: |
-| `create <branch>`    | Create worktree for existing branch           |  [x]   |
-| `create <branch>`    | Create worktree with new branch if not exists |  [x]   |
-| `create <branch>`    | Provide completions for branch names          |  [x]   |
-| `create <branch>`    | Sanitize branch name for directory name       |  [x]   |
-| `create <branch>`    | Preserve configured files from source         |  [x]   |
-| `create <branch>`    | Run configured hooks after creation           |  [x]   |
-| `create -s <branch>` | Switch to worktree after creation             |  [x]   |
+| Command                 | Features                                      | Status |
+| ----------------------- | --------------------------------------------- | :----: |
+| `create <branch>`       | Create worktree for existing branch           |  [x]   |
+| `create <branch>`       | Create worktree with new branch if not exists |  [x]   |
+| `create <branch>`       | Provide completions for branch names          |  [x]   |
+| `create <branch>`       | Sanitize branch name for directory name       |  [x]   |
+| `create <branch>`       | Preserve configured files from source         |  [x]   |
+| `create <branch>`       | Run configured hooks after creation           |  [x]   |
+| `create -s <branch>`    | Switch to worktree after creation             |  [x]   |
+| `create --detach <ref>` | Create worktree at commit/tag without branch  |  [ ]   |
+
+**Notes:**
+
+-   `--detach` useful for inspecting releases, hotfixes on tags
 
 ### `status`
 
@@ -275,6 +283,48 @@
 -   [x] Should not rename if target branch name already exists
 -   [x] Should revert all changes if any step fails
 
+### `delete`
+
+| Command                    | Features                               | Status |
+| -------------------------- | -------------------------------------- | :----: |
+| `delete <branch>`          | Remove worktree and optionally branch  |  [ ]   |
+| `delete <branch>`          | Provide completions for worktree names |  [ ]   |
+| `delete --force <branch>`  | Force delete even if dirty/locked      |  [ ]   |
+| `delete --branch <branch>` | Also delete the branch after removal   |  [ ]   |
+
+**Notes:**
+
+-   Wraps `git worktree remove` with Grove conventions
+-   Safe by default: refuses to delete dirty or locked worktrees
+-   `--branch` flag provides convenient cleanup of merged branches
+
+**Failure conditions:**
+
+-   [ ] Should not delete worktree with uncommitted changes without `--force`
+-   [ ] Should not delete locked worktrees without `--force`
+-   [ ] Should not delete the current worktree
+-   [ ] Should warn if branch has unpushed commits when using `--branch`
+
+### `lock`
+
+| Command                        | Features                               | Status |
+| ------------------------------ | -------------------------------------- | :----: |
+| `lock <branch>`                | Lock worktree to prevent removal       |  [ ]   |
+| `lock <branch>`                | Provide completions for worktree names |  [ ]   |
+| `lock --reason <msg> <branch>` | Add reason for locking                 |  [ ]   |
+
+**Notes:**
+
+-   Locked worktrees are protected from `prune` and `delete`
+-   Lock reason displayed in `list --verbose` and `status`
+
+### `unlock`
+
+| Command           | Features                                 | Status |
+| ----------------- | ---------------------------------------- | :----: |
+| `unlock <branch>` | Unlock worktree to allow removal         |  [ ]   |
+| `unlock <branch>` | Provide completions for locked worktrees |  [ ]   |
+
 ### `doctor`
 
 | Command        | Features                                      | Status |
@@ -283,6 +333,7 @@
 | `doctor`       | Detect detached HEAD worktrees                |  [ ]   |
 | `doctor`       | Find missing upstream tracking                |  [ ]   |
 | `doctor`       | Identify worktrees pointing at gone upstreams |  [ ]   |
+| `doctor`       | Run `git worktree repair` to fix broken links |  [ ]   |
 | `doctor --fix` | Automatically fix common issues               |  [ ]   |
 
 **Notes:**
