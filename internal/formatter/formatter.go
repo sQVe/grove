@@ -9,11 +9,11 @@ import (
 	"github.com/sqve/grove/internal/styles"
 )
 
-// Nerd Font icons (require Nerd Font to display correctly)
+// Icons for indicators
 const (
-	iconBranch = "\uE0A0"     // nf-pl-branch (U+E0A0)
-	iconLock   = "\U000F033E" // nf-md-lock (U+F033E)
-	iconDirty  = "\U000F0992" // nf-md-circle-edit-outline (U+F0992)
+	iconCurrent = "●"          // filled circle (U+25CF)
+	iconLock    = "\U000F033E" // nf-md-lock (U+F033E)
+	iconDirty   = "\U000F0992" // nf-md-circle-edit-outline (U+F0992)
 )
 
 // ASCII fallbacks for plain mode or when Nerd Fonts disabled
@@ -29,8 +29,8 @@ func useAsciiIcons() bool {
 }
 
 // CurrentMarker returns the marker for current worktree
-// Color mode:  (nf-pl-branch)
-// Plain/no-nerdfonts mode: *
+// Color mode: ● (filled circle)
+// Plain mode: *
 // Non-current: space
 func CurrentMarker(isCurrent bool) string {
 	if !isCurrent {
@@ -39,7 +39,7 @@ func CurrentMarker(isCurrent bool) string {
 	if useAsciiIcons() {
 		return asciiCurrent
 	}
-	return styles.Render(&styles.Success, iconBranch)
+	return styles.Render(&styles.Success, iconCurrent)
 }
 
 // Lock returns the lock indicator
