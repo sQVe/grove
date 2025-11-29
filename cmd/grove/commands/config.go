@@ -17,18 +17,19 @@ import (
 )
 
 const (
-	configKeyPlain    = "grove.plain"
-	configKeyDebug    = "grove.debug"
-	configKeyPreserve = "grove.preserve"
-	configKeyHooksAdd = "hooks.add"
-	tomlKeyPlain      = "plain"
-	tomlKeyDebug      = "debug"
-	tomlKeyPreserve   = "preserve.patterns"
+	configKeyPlain     = "grove.plain"
+	configKeyDebug     = "grove.debug"
+	configKeyNerdFonts = "grove.nerdFonts"
+	configKeyPreserve  = "grove.preserve"
+	configKeyHooksAdd  = "hooks.add"
+	tomlKeyPlain       = "plain"
+	tomlKeyDebug       = "debug"
+	tomlKeyPreserve    = "preserve.patterns"
 )
 
 var (
-	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyPreserve}
-	booleanConfigKeys = []string{configKeyPlain, configKeyDebug}
+	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve}
+	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts}
 	multiValueKeys    = []string{configKeyPreserve}
 )
 

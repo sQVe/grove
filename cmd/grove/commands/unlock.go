@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -64,10 +63,8 @@ func runUnlock(branch string) error {
 		return fmt.Errorf("no worktree found for branch %q", branch)
 	}
 
-	worktreeName := filepath.Base(worktreeInfo.Path)
-
 	// Check if actually locked
-	if !git.IsWorktreeLocked(bareDir, worktreeName) {
+	if !git.IsWorktreeLocked(worktreeInfo.Path) {
 		return fmt.Errorf("worktree is not locked")
 	}
 

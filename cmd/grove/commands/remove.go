@@ -76,8 +76,6 @@ func runRemove(branch string, force, deleteBranch bool) error {
 		return fmt.Errorf("cannot delete current worktree; switch to a different worktree first")
 	}
 
-	worktreeName := filepath.Base(worktreeInfo.Path)
-
 	// Check worktree state unless --force
 	if !force {
 		// Check dirty state
@@ -90,10 +88,10 @@ func runRemove(branch string, force, deleteBranch bool) error {
 		}
 
 		// Check locked state
-		if git.IsWorktreeLocked(bareDir, worktreeName) {
+		if git.IsWorktreeLocked(worktreeInfo.Path) {
 			return fmt.Errorf("worktree is locked; use --force to remove anyway")
 		}
-	} else if git.IsWorktreeLocked(bareDir, worktreeName) {
+	} else if git.IsWorktreeLocked(worktreeInfo.Path) {
 		// Unlock worktree first if locked (git requires double force otherwise)
 		if err := git.UnlockWorktree(bareDir, worktreeInfo.Path); err != nil {
 			logger.Debug("Failed to unlock worktree: %v", err)

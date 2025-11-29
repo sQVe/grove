@@ -18,10 +18,10 @@ exec git config user.email "test@example.com"
 
 ## Basic status tests
 
-# Test basic status shows branch and state
+# Test basic status shows branch (no dirty indicator when clean)
 exec grove status --plain
 stdout '\* main'
-stdout 'clean'
+! stdout '\[dirty\]'
 
 # Test status with --json
 exec grove status --json
@@ -30,19 +30,17 @@ stdout '"main"'
 stdout '"path":'
 stdout '"dirty": false'
 
-# Test status with --verbose
+# Test status with --verbose shows path sub-item
 exec grove status --verbose --plain
-stdout 'Worktree'
-stdout 'Branch: main'
-stdout 'Working Tree'
-stdout 'State: clean'
+stdout '\* main'
+stdout '> path:'
 
 ## Dirty detection
 
 # Create uncommitted file
 cp $WORK/README.md dirty.txt
 exec grove status --plain
-stdout 'dirty'
+stdout '\[dirty\]'
 
 # Clean up
 rm dirty.txt
@@ -53,8 +51,8 @@ rm dirty.txt
 cp $WORK/README.md stash-me.txt
 exec git add stash-me.txt
 exec git stash
-exec grove status --plain
-stdout 'stashed'
+exec grove status --verbose --plain
+stdout 'stashes:'
 
 # Clear stash
 exec git stash drop
@@ -67,7 +65,7 @@ mkdir -p src/components
 cd src/components
 exec grove status --plain
 stdout '\* main'
-stdout 'clean'
+! stdout '\[dirty\]'
 
 # Test status --json from subdirectory
 exec grove status --json

@@ -96,9 +96,8 @@ func runMove(oldBranch, newBranch string) error {
 	}
 
 	// Check worktree is not locked
-	worktreeName := filepath.Base(worktreeInfo.Path)
-	if git.IsWorktreeLocked(bareDir, worktreeName) {
-		return fmt.Errorf("worktree is locked; unlock it first with 'git worktree unlock %s'", worktreeName)
+	if git.IsWorktreeLocked(worktreeInfo.Path) {
+		return fmt.Errorf("worktree is locked; unlock it first with 'grove unlock %s'", oldBranch)
 	}
 
 	// Calculate new worktree path

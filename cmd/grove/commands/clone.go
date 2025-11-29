@@ -75,7 +75,7 @@ Examples:
 				return err
 			}
 
-			logger.Info("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
+			logger.Success("Cloned repository to %s", styles.Render(&styles.Path, targetDir))
 			return nil
 		},
 	}
@@ -193,6 +193,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 		}
 	}
 
-	logger.Info("Initialized grove workspace for PR #%d in: %s", ref.Number, styles.Render(&styles.Path, workspaceDir))
+	logger.Success("Cloned repository to %s", styles.Render(&styles.Path, workspaceDir))
+	logger.ListSubItem("fetched PR #%d", ref.Number)
 	return nil
 }

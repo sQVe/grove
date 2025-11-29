@@ -263,15 +263,36 @@ func GetGitDir(path string) (string, error) {
 	return "", fmt.Errorf("not a git repository")
 }
 
-// IsWorktreeLocked checks if a worktree is locked.
-// Locked worktrees have a worktrees/<name>/locked file inside the git directory.
-func IsWorktreeLocked(repoPath, worktreeName string) bool {
-	lockFile := filepath.Join(repoPath, "worktrees", worktreeName, "locked")
-	if _, err := os.Stat(lockFile); err == nil {
-		return true
+// GetWorktreeGitDir returns the gitdir path for a worktree.
+// It reads the .git file in the worktree directory to get the actual gitdir path.
+// Returns empty string if the worktree path is invalid or doesn't have a .git file.
+func GetWorktreeGitDir(worktreePath string) string {
+	gitFile := filepath.Join(worktreePath, ".git")
+	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
+	if err != nil {
+		return ""
 	}
 
-	lockFile = filepath.Join(repoPath, ".git", "worktrees", worktreeName, "locked")
+	line := strings.TrimSpace(string(content))
+	if !strings.HasPrefix(line, "gitdir:") {
+		return ""
+	}
+
+	gitdir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
+	if !filepath.IsAbs(gitdir) {
+		gitdir = filepath.Join(worktreePath, gitdir)
+	}
+	return filepath.Clean(gitdir)
+}
+
+// IsWorktreeLocked checks if a worktree is locked by reading its actual gitdir.
+// This handles cases where the worktree directory name differs from git's internal name.
+func IsWorktreeLocked(worktreePath string) bool {
+	gitdir := GetWorktreeGitDir(worktreePath)
+	if gitdir == "" {
+		return false
+	}
+	lockFile := filepath.Join(gitdir, "locked")
 	_, err := os.Stat(lockFile)
 	return err == nil
 }
@@ -289,24 +310,20 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 	return runGitCommand(cmd, true)
 }
 
-// GetWorktreeLockReason returns the lock reason for a worktree.
+// GetWorktreeLockReason returns the lock reason for a worktree by reading its actual gitdir.
+// This handles cases where the worktree directory name differs from git's internal name.
 // Returns empty string if the worktree is not locked or doesn't exist.
-func GetWorktreeLockReason(repoPath, worktreeName string) string {
-	// Try bare repo path first
-	lockFile := filepath.Join(repoPath, "worktrees", worktreeName, "locked")
+func GetWorktreeLockReason(worktreePath string) string {
+	gitdir := GetWorktreeGitDir(worktreePath)
+	if gitdir == "" {
+		return ""
+	}
+	lockFile := filepath.Join(gitdir, "locked")
 	content, err := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
-	if err == nil {
-		return strings.TrimSpace(string(content))
+	if err != nil {
+		return ""
 	}
-
-	// Try .git/worktrees path
-	lockFile = filepath.Join(repoPath, ".git", "worktrees", worktreeName, "locked")
-	content, err = os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
-	if err == nil {
-		return strings.TrimSpace(string(content))
-	}
-
-	return ""
+	return strings.TrimSpace(string(content))
 }
 
 // UnlockWorktree unlocks a locked worktree
@@ -1144,9 +1161,8 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 			}
 		}
 
-		worktreeName := filepath.Base(path)
-		info.Locked = IsWorktreeLocked(bareDir, worktreeName)
-		info.LockReason = GetWorktreeLockReason(bareDir, worktreeName)
+		info.Locked = IsWorktreeLocked(path)
+		info.LockReason = GetWorktreeLockReason(path)
 
 		infos = append(infos, info)
 	}

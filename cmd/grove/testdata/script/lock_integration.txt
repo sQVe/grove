@@ -34,15 +34,14 @@ stderr 'already locked'
 
 ## List shows locked status
 
-exec grove list --verbose
-stdout 'locked'
+exec grove list --verbose --plain
+stdout '\[locked\]'
 
 ## Status shows locked
 
 cd ../feature
-exec grove status --verbose
-stdout 'Locked'
-stdout 'yes'
+exec grove status --verbose --plain
+stdout '\[locked\]'
 cd ../main
 
 ## Lock with reason
@@ -53,13 +52,13 @@ stdout 'Locked worktree'
 
 ## List shows lock reason
 
-exec grove list --verbose
+exec grove list --verbose --plain
 stdout 'Do not delete'
 
 ## Status shows lock reason
 
 cd ../feature
-exec grove status --verbose
+exec grove status --verbose --plain
 stdout 'Do not delete'
 cd ../main
 

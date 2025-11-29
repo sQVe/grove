@@ -103,9 +103,25 @@ func ListItemWithNote(main, note string) {
 func ListSubItem(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	if config.IsPlain() {
-		fmt.Printf("      %s\n", message)
+		fmt.Printf("    > %s\n", message)
 	} else {
-		fmt.Printf("    %s\n", styles.Render(&styles.Dimmed, "↳ "+message))
+		fmt.Printf("    %s %s\n", styles.Render(&styles.Dimmed, "↳"), message)
+	}
+}
+
+// ListItemGroup prints a group of items under a header
+// Used for multi-item lists like preserved files
+func ListItemGroup(header string, items []string) {
+	if len(items) == 0 {
+		return
+	}
+	ListSubItem("%s", header)
+	for _, item := range items {
+		if config.IsPlain() {
+			fmt.Printf("        %s\n", item)
+		} else {
+			fmt.Printf("        %s\n", styles.Render(&styles.Dimmed, item))
+		}
 	}
 }
 
@@ -121,7 +137,7 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 
 	if config.IsPlain() {
 		if lockIndicator != "" {
-			fmt.Printf("%s %s %s %s %s\n", marker, namePadded, status, syncStatus, lockIndicator)
+			fmt.Printf("%s %s %s %s %s\n", marker, namePadded, status, lockIndicator, syncStatus)
 		} else {
 			fmt.Printf("%s %s %s %s\n", marker, namePadded, status, syncStatus)
 		}
@@ -139,7 +155,7 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 			statusStyled = styles.Render(&styles.Dimmed, status)
 		}
 		if lockIndicator != "" {
-			fmt.Printf("%s %s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus, lockIndicator)
+			fmt.Printf("%s %s %s %s %s\n", markerStyled, nameStyled, statusStyled, lockIndicator, syncStatus)
 		} else {
 			fmt.Printf("%s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus)
 		}

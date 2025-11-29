@@ -152,7 +152,7 @@ func TestRunUnlock_Success(t *testing.T) {
 	}
 
 	// Verify it's locked
-	if !git.IsWorktreeLocked(bareDir, "feature") {
+	if !git.IsWorktreeLocked(featurePath) {
 		t.Fatal("worktree should be locked before test")
 	}
 
@@ -165,7 +165,7 @@ func TestRunUnlock_Success(t *testing.T) {
 	}
 
 	// Verify worktree is unlocked
-	if git.IsWorktreeLocked(bareDir, "feature") {
+	if git.IsWorktreeLocked(featurePath) {
 		t.Error("worktree should be unlocked after runUnlock")
 	}
 }

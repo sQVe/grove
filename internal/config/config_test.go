@@ -83,76 +83,10 @@ func TestIsTruthy(t *testing.T) {
 func resetGlobal() {
 	Global.Plain = false
 	Global.Debug = false
+	Global.NerdFonts = true // Default is true
 	Global.PreservePatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
-}
-
-func TestLoadFromEnv(t *testing.T) {
-	t.Run("both false with no env vars", func(t *testing.T) {
-		resetGlobal()
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Unsetenv("GROVE_DEBUG")
-
-		LoadFromEnv()
-		if IsPlain() || IsDebug() {
-			t.Error("Expected both modes to be false with no env vars")
-		}
-	})
-
-	t.Run("plain true with GROVE_PLAIN=1", func(t *testing.T) {
-		resetGlobal()
-		_ = os.Unsetenv("GROVE_DEBUG")
-		_ = os.Setenv("GROVE_PLAIN", "1")
-		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
-
-		LoadFromEnv()
-		if !IsPlain() {
-			t.Error("Expected plain mode to be true with GROVE_PLAIN=1")
-		}
-	})
-
-	t.Run("debug true with GROVE_DEBUG=1", func(t *testing.T) {
-		resetGlobal()
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Setenv("GROVE_DEBUG", "1")
-		defer func() { _ = os.Unsetenv("GROVE_DEBUG") }()
-
-		LoadFromEnv()
-		if !IsDebug() {
-			t.Error("Expected debug mode to be true with GROVE_DEBUG=1")
-		}
-	})
-
-	t.Run("both true with yes/on env values", func(t *testing.T) {
-		resetGlobal()
-		_ = os.Setenv("GROVE_PLAIN", "yes")
-		_ = os.Setenv("GROVE_DEBUG", "on")
-		defer func() {
-			_ = os.Unsetenv("GROVE_PLAIN")
-			_ = os.Unsetenv("GROVE_DEBUG")
-		}()
-
-		LoadFromEnv()
-		if !IsPlain() || !IsDebug() {
-			t.Error("Expected both modes to be true with yes/on env values")
-		}
-	})
-
-	t.Run("both false with invalid env values", func(t *testing.T) {
-		resetGlobal()
-		_ = os.Setenv("GROVE_PLAIN", "invalid")
-		_ = os.Setenv("GROVE_DEBUG", "nope")
-		defer func() {
-			_ = os.Unsetenv("GROVE_PLAIN")
-			_ = os.Unsetenv("GROVE_DEBUG")
-		}()
-
-		LoadFromEnv()
-		if IsPlain() || IsDebug() {
-			t.Error("Expected both modes to be false with invalid env values")
-		}
-	})
 }
 
 func TestLoadFromGitConfig(t *testing.T) {
@@ -161,8 +95,6 @@ func TestLoadFromGitConfig(t *testing.T) {
 
 	t.Run("loads grove.plain from git config", func(t *testing.T) {
 		resetGlobal()
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Unsetenv("GROVE_DEBUG")
 
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
 			t.Fatal(err)
@@ -177,8 +109,6 @@ func TestLoadFromGitConfig(t *testing.T) {
 
 	t.Run("loads grove.debug from git config", func(t *testing.T) {
 		resetGlobal()
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Unsetenv("GROVE_DEBUG")
 
 		if err := exec.Command("git", "config", "grove.debug", "true").Run(); err != nil {
 			t.Fatal(err)
@@ -202,45 +132,29 @@ func TestLoadFromGitConfig(t *testing.T) {
 			t.Error("Expected modes to remain false on git config error")
 		}
 	})
-}
 
-func TestPrecedence(t *testing.T) {
-	cleanup := setupGitRepo(t)
-	defer cleanup()
-
-	t.Run("ENV overrides git config", func(t *testing.T) {
+	t.Run("loads grove.nerdFonts from git config", func(t *testing.T) {
 		resetGlobal()
 
-		if err := exec.Command("git", "config", "grove.plain", "false").Run(); err != nil {
+		if err := exec.Command("git", "config", "grove.nerdFonts", "false").Run(); err != nil {
 			t.Fatal(err)
 		}
-		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
-
-		_ = os.Setenv("GROVE_PLAIN", "1")
-		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
+		defer func() { _ = exec.Command("git", "config", "--unset", "grove.nerdFonts").Run() }()
 
 		LoadFromGitConfig()
-		LoadFromEnv()
-
-		if !IsPlain() {
-			t.Error("Expected ENV to override git config (ENV=true, git=false)")
+		if IsNerdFonts() {
+			t.Error("Expected NerdFonts to be false from git config")
 		}
 	})
 
-	t.Run("git config used when ENV not set", func(t *testing.T) {
+	t.Run("nerdFonts defaults to true when not in git config", func(t *testing.T) {
 		resetGlobal()
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Unsetenv("GROVE_DEBUG")
 
-		if err := exec.Command("git", "config", "grove.debug", "true").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset", "grove.debug").Run() }()
+		_ = exec.Command("git", "config", "--unset", "grove.nerdFonts").Run()
 
 		LoadFromGitConfig()
-
-		if !IsDebug() {
-			t.Error("Expected git config value to be used when ENV not set")
+		if !IsNerdFonts() {
+			t.Error("Expected NerdFonts to be true (default) when not in git config")
 		}
 	})
 }
@@ -257,33 +171,10 @@ func TestMainLoadingSequence(t *testing.T) {
 		}
 		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
 
-		_ = os.Unsetenv("GROVE_PLAIN")
-		_ = os.Unsetenv("GROVE_DEBUG")
-
 		LoadFromGitConfig()
-		LoadFromEnv()
 
 		if !IsPlain() {
-			t.Error("Expected git config to be loaded when env not set")
-		}
-	})
-
-	t.Run("env overrides git config in loading sequence", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
-
-		_ = os.Setenv("GROVE_PLAIN", "false")
-		defer func() { _ = os.Unsetenv("GROVE_PLAIN") }()
-
-		LoadFromGitConfig()
-		LoadFromEnv()
-
-		if IsPlain() {
-			t.Error("Expected env variable to override git config (env=false should win over git=true)")
+			t.Error("Expected git config to be loaded")
 		}
 	})
 }
@@ -295,6 +186,9 @@ func TestDefaults(t *testing.T) {
 		}
 		if DefaultConfig.Debug != false {
 			t.Error("Expected DefaultConfig.Debug to be false")
+		}
+		if DefaultConfig.NerdFonts != true {
+			t.Error("Expected DefaultConfig.NerdFonts to be true")
 		}
 
 		expectedPatterns := []string{

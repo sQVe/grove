@@ -12,7 +12,6 @@ import (
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
-	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -138,7 +137,7 @@ func runPrune(commit, force bool, stale string) error {
 	if commit {
 		return executePrune(bareDir, candidates, force)
 	}
-	return displayDryRun(candidates, stale != "")
+	return displayDryRun(candidates)
 }
 
 func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipReason {
@@ -163,63 +162,62 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 	return skipNone
 }
 
-func displayDryRun(candidates []pruneCandidate, includesStale bool) error {
+func displayDryRun(candidates []pruneCandidate) error {
 	if len(candidates) == 0 {
 		logger.Info("No worktrees to prune.")
 		return nil
 	}
 
-	plain := config.IsPlain()
+	// Group candidates by whether they can be pruned
+	var toPrune []string
+	var toSkip []string
 
-	fmt.Println()
-	if includesStale {
-		logger.Info("Worktrees to remove:")
-	} else {
-		logger.Info("Worktrees to remove (upstream deleted):")
-	}
-	fmt.Println()
-
-	hasSkipped := false
 	for _, candidate := range candidates {
-		label := formatCandidateLabel(candidate, plain)
-		switch candidate.reason {
-		case skipCurrent:
-			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), styles.Render(&styles.Dimmed, "(current)"))
-		case skipNone:
-			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), label)
-		default:
-			hasSkipped = true
-			fmt.Printf("  %s  %s\n", styles.Render(&styles.Worktree, candidate.info.Branch), label)
+		label := candidate.info.Branch
+		if candidate.pruneType == pruneStale && candidate.staleAge != "" {
+			label = fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.staleAge)
+		}
+
+		if candidate.reason == skipNone {
+			toPrune = append(toPrune, label)
+		} else {
+			toSkip = append(toSkip, fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.reason))
 		}
 	}
 
-	fmt.Println()
-	if hasSkipped {
-		logger.Info("Run with --commit to remove. Use --force to include dirty/locked/ahead.")
-	} else {
-		logger.Info("Run with --commit to remove.")
+	// Display results
+	if len(toPrune) > 0 {
+		if len(toPrune) == 1 {
+			logger.Info("Would prune 1 worktree:")
+		} else {
+			logger.Info("Would prune %d worktrees:", len(toPrune))
+		}
+		for _, item := range toPrune {
+			logger.Dimmed("    %s", item)
+		}
+	}
+
+	if len(toSkip) > 0 {
+		if len(toSkip) == 1 {
+			logger.Warning("Would skip 1 worktree:")
+		} else {
+			logger.Warning("Would skip %d worktrees:", len(toSkip))
+		}
+		for _, item := range toSkip {
+			logger.Dimmed("    %s", item)
+		}
+	}
+
+	if len(toPrune) > 0 {
+		fmt.Println()
+		if len(toSkip) > 0 {
+			logger.Info("Run with --commit to remove. Use --force to include skipped.")
+		} else {
+			logger.Info("Run with --commit to remove.")
+		}
 	}
 
 	return nil
-}
-
-func formatCandidateLabel(candidate pruneCandidate, plain bool) string {
-	switch candidate.pruneType {
-	case pruneGone:
-		status := formatWorktreeStatus(candidate.info, plain)
-		if plain {
-			return fmt.Sprintf("[gone] %s", status)
-		}
-		return fmt.Sprintf("%s %s", styles.Render(&styles.Dimmed, "[gone]"), status)
-	case pruneStale:
-		status := formatWorktreeStatus(candidate.info, plain)
-		if plain {
-			return fmt.Sprintf("[stale] (%s) %s", candidate.staleAge, status)
-		}
-		return fmt.Sprintf("%s (%s) %s", styles.Render(&styles.Dimmed, "[stale]"), candidate.staleAge, status)
-	default:
-		return formatWorktreeStatus(candidate.info, plain)
-	}
 }
 
 func executePrune(bareDir string, candidates []pruneCandidate, force bool) error {
@@ -228,84 +226,61 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 		return nil
 	}
 
-	fmt.Println()
-	logger.Info("Removing worktrees:")
-	fmt.Println()
-
-	removed := 0
-	skipped := 0
+	// Process all candidates
+	var pruned []string
+	var skipped []string
+	var failed []string
 
 	for _, candidate := range candidates {
 		if candidate.reason != skipNone {
-			skipped++
-			if config.IsPlain() {
-				fmt.Printf("  - Skipped %s (%s)\n", candidate.info.Branch, candidate.reason)
-			} else {
-				fmt.Printf("  %s Skipped %s (%s)\n",
-					styles.Render(&styles.Warning, "⊘"),
-					styles.Render(&styles.Worktree, candidate.info.Branch),
-					candidate.reason)
-			}
+			skipped = append(skipped, fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.reason))
 			continue
 		}
 
 		// Actually remove the worktree
 		if err := git.RemoveWorktree(bareDir, candidate.info.Path, force); err != nil {
-			skipped++
-			if config.IsPlain() {
-				fmt.Printf("  - Failed %s: %v\n", candidate.info.Branch, err)
-			} else {
-				fmt.Printf("  %s Failed %s: %v\n",
-					styles.Render(&styles.Error, "✗"),
-					styles.Render(&styles.Worktree, candidate.info.Branch),
-					err)
-			}
+			failed = append(failed, fmt.Sprintf("%s: %v", candidate.info.Branch, err))
 			continue
 		}
 
-		removed++
-		if config.IsPlain() {
-			fmt.Printf("  + Removed %s\n", candidate.info.Branch)
+		pruned = append(pruned, candidate.info.Branch)
+	}
+
+	// Display results
+	if len(pruned) > 0 {
+		if len(pruned) == 1 {
+			logger.Success("Pruned 1 worktree:")
 		} else {
-			fmt.Printf("  %s Removed %s\n",
-				styles.Render(&styles.Success, "✓"),
-				styles.Render(&styles.Worktree, candidate.info.Branch))
+			logger.Success("Pruned %d worktrees:", len(pruned))
+		}
+		for _, item := range pruned {
+			logger.Dimmed("    %s", item)
 		}
 	}
 
-	fmt.Println()
-	if skipped > 0 {
-		logger.Info("Removed %d worktree(s), skipped %d.", removed, skipped)
-	} else {
-		logger.Success("Removed %d worktree(s).", removed)
+	if len(skipped) > 0 {
+		if len(skipped) == 1 {
+			logger.Warning("Skipped 1 worktree:")
+		} else {
+			logger.Warning("Skipped %d worktrees:", len(skipped))
+		}
+		for _, item := range skipped {
+			logger.Dimmed("    %s", item)
+		}
+	}
+
+	if len(failed) > 0 {
+		if len(failed) == 1 {
+			logger.Error("Failed to remove 1 worktree:")
+		} else {
+			logger.Error("Failed to remove %d worktrees:", len(failed))
+		}
+		for _, item := range failed {
+			logger.Dimmed("    %s", item)
+		}
 	}
 
 	return nil
-}
-
-func formatWorktreeStatus(info *git.WorktreeInfo, plain bool) string {
-	if info.Locked {
-		if plain {
-			return "[locked]"
-		}
-		return styles.Render(&styles.Warning, "[locked]")
-	}
-	if info.Dirty {
-		if plain {
-			return "[dirty]"
-		}
-		return styles.Render(&styles.Warning, "[dirty]")
-	}
-	if info.Ahead > 0 {
-		if plain {
-			return fmt.Sprintf("[ahead %d]", info.Ahead)
-		}
-		return styles.Render(&styles.Warning, fmt.Sprintf("[ahead %d]", info.Ahead))
-	}
-	if plain {
-		return "[clean]"
-	}
-	return styles.Render(&styles.Success, "[clean]")
 }
 
 // parseDuration parses human-friendly durations like "30d", "2w", "6m"

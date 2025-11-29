@@ -11,7 +11,6 @@ import (
 
 func main() {
 	config.LoadFromGitConfig()
-	config.LoadFromEnv()
 
 	rootCmd := &cobra.Command{
 		Use:           "grove",

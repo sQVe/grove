@@ -21,17 +21,16 @@ exec git config user.email "test@example.com"
 
 ## Basic list tests
 
-# Test basic list shows branches and status
-exec grove list
+# Test basic list shows branches (no dirty indicator when clean)
+exec grove list --plain
 stdout 'main'
 stdout 'develop'
-stdout '\[clean\]'
+! stdout '\[dirty\]'
 
-# Test list with --fast skips status
-exec grove list --fast
+# Test list with --fast skips status (no sync indicator shown)
+exec grove list --fast --plain
 stdout 'main'
 stdout 'develop'
-! stdout '\[clean\]'
 ! stdout '\[dirty\]'
 
 # Test list with --json
@@ -51,7 +50,7 @@ stdout 'workspace/main'
 
 # Create uncommitted file
 cp $WORK/README.md dirty.txt
-exec grove list
+exec grove list --plain
 stdout '\[dirty\]'
 
 # Clean up for next test
@@ -61,10 +60,10 @@ rm dirty.txt
 
 # From workspace root, no branch should be marked as current (we're not in a worktree)
 cd $WORK/workspace
-exec grove list
+exec grove list --plain
 stdout 'main'
 stdout 'develop'
-! stdout '^●'
+! stdout '^\*'
 
 ## Subdirectory handling
 
@@ -72,8 +71,8 @@ stdout 'develop'
 cd $WORK/workspace/main
 mkdir -p src/components
 cd src/components
-exec grove list
-stdout '^●'
+exec grove list --plain
+stdout '^\*'
 stdout 'main'
 
 ## Error handling

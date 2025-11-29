@@ -12,6 +12,7 @@ import (
 var Global struct {
 	Plain            bool     // Disable colors and symbols
 	Debug            bool     // Enable debug logging
+	NerdFonts        bool     // Use Nerd Font icons (when not in plain mode)
 	PreservePatterns []string // Patterns for ignored files to preserve in new worktrees
 	StaleThreshold   string   // Default threshold for stale worktree detection (e.g., "30d")
 	AutoLockPatterns []string // Patterns for branches to auto-lock when creating worktrees
@@ -21,12 +22,14 @@ var Global struct {
 var DefaultConfig = struct {
 	Plain            bool
 	Debug            bool
+	NerdFonts        bool
 	PreservePatterns []string
 	StaleThreshold   string
 	AutoLockPatterns []string
 }{
 	Plain:          false,
 	Debug:          false,
+	NerdFonts:      true,
 	StaleThreshold: "30d",
 	PreservePatterns: []string{
 		".env",
@@ -55,6 +58,11 @@ func IsPlain() bool {
 // IsDebug returns true if debug logging is enabled
 func IsDebug() bool {
 	return Global.Debug
+}
+
+// IsNerdFonts returns true if Nerd Font icons should be used
+func IsNerdFonts() bool {
+	return Global.NerdFonts
 }
 
 // GetPreservePatterns returns the configured preserve patterns or defaults
@@ -108,22 +116,11 @@ func matchGlobPattern(pattern, name string) bool {
 	return pattern == name
 }
 
-// LoadFromEnv loads configuration from environment variables
-func LoadFromEnv() {
-	plain := os.Getenv("GROVE_PLAIN")
-	if plain != "" {
-		Global.Plain = isTruthy(plain)
-	}
-	debug := os.Getenv("GROVE_DEBUG")
-	if debug != "" {
-		Global.Debug = isTruthy(debug)
-	}
-}
-
 // LoadFromGitConfig loads configuration from git config, merging with defaults
 func LoadFromGitConfig() {
 	Global.Plain = DefaultConfig.Plain
 	Global.Debug = DefaultConfig.Debug
+	Global.NerdFonts = DefaultConfig.NerdFonts
 	Global.StaleThreshold = DefaultConfig.StaleThreshold
 	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
@@ -134,6 +131,10 @@ func LoadFromGitConfig() {
 
 	if value := getGitConfig("grove.debug"); value != "" {
 		Global.Debug = isTruthy(value)
+	}
+
+	if value := getGitConfig("grove.nerdFonts"); value != "" {
+		Global.NerdFonts = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.staleThreshold"); value != "" {

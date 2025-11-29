@@ -82,7 +82,7 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			logger.Info("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
+			logger.Success("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
 			return nil
 		},
 	}

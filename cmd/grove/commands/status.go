@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
@@ -67,8 +66,8 @@ func runStatus(verbose, jsonOutput bool) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
+	// Verify we're in a grove workspace
+	if _, err := workspace.FindBareDir(cwd); err != nil {
 		return err
 	}
 
@@ -78,7 +77,7 @@ func runStatus(verbose, jsonOutput bool) error {
 		return fmt.Errorf("not inside a worktree (run from a worktree directory)")
 	}
 
-	info, err := gatherStatusInfo(worktreeRoot, bareDir)
+	info, err := gatherStatusInfo(worktreeRoot)
 	if err != nil {
 		return err
 	}
@@ -94,7 +93,7 @@ func runStatus(verbose, jsonOutput bool) error {
 	return outputStatusDefault(info)
 }
 
-func gatherStatusInfo(worktreePath, bareDir string) (*StatusInfo, error) {
+func gatherStatusInfo(worktreePath string) (*StatusInfo, error) {
 	info := &StatusInfo{
 		Path: worktreePath,
 	}
@@ -154,9 +153,8 @@ func gatherStatusInfo(worktreePath, bareDir string) (*StatusInfo, error) {
 	}
 
 	// Check if locked
-	worktreeName := filepath.Base(worktreePath)
-	info.Locked = git.IsWorktreeLocked(bareDir, worktreeName)
-	info.LockReason = git.GetWorktreeLockReason(bareDir, worktreeName)
+	info.Locked = git.IsWorktreeLocked(worktreePath)
+	info.LockReason = git.GetWorktreeLockReason(worktreePath)
 
 	return info, nil
 }
@@ -168,277 +166,88 @@ func outputStatusJSON(info *StatusInfo) error {
 }
 
 func outputStatusDefault(info *StatusInfo) error {
-	plain := config.IsPlain()
-
-	// Line 1: Branch and upstream
-	line1 := formatBranchLine(info, plain)
-	fmt.Println(line1)
-
-	// Line 2: Status details
-	line2 := formatStatusLine(info, plain)
-	fmt.Println(line2)
-
-	// Line 3: Lock status (only if locked)
-	if info.Locked {
-		if plain {
-			fmt.Println("  locked")
-		} else {
-			fmt.Printf("  %s\n", styles.Render(&styles.Warning, "🔒 locked"))
-		}
+	// Convert StatusInfo to git.WorktreeInfo for formatter
+	wtInfo := &git.WorktreeInfo{
+		Branch:     info.Branch,
+		Path:       info.Path,
+		Upstream:   info.Upstream,
+		Ahead:      info.Ahead,
+		Behind:     info.Behind,
+		Dirty:      info.Dirty,
+		Locked:     info.Locked,
+		LockReason: info.LockReason,
+		Gone:       info.Gone,
+		NoUpstream: info.NoUpstream,
 	}
 
-	// Line 4: Issues (only if present)
-	issues := formatIssuesLine(info, plain)
-	if issues != "" {
-		fmt.Println(issues)
-	}
+	// Use consistent single-line format (same as list)
+	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0))
 
 	return nil
 }
 
-func formatBranchLine(info *StatusInfo, plain bool) string {
-	var marker, branch, arrow, upstream string
-
-	if plain {
-		marker = "*"
-		branch = info.Branch
-		arrow = "->"
-	} else {
-		marker = styles.Render(&styles.Success, "●")
-		branch = styles.Render(&styles.Worktree, info.Branch)
-		arrow = "→"
+func outputStatusVerbose(info *StatusInfo) error {
+	// Convert StatusInfo to git.WorktreeInfo for formatter
+	wtInfo := &git.WorktreeInfo{
+		Branch:     info.Branch,
+		Path:       info.Path,
+		Upstream:   info.Upstream,
+		Ahead:      info.Ahead,
+		Behind:     info.Behind,
+		Dirty:      info.Dirty,
+		Locked:     info.Locked,
+		LockReason: info.LockReason,
+		Gone:       info.Gone,
+		NoUpstream: info.NoUpstream,
 	}
 
-	if info.NoUpstream {
-		upstream = "(no upstream)"
-		if !plain {
-			upstream = styles.Render(&styles.Dimmed, upstream)
-		}
-	} else if info.Upstream != "" {
-		upstream = info.Upstream
-		if !plain {
-			upstream = styles.Render(&styles.Dimmed, upstream)
-		}
+	// Print the worktree row (same format as default)
+	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0))
+
+	// Print standard verbose sub-items (path, upstream, lock reason)
+	subItems := formatter.VerboseSubItems(wtInfo)
+	for _, item := range subItems {
+		fmt.Println(item)
 	}
 
-	if upstream != "" {
-		return fmt.Sprintf("%s %s %s %s", marker, branch, arrow, upstream)
-	}
-	return fmt.Sprintf("%s %s", marker, branch)
-}
-
-func formatStatusLine(info *StatusInfo, plain bool) string {
-	var parts []string
-
-	// Sync status
-	syncPart := formatSyncPart(info, plain)
-	if syncPart != "" {
-		parts = append(parts, syncPart)
-	}
-
-	// Dirty state
-	if info.Dirty {
-		if plain {
-			parts = append(parts, "dirty")
-		} else {
-			parts = append(parts, styles.Render(&styles.Warning, "dirty"))
-		}
-	} else {
-		if plain {
-			parts = append(parts, "clean")
-		} else {
-			parts = append(parts, styles.Render(&styles.Dimmed, "clean"))
-		}
-	}
+	// Print additional status details as sub-items
+	prefix := formatter.SubItemPrefix()
 
 	// Stashes
 	if info.Stashes > 0 {
-		stashText := fmt.Sprintf("%d stashed", info.Stashes)
-		if plain {
-			parts = append(parts, stashText)
+		if config.IsPlain() {
+			fmt.Printf("    %s stashes: %d\n", prefix, info.Stashes)
 		} else {
-			parts = append(parts, styles.Render(&styles.Dimmed, stashText))
+			fmt.Printf("    %s stashes: %d\n", styles.Render(&styles.Dimmed, prefix), info.Stashes)
 		}
 	}
 
 	// Ongoing operation
 	if info.Operation != "" {
-		if plain {
-			parts = append(parts, info.Operation)
+		if config.IsPlain() {
+			fmt.Printf("    %s operation: %s\n", prefix, info.Operation)
 		} else {
-			parts = append(parts, styles.Render(&styles.Warning, info.Operation))
+			fmt.Printf("    %s operation: %s\n", styles.Render(&styles.Dimmed, prefix), styles.Render(&styles.Warning, info.Operation))
 		}
 	}
 
-	separator := " · "
-	return "  " + strings.Join(parts, separator)
-}
-
-func formatSyncPart(info *StatusInfo, plain bool) string {
-	if info.Gone {
-		if plain {
-			return "gone"
-		}
-		return styles.Render(&styles.Error, "gone")
-	}
-
-	if info.NoUpstream {
-		return ""
-	}
-
-	if info.Ahead == 0 && info.Behind == 0 {
-		return "="
-	}
-
-	var syncParts []string
-
-	if info.Ahead > 0 {
-		if plain {
-			syncParts = append(syncParts, fmt.Sprintf("+%d", info.Ahead))
-		} else {
-			syncParts = append(syncParts, styles.Render(&styles.Success, fmt.Sprintf("↑%d", info.Ahead)))
-		}
-	}
-
-	if info.Behind > 0 {
-		if plain {
-			syncParts = append(syncParts, fmt.Sprintf("-%d", info.Behind))
-		} else {
-			syncParts = append(syncParts, styles.Render(&styles.Warning, fmt.Sprintf("↓%d", info.Behind)))
-		}
-	}
-
-	syncStatus := strings.Join(syncParts, "")
-
-	// Add description
-	switch {
-	case info.Ahead > 0 && info.Behind > 0:
-		syncStatus += " diverged"
-	case info.Ahead > 0:
-		syncStatus += " ahead"
-	case info.Behind > 0:
-		syncStatus += " behind"
-	}
-
-	return syncStatus
-}
-
-func formatIssuesLine(info *StatusInfo, plain bool) string {
-	var issues []string
-
+	// Conflicts
 	if info.Conflicts > 0 {
-		conflictText := fmt.Sprintf("%d conflicts", info.Conflicts)
-		if plain {
-			issues = append(issues, conflictText)
+		if config.IsPlain() {
+			fmt.Printf("    %s conflicts: %d\n", prefix, info.Conflicts)
 		} else {
-			issues = append(issues, styles.Render(&styles.Error, conflictText))
+			fmt.Printf("    %s conflicts: %s\n", styles.Render(&styles.Dimmed, prefix), styles.Render(&styles.Error, fmt.Sprintf("%d", info.Conflicts)))
 		}
 	}
 
+	// Detached HEAD warning
 	if info.Detached {
-		if plain {
-			issues = append(issues, "detached HEAD")
+		if config.IsPlain() {
+			fmt.Printf("    %s detached HEAD\n", prefix)
 		} else {
-			issues = append(issues, styles.Render(&styles.Warning, "detached HEAD"))
-		}
-	}
-
-	if len(issues) == 0 {
-		return ""
-	}
-
-	prefix := "  "
-	if !plain {
-		prefix = "  " + styles.Render(&styles.Warning, "⚠") + " "
-	}
-
-	return prefix + strings.Join(issues, " · ")
-}
-
-func outputStatusVerbose(info *StatusInfo) error {
-	plain := config.IsPlain()
-
-	// Worktree section
-	printSection("Worktree", plain)
-	printField("Branch", info.Branch, plain)
-	printField("Path", info.Path, plain)
-	if info.Upstream != "" {
-		printField("Upstream", info.Upstream, plain)
-	} else if info.NoUpstream {
-		printField("Upstream", "(not configured)", plain)
-	}
-
-	fmt.Println()
-
-	// Sync Status section
-	printSection("Sync Status", plain)
-	switch {
-	case info.Gone:
-		printField("Status", "upstream deleted", plain)
-	case info.NoUpstream:
-		printField("Status", "no upstream configured", plain)
-	default:
-		if info.Ahead > 0 {
-			printField("Ahead", fmt.Sprintf("%d commits", info.Ahead), plain)
-		}
-		if info.Behind > 0 {
-			printField("Behind", fmt.Sprintf("%d commits", info.Behind), plain)
-		}
-		if info.Ahead == 0 && info.Behind == 0 {
-			printField("Status", "in sync", plain)
-		}
-	}
-
-	fmt.Println()
-
-	// Working Tree section
-	printSection("Working Tree", plain)
-	if info.Dirty {
-		printField("State", "dirty", plain)
-	} else {
-		printField("State", "clean", plain)
-	}
-	if info.Stashes > 0 {
-		printField("Stashes", fmt.Sprintf("%d", info.Stashes), plain)
-	}
-
-	// Operations section (only if something active)
-	if info.Operation != "" || info.Conflicts > 0 || info.Locked || info.Detached {
-		fmt.Println()
-		printSection("Operations", plain)
-		if info.Operation != "" {
-			printField("In Progress", info.Operation, plain)
-		}
-		if info.Conflicts > 0 {
-			printField("Conflicts", fmt.Sprintf("%d unresolved", info.Conflicts), plain)
-		}
-		if info.Locked {
-			if info.LockReason != "" {
-				printField("Locked", fmt.Sprintf("yes (%s)", info.LockReason), plain)
-			} else {
-				printField("Locked", "yes", plain)
-			}
-		}
-		if info.Detached {
-			printField("Detached", "yes", plain)
+			fmt.Printf("    %s %s\n", styles.Render(&styles.Dimmed, prefix), styles.Render(&styles.Warning, "detached HEAD"))
 		}
 	}
 
 	return nil
-}
-
-func printSection(name string, plain bool) {
-	if plain {
-		fmt.Println(name)
-	} else {
-		fmt.Println(styles.Render(&styles.Info, name))
-	}
-}
-
-func printField(key, value string, plain bool) {
-	if plain {
-		fmt.Printf("  %s: %s\n", key, value)
-	} else {
-		fmt.Printf("  %-10s %s\n", styles.Render(&styles.Dimmed, key+":"), value)
-	}
 }

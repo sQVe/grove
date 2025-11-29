@@ -1589,64 +1589,91 @@ func TestFetchPrune(t *testing.T) {
 func TestIsWorktreeLocked(t *testing.T) {
 	t.Run("returns false for unlocked worktree", func(t *testing.T) {
 		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "feature")
 
-		tempDir := t.TempDir()
-		bareDir := filepath.Join(tempDir, ".bare")
-		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
-			t.Fatal(err)
-		}
-		if err := InitBare(bareDir); err != nil {
-			t.Fatal(err)
-		}
-
-		worktreesDir := filepath.Join(bareDir, "worktrees", "feature")
-		if err := os.MkdirAll(worktreesDir, fs.DirStrict); err != nil {
-			t.Fatal(err)
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		if IsWorktreeLocked(bareDir, "feature") {
+		if IsWorktreeLocked(worktreePath) {
 			t.Error("expected unlocked worktree to return false")
 		}
 	})
 
 	t.Run("returns true for locked worktree", func(t *testing.T) {
 		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "feature")
 
-		tempDir := t.TempDir()
-		bareDir := filepath.Join(tempDir, ".bare")
-		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
-			t.Fatal(err)
-		}
-		if err := InitBare(bareDir); err != nil {
-			t.Fatal(err)
-		}
-
-		worktreesDir := filepath.Join(bareDir, "worktrees", "feature")
-		if err := os.MkdirAll(worktreesDir, fs.DirStrict); err != nil {
-			t.Fatal(err)
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		lockFile := filepath.Join(worktreesDir, "locked")
-		if err := os.WriteFile(lockFile, []byte("locked by test"), fs.FileStrict); err != nil {
-			t.Fatal(err)
+		if err := LockWorktree(repo.Path, worktreePath, "test reason"); err != nil {
+			t.Fatalf("failed to lock worktree: %v", err)
 		}
 
-		if !IsWorktreeLocked(bareDir, "feature") {
+		if !IsWorktreeLocked(worktreePath) {
 			t.Error("expected locked worktree to return true")
 		}
 	})
 
 	t.Run("returns false for non-existent worktree", func(t *testing.T) {
 		t.Parallel()
-
 		tempDir := t.TempDir()
-		bareDir := filepath.Join(tempDir, ".bare")
-		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
-			t.Fatal(err)
+		nonexistentPath := filepath.Join(tempDir, "nonexistent")
+
+		if IsWorktreeLocked(nonexistentPath) {
+			t.Error("expected non-existent worktree to return false")
+		}
+	})
+
+	t.Run("works when directory name differs from git worktree name", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// Create worktree with original name
+		originalPath := filepath.Join(repo.Dir, "original")
+		cmd := exec.Command("git", "worktree", "add", originalPath, "-b", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		if IsWorktreeLocked(bareDir, "nonexistent") {
-			t.Error("expected non-existent worktree to return false")
+		// Rename the worktree directory (simulating user moving it)
+		renamedPath := filepath.Join(repo.Dir, "renamed")
+		if err := os.Rename(originalPath, renamedPath); err != nil {
+			t.Fatalf("failed to rename worktree: %v", err)
+		}
+
+		// Repair the worktree so git knows about the new location
+		repairCmd := exec.Command("git", "worktree", "repair", renamedPath) //nolint:gosec
+		repairCmd.Dir = repo.Path
+		if err := repairCmd.Run(); err != nil {
+			t.Fatalf("failed to repair worktree: %v", err)
+		}
+
+		// Lock using git directly (which uses the path)
+		lockCmd := exec.Command("git", "worktree", "lock", "--reason", "test lock", renamedPath) //nolint:gosec
+		lockCmd.Dir = repo.Path
+		if err := lockCmd.Run(); err != nil {
+			t.Fatalf("failed to lock worktree: %v", err)
+		}
+
+		// IsWorktreeLocked should return true even though directory is "renamed" but git knows it as "original"
+		if !IsWorktreeLocked(renamedPath) {
+			t.Error("expected renamed worktree to show as locked")
+		}
+
+		// GetWorktreeLockReason should also work
+		reason := GetWorktreeLockReason(renamedPath)
+		if reason != "test lock" {
+			t.Errorf("expected lock reason 'test lock', got %q", reason)
 		}
 	})
 }
@@ -2369,6 +2396,17 @@ func TestDeleteBranch(t *testing.T) {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
+		// Configure git for commits
+		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd.Dir = worktreePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd.Dir = worktreePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd.Dir = worktreePath
+		_ = cmd.Run()
+
 		// Create an initial commit (needed before creating additional branches)
 		testFile := filepath.Join(worktreePath, "init.txt")
 		if err := os.WriteFile(testFile, []byte("init"), fs.FileStrict); err != nil {
@@ -2470,6 +2508,17 @@ func TestDeleteBranch(t *testing.T) {
 			t.Fatalf("failed to create feature worktree: %v", err)
 		}
 
+		// Configure git for commits
+		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+
 		// Add a commit to feature branch (making it unmerged)
 		testFile := filepath.Join(featurePath, "test.txt")
 		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
@@ -2526,6 +2575,17 @@ func TestDeleteBranch(t *testing.T) {
 			t.Fatalf("failed to create feature worktree: %v", err)
 		}
 
+		// Configure git for commits
+		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd.Dir = featurePath
+		_ = cmd.Run()
+
 		// Add a commit to feature branch (making it unmerged)
 		testFile := filepath.Join(featurePath, "test.txt")
 		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
@@ -2579,7 +2639,7 @@ func TestLockWorktree(t *testing.T) {
 			t.Fatalf("LockWorktree failed: %v", err)
 		}
 
-		if !IsWorktreeLocked(bareDir, "feature") {
+		if !IsWorktreeLocked(worktreePath) {
 			t.Error("worktree should be locked after LockWorktree")
 		}
 	})
@@ -2600,11 +2660,11 @@ func TestLockWorktree(t *testing.T) {
 			t.Fatalf("LockWorktree with reason failed: %v", err)
 		}
 
-		if !IsWorktreeLocked(bareDir, "feature") {
+		if !IsWorktreeLocked(worktreePath) {
 			t.Error("worktree should be locked after LockWorktree")
 		}
 
-		gotReason := GetWorktreeLockReason(bareDir, "feature")
+		gotReason := GetWorktreeLockReason(worktreePath)
 		if gotReason != reason {
 			t.Errorf("expected lock reason %q, got %q", reason, gotReason)
 		}
@@ -2623,16 +2683,15 @@ func TestLockWorktree(t *testing.T) {
 func TestGetWorktreeLockReason(t *testing.T) {
 	t.Run("returns empty string for unlocked worktree", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		bareDir := repo.Path
 		worktreePath := filepath.Join(repo.Dir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
-		cmd.Dir = bareDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		reason := GetWorktreeLockReason(bareDir, "feature")
+		reason := GetWorktreeLockReason(worktreePath)
 		if reason != "" {
 			t.Errorf("expected empty reason for unlocked worktree, got %q", reason)
 		}
@@ -2640,32 +2699,32 @@ func TestGetWorktreeLockReason(t *testing.T) {
 
 	t.Run("returns reason for locked worktree", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		bareDir := repo.Path
 		worktreePath := filepath.Join(repo.Dir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
-		cmd.Dir = bareDir
+		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
 		expectedReason := "important work in progress"
 		lockCmd := exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreePath) //nolint:gosec
-		lockCmd.Dir = bareDir
+		lockCmd.Dir = repo.Path
 		if err := lockCmd.Run(); err != nil {
 			t.Fatalf("failed to lock worktree: %v", err)
 		}
 
-		reason := GetWorktreeLockReason(bareDir, "feature")
+		reason := GetWorktreeLockReason(worktreePath)
 		if reason != expectedReason {
 			t.Errorf("expected reason %q, got %q", expectedReason, reason)
 		}
 	})
 
 	t.Run("returns empty string for nonexistent worktree", func(t *testing.T) {
-		repo := testgit.NewTestRepo(t)
+		tempDir := t.TempDir()
+		nonexistentPath := filepath.Join(tempDir, "nonexistent")
 
-		reason := GetWorktreeLockReason(repo.Path, "nonexistent")
+		reason := GetWorktreeLockReason(nonexistentPath)
 		if reason != "" {
 			t.Errorf("expected empty reason for nonexistent worktree, got %q", reason)
 		}

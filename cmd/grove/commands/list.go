@@ -9,10 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
-	"github.com/sqve/grove/internal/logger"
-	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -113,38 +111,6 @@ func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
 	return enc.Encode(output)
 }
 
-func formatSyncStatus(info *git.WorktreeInfo, plain bool) string {
-	if info.Gone {
-		if plain {
-			return "gone"
-		}
-		return styles.Render(&styles.Error, "×")
-	}
-	if info.NoUpstream {
-		return ""
-	}
-	if info.Ahead == 0 && info.Behind == 0 {
-		return "="
-	}
-
-	var parts []string
-	if info.Ahead > 0 {
-		if plain {
-			parts = append(parts, fmt.Sprintf("+%d", info.Ahead))
-		} else {
-			parts = append(parts, styles.Render(&styles.Success, fmt.Sprintf("↑%d", info.Ahead)))
-		}
-	}
-	if info.Behind > 0 {
-		if plain {
-			parts = append(parts, fmt.Sprintf("-%d", info.Behind))
-		} else {
-			parts = append(parts, styles.Render(&styles.Warning, fmt.Sprintf("↓%d", info.Behind)))
-		}
-	}
-	return strings.Join(parts, "")
-}
-
 func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose bool) error {
 	// Sort: current branch first, then alphabetically
 	sort.SliceStable(infos, func(i, j int) bool {
@@ -156,6 +122,7 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 		return false // Keep alphabetical order from ListWorktreesWithInfo
 	})
 
+	// Calculate max branch name length for padding
 	maxNameLen := 0
 	for _, info := range infos {
 		if len(info.Branch) > maxNameLen {
@@ -166,39 +133,27 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 	for _, info := range infos {
 		isCurrent := info.Branch == currentBranch
 
-		status := ""
-		syncStatus := ""
-		lockIndicator := ""
-		if !fast {
-			if info.Dirty {
-				status = "[dirty]"
-			} else {
-				status = "[clean]"
-			}
-			syncStatus = formatSyncStatus(info, config.IsPlain())
-		}
-		if info.Locked {
-			if config.IsPlain() {
-				lockIndicator = "[locked]"
-			} else {
-				lockIndicator = styles.Render(&styles.Warning, "🔒")
+		// In fast mode, we don't have sync status - create a copy with zeroed sync info
+		displayInfo := info
+		if fast {
+			displayInfo = &git.WorktreeInfo{
+				Branch:     info.Branch,
+				Path:       info.Path,
+				Upstream:   info.Upstream,
+				Locked:     info.Locked,
+				LockReason: info.LockReason,
+				NoUpstream: true, // This prevents showing sync status
 			}
 		}
 
-		logger.WorktreeListItem(info.Branch, isCurrent, status, syncStatus, maxNameLen, lockIndicator)
+		// Print the worktree row using the formatter
+		fmt.Println(formatter.WorktreeRow(displayInfo, isCurrent, maxNameLen))
 
+		// Print verbose sub-items
 		if verbose {
-			logger.ListSubItem("%s", info.Path)
-			if info.Upstream != "" {
-				logger.ListSubItem("upstream: %s", info.Upstream)
-			}
-			// Only show lock reason as sub-item if there is one (lock icon already on main line)
-			if info.Locked && info.LockReason != "" {
-				if config.IsPlain() {
-					logger.ListSubItem("lock reason: %s", info.LockReason)
-				} else {
-					logger.ListSubItem("%s", info.LockReason)
-				}
+			subItems := formatter.VerboseSubItems(displayInfo)
+			for _, item := range subItems {
+				fmt.Println(item)
 			}
 		}
 	}

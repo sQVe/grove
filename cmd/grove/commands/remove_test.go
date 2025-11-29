@@ -231,6 +231,17 @@ func TestRunRemove_Success(t *testing.T) {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
+	// Configure git for commits
+	cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
+
 	// Create initial commit (needed for branch refs to work correctly)
 	testFile := filepath.Join(mainPath, "init.txt")
 	if err := os.WriteFile(testFile, []byte("init"), fs.FileStrict); err != nil {
@@ -407,6 +418,17 @@ func TestRunRemove_WithBranchFlag(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
+
+	// Configure git for commits
+	cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
+	cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+	cmd.Dir = mainPath
+	_ = cmd.Run()
 
 	// Create initial commit so branches can be created
 	testFile := filepath.Join(mainPath, "init.txt")

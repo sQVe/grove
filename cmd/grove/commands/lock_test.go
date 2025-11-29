@@ -167,7 +167,7 @@ func TestRunLock_Success(t *testing.T) {
 	}
 
 	// Verify worktree is locked
-	if !git.IsWorktreeLocked(bareDir, "feature") {
+	if !git.IsWorktreeLocked(featurePath) {
 		t.Error("worktree should be locked after runLock")
 	}
 }
@@ -212,10 +212,10 @@ func TestRunLock_SuccessWithReason(t *testing.T) {
 	}
 
 	// Verify worktree is locked with reason
-	if !git.IsWorktreeLocked(bareDir, "feature") {
+	if !git.IsWorktreeLocked(featurePath) {
 		t.Error("worktree should be locked after runLock")
 	}
-	gotReason := git.GetWorktreeLockReason(bareDir, "feature")
+	gotReason := git.GetWorktreeLockReason(featurePath)
 	if gotReason != reason {
 		t.Errorf("expected lock reason %q, got %q", reason, gotReason)
 	}

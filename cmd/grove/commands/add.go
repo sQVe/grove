@@ -330,24 +330,22 @@ func logPreserveResult(result *workspace.PreserveResult) {
 	}
 
 	if len(result.Copied) > 0 {
+		header := fmt.Sprintf("preserved %d files:", len(result.Copied))
 		if len(result.Copied) == 1 {
-			logger.ListItem("Preserved %d file", len(result.Copied))
-		} else {
-			logger.ListItem("Preserved %d files", len(result.Copied))
+			header = "preserved 1 file:"
 		}
-		for _, f := range result.Copied {
-			logger.ListSubItem("%s", f)
-		}
+		logger.ListItemGroup(header, result.Copied)
 	}
 
 	if len(result.Skipped) > 0 {
 		if len(result.Skipped) == 1 {
-			logger.Warning("Skipped %d file (already exists)", len(result.Skipped))
+			logger.Warning("Skipped 1 file (already exists): %s", result.Skipped[0])
 		} else {
-			logger.Warning("Skipped %d files (already exist)", len(result.Skipped))
-		}
-		for _, f := range result.Skipped {
-			logger.ListSubItem("%s", f)
+			header := fmt.Sprintf("skipped %d files (already exist):", len(result.Skipped))
+			logger.ListSubItem("%s", header)
+			for _, f := range result.Skipped {
+				logger.Dimmed("        %s", f)
+			}
 		}
 	}
 }
@@ -373,9 +371,11 @@ func logHookResult(result *hooks.RunResult) {
 	}
 
 	if len(result.Succeeded) > 0 {
-		for _, cmd := range result.Succeeded {
-			logger.ListItem("Ran %s", cmd)
+		header := fmt.Sprintf("ran %d hooks:", len(result.Succeeded))
+		if len(result.Succeeded) == 1 {
+			header = "ran 1 hook:"
 		}
+		logger.ListItemGroup(header, result.Succeeded)
 	}
 
 	if result.Failed != nil {
