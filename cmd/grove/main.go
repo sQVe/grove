@@ -50,6 +50,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewAddCmd())
 	rootCmd.AddCommand(commands.NewCloneCmd())
 	rootCmd.AddCommand(commands.NewConfigCmd())
+	rootCmd.AddCommand(commands.NewExecCmd())
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewLockCmd())

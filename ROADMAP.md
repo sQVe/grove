@@ -8,7 +8,7 @@
 | clone   |   [x]    |   [x]   |   [x]   |  [x]   |
 | config  |   [x]    |   [x]   |   [x]   |  [x]   |
 | doctor  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
-| exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| exec    |   [x]    |   [x]   |   [x]   |  [x]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
 | lock    |   [x]    |   [x]   |   [x]   |  [x]   |
@@ -264,25 +264,26 @@
 
 ### `exec`
 
-| Command                   | Features                                  | Status |
-| ------------------------- | ----------------------------------------- | :----: |
-| `exec --all -- <command>` | Run command in all worktree directories   |  [ ]   |
-| `exec --all -- <command>` | Interactive confirmation before execution |  [ ]   |
-| `exec --all -- <command>` | Sequential execution with prefixed output |  [ ]   |
-| `exec --worktree <name>`  | Run command in specific worktree          |  [ ]   |
+| Command                       | Features                                | Status |
+| ----------------------------- | --------------------------------------- | :----: |
+| `exec --all -- <command>`     | Run command in all worktree directories |  [x]   |
+| `exec --all -- <command>`     | Sequential execution with header output |  [x]   |
+| `exec <worktree>... -- <cmd>` | Run command in specific worktrees       |  [x]   |
+| `exec --fail-fast -- <cmd>`   | Stop on first failure                   |  [x]   |
+| `exec`                        | Shell completion for worktree names     |  [x]   |
 
 **Notes:**
 
 -   Uses `--` separator to clearly delineate Grove args from command
--   Always asks for confirmation to prevent accidental damage
 -   Perfect for `npm install`, dependency updates across branches
--   Sequential execution keeps output readable
+-   Sequential execution with branch headers keeps output readable
+-   Use `bash -c "cmd1 && cmd2"` for multiple commands
 
 **Failure conditions:**
 
--   Should require explicit confirmation for all executions
--   Should handle command failures gracefully without stopping
--   Should clearly identify which worktree each output comes from
+-   [x] Should handle command failures gracefully (continue by default)
+-   [x] Should clearly identify which worktree each output comes from
+-   [x] Should report summary at end (succeeded/failed counts)
 
 ### `move`
 
