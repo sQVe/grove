@@ -127,7 +127,7 @@ func TestWriteToFile(t *testing.T) {
 		cfg.Preserve.Patterns = []string{".env", ".secret"}
 		cfg.Hooks.Add = []string{"npm install"}
 
-		if err := WriteToFile(tmpDir, cfg); err != nil {
+		if err := WriteToFile(tmpDir, &cfg); err != nil {
 			t.Fatalf("WriteToFile failed: %v", err)
 		}
 
@@ -157,7 +157,7 @@ func TestWriteToFile(t *testing.T) {
 		}
 
 		cfg := FileConfig{Plain: true}
-		if err := WriteToFile(tmpDir, cfg); err != nil {
+		if err := WriteToFile(tmpDir, &cfg); err != nil {
 			t.Fatalf("WriteToFile failed: %v", err)
 		}
 

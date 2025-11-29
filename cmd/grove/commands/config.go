@@ -562,7 +562,7 @@ func runConfigSetShared(key, value string) error {
 		cfg.Debug = boolValue
 	}
 
-	return config.WriteToFile(worktreeDir, cfg)
+	return config.WriteToFile(worktreeDir, &cfg)
 }
 
 func runConfigSetGlobal(key, value string) error {
@@ -618,7 +618,7 @@ func runConfigUnsetShared(key string) error {
 		return fmt.Errorf("unknown key: %s", key)
 	}
 
-	return config.WriteToFile(worktreeDir, cfg)
+	return config.WriteToFile(worktreeDir, &cfg)
 }
 
 func runConfigUnsetGlobal(key, value string) error {
@@ -652,11 +652,7 @@ func runConfigInit(force bool) error {
 		return nil
 	}
 
-	// Create template config
-	cfg := config.FileConfig{}
-	cfg.Preserve.Patterns = config.DefaultConfig.PreservePatterns
-
-	if err := config.WriteToFile(worktreeDir, cfg); err != nil {
+	if err := config.WriteTemplateToFile(worktreeDir); err != nil {
 		return fmt.Errorf("failed to write .grove.toml: %w", err)
 	}
 

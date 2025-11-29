@@ -37,11 +37,12 @@ var DefaultConfig = struct {
 		".env.local",
 		".env.*.local",
 		".envrc",
-		"docker-compose.override.yml",
+		".grove.toml",
 		"*.local.json",
 		"*.local.toml",
 		"*.local.yaml",
 		"*.local.yml",
+		"docker-compose.override.yml",
 	},
 	AutoLockPatterns: []string{
 		"develop",

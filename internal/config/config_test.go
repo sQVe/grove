@@ -197,11 +197,12 @@ func TestDefaults(t *testing.T) {
 			".env.local",
 			".env.*.local",
 			".envrc",
-			"docker-compose.override.yml",
+			".grove.toml",
 			"*.local.json",
 			"*.local.toml",
 			"*.local.yaml",
 			"*.local.yml",
+			"docker-compose.override.yml",
 		}
 
 		if len(DefaultConfig.PreservePatterns) != len(expectedPatterns) {
