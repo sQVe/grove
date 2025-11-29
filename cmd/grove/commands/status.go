@@ -178,7 +178,16 @@ func outputStatusDefault(info *StatusInfo) error {
 	line2 := formatStatusLine(info, plain)
 	fmt.Println(line2)
 
-	// Line 3: Issues (only if present)
+	// Line 3: Lock status (only if locked)
+	if info.Locked {
+		if plain {
+			fmt.Println("  locked")
+		} else {
+			fmt.Printf("  %s\n", styles.Render(&styles.Warning, "🔒 locked"))
+		}
+	}
+
+	// Line 4: Issues (only if present)
 	issues := formatIssuesLine(info, plain)
 	if issues != "" {
 		fmt.Println(issues)
@@ -323,14 +332,6 @@ func formatIssuesLine(info *StatusInfo, plain bool) string {
 			issues = append(issues, conflictText)
 		} else {
 			issues = append(issues, styles.Render(&styles.Error, conflictText))
-		}
-	}
-
-	if info.Locked {
-		if plain {
-			issues = append(issues, "locked")
-		} else {
-			issues = append(issues, styles.Render(&styles.Warning, "locked"))
 		}
 	}
 

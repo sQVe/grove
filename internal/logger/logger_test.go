@@ -163,7 +163,7 @@ func TestWorktreeListItem(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		WorktreeListItem("main", true, "[clean]", "=", 10)
+		WorktreeListItem("main", true, "[clean]", "=", 10, "")
 
 		_ = w.Close()
 		os.Stdout = oldStdout
@@ -188,7 +188,7 @@ func TestWorktreeListItem(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		WorktreeListItem("feature", false, "[dirty]", "↑2", 10)
+		WorktreeListItem("feature", false, "[dirty]", "↑2", 10, "")
 
 		_ = w.Close()
 		os.Stdout = oldStdout
@@ -213,7 +213,7 @@ func TestWorktreeListItem(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		WorktreeListItem("main", true, "[clean]", "=", 10)
+		WorktreeListItem("main", true, "[clean]", "=", 10, "")
 
 		_ = w.Close()
 		os.Stdout = oldStdout

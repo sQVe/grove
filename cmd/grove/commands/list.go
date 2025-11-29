@@ -168,6 +168,7 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 
 		status := ""
 		syncStatus := ""
+		lockIndicator := ""
 		if !fast {
 			if info.Dirty {
 				status = "[dirty]"
@@ -176,27 +177,27 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 			}
 			syncStatus = formatSyncStatus(info, config.IsPlain())
 		}
+		if info.Locked {
+			if config.IsPlain() {
+				lockIndicator = "[locked]"
+			} else {
+				lockIndicator = styles.Render(&styles.Warning, "🔒")
+			}
+		}
 
-		logger.WorktreeListItem(info.Branch, isCurrent, status, syncStatus, maxNameLen)
+		logger.WorktreeListItem(info.Branch, isCurrent, status, syncStatus, maxNameLen, lockIndicator)
 
 		if verbose {
 			logger.ListSubItem("%s", info.Path)
 			if info.Upstream != "" {
 				logger.ListSubItem("upstream: %s", info.Upstream)
 			}
-			if info.Locked {
-				if info.LockReason != "" {
-					if config.IsPlain() {
-						logger.ListSubItem("locked: %s", info.LockReason)
-					} else {
-						logger.ListSubItem("%s %s", styles.Render(&styles.Warning, "🔒"), info.LockReason)
-					}
+			// Only show lock reason as sub-item if there is one (lock icon already on main line)
+			if info.Locked && info.LockReason != "" {
+				if config.IsPlain() {
+					logger.ListSubItem("lock reason: %s", info.LockReason)
 				} else {
-					if config.IsPlain() {
-						logger.ListSubItem("locked")
-					} else {
-						logger.ListSubItem("%s", styles.Render(&styles.Warning, "🔒 locked"))
-					}
+					logger.ListSubItem("%s", info.LockReason)
 				}
 			}
 		}

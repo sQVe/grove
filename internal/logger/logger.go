@@ -110,7 +110,7 @@ func ListSubItem(format string, args ...any) {
 }
 
 // WorktreeListItem prints a worktree entry in list format
-func WorktreeListItem(name string, current bool, status, syncStatus string, nameWidth int) {
+func WorktreeListItem(name string, current bool, status, syncStatus string, nameWidth int, lockIndicator string) {
 	marker := " "
 	if current {
 		marker = "*"
@@ -120,7 +120,11 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 	namePadded := fmt.Sprintf("%-*s", nameWidth, name)
 
 	if config.IsPlain() {
-		fmt.Printf("%s %s %s %s\n", marker, namePadded, status, syncStatus)
+		if lockIndicator != "" {
+			fmt.Printf("%s %s %s %s %s\n", marker, namePadded, status, syncStatus, lockIndicator)
+		} else {
+			fmt.Printf("%s %s %s %s\n", marker, namePadded, status, syncStatus)
+		}
 	} else {
 		markerStyled := " "
 		if current {
@@ -134,7 +138,11 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 		} else {
 			statusStyled = styles.Render(&styles.Dimmed, status)
 		}
-		fmt.Printf("%s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus)
+		if lockIndicator != "" {
+			fmt.Printf("%s %s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus, lockIndicator)
+		} else {
+			fmt.Printf("%s %s %s %s\n", markerStyled, nameStyled, statusStyled, syncStatus)
+		}
 	}
 }
 
