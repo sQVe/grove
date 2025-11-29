@@ -222,36 +222,38 @@
 | `list --json`    | Machine-readable output for tooling integration |  [x]   |
 | `list --verbose` | Show extra details (paths, upstream names)      |  [x]   |
 
-**Default output format:**
+**Default output format (color mode with Nerd Fonts):**
 
 ```
-● main              [clean]    ↑2
-  feature-auth      [dirty]    ↓5
-  bugfix-timeout    [clean]    ↑1↓3
-  old-experiment    [dirty]    ×
-  release-2.0       [clean]    =
+ main  ↑2
+  feature-auth  ↓5
+  bugfix-timeout ↑1↓3
+  old-experiment  ×
+  release-2.0 =
 ```
 
-**ASCII fallback (when unicode not supported):**
+**Plain mode fallback:**
 
 ```
-* main              [clean]    +2
-  feature-auth      [dirty]    -5
-  bugfix-timeout    [clean]    +1-3
-  old-experiment    [dirty]    gone
-  release-2.0       [clean]    =
+* main [dirty] +2 [locked]
+  feature-auth [dirty] -5
+  bugfix-timeout +1-3
+  old-experiment [dirty] gone
+  release-2.0 =
 ```
 
 **Status symbols:**
 
--   `●` / `*` Current worktree
--   `[dirty]` Uncommitted changes (blocks switching)
--   `[clean]` No uncommitted changes
--   `↑N` / `+N` N commits ahead of upstream
--   `↓N` / `-N` N commits behind upstream
--   `↑N↓M` / `+N-M` N commits ahead, M commits behind (diverged)
--   `×` / `gone` Upstream branch deleted
--   `=` In sync with upstream
+| Element        | Color Mode              | Plain Mode           |
+| -------------- | ----------------------- | -------------------- |
+| Current marker | (U+E0A0 nf-pl-branch)   | `*`                  |
+| Dirty state    | (nf-md-diff) when dirty | `[dirty]` when dirty |
+| Clean state    | nothing                 | nothing              |
+| Lock           | (U+F033E nf-md-lock)    | `[locked]`           |
+| Ahead          | `↑N` green              | `+N`                 |
+| Behind         | `↓N` yellow             | `-N`                 |
+| Gone           | `×`                     | `gone`               |
+| Synced         | `=` dimmed              | `=`                  |
 
 **Notes:**
 
