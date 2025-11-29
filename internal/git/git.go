@@ -33,7 +33,6 @@ func runGitCommand(cmd *exec.Cmd, quiet bool) error {
 		return nil
 	}
 
-	// Verbose mode: stream stdout and stderr
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -235,19 +234,16 @@ func FindWorktreeRoot(startPath string) (string, error) {
 func GetGitDir(path string) (string, error) {
 	gitPath := filepath.Join(path, ".git")
 
-	// Check if .git is a directory (regular repo)
 	if fs.DirectoryExists(gitPath) {
 		return gitPath, nil
 	}
 
-	// Check if .git is a file (worktree)
 	if fs.FileExists(gitPath) {
 		content, err := os.ReadFile(gitPath) // nolint:gosec // Path is constructed internally
 		if err != nil {
 			return "", err
 		}
 
-		// Parse "gitdir: <path>"
 		line := strings.TrimSpace(string(content))
 		if !strings.HasPrefix(line, "gitdir: ") {
 			return "", fmt.Errorf("invalid .git file format")
@@ -264,8 +260,6 @@ func GetGitDir(path string) (string, error) {
 }
 
 // GetWorktreeGitDir returns the gitdir path for a worktree.
-// It reads the .git file in the worktree directory to get the actual gitdir path.
-// Returns empty string if the worktree path is invalid or doesn't have a .git file.
 func GetWorktreeGitDir(worktreePath string) string {
 	gitFile := filepath.Join(worktreePath, ".git")
 	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
@@ -285,8 +279,7 @@ func GetWorktreeGitDir(worktreePath string) string {
 	return filepath.Clean(gitdir)
 }
 
-// IsWorktreeLocked checks if a worktree is locked by reading its actual gitdir.
-// This handles cases where the worktree directory name differs from git's internal name.
+// IsWorktreeLocked checks if a worktree is locked.
 func IsWorktreeLocked(worktreePath string) bool {
 	gitdir := GetWorktreeGitDir(worktreePath)
 	if gitdir == "" {
@@ -310,9 +303,7 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 	return runGitCommand(cmd, true)
 }
 
-// GetWorktreeLockReason returns the lock reason for a worktree by reading its actual gitdir.
-// This handles cases where the worktree directory name differs from git's internal name.
-// Returns empty string if the worktree is not locked or doesn't exist.
+// GetWorktreeLockReason returns the lock reason for a worktree.
 func GetWorktreeLockReason(worktreePath string) string {
 	gitdir := GetWorktreeGitDir(worktreePath)
 	if gitdir == "" {
@@ -407,7 +398,6 @@ func GetCurrentBranch(path string) (string, error) {
 		return "", errors.New("repository path cannot be empty")
 	}
 
-	// Resolve the git directory - handles both regular repos and worktrees
 	gitDir, err := resolveGitDir(path)
 	if err != nil {
 		return "", err
@@ -429,8 +419,6 @@ func GetCurrentBranch(path string) (string, error) {
 }
 
 // resolveGitDir returns the actual git directory for a repository or worktree.
-// In a regular repo, .git is a directory. In a worktree, .git is a file containing
-// "gitdir: <path>" pointing to the actual git directory.
 func resolveGitDir(path string) (string, error) {
 	gitPath := filepath.Join(path, ".git")
 
@@ -439,12 +427,10 @@ func resolveGitDir(path string) (string, error) {
 		return "", err
 	}
 
-	// Regular repo: .git is a directory
 	if info.IsDir() {
 		return gitPath, nil
 	}
 
-	// Worktree: .git is a file with "gitdir: <path>"
 	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
 	if err != nil {
 		return "", err
@@ -452,7 +438,6 @@ func resolveGitDir(path string) (string, error) {
 
 	line := strings.TrimSpace(string(content))
 	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
-		// gitdir can be relative or absolute
 		if filepath.IsAbs(after) {
 			return after, nil
 		}
@@ -468,7 +453,6 @@ func GetDefaultBranch(bareDir string) (string, error) {
 		return "", errors.New("repository path cannot be empty")
 	}
 
-	// For bare repos, HEAD is at the root
 	headFile := filepath.Join(bareDir, "HEAD")
 
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
@@ -536,7 +520,6 @@ func GetOngoingOperation(path string) (string, error) {
 		return "", err
 	}
 
-	// Check in order of most common operations
 	if fs.PathExists(filepath.Join(gitDir, "MERGE_HEAD")) {
 		return "merging", nil
 	}
@@ -579,7 +562,6 @@ func ListWorktrees(repoPath string) ([]string, error) {
 			continue
 		}
 
-		// Split line by whitespace - first field is the path
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
@@ -587,12 +569,10 @@ func ListWorktrees(repoPath string) ([]string, error) {
 
 		worktreePath := fields[0]
 
-		// Skip the main repository (has "(bare)" suffix or is the main repo)
 		if len(fields) > 1 && strings.Contains(line, "(bare)") {
 			continue
 		}
 
-		// Skip if the worktree path equals the repository path (main repo)
 		absWorktreePath, err := filepath.Abs(worktreePath)
 		if err != nil {
 			return nil, err
@@ -668,8 +648,6 @@ func GetConflictCount(path string) (int, error) {
 		return 0, nil
 	}
 
-	// Each conflicted file appears multiple times (stages 1, 2, 3)
-	// Count unique file paths
 	files := make(map[string]bool)
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Fields(line)
@@ -711,18 +689,15 @@ func HasSubmodules(path string) (bool, error) {
 
 // HasUnpushedCommits checks if the current branch has unpushed commits
 func HasUnpushedCommits(path string) (bool, error) {
-	// First, check if an upstream branch is configured
 	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	cmdUpstream.Dir = path
 	var upstreamStderr bytes.Buffer
 	cmdUpstream.Stderr = &upstreamStderr
 
 	if err := cmdUpstream.Run(); err != nil {
-		// If git rev-parse @{u} fails, it means no upstream is configured
 		return false, fmt.Errorf("%w: %s", ErrNoUpstreamConfigured, strings.TrimSpace(upstreamStderr.String()))
 	}
 
-	// If upstream exists, proceed to check for unpushed commits
 	cmdLog := exec.Command("git", "log", "@{u}..HEAD", "--oneline")
 	cmdLog.Dir = path
 
@@ -777,19 +752,16 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
 
-	// Check if branch exists locally
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
 	cmd.Dir = repoPath
 	if cmd.Run() == nil {
 		return true, nil
 	}
 
-	// Get list of remotes and check each
 	remotesCmd := exec.Command("git", "remote")
 	remotesCmd.Dir = repoPath
 	output, err := remotesCmd.Output()
 	if err != nil {
-		// No remotes configured or error - treat as branch doesn't exist remotely
 		return false, nil //nolint:nilerr // Intentional: remote errors mean branch not found remotely
 	}
 
@@ -1030,21 +1002,18 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 
 	info := &WorktreeInfo{Path: path}
 
-	// Get branch name
 	branch, err := GetCurrentBranch(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get branch: %w", err)
 	}
 	info.Branch = branch
 
-	// Check for dirty state
 	hasChanges, _, err := CheckGitChanges(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check changes: %w", err)
 	}
 	info.Dirty = hasChanges
 
-	// Get sync status
 	syncStatus := GetSyncStatus(path)
 	info.Upstream = syncStatus.Upstream
 	info.Ahead = syncStatus.Ahead
@@ -1052,7 +1021,6 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	info.Gone = syncStatus.Gone
 	info.NoUpstream = syncStatus.NoUpstream
 
-	// Get last commit time
 	info.LastCommitTime = GetLastCommitTime(path)
 
 	return info, nil
@@ -1068,7 +1036,6 @@ type SyncStatus struct {
 }
 
 // GetSyncStatus returns sync status relative to upstream.
-// Expected conditions (no upstream, gone) are returned as status fields, not errors.
 func GetSyncStatus(path string) *SyncStatus {
 	status := &SyncStatus{}
 
@@ -1132,7 +1099,6 @@ func GetSyncStatus(path string) *SyncStatus {
 }
 
 // ListWorktreesWithInfo returns info for all worktrees in a grove workspace.
-// Results are sorted alphabetically by branch name.
 func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 	paths, err := ListWorktrees(bareDir)
 	if err != nil {
@@ -1167,7 +1133,6 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 		infos = append(infos, info)
 	}
 
-	// Sort alphabetically by branch name
 	sort.Slice(infos, func(i, j int) bool {
 		return infos[i].Branch < infos[j].Branch
 	})
@@ -1214,7 +1179,6 @@ func RenameBranch(repoPath, oldName, newName string) error {
 }
 
 // RepairWorktree runs git worktree repair to fix worktree paths after directory moves.
-// If worktreePath is provided, it tells git where the moved worktree now lives.
 func RepairWorktree(bareDir, worktreePath string) error {
 	if bareDir == "" {
 		return errors.New("bare directory path cannot be empty")

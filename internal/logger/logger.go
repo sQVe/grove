@@ -132,7 +132,6 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 		marker = "*"
 	}
 
-	// Create padded name (raw text, no ANSI codes)
 	namePadded := fmt.Sprintf("%-*s", nameWidth, name)
 
 	if config.IsPlain() {
@@ -146,7 +145,6 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 		if current {
 			markerStyled = styles.Render(&styles.Success, "●")
 		}
-		// Style the name, then append padding spaces (unstyled)
 		nameStyled := styles.Render(&styles.Worktree, name) + namePadded[len(name):]
 		var statusStyled string
 		if status == "[dirty]" {
@@ -195,7 +193,7 @@ func StartSpinner(message string) func() {
 	return func() {
 		once.Do(func() {
 			close(done)
-			time.Sleep(10 * time.Millisecond) // Give goroutine time to clear the line
+			time.Sleep(10 * time.Millisecond) // Let spinner goroutine clear the line before exit
 		})
 	}
 }

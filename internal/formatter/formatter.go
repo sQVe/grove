@@ -9,6 +9,14 @@ import (
 	"github.com/sqve/grove/internal/styles"
 )
 
+// Indicator legend (color / plain):
+// Current: ● / *
+// Lock: nf-md-lock / [locked]
+// Dirty: nf-md-circle-edit-outline / [dirty]
+// Sync: green ↑N, yellow ↓N (plain +N/-N), "=" when in sync, blank if no upstream
+// Gone: dim × / gone
+// Verbose prefix: ↳ / >
+
 // Icons for indicators
 const (
 	iconCurrent = "●"          // filled circle (U+25CF)
@@ -29,9 +37,6 @@ func useAsciiIcons() bool {
 }
 
 // CurrentMarker returns the marker for current worktree
-// Color mode: ● (filled circle)
-// Plain mode: *
-// Non-current: space
 func CurrentMarker(isCurrent bool) string {
 	if !isCurrent {
 		return " "
@@ -43,9 +48,6 @@ func CurrentMarker(isCurrent bool) string {
 }
 
 // Lock returns the lock indicator
-// Color mode:  (nf-md-lock)
-// Plain/no-nerdfonts mode: [locked]
-// Not locked: empty string
 func Lock(isLocked bool) string {
 	if !isLocked {
 		return ""
@@ -57,9 +59,6 @@ func Lock(isLocked bool) string {
 }
 
 // Dirty returns the dirty indicator
-// Color mode: 󰦒 (nf-md-circle-edit-outline)
-// Plain/no-nerdfonts mode: [dirty]
-// Clean: empty string
 func Dirty(isDirty bool) string {
 	if !isDirty {
 		return ""
@@ -71,10 +70,6 @@ func Dirty(isDirty bool) string {
 }
 
 // Sync returns the sync status indicator
-// Color mode: ↑N (green) / ↓N (yellow)
-// Plain mode: +N / -N
-// Synced: = (dimmed)
-// No upstream: empty string
 func Sync(ahead, behind int, hasUpstream bool) string {
 	if !hasUpstream {
 		return ""
@@ -104,8 +99,6 @@ func Sync(ahead, behind int, hasUpstream bool) string {
 }
 
 // Gone returns the gone indicator for deleted upstream
-// Color mode: × (dimmed)
-// Plain mode: gone
 func Gone() string {
 	if config.IsPlain() {
 		return "gone"
@@ -114,8 +107,6 @@ func Gone() string {
 }
 
 // SubItemPrefix returns the prefix for verbose sub-items
-// Color mode: ↳
-// Plain mode: >
 func SubItemPrefix() string {
 	if config.IsPlain() {
 		return ">"
@@ -129,7 +120,6 @@ func BranchName(name string) string {
 }
 
 // WorktreeRow formats a single worktree row for list/status output
-// Returns: "marker branch dirty sync lock"
 func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 	marker := CurrentMarker(isCurrent)
 	dirty := Dirty(info.Dirty)
@@ -142,8 +132,6 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 		sync = Sync(info.Ahead, info.Behind, !info.NoUpstream)
 	}
 
-	// Build the row with proper spacing
-	// Format: marker branch [padding] dirty sync lock
 	branchDisplay := info.Branch
 	if padWidth > 0 && len(info.Branch) < padWidth {
 		branchDisplay = info.Branch + strings.Repeat(" ", padWidth-len(info.Branch))
@@ -151,7 +139,6 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 
 	parts := []string{marker, styles.Render(&styles.Worktree, branchDisplay)}
 
-	// Add indicators with spacing (lock first, then dirty, then sync)
 	indicators := []string{}
 	if lock != "" {
 		indicators = append(indicators, lock)
@@ -171,20 +158,16 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 }
 
 // VerboseSubItems returns the verbose sub-items for a worktree
-// Returns slice of formatted strings like "↳ path: /path/to/worktree"
 func VerboseSubItems(info *git.WorktreeInfo) []string {
 	prefix := SubItemPrefix()
 	var items []string
 
-	// Path is always shown
 	items = append(items, fmt.Sprintf("    %s path: %s", prefix, styles.Render(&styles.Path, info.Path)))
 
-	// Upstream if exists
 	if info.Upstream != "" {
 		items = append(items, fmt.Sprintf("    %s upstream: %s", prefix, info.Upstream))
 	}
 
-	// Lock reason only if locked AND has a reason
 	if info.Locked && info.LockReason != "" {
 		items = append(items, fmt.Sprintf("    %s lock reason: %s", prefix, info.LockReason))
 	}

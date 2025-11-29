@@ -114,8 +114,8 @@ func cloneWithProgress(url, bareDir string, verbose bool) error {
 	return nil
 }
 
-// createWorktreesFromBranches creates worktrees for the specified branches, optionally skipping one.
-// Returns the absolute paths to created worktrees for cleanup on failure.
+// createWorktreesFromBranches creates worktrees for the specified branches, skipping skipBranch if set.
+// Returns absolute paths of created worktrees so callers can clean them up on failure.
 func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBranch string) ([]string, error) {
 	filteredBranches := parseBranches(branches, skipBranch)
 
@@ -133,7 +133,6 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-			// Best-effort cleanup of any partially created worktrees
 			for i := len(createdPaths) - 1; i >= 0; i-- {
 				if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
 					logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
@@ -143,7 +142,6 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
-		// Auto-lock if branch matches auto-lock patterns
 		if config.ShouldAutoLock(branch) {
 			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
 				logger.Debug("Failed to auto-lock worktree: %v", err)
@@ -179,7 +177,6 @@ func Initialize(path string) error {
 		return fmt.Errorf("failed to initialize bare git repository: %w", err)
 	}
 
-	// Create .git file pointing to .bare directory
 	gitFile := filepath.Join(path, ".git")
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
 		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
@@ -218,16 +215,13 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Create .git file pointing to .bare directory
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
 		cleanup(nil)
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
-	// Determine which branches to create worktrees for
 	branchesToCreate := branches
 	if branchesToCreate == "" {
-		// No branches specified - use the default branch
 		defaultBranch, err := git.GetDefaultBranch(bareDir)
 		if err != nil {
 			cleanup(nil)
@@ -408,7 +402,6 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
-		// Auto-lock if branch matches auto-lock patterns
 		if config.ShouldAutoLock(branch) {
 			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
 				logger.Debug("Failed to auto-lock worktree: %v", err)
@@ -442,7 +435,6 @@ func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[
 		worktreeDirs[SanitizeBranchName(branch)] = true
 	}
 
-	// Count files to move for progress reporting
 	var filesToMoveCount int
 	for _, entry := range entries {
 		if entry.Name() != ".bare" && !worktreeDirs[entry.Name()] {
@@ -453,7 +445,6 @@ func moveFilesToFirstWorktree(targetDir string, branches []string, movedFiles *[
 	logger.Debug("Preparing to move files to first worktree: %s -> %s, count: %d", targetDir, firstWorktreeAbsPath, filesToMoveCount)
 	logger.Info("Reorganizing repository files...")
 
-	// Pre-allocate movedFiles slice if tracking is enabled
 	if movedFiles != nil && filesToMoveCount > 0 {
 		*movedFiles = make([]string, 0, filesToMoveCount)
 	}
@@ -637,7 +628,7 @@ func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []str
 			if matchesPattern(file, pattern) {
 				filesToCopy = append(filesToCopy, file)
 				matchedPatternsMap[pattern] = true
-				break // File matches this pattern, no need to check others
+				break
 			}
 		}
 	}

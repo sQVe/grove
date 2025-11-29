@@ -113,7 +113,6 @@ func matchGlobPattern(pattern, name string) bool {
 		prefix := strings.TrimSuffix(pattern, "/*")
 		return strings.HasPrefix(name, prefix+"/")
 	}
-	// Exact match fallback
 	return pattern == name
 }
 
