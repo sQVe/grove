@@ -142,6 +142,15 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 			return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
+
+		// Auto-lock if branch matches auto-lock patterns
+		if config.ShouldAutoLock(branch) {
+			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+				logger.Debug("Failed to auto-lock worktree: %v", err)
+			} else {
+				logger.Debug("Auto-locked worktree for branch %s", branch)
+			}
+		}
 	}
 
 	for _, branch := range filteredBranches {
@@ -398,6 +407,15 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 			}
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
+
+		// Auto-lock if branch matches auto-lock patterns
+		if config.ShouldAutoLock(branch) {
+			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+				logger.Debug("Failed to auto-lock worktree: %v", err)
+			} else {
+				logger.Debug("Auto-locked worktree for branch %s", branch)
+			}
+		}
 	}
 	return createdPaths, nil
 }

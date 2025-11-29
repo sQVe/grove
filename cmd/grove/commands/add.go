@@ -121,6 +121,15 @@ func runAddFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sour
 		}
 	}
 
+	// Auto-lock if branch matches auto-lock patterns
+	if config.ShouldAutoLock(branch) {
+		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+			logger.Debug("Failed to auto-lock worktree: %v", err)
+		} else {
+			logger.Debug("Auto-locked worktree for branch %s", branch)
+		}
+	}
+
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -223,6 +232,15 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
+		}
+	}
+
+	// Auto-lock if branch matches auto-lock patterns
+	if config.ShouldAutoLock(branch) {
+		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+			logger.Debug("Failed to auto-lock worktree: %v", err)
+		} else {
+			logger.Debug("Auto-locked worktree for branch %s", branch)
 		}
 	}
 

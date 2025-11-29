@@ -1,0 +1,37 @@
+# Auto-lock test: default branches should be locked automatically
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature
+exec git checkout main
+cd ..
+
+## Clone creates locked main worktree
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+exec grove list --json
+stdout '"locked": true'
+stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'
+
+## Add non-default branch is not auto-locked
+
+exec grove add feature
+# Feature should not be locked
+cd ../feature
+exec grove status --json
+! stdout '"locked": true'
+
+-- README.md --
+# Test

@@ -14,6 +14,7 @@ var Global struct {
 	Debug            bool     // Enable debug logging
 	PreservePatterns []string // Patterns for ignored files to preserve in new worktrees
 	StaleThreshold   string   // Default threshold for stale worktree detection (e.g., "30d")
+	AutoLockPatterns []string // Patterns for branches to auto-lock when creating worktrees
 }
 
 // DefaultConfig contains the default configuration values
@@ -22,20 +23,27 @@ var DefaultConfig = struct {
 	Debug            bool
 	PreservePatterns []string
 	StaleThreshold   string
+	AutoLockPatterns []string
 }{
 	Plain:          false,
 	Debug:          false,
 	StaleThreshold: "30d",
 	PreservePatterns: []string{
 		".env",
+		".env.keys",
 		".env.local",
-		".env.development.local",
-		".env.test.local",
-		".env.production.local",
+		".env.*.local",
+		".envrc",
+		"docker-compose.override.yml",
 		"*.local.json",
+		"*.local.toml",
 		"*.local.yaml",
 		"*.local.yml",
-		"*.local.toml",
+	},
+	AutoLockPatterns: []string{
+		"develop",
+		"main",
+		"master",
 	},
 }
 
@@ -63,6 +71,41 @@ func GetStaleThreshold() string {
 		return Global.StaleThreshold
 	}
 	return DefaultConfig.StaleThreshold
+}
+
+// GetAutoLockPatterns returns the configured auto-lock patterns or defaults
+func GetAutoLockPatterns() []string {
+	if len(Global.AutoLockPatterns) > 0 {
+		return Global.AutoLockPatterns
+	}
+	return DefaultConfig.AutoLockPatterns
+}
+
+// ShouldAutoLock checks if a branch name matches any auto-lock pattern
+func ShouldAutoLock(branch string) bool {
+	patterns := GetAutoLockPatterns()
+	for _, pattern := range patterns {
+		// Exact match
+		if pattern == branch {
+			return true
+		}
+		// Glob pattern match (e.g., "release/*")
+		if matchGlobPattern(pattern, branch) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchGlobPattern performs simple glob matching supporting * wildcard
+func matchGlobPattern(pattern, name string) bool {
+	// Simple pattern matching: only support trailing /* for now
+	if strings.HasSuffix(pattern, "/*") {
+		prefix := strings.TrimSuffix(pattern, "/*")
+		return strings.HasPrefix(name, prefix+"/")
+	}
+	// Exact match fallback
+	return pattern == name
 }
 
 // LoadFromEnv loads configuration from environment variables
@@ -100,6 +143,11 @@ func LoadFromGitConfig() {
 	patterns := getGitConfigs("grove.preserve")
 	if len(patterns) > 0 {
 		Global.PreservePatterns = patterns
+	}
+
+	autoLockPatterns := getGitConfigs("grove.autoLock")
+	if len(autoLockPatterns) > 0 {
+		Global.AutoLockPatterns = autoLockPatterns
 	}
 }
 

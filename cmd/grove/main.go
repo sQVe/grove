@@ -53,11 +53,13 @@ func main() {
 	rootCmd.AddCommand(commands.NewConfigCmd())
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
+	rootCmd.AddCommand(commands.NewLockCmd())
 	rootCmd.AddCommand(commands.NewMoveCmd())
 	rootCmd.AddCommand(commands.NewPruneCmd())
 	rootCmd.AddCommand(commands.NewRemoveCmd())
 	rootCmd.AddCommand(commands.NewStatusCmd())
 	rootCmd.AddCommand(commands.NewSwitchCmd())
+	rootCmd.AddCommand(commands.NewUnlockCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.Error("%s", err)

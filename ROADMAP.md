@@ -11,13 +11,13 @@
 | exec    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
 | init    |   [x]    |   [x]   |   [x]   |  [x]   |
 | list    |   [x]    |   [x]   |   [x]   |  [x]   |
-| lock    |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| lock    |   [x]    |   [x]   |   [x]   |  [x]   |
 | move    |   [x]    |   [x]   |   [x]   |  [x]   |
 | prune   |   [x]    |   [x]   |   [x]   |  [x]   |
 | remove  |   [x]    |   [x]   |   [x]   |  [x]   |
 | status  |   [x]    |   [x]   |   [x]   |  [x]   |
 | switch  |   [x]    |   [x]   |   [x]   |  [x]   |
-| unlock  |   [ ]    |   [ ]   |   [ ]   |  [ ]   |
+| unlock  |   [x]    |   [x]   |   [x]   |  [x]   |
 
 ## Commands
 
@@ -140,8 +140,12 @@
 -   `grove.plain` - Disable colors/symbols (boolean, default: false)
 -   `grove.debug` - Enable debug output (boolean, default: false)
 -   `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
-    -   Default patterns: `.env`, `.env.local`, `.env.development.local`, `*.local.json`, `*.local.yaml`, `*.local.yml`, `*.local.toml`
+    -   Default patterns: `.env`, `.env.keys`, `.env.local`, `.env.*.local`, `.envrc`, `docker-compose.override.yml`, `*.local.json`, `*.local.toml`, `*.local.yaml`, `*.local.yml`
     -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
+-   `grove.autoLock` - Branch patterns to auto-lock when creating worktrees (multi-value)
+    -   Default patterns: `main`, `master`, `develop`
+    -   Supports glob patterns (e.g., `release/*`)
+    -   Locked with reason: "Auto-locked (grove.autoLock)"
 -   `hooks.add` - Commands to run after adding worktrees (TOML only, array)
 
 ### `switch`
@@ -322,23 +326,24 @@
 
 ### `lock`
 
-| Command                        | Features                                          | Status |
-| ------------------------------ | ------------------------------------------------- | :----: |
-| `lock <branch>`                | Lock worktree to prevent removal                  |  [ ]   |
-| `lock <branch>`                | Provide completions for non-locked worktree names |  [ ]   |
-| `lock --reason <msg> <branch>` | Add reason for locking                            |  [ ]   |
+| Command                  | Features                                          | Status |
+| ------------------------ | ------------------------------------------------- | :----: |
+| `lock <branch>`          | Lock worktree to prevent removal                  |  [x]   |
+| `lock <branch>`          | Provide completions for non-locked worktree names |  [x]   |
+| `lock -r <msg> <branch>` | Add reason for locking                            |  [x]   |
 
 **Notes:**
 
--   Locked worktrees are protected from `prune` and `delete`
+-   Locked worktrees are protected from `prune` and `remove`
 -   Lock reason displayed in `list --verbose` and `status`
+-   Auto-lock: configurable branch patterns are locked on creation (see `grove.autoLock` config)
 
 ### `unlock`
 
 | Command           | Features                                 | Status |
 | ----------------- | ---------------------------------------- | :----: |
-| `unlock <branch>` | Unlock worktree to allow removal         |  [ ]   |
-| `unlock <branch>` | Provide completions for locked worktrees |  [ ]   |
+| `unlock <branch>` | Unlock worktree to allow removal         |  [x]   |
+| `unlock <branch>` | Provide completions for locked worktrees |  [x]   |
 
 ### `doctor`
 

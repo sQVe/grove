@@ -1237,6 +1237,42 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			t.Error("expected Locked to be true for locked worktree")
 		}
 	})
+
+	t.Run("populates LockReason field for locked worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Unlocked worktree should have empty LockReason
+		infos, err := ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+		if infos[0].LockReason != "" {
+			t.Errorf("expected empty LockReason for unlocked worktree, got %q", infos[0].LockReason)
+		}
+
+		// Lock with reason
+		expectedReason := "important work"
+		cmd = exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreeDir) // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to lock worktree: %v", err)
+		}
+
+		infos, err = ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+		if infos[0].LockReason != expectedReason {
+			t.Errorf("expected LockReason %q, got %q", expectedReason, infos[0].LockReason)
+		}
+	})
 }
 
 func TestCreateWorktreeWithNewBranch(t *testing.T) {
@@ -2523,6 +2559,115 @@ func TestDeleteBranch(t *testing.T) {
 		}
 		if exists {
 			t.Error("feature branch should not exist after forced deletion")
+		}
+	})
+}
+
+func TestLockWorktree(t *testing.T) {
+	t.Run("locks worktree without reason", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		bareDir := repo.Path
+		worktreePath := filepath.Join(repo.Dir, "feature")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		if err := LockWorktree(bareDir, worktreePath, ""); err != nil {
+			t.Fatalf("LockWorktree failed: %v", err)
+		}
+
+		if !IsWorktreeLocked(bareDir, "feature") {
+			t.Error("worktree should be locked after LockWorktree")
+		}
+	})
+
+	t.Run("locks worktree with reason", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		bareDir := repo.Path
+		worktreePath := filepath.Join(repo.Dir, "feature")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		reason := "WIP - do not remove"
+		if err := LockWorktree(bareDir, worktreePath, reason); err != nil {
+			t.Fatalf("LockWorktree with reason failed: %v", err)
+		}
+
+		if !IsWorktreeLocked(bareDir, "feature") {
+			t.Error("worktree should be locked after LockWorktree")
+		}
+
+		gotReason := GetWorktreeLockReason(bareDir, "feature")
+		if gotReason != reason {
+			t.Errorf("expected lock reason %q, got %q", reason, gotReason)
+		}
+	})
+
+	t.Run("fails for nonexistent worktree", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		err := LockWorktree(repo.Path, "/nonexistent/worktree", "test reason")
+		if err == nil {
+			t.Fatal("LockWorktree should fail for nonexistent worktree")
+		}
+	})
+}
+
+func TestGetWorktreeLockReason(t *testing.T) {
+	t.Run("returns empty string for unlocked worktree", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		bareDir := repo.Path
+		worktreePath := filepath.Join(repo.Dir, "feature")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		reason := GetWorktreeLockReason(bareDir, "feature")
+		if reason != "" {
+			t.Errorf("expected empty reason for unlocked worktree, got %q", reason)
+		}
+	})
+
+	t.Run("returns reason for locked worktree", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		bareDir := repo.Path
+		worktreePath := filepath.Join(repo.Dir, "feature")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		expectedReason := "important work in progress"
+		lockCmd := exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreePath) //nolint:gosec
+		lockCmd.Dir = bareDir
+		if err := lockCmd.Run(); err != nil {
+			t.Fatalf("failed to lock worktree: %v", err)
+		}
+
+		reason := GetWorktreeLockReason(bareDir, "feature")
+		if reason != expectedReason {
+			t.Errorf("expected reason %q, got %q", expectedReason, reason)
+		}
+	})
+
+	t.Run("returns empty string for nonexistent worktree", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		reason := GetWorktreeLockReason(repo.Path, "nonexistent")
+		if reason != "" {
+			t.Errorf("expected empty reason for nonexistent worktree, got %q", reason)
 		}
 	})
 }

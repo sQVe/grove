@@ -1,0 +1,59 @@
+# Create grove workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature
+exec git checkout main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Add and lock a worktree
+exec grove add feature
+exec grove lock feature --reason 'Testing'
+
+## Verify locked
+
+exec grove list --verbose
+stdout 'locked'
+
+## Unlock worktree
+
+exec grove unlock feature
+stdout 'Unlocked worktree'
+
+## Verify unlocked (check status from feature worktree)
+
+cd ../feature
+exec grove status --json
+! stdout '"locked": true'
+cd ../main
+
+## Error: already unlocked
+
+! exec grove unlock feature
+stderr 'not locked'
+
+## Error: worktree not found
+
+! exec grove unlock nonexistent
+stderr 'no worktree found'
+
+## Error: not in workspace
+
+cd /tmp
+! exec grove unlock feature
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test

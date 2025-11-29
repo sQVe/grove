@@ -30,6 +30,7 @@ type StatusInfo struct {
 	Operation  string `json:"operation,omitempty"`
 	Conflicts  int    `json:"conflicts,omitempty"`
 	Locked     bool   `json:"locked"`
+	LockReason string `json:"lock_reason,omitempty"`
 	Detached   bool   `json:"detached"`
 	Gone       bool   `json:"gone"`
 	NoUpstream bool   `json:"no_upstream"`
@@ -155,6 +156,7 @@ func gatherStatusInfo(worktreePath, bareDir string) (*StatusInfo, error) {
 	// Check if locked
 	worktreeName := filepath.Base(worktreePath)
 	info.Locked = git.IsWorktreeLocked(bareDir, worktreeName)
+	info.LockReason = git.GetWorktreeLockReason(bareDir, worktreeName)
 
 	return info, nil
 }
@@ -410,7 +412,11 @@ func outputStatusVerbose(info *StatusInfo) error {
 			printField("Conflicts", fmt.Sprintf("%d unresolved", info.Conflicts), plain)
 		}
 		if info.Locked {
-			printField("Locked", "yes", plain)
+			if info.LockReason != "" {
+				printField("Locked", fmt.Sprintf("yes (%s)", info.LockReason), plain)
+			} else {
+				printField("Locked", "yes", plain)
+			}
 		}
 		if info.Detached {
 			printField("Detached", "yes", plain)

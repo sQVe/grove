@@ -276,6 +276,39 @@ func IsWorktreeLocked(repoPath, worktreeName string) bool {
 	return err == nil
 }
 
+// LockWorktree locks a worktree with an optional reason
+func LockWorktree(bareDir, worktreePath, reason string) error {
+	args := []string{"worktree", "lock"}
+	if reason != "" {
+		args = append(args, "--reason", reason)
+	}
+	args = append(args, worktreePath)
+	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
+	cmd := exec.Command("git", args...) //nolint:gosec // Worktree path validated
+	cmd.Dir = bareDir
+	return runGitCommand(cmd, true)
+}
+
+// GetWorktreeLockReason returns the lock reason for a worktree.
+// Returns empty string if the worktree is not locked or doesn't exist.
+func GetWorktreeLockReason(repoPath, worktreeName string) string {
+	// Try bare repo path first
+	lockFile := filepath.Join(repoPath, "worktrees", worktreeName, "locked")
+	content, err := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
+	if err == nil {
+		return strings.TrimSpace(string(content))
+	}
+
+	// Try .git/worktrees path
+	lockFile = filepath.Join(repoPath, ".git", "worktrees", worktreeName, "locked")
+	content, err = os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
+	if err == nil {
+		return strings.TrimSpace(string(content))
+	}
+
+	return ""
+}
+
 // UnlockWorktree unlocks a locked worktree
 func UnlockWorktree(bareDir, worktreePath string) error {
 	logger.Debug("Executing: git worktree unlock %s in %s", worktreePath, bareDir)
@@ -947,6 +980,7 @@ type WorktreeInfo struct {
 	Gone           bool   // Upstream branch deleted
 	NoUpstream     bool   // No upstream configured
 	Locked         bool   // Worktree is locked
+	LockReason     string // Reason for lock (empty if not locked)
 	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
 }
 
@@ -1112,6 +1146,7 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 
 		worktreeName := filepath.Base(path)
 		info.Locked = IsWorktreeLocked(bareDir, worktreeName)
+		info.LockReason = GetWorktreeLockReason(bareDir, worktreeName)
 
 		infos = append(infos, info)
 	}

@@ -86,6 +86,8 @@ type worktreeJSON struct {
 	Behind     int    `json:"behind,omitempty"`
 	Gone       bool   `json:"gone,omitempty"`
 	NoUpstream bool   `json:"no_upstream,omitempty"`
+	Locked     bool   `json:"locked,omitempty"`
+	LockReason string `json:"lock_reason,omitempty"`
 }
 
 func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
@@ -101,6 +103,8 @@ func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
 			Behind:     info.Behind,
 			Gone:       info.Gone,
 			NoUpstream: info.NoUpstream,
+			Locked:     info.Locked,
+			LockReason: info.LockReason,
 		})
 	}
 
@@ -179,6 +183,21 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 			logger.ListSubItem("%s", info.Path)
 			if info.Upstream != "" {
 				logger.ListSubItem("upstream: %s", info.Upstream)
+			}
+			if info.Locked {
+				if info.LockReason != "" {
+					if config.IsPlain() {
+						logger.ListSubItem("locked: %s", info.LockReason)
+					} else {
+						logger.ListSubItem("%s %s", styles.Render(&styles.Warning, "🔒"), info.LockReason)
+					}
+				} else {
+					if config.IsPlain() {
+						logger.ListSubItem("locked")
+					} else {
+						logger.ListSubItem("%s", styles.Render(&styles.Warning, "🔒 locked"))
+					}
+				}
 			}
 		}
 	}
