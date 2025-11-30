@@ -469,12 +469,12 @@ func TestShouldAutoLock(t *testing.T) {
 }
 
 func TestGetTimeout(t *testing.T) {
-	t.Run("returns default when Global is zero", func(t *testing.T) {
+	t.Run("returns zero when Global.Timeout is zero (no timeout)", func(t *testing.T) {
 		resetGlobal()
 
 		timeout := GetTimeout()
-		if timeout != DefaultConfig.Timeout {
-			t.Errorf("Expected %v, got %v", DefaultConfig.Timeout, timeout)
+		if timeout != 0 {
+			t.Errorf("Expected 0 (no timeout), got %v", timeout)
 		}
 	})
 
@@ -485,6 +485,16 @@ func TestGetTimeout(t *testing.T) {
 		timeout := GetTimeout()
 		if timeout != 60*time.Second {
 			t.Errorf("Expected 60s, got %v", timeout)
+		}
+	})
+
+	t.Run("returns default after LoadFromGitConfig", func(t *testing.T) {
+		resetGlobal()
+		LoadFromGitConfig()
+
+		timeout := GetTimeout()
+		if timeout != DefaultConfig.Timeout {
+			t.Errorf("Expected default %v, got %v", DefaultConfig.Timeout, timeout)
 		}
 	})
 }

@@ -125,14 +125,12 @@ func GetAutoLockPatterns() []string {
 	return DefaultConfig.AutoLockPatterns
 }
 
-// GetTimeout returns the configured command timeout
+// GetTimeout returns the configured command timeout.
+// Returns 0 if timeout is disabled (grove.timeout = 0).
 func GetTimeout() time.Duration {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
-	if Global.Timeout > 0 {
-		return Global.Timeout
-	}
-	return DefaultConfig.Timeout
+	return Global.Timeout
 }
 
 // ShouldAutoLock checks if a branch name matches any auto-lock pattern.
@@ -219,7 +217,7 @@ func getGitConfigInDir(key, dir string) string {
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 			return ""
 		}
-		if Global.Debug {
+		if IsDebug() {
 			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
 		}
 		return ""
@@ -244,7 +242,7 @@ func getGitConfigsInDir(key, dir string) []string {
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 			return nil
 		}
-		if Global.Debug {
+		if IsDebug() {
 			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
 		}
 		return nil
