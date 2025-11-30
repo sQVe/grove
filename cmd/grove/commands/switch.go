@@ -1,9 +1,11 @@
 package commands
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -11,7 +13,25 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+//go:embed shell/grove.sh
+var shellPOSIX string
+
+//go:embed shell/grove.fish
+var shellFish string
+
+//go:embed shell/grove.ps1
+var shellPowerShell string
+
 var ErrWorktreeNotFound = errors.New("worktree not found")
+
+// Shell type constants
+const (
+	shellBashType       = "bash"
+	shellZshType        = "zsh"
+	shellFishType       = "fish"
+	shellShType         = "sh"
+	shellPowerShellType = "powershell"
+)
 
 func NewSwitchCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -38,45 +58,72 @@ Then use 'grove switch <branch>' to switch between worktrees.`,
 }
 
 func newShellInitCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:    "shell-init",
-		Short:  "Output shell function for directory switching",
-		Long:   `Output a shell function that wraps grove to enable seamless directory changes with 'grove switch' and 'grove add --switch'. Add to your shell config with: eval "$(grove switch shell-init)"`,
+	var shellType string
+
+	cmd := &cobra.Command{
+		Use:   "shell-init",
+		Short: "Output shell function for directory switching",
+		Long: `Output a shell function that wraps grove to enable seamless directory changes
+with 'grove switch' and 'grove add --switch'.
+
+Supported shells: bash, zsh, fish, sh, powershell
+
+Add to your shell config:
+  bash/zsh/sh: eval "$(grove switch shell-init)"
+  fish:        grove switch shell-init | source
+  powershell:  grove switch shell-init | Invoke-Expression`,
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			shellFunc := `# Grove shell integration
-# Wraps grove to enable 'grove switch' and 'grove add --switch' to change directories
-grove() {
-    if [[ "$1" == "switch" ]]; then
-        local target exit_code
-        target="$(command grove switch "${@:2}")"
-        exit_code=$?
-        if [[ $exit_code -eq 0 && -d "$target" ]]; then
-            cd "$target"
-        else
-            [[ -n "$target" ]] && printf '%s\n' "$target"
-            return $exit_code
-        fi
-    elif [[ "$1" == "add" ]] && [[ " ${*:2} " =~ " -s " || " ${*:2} " =~ " --switch " ]]; then
-        local target exit_code
-        target="$(command grove add "${@:2}")"
-        exit_code=$?
-        if [[ $exit_code -eq 0 && -d "$target" ]]; then
-            cd "$target"
-        else
-            [[ -n "$target" ]] && printf '%s\n' "$target"
-            return $exit_code
-        fi
-    else
-        command grove "$@"
-    fi
-}
-`
-			fmt.Print(shellFunc)
-			return nil
+			shell := shellType
+			if shell == "" {
+				shell = detectShell()
+			}
+			return printShellIntegration(shell)
 		},
 	}
+
+	cmd.Flags().StringVar(&shellType, "shell", "", "Shell type (bash, zsh, fish, sh, powershell)")
+
+	return cmd
+}
+
+// detectShell attempts to determine the current shell from environment
+func detectShell() string {
+	// Check SHELL environment variable (Unix)
+	shell := os.Getenv("SHELL")
+	if shell != "" {
+		base := filepath.Base(shell)
+		switch base {
+		case shellBashType, shellZshType, shellShType, "dash", "ash":
+			return shellShType // Use POSIX for all sh-compatible shells
+		case shellFishType:
+			return shellFishType
+		}
+	}
+
+	// Check for PowerShell on Windows
+	if psModulePath := os.Getenv("PSModulePath"); psModulePath != "" {
+		return shellPowerShellType
+	}
+
+	// Default to sh (POSIX, most portable)
+	return shellShType
+}
+
+// printShellIntegration outputs the appropriate shell integration script
+func printShellIntegration(shell string) error {
+	switch shell {
+	case shellBashType, shellZshType, shellShType, "dash", "ash", "posix":
+		fmt.Print(shellPOSIX)
+	case shellFishType:
+		fmt.Print(shellFish)
+	case shellPowerShellType, "pwsh":
+		fmt.Print(shellPowerShell)
+	default:
+		return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish, sh, powershell)", shell)
+	}
+	return nil
 }
 
 func runSwitch(branch string) error {

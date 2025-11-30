@@ -75,3 +75,60 @@ func TestNewSwitchCmd_ValidArgsFunction(t *testing.T) {
 		t.Error("expected ValidArgsFunction to be set")
 	}
 }
+
+func TestDetectShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		shell    string
+		psModule string
+		expected string
+	}{
+		{"bash returns sh", "/bin/bash", "", "sh"},
+		{"zsh returns sh", "/bin/zsh", "", "sh"},
+		{"fish returns fish", "/usr/bin/fish", "", "fish"},
+		{"sh returns sh", "/bin/sh", "", "sh"},
+		{"dash returns sh", "/bin/dash", "", "sh"},
+		{"ash returns sh", "/bin/ash", "", "sh"},
+		{"empty with PSModulePath returns powershell", "", "C:\\Program Files\\PowerShell", "powershell"},
+		{"empty returns sh", "", "", "sh"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("SHELL", tt.shell)
+			t.Setenv("PSModulePath", tt.psModule)
+			result := detectShell()
+			if result != tt.expected {
+				t.Errorf("detectShell() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrintShellIntegration(t *testing.T) {
+	tests := []struct {
+		shell   string
+		wantErr bool
+	}{
+		{"bash", false},
+		{"zsh", false},
+		{"sh", false},
+		{"dash", false},
+		{"fish", false},
+		{"powershell", false},
+		{"pwsh", false},
+		{"tcsh", true}, // unsupported
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.shell, func(t *testing.T) {
+			err := printShellIntegration(tt.shell)
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error for shell %q", tt.shell)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error for shell %q: %v", tt.shell, err)
+			}
+		})
+	}
+}

@@ -38,19 +38,45 @@ cd /tmp
 ! exec grove switch main
 stderr 'not in a grove workspace'
 
-## Shell init
+## Shell init - sh (used for bash/zsh/sh)
 
-# Test shell-init outputs grove wrapper function
 cd $WORK/workspace/main
-exec grove switch shell-init
+exec grove switch shell-init --shell sh
 stdout 'grove\(\)'
 stdout 'command grove switch'
-stdout 'cd "\$target"'
-! stdout 'gw\(\)'
+stdout 'case "\$1" in'
+! stdout '\[\['
 
 # Test shell-init includes add --switch handling
 stdout 'grove add'
 stdout '\-\-switch'
+
+## Shell init - bash outputs POSIX script
+
+exec grove switch shell-init --shell bash
+stdout 'grove\(\)'
+stdout 'case "\$1" in'
+! stdout '\[\['
+
+## Shell init - fish
+
+exec grove switch shell-init --shell fish
+stdout 'function grove'
+stdout 'command grove switch'
+stdout 'cd "\$target"'
+stdout 'set -l target'
+
+## Shell init - PowerShell
+
+exec grove switch shell-init --shell powershell
+stdout 'function grove'
+stdout 'grove.exe switch'
+stdout 'Set-Location'
+
+## Shell init - unsupported shell
+
+! exec grove switch shell-init --shell tcsh
+stderr 'unsupported shell'
 
 -- README.md --
 # Test
