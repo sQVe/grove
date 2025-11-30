@@ -143,12 +143,13 @@ func CopyFile(src, dst string, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(dst) // Clean up partial/corrupt file
 		return err
 	}
-	return nil
+	return out.Close()
 }
 
 // CopyFileExclusive copies content from src to dst, failing if dst already exists.
@@ -164,12 +165,13 @@ func CopyFileExclusive(src, dst string, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(dst) // Clean up partial/corrupt file
 		return err
 	}
-	return nil
+	return out.Close()
 }
 
 // WriteFileAtomic writes data to a file atomically by writing to a temp file then renaming

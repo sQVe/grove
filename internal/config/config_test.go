@@ -220,6 +220,22 @@ func TestDefaults(t *testing.T) {
 }
 
 func TestGetPreservePatterns(t *testing.T) {
+	t.Run("returned slice cannot mutate defaults", func(t *testing.T) {
+		resetGlobal()
+
+		originalFirst := DefaultConfig.PreservePatterns[0]
+		patterns := GetPreservePatterns()
+
+		// Try to mutate the returned slice
+		patterns[0] = "MUTATED"
+
+		// DefaultConfig should NOT be affected
+		if DefaultConfig.PreservePatterns[0] != originalFirst {
+			t.Errorf("DefaultConfig.PreservePatterns was mutated! Expected %q, got %q",
+				originalFirst, DefaultConfig.PreservePatterns[0])
+		}
+	})
+
 	t.Run("returns defaults when Global is empty", func(t *testing.T) {
 		resetGlobal()
 
@@ -412,6 +428,33 @@ func TestGetAutoLockPatterns(t *testing.T) {
 			if i >= len(patterns) || patterns[i] != expected {
 				t.Errorf("Expected pattern %d to be %q, got %q", i, expected, patterns[i])
 			}
+		}
+	})
+}
+
+func TestLoadFromGitConfigResetsAutoLockPatterns(t *testing.T) {
+	cleanup := setupGitRepo(t)
+	defer cleanup()
+
+	t.Run("resets AutoLockPatterns to default when no git config", func(t *testing.T) {
+		resetGlobal()
+		// Set a custom value that shouldn't survive a reload
+		Global.AutoLockPatterns = []string{"custom-branch"}
+
+		// Ensure no git config is set
+		_ = exec.Command("git", "config", "--unset-all", "grove.autoLock").Run()
+
+		LoadFromGitConfig()
+
+		// AutoLockPatterns should be reset to defaults, not retain "custom-branch"
+		patterns := Global.AutoLockPatterns
+		if len(patterns) == 1 && patterns[0] == "custom-branch" {
+			t.Error("AutoLockPatterns was NOT reset to default - bug: stale value retained")
+		}
+		// Should match default patterns
+		expected := DefaultConfig.AutoLockPatterns
+		if len(patterns) != len(expected) {
+			t.Errorf("Expected %d patterns (defaults), got %d: %v", len(expected), len(patterns), patterns)
 		}
 	})
 }

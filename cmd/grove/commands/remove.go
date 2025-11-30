@@ -91,6 +91,14 @@ func runRemove(branch string, force, deleteBranch bool) error {
 		}
 	}
 
+	// Get sync status BEFORE removing worktree if we need to warn about unpushed commits
+	// (fast mode doesn't fetch Ahead count, so we must check explicitly)
+	var aheadCount int
+	if deleteBranch {
+		syncStatus := git.GetSyncStatus(worktreeInfo.Path)
+		aheadCount = syncStatus.Ahead
+	}
+
 	// Remove the worktree
 	if err := git.RemoveWorktree(bareDir, worktreeInfo.Path, force); err != nil {
 		return fmt.Errorf("failed to remove worktree: %w", err)
@@ -99,8 +107,8 @@ func runRemove(branch string, force, deleteBranch bool) error {
 	// Optionally delete the branch
 	if deleteBranch {
 		// Warn about unpushed commits
-		if worktreeInfo.Ahead > 0 {
-			logger.Warning("Branch has %d unpushed commit(s)", worktreeInfo.Ahead)
+		if aheadCount > 0 {
+			logger.Warning("Branch has %d unpushed commit(s)", aheadCount)
 		}
 
 		if err := git.DeleteBranch(bareDir, branch, force); err != nil {

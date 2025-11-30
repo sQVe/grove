@@ -276,6 +276,9 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 			return fmt.Errorf("failed to check remote: %w", err)
 		}
 
+		// Track if we added a new remote (for cleanup on failure)
+		addedRemote := false
+
 		if !exists {
 			remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
 			if err != nil {
@@ -286,16 +289,27 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 			if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
 				return fmt.Errorf("failed to add fork remote: %w", err)
 			}
+			addedRemote = true
+		}
+
+		// Cleanup helper: remove remote if we added it and something fails
+		cleanupRemote := func() {
+			if addedRemote {
+				logger.Debug("Cleaning up remote %s after failure", remoteName)
+				_ = git.RemoveRemote(bareDir, remoteName)
+			}
 		}
 
 		logger.Info("Fetching branch %s from fork...", branch)
 		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
+			cleanupRemote()
 			return fmt.Errorf("failed to fetch fork branch: %w", err)
 		}
 
 		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
 		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, true); err != nil {
+			cleanupRemote()
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
 	} else {

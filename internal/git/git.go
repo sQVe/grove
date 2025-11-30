@@ -276,6 +276,23 @@ func AddRemote(repoPath, name, url string) error {
 	return runGitCommand(cmd, true)
 }
 
+// RemoveRemote removes a remote with the given name.
+func RemoveRemote(repoPath, name string) error {
+	if repoPath == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	if name == "" {
+		return errors.New("remote name cannot be empty")
+	}
+
+	logger.Debug("Executing: git remote remove %s in %s", name, repoPath)
+	cmd, cancel := GitCommand("git", "remote", "remove", name) // nolint:gosec // Validated input
+	defer cancel()
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}
+
 // RemoteExists checks if a remote with the given name exists.
 func RemoteExists(repoPath, name string) (bool, error) {
 	if repoPath == "" {

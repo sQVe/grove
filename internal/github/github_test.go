@@ -115,6 +115,13 @@ func TestParsePRReference_URL(t *testing.T) {
 			wantRepo:   "repo",
 			wantNumber: 999,
 		},
+		// URL with trailing slash (commonly copied from browsers)
+		{
+			input:      "https://github.com/owner/repo/pull/123/",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 123,
+		},
 	}
 
 	for _, tt := range tests {

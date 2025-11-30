@@ -3,6 +3,7 @@ package formatter
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
@@ -308,6 +309,25 @@ func TestWorktreeRow(t *testing.T) {
 		},
 	}
 
+	// Additional test for UTF-8 branch name padding
+	t.Run("UTF-8 branch name padding uses character count", func(t *testing.T) {
+		config.Global.Plain = true
+		config.Global.NerdFonts = false
+
+		// "日本語" is 3 characters but 9 bytes
+		info := &git.WorktreeInfo{Branch: "日本語", Path: "/tmp/jp"}
+		padWidth := 10 // Need to pad to 10 characters
+
+		got := WorktreeRow(info, false, padWidth)
+
+		// Should have 7 spaces (10 - 3 chars), not 1 space (10 - 9 bytes)
+		expectedSpaces := 7
+		branchWithPad := "日本語" + strings.Repeat(" ", expectedSpaces)
+		if !strings.Contains(got, branchWithPad) {
+			t.Errorf("UTF-8 padding incorrect. Expected branch + %d spaces, got: %q", expectedSpaces, got)
+		}
+	})
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config.Global.Plain = tt.plain
@@ -321,8 +341,9 @@ func TestWorktreeRow(t *testing.T) {
 				}
 			}
 
-			if tt.padWidth > 0 && len(tt.info.Branch) < tt.padWidth {
-				expectedPadding := tt.padWidth - len(tt.info.Branch)
+			branchLen := utf8.RuneCountInString(tt.info.Branch)
+			if tt.padWidth > 0 && branchLen < tt.padWidth {
+				expectedPadding := tt.padWidth - branchLen
 				if !strings.Contains(got, strings.Repeat(" ", expectedPadding)) {
 					t.Errorf("WorktreeRow() should have %d spaces of padding", expectedPadding)
 				}

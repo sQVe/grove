@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/sqve/grove/internal/logger"
@@ -55,7 +56,8 @@ func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 	if global {
 		args = append(args, "--global")
 	}
-	args = append(args, prefix)
+	// Escape regex metacharacters and anchor to start for exact prefix matching
+	args = append(args, "^"+regexp.QuoteMeta(prefix))
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()

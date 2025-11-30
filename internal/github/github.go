@@ -20,7 +20,7 @@ type PRRef struct {
 
 var (
 	prNumberRegex = regexp.MustCompile(`^#(\d+)$`)
-	prURLRegex    = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)$`)
+	prURLRegex    = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$`)
 )
 
 // IsPRReference returns true if the input looks like a PR reference (#N or URL).

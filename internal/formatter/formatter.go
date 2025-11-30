@@ -3,6 +3,7 @@ package formatter
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
@@ -133,8 +134,9 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 	}
 
 	branchDisplay := info.Branch
-	if padWidth > 0 && len(info.Branch) < padWidth {
-		branchDisplay = info.Branch + strings.Repeat(" ", padWidth-len(info.Branch))
+	branchLen := utf8.RuneCountInString(info.Branch)
+	if padWidth > 0 && branchLen < padWidth {
+		branchDisplay = info.Branch + strings.Repeat(" ", padWidth-branchLen)
 	}
 
 	parts := []string{marker, styles.Render(&styles.Worktree, branchDisplay)}

@@ -94,9 +94,11 @@ func GetConflictCount(path string) (int, error) {
 
 	files := make(map[string]bool)
 	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 4 {
-			files[fields[3]] = true
+		// git ls-files -u format: <mode> <hash> <stage>\t<filename>
+		// Split on TAB to correctly handle filenames with spaces
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) == 2 {
+			files[parts[1]] = true
 		}
 	}
 

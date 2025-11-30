@@ -455,6 +455,101 @@ func TestGetConflictCount(t *testing.T) {
 			t.Fatal("expected error for non-git directory")
 		}
 	})
+
+	t.Run("correctly counts conflicts in files with spaces", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create two files with spaces that share the same first word
+		// This tests the bug where strings.Fields splits on all whitespace,
+		// causing "my file.txt" and "my other.txt" to both have "my" as fields[3]
+		file1 := filepath.Join(repo.Path, "my file.txt")
+		file2 := filepath.Join(repo.Path, "my other.txt")
+
+		if err := os.WriteFile(file1, []byte("initial1"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create file1: %v", err)
+		}
+		if err := os.WriteFile(file2, []byte("initial2"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to create file2: %v", err)
+		}
+
+		cmd := exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git add failed: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "initial")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git commit failed: %v", err)
+		}
+
+		// Create branch1 with changes
+		cmd = exec.Command("git", "checkout", "-b", "branch1")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git checkout failed: %v", err)
+		}
+
+		if err := os.WriteFile(file1, []byte("branch1-file1"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify file1: %v", err)
+		}
+		if err := os.WriteFile(file2, []byte("branch1-file2"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify file2: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git add failed: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "branch1 changes")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git commit failed: %v", err)
+		}
+
+		// Go back to main and make conflicting changes
+		cmd = exec.Command("git", "checkout", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git checkout main failed: %v", err)
+		}
+
+		if err := os.WriteFile(file1, []byte("main-file1"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify file1 on main: %v", err)
+		}
+		if err := os.WriteFile(file2, []byte("main-file2"), fs.FileStrict); err != nil {
+			t.Fatalf("failed to modify file2 on main: %v", err)
+		}
+
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git add failed: %v", err)
+		}
+
+		cmd = exec.Command("git", "commit", "-m", "main changes")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git commit failed: %v", err)
+		}
+
+		// Merge to create conflicts
+		cmd = exec.Command("git", "merge", "branch1")
+		cmd.Dir = repo.Path
+		_ = cmd.Run() // Expected to fail with conflict
+
+		// Should count 2 conflicts (both files with spaces)
+		count, err := GetConflictCount(repo.Path)
+		if err != nil {
+			t.Fatalf("GetConflictCount failed: %v", err)
+		}
+		if count != 2 {
+			t.Errorf("expected 2 conflicts for files with spaces, got %d", count)
+		}
+	})
 }
 
 func TestHasSubmodules(t *testing.T) {

@@ -95,14 +95,15 @@ func SetDebug(v bool) {
 	Global.Debug = v
 }
 
-// GetPreservePatterns returns the configured preserve patterns or defaults
+// GetPreservePatterns returns the configured preserve patterns or defaults.
+// Returns a copy to prevent callers from mutating the original slices.
 func GetPreservePatterns() []string {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
 	if len(Global.PreservePatterns) > 0 {
-		return Global.PreservePatterns
+		return append([]string{}, Global.PreservePatterns...)
 	}
-	return DefaultConfig.PreservePatterns
+	return append([]string{}, DefaultConfig.PreservePatterns...)
 }
 
 // GetStaleThreshold returns the configured stale threshold or default
@@ -115,14 +116,15 @@ func GetStaleThreshold() string {
 	return DefaultConfig.StaleThreshold
 }
 
-// GetAutoLockPatterns returns the configured auto-lock patterns or defaults
+// GetAutoLockPatterns returns the configured auto-lock patterns or defaults.
+// Returns a copy to prevent callers from mutating the original slices.
 func GetAutoLockPatterns() []string {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
 	if len(Global.AutoLockPatterns) > 0 {
-		return Global.AutoLockPatterns
+		return append([]string{}, Global.AutoLockPatterns...)
 	}
-	return DefaultConfig.AutoLockPatterns
+	return append([]string{}, DefaultConfig.AutoLockPatterns...)
 }
 
 // GetTimeout returns the configured command timeout.
@@ -163,6 +165,8 @@ func LoadFromGitConfig() {
 	Global.Timeout = DefaultConfig.Timeout
 	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
+	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
+	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
 
 	if value := getGitConfig("grove.plain"); value != "" {
 		Global.Plain = isTruthy(value)
