@@ -73,6 +73,9 @@ func (Test) Coverage() error {
 
 		// Extract percentage from "total: (statements) XX.X%"
 		parts := strings.Fields(totalLine)
+		if len(parts) == 0 {
+			return fmt.Errorf("failed to parse coverage: empty output line")
+		}
 		percentStr := strings.TrimSuffix(parts[len(parts)-1], "%")
 		percentage, err := strconv.ParseFloat(percentStr, 64)
 		if err != nil {
