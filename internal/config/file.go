@@ -54,102 +54,106 @@ func FileConfigExists(dir string) bool {
 	return err == nil
 }
 
-// GetMergedPreservePatterns: TOML > git config > defaults
-func GetMergedPreservePatterns(worktreeDir string) []string {
-	cfg, err := LoadFromFile(worktreeDir)
+// loadConfigWithWarning loads the TOML config and prints a warning on parse error.
+// Returns the config and whether it was successfully loaded.
+func loadConfigWithWarning(dir string) (FileConfig, bool) {
+	cfg, err := LoadFromFile(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if len(cfg.Preserve.Patterns) > 0 {
-		return cfg.Preserve.Patterns
+		return cfg, false
 	}
-
-	patterns := getGitConfigsInDir("grove.preserve", worktreeDir)
-	if len(patterns) > 0 {
-		return patterns
-	}
-
-	return DefaultConfig.PreservePatterns
+	return cfg, true
 }
 
-// GetMergedPlain: git config > TOML > default
-func GetMergedPlain(worktreeDir string) bool {
-	if value := getGitConfigInDir("grove.plain", worktreeDir); value != "" {
+// getMergedBool implements: git config > TOML > default
+func getMergedBool(worktreeDir, gitKey string, tomlExtract func(FileConfig) *bool, defaultValue bool) bool {
+	if value := getGitConfigInDir(gitKey, worktreeDir); value != "" {
 		return isTruthy(value)
 	}
-
-	cfg, err := LoadFromFile(worktreeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if cfg.Plain {
-		return true
+	if cfg, ok := loadConfigWithWarning(worktreeDir); ok {
+		if v := tomlExtract(cfg); v != nil {
+			return *v
+		}
 	}
-
-	return DefaultConfig.Plain
+	return defaultValue
 }
 
-// GetMergedDebug: git config > TOML > default
-func GetMergedDebug(worktreeDir string) bool {
-	if value := getGitConfigInDir("grove.debug", worktreeDir); value != "" {
-		return isTruthy(value)
-	}
-
-	cfg, err := LoadFromFile(worktreeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if cfg.Debug {
-		return true
-	}
-
-	return DefaultConfig.Debug
-}
-
-// GetMergedNerdFonts: git config > TOML > default
-func GetMergedNerdFonts(worktreeDir string) bool {
-	if value := getGitConfigInDir("grove.nerdFonts", worktreeDir); value != "" {
-		return isTruthy(value)
-	}
-
-	cfg, err := LoadFromFile(worktreeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if cfg.NerdFonts != nil {
-		return *cfg.NerdFonts
-	}
-
-	return DefaultConfig.NerdFonts
-}
-
-// GetMergedStaleThreshold: git config > TOML > default
-func GetMergedStaleThreshold(worktreeDir string) string {
-	if value := getGitConfigInDir("grove.staleThreshold", worktreeDir); value != "" {
+// getMergedString implements: git config > TOML > default
+func getMergedString(worktreeDir, gitKey string, tomlExtract func(FileConfig) string, defaultValue string) string {
+	if value := getGitConfigInDir(gitKey, worktreeDir); value != "" {
 		return value
 	}
-
-	cfg, err := LoadFromFile(worktreeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if cfg.StaleThreshold != "" {
-		return cfg.StaleThreshold
+	if cfg, ok := loadConfigWithWarning(worktreeDir); ok {
+		if v := tomlExtract(cfg); v != "" {
+			return v
+		}
 	}
+	return defaultValue
+}
 
-	return DefaultConfig.StaleThreshold
+// getMergedPatterns implements: TOML > git config > default
+func getMergedPatterns(worktreeDir, gitKey string, tomlExtract func(FileConfig) []string, defaultValue []string) []string {
+	if cfg, ok := loadConfigWithWarning(worktreeDir); ok {
+		if patterns := tomlExtract(cfg); len(patterns) > 0 {
+			return patterns
+		}
+	}
+	if patterns := getGitConfigsInDir(gitKey, worktreeDir); len(patterns) > 0 {
+		return patterns
+	}
+	return defaultValue
+}
+
+// GetMergedPreservePatterns: TOML > git config > defaults
+func GetMergedPreservePatterns(worktreeDir string) []string {
+	return getMergedPatterns(worktreeDir, "grove.preserve",
+		func(cfg FileConfig) []string { return cfg.Preserve.Patterns },
+		DefaultConfig.PreservePatterns)
 }
 
 // GetMergedAutoLockPatterns: TOML > git config > defaults
 func GetMergedAutoLockPatterns(worktreeDir string) []string {
-	cfg, err := LoadFromFile(worktreeDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v (using fallback)\n", FileName, err)
-	} else if len(cfg.Autolock.Patterns) > 0 {
-		return cfg.Autolock.Patterns
-	}
+	return getMergedPatterns(worktreeDir, "grove.autoLock",
+		func(cfg FileConfig) []string { return cfg.Autolock.Patterns },
+		DefaultConfig.AutoLockPatterns)
+}
 
-	patterns := getGitConfigsInDir("grove.autoLock", worktreeDir)
-	if len(patterns) > 0 {
-		return patterns
-	}
+// GetMergedPlain: git config > TOML > default
+func GetMergedPlain(worktreeDir string) bool {
+	return getMergedBool(worktreeDir, "grove.plain",
+		func(cfg FileConfig) *bool {
+			if cfg.Plain {
+				return &cfg.Plain
+			}
+			return nil
+		},
+		DefaultConfig.Plain)
+}
 
-	return DefaultConfig.AutoLockPatterns
+// GetMergedDebug: git config > TOML > default
+func GetMergedDebug(worktreeDir string) bool {
+	return getMergedBool(worktreeDir, "grove.debug",
+		func(cfg FileConfig) *bool {
+			if cfg.Debug {
+				return &cfg.Debug
+			}
+			return nil
+		},
+		DefaultConfig.Debug)
+}
+
+// GetMergedNerdFonts: git config > TOML > default
+func GetMergedNerdFonts(worktreeDir string) bool {
+	return getMergedBool(worktreeDir, "grove.nerdFonts",
+		func(cfg FileConfig) *bool { return cfg.NerdFonts },
+		DefaultConfig.NerdFonts)
+}
+
+// GetMergedStaleThreshold: git config > TOML > default
+func GetMergedStaleThreshold(worktreeDir string) string {
+	return getMergedString(worktreeDir, "grove.staleThreshold",
+		func(cfg FileConfig) string { return cfg.StaleThreshold },
+		DefaultConfig.StaleThreshold)
 }
 
 // WriteToFile uses atomic write (temp file + rename) to prevent corruption.

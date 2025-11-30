@@ -227,3 +227,39 @@ func isTruthy(value string) bool {
 	lower := strings.ToLower(strings.TrimSpace(value))
 	return lower == "true" || lower == "1" || lower == "yes" || lower == "on"
 }
+
+// Snapshot captures the current Global config state.
+// Used for testing to save/restore config.
+type Snapshot struct {
+	Plain            bool
+	Debug            bool
+	NerdFonts        bool
+	PreservePatterns []string
+	StaleThreshold   string
+	AutoLockPatterns []string
+	Timeout          time.Duration
+}
+
+// SaveSnapshot returns a copy of the current Global config.
+func SaveSnapshot() Snapshot {
+	return Snapshot{
+		Plain:            Global.Plain,
+		Debug:            Global.Debug,
+		NerdFonts:        Global.NerdFonts,
+		PreservePatterns: append([]string{}, Global.PreservePatterns...),
+		StaleThreshold:   Global.StaleThreshold,
+		AutoLockPatterns: append([]string{}, Global.AutoLockPatterns...),
+		Timeout:          Global.Timeout,
+	}
+}
+
+// RestoreSnapshot restores Global config from a snapshot.
+func RestoreSnapshot(s *Snapshot) {
+	Global.Plain = s.Plain
+	Global.Debug = s.Debug
+	Global.NerdFonts = s.NerdFonts
+	Global.PreservePatterns = append([]string{}, s.PreservePatterns...)
+	Global.StaleThreshold = s.StaleThreshold
+	Global.AutoLockPatterns = append([]string{}, s.AutoLockPatterns...)
+	Global.Timeout = s.Timeout
+}

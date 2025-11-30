@@ -558,8 +558,31 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	return nil
 }
 
+// conversionOpts holds options for worktree creation during conversion.
+type conversionOpts struct {
+	TargetDir        string
+	CurrentBranch    string
+	Branches         string
+	Verbose          bool
+	IgnoredFiles     []string
+	PreservePatterns []string
+}
+
+// conversionResult holds the results of worktree creation during conversion.
+type conversionResult struct {
+	Worktrees  []string
+	MovedFiles []string
+}
+
 // createWorktreesForConversion creates worktrees for specified branches and moves files to current branch
-func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles, preservePatterns []string, movedFiles *[]string) ([]string, error) {
+func createWorktreesForConversion(opts *conversionOpts) (*conversionResult, error) {
+	targetDir := opts.TargetDir
+	currentBranch := opts.CurrentBranch
+	branches := opts.Branches
+	verbose := opts.Verbose
+	ignoredFiles := opts.IgnoredFiles
+	preservePatterns := opts.PreservePatterns
+	result := &conversionResult{}
 	bareDir := filepath.Join(targetDir, ".bare")
 	cleanedBranches := parseBranches(branches, "")
 
@@ -581,14 +604,15 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		cleanedBranches = append([]string{currentBranch}, cleanedBranches...)
 	}
 
-	createdWorktrees, err := createWorktreesOnly(bareDir, cleanedBranches, verbose)
+	worktrees, err := createWorktreesOnly(bareDir, cleanedBranches, verbose)
 	if err != nil {
 		return nil, err
 	}
+	result.Worktrees = worktrees
 
 	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles, preservePatterns)
 	if err != nil {
-		return createdWorktrees, err
+		return result, err
 	}
 
 	for i, branch := range cleanedBranches {
@@ -617,15 +641,15 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		}
 	}
 
-	if err := moveFilesToFirstWorktree(targetDir, cleanedBranches, movedFiles); err != nil {
-		return createdWorktrees, err
+	if err := moveFilesToFirstWorktree(targetDir, cleanedBranches, &result.MovedFiles); err != nil {
+		return result, err
 	}
 
 	if err := checkoutFirstWorktree(targetDir, cleanedBranches[0], verbose); err != nil {
-		return createdWorktrees, err
+		return result, err
 	}
 
-	return createdWorktrees, nil
+	return result, nil
 }
 
 // parseBranches splits and cleans a comma-separated list of branches
@@ -868,11 +892,23 @@ func Convert(targetDir, branches string, verbose bool) error {
 	}()
 
 	if branches != "" {
-		var err error
-		createdWorktrees, err = createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles, preservePatterns, &movedFiles)
+		result, err := createWorktreesForConversion(&conversionOpts{
+			TargetDir:        targetDir,
+			CurrentBranch:    currentBranch,
+			Branches:         branches,
+			Verbose:          verbose,
+			IgnoredFiles:     ignoredFiles,
+			PreservePatterns: preservePatterns,
+		})
 		if err != nil {
+			if result != nil {
+				createdWorktrees = result.Worktrees
+				movedFiles = result.MovedFiles
+			}
 			return err
 		}
+		createdWorktrees = result.Worktrees
+		movedFiles = result.MovedFiles
 	} else {
 		var err error
 		createdWorktrees, err = createMainWorktree(targetDir, currentBranch, verbose, &movedFiles)
