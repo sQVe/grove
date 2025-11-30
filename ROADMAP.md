@@ -95,6 +95,7 @@
 | `clone <pr-url>`         | Clone repo and create worktree for PR             |  [x]   |
 | `clone <pr-url>`         | Support fork PRs with automatic remote setup      |  [x]   |
 | `clone <pr-url> <dir>`   | Clone PR to specified directory                   |  [x]   |
+| `clone --shallow <url>`  | Shallow clone for large repositories              |  [x]   |
 
 **Notes:**
 
@@ -158,22 +159,24 @@
 
 ### `add`
 
-| Command              | Features                                     | Status |
-| -------------------- | -------------------------------------------- | :----: |
-| `add <branch>`       | Add worktree for existing branch             |  [x]   |
-| `add <branch>`       | Add worktree with new branch if not exists   |  [x]   |
-| `add <branch>`       | Provide completions for branch names         |  [x]   |
-| `add <branch>`       | Sanitize branch name for directory name      |  [x]   |
-| `add <branch>`       | Preserve configured files from source        |  [x]   |
-| `add <branch>`       | Run configured hooks after creation          |  [x]   |
-| `add -s <branch>`    | Switch to worktree after creation            |  [x]   |
-| `add #<number>`      | Add worktree from GitHub PR number           |  [x]   |
-| `add <pr-url>`       | Add worktree from GitHub PR URL              |  [x]   |
-| `add <pr-ref>`       | Support fork PRs with automatic remote setup |  [x]   |
-| `add --detach <ref>` | Add worktree at commit/tag without branch    |  [ ]   |
+| Command               | Features                                       | Status |
+| --------------------- | ---------------------------------------------- | :----: |
+| `add <branch>`        | Add worktree for existing branch               |  [x]   |
+| `add <branch>`        | Add worktree with new branch if not exists     |  [x]   |
+| `add <branch>`        | Provide completions for branch names           |  [x]   |
+| `add <branch>`        | Sanitize branch name for directory name        |  [x]   |
+| `add <branch>`        | Preserve configured files from source          |  [x]   |
+| `add <branch>`        | Run configured hooks after creation            |  [x]   |
+| `add -s <branch>`     | Switch to worktree after creation              |  [x]   |
+| `add #<number>`       | Add worktree from GitHub PR number             |  [x]   |
+| `add <pr-url>`        | Add worktree from GitHub PR URL                |  [x]   |
+| `add <pr-ref>`        | Support fork PRs with automatic remote setup   |  [x]   |
+| `add --base <branch>` | Create new branch from specific base, not HEAD |  [x]   |
+| `add --detach <ref>`  | Add worktree at commit/tag without branch      |  [x]   |
 
 **Notes:**
 
+-   `--base` useful when HEAD isn't what you want to branch from
 -   `--detach` useful for inspecting releases, hotfixes on tags
 -   PR support requires `gh` CLI to be installed and authenticated
 -   PR format: `#123` (requires being in a grove workspace) or full GitHub PR URL
@@ -199,12 +202,14 @@
 | `prune --commit` | Remove worktrees for branches with `[gone]` upstream       |  [x]   |
 | `prune --force`  | Remove worktrees even if dirty or locked                   |  [x]   |
 | `prune --stale`  | Also prune worktrees with no commits in specified duration |  [x]   |
+| `prune --merged` | Prune worktrees with branches merged into main             |  [x]   |
 
 **Notes:**
 
 -   Uses `git branch -vv` to detect `[gone]` remote tracking branches
 -   Dry-run by default for safety
 -   Skips dirty worktrees and locked worktrees unless `--force`
+-   `--merged` detects both regular merges (via ancestry) and squash merges (via patch-id comparison)
 -   Most critical feature - solves biggest daily pain point
 
 **Failure conditions:**
@@ -215,12 +220,13 @@
 
 ### `list`
 
-| Command          | Features                                        | Status |
-| ---------------- | ----------------------------------------------- | :----: |
-| `list`           | Show all worktrees with status by default       |  [x]   |
-| `list --fast`    | Skip sync status for faster output              |  [x]   |
-| `list --json`    | Machine-readable output for tooling integration |  [x]   |
-| `list --verbose` | Show extra details (paths, upstream names)      |  [x]   |
+| Command                  | Features                                        | Status |
+| ------------------------ | ----------------------------------------------- | :----: |
+| `list`                   | Show all worktrees with status by default       |  [x]   |
+| `list --fast`            | Skip sync status for faster output              |  [x]   |
+| `list --json`            | Machine-readable output for tooling integration |  [x]   |
+| `list --verbose`         | Show extra details (paths, upstream names)      |  [x]   |
+| `list --filter <status>` | Filter by dirty/ahead/behind/gone/locked        |  [x]   |
 
 **Default output format (color mode with Nerd Fonts):**
 
@@ -350,18 +356,32 @@
 
 ### `doctor`
 
-| Command        | Features                                      | Status |
-| -------------- | --------------------------------------------- | :----: |
-| `doctor`       | Check git safe.directory entries              |  [ ]   |
-| `doctor`       | Detect detached HEAD worktrees                |  [ ]   |
-| `doctor`       | Find missing upstream tracking                |  [ ]   |
-| `doctor`       | Identify worktrees pointing at gone upstreams |  [ ]   |
-| `doctor`       | Run `git worktree repair` to fix broken links |  [ ]   |
-| `doctor --fix` | Automatically fix common issues               |  [ ]   |
+| Command        | Features                                         | Status |
+| -------------- | ------------------------------------------------ | :----: |
+| `doctor`       | Check git safe.directory entries                 |  [ ]   |
+| `doctor`       | Detect broken .git file pointers                 |  [ ]   |
+| `doctor`       | Detect duplicate branch checkouts                |  [ ]   |
+| `doctor`       | Detect detached HEAD worktrees                   |  [ ]   |
+| `doctor`       | Detect stale worktree entries in .bare/worktrees |  [ ]   |
+| `doctor`       | Find missing upstream tracking                   |  [ ]   |
+| `doctor`       | Find branches tracking non-existent remotes      |  [ ]   |
+| `doctor`       | Identify worktrees pointing at gone upstreams    |  [ ]   |
+| `doctor`       | Validate .grove.toml syntax and patterns         |  [ ]   |
+| `doctor`       | Validate hooks.add commands are executable       |  [ ]   |
+| `doctor`       | Run `git worktree repair` to fix broken links    |  [ ]   |
+| `doctor --fix` | Automatically fix safe issues                    |  [ ]   |
 
 **Notes:**
 
 -   Diagnoses common worktree setup problems
--   Safe.directory issues prevent Git operations
--   Detached HEADs indicate incomplete setup
--   Missing upstreams break sync operations
+-   Output categorized by severity: errors (must fix), warnings (should fix), info (awareness)
+-   `--fix` only auto-fixes reversible issues (repair links, prune stale entries)
+-   `--fix` never auto-deletes branches or worktrees
+
+**Failure conditions:**
+
+-   [ ] Broken .git pointer is an error (worktree unusable)
+-   [ ] Duplicate branch checkout is an error (causes git state corruption)
+-   [ ] Invalid config syntax is an error (blocks grove operations)
+-   [ ] Detached HEAD is a warning (incomplete setup)
+-   [ ] Missing upstream is info (may be intentional)

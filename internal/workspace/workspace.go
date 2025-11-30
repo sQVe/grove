@@ -101,11 +101,11 @@ func validateAndPrepareDirectory(path string) error {
 }
 
 // cloneWithProgress clones a repository with progress indication
-func cloneWithProgress(url, bareDir string, verbose bool) error {
+func cloneWithProgress(url, bareDir string, verbose, shallow bool) error {
 	stop := logger.StartSpinner("Cloning repository...")
 	defer stop()
 
-	if err := git.Clone(url, bareDir, !verbose); err != nil {
+	if err := git.Clone(url, bareDir, !verbose, shallow); err != nil {
 		return err
 	}
 
@@ -188,7 +188,7 @@ func Initialize(path string) error {
 }
 
 // CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
-func CloneAndInitialize(url, path, branches string, verbose bool) error {
+func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error {
 	if err := validateAndPrepareDirectory(path); err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func CloneAndInitialize(url, path, branches string, verbose bool) error {
 		}
 	}
 
-	if err := cloneWithProgress(url, bareDir, verbose); err != nil {
+	if err := cloneWithProgress(url, bareDir, verbose, shallow); err != nil {
 		cleanup(nil)
 		return fmt.Errorf("failed to clone repository: %w", err)
 	}

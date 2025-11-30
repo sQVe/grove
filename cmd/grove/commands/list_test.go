@@ -3,8 +3,10 @@ package commands
 import (
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -25,6 +27,9 @@ func TestNewListCmd(t *testing.T) {
 	if cmd.Flags().Lookup("verbose") == nil {
 		t.Error("expected --verbose flag")
 	}
+	if cmd.Flags().Lookup("filter") == nil {
+		t.Error("expected --filter flag")
+	}
 }
 
 func TestRunList(t *testing.T) {
@@ -36,12 +41,124 @@ func TestRunList(t *testing.T) {
 		tmpDir := t.TempDir()
 		_ = os.Chdir(tmpDir)
 
-		err := runList(false, false, false)
+		err := runList(false, false, false, "")
 		if err == nil {
 			t.Error("expected error for non-workspace directory")
 		}
 		if !errors.Is(err, workspace.ErrNotInWorkspace) {
 			t.Errorf("expected ErrNotInWorkspace, got: %v", err)
+		}
+	})
+}
+
+func TestParseFilters(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"single filter", "dirty", []string{"dirty"}},
+		{"multiple filters", "dirty,locked", []string{"dirty", "locked"}},
+		{"with spaces", " dirty , locked ", []string{"dirty", "locked"}},
+		{"empty string", "", nil},
+		{"uppercase converted", "DIRTY,LOCKED", []string{"dirty", "locked"}},
+		{"mixed case", "Dirty,AHEAD,behind", []string{"dirty", "ahead", "behind"}},
+		{"trailing comma", "dirty,", []string{"dirty"}},
+		{"leading comma", ",dirty", []string{"dirty"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseFilters(tt.input)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("parseFilters(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMatchesAnyFilter(t *testing.T) {
+	tests := []struct {
+		name    string
+		info    *git.WorktreeInfo
+		filters []string
+		want    bool
+	}{
+		{"dirty matches dirty", &git.WorktreeInfo{Dirty: true}, []string{"dirty"}, true},
+		{"clean does not match dirty", &git.WorktreeInfo{Dirty: false}, []string{"dirty"}, false},
+		{"ahead matches ahead", &git.WorktreeInfo{Ahead: 2}, []string{"ahead"}, true},
+		{"zero ahead does not match", &git.WorktreeInfo{Ahead: 0}, []string{"ahead"}, false},
+		{"behind matches behind", &git.WorktreeInfo{Behind: 1}, []string{"behind"}, true},
+		{"zero behind does not match", &git.WorktreeInfo{Behind: 0}, []string{"behind"}, false},
+		{"gone matches gone", &git.WorktreeInfo{Gone: true}, []string{"gone"}, true},
+		{"not gone does not match", &git.WorktreeInfo{Gone: false}, []string{"gone"}, false},
+		{"locked matches locked", &git.WorktreeInfo{Locked: true}, []string{"locked"}, true},
+		{"not locked does not match", &git.WorktreeInfo{Locked: false}, []string{"locked"}, false},
+		{"OR logic: dirty or locked, dirty true", &git.WorktreeInfo{Dirty: true, Locked: false}, []string{"dirty", "locked"}, true},
+		{"OR logic: dirty or locked, locked true", &git.WorktreeInfo{Dirty: false, Locked: true}, []string{"dirty", "locked"}, true},
+		{"OR logic: both true", &git.WorktreeInfo{Dirty: true, Locked: true}, []string{"dirty", "locked"}, true},
+		{"OR logic: neither matches", &git.WorktreeInfo{Dirty: false, Locked: false}, []string{"dirty", "locked"}, false},
+		{"empty filters matches nothing", &git.WorktreeInfo{Dirty: true}, []string{}, false},
+		{"unknown filter ignored", &git.WorktreeInfo{Dirty: true}, []string{"unknown"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesAnyFilter(tt.info, tt.filters)
+			if got != tt.want {
+				t.Errorf("matchesAnyFilter(%+v, %v) = %v, want %v", tt.info, tt.filters, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterWorktrees(t *testing.T) {
+	infos := []*git.WorktreeInfo{
+		{Branch: "main", Dirty: false, Locked: true},
+		{Branch: "feature", Dirty: true, Locked: false},
+		{Branch: "old", Gone: true, Locked: false},
+		{Branch: "clean", Dirty: false, Locked: false},
+	}
+
+	t.Run("empty filter returns all", func(t *testing.T) {
+		got := filterWorktrees(infos, "")
+		if len(got) != 4 {
+			t.Errorf("expected 4 worktrees, got %d", len(got))
+		}
+	})
+
+	t.Run("filter dirty", func(t *testing.T) {
+		got := filterWorktrees(infos, "dirty")
+		if len(got) != 1 || got[0].Branch != "feature" {
+			t.Errorf("expected [feature], got %v", got)
+		}
+	})
+
+	t.Run("filter locked", func(t *testing.T) {
+		got := filterWorktrees(infos, "locked")
+		if len(got) != 1 || got[0].Branch != "main" {
+			t.Errorf("expected [main], got %v", got)
+		}
+	})
+
+	t.Run("filter gone", func(t *testing.T) {
+		got := filterWorktrees(infos, "gone")
+		if len(got) != 1 || got[0].Branch != "old" {
+			t.Errorf("expected [old], got %v", got)
+		}
+	})
+
+	t.Run("filter dirty,locked OR logic", func(t *testing.T) {
+		got := filterWorktrees(infos, "dirty,locked")
+		if len(got) != 2 {
+			t.Errorf("expected 2 worktrees, got %d", len(got))
+		}
+		branches := make(map[string]bool)
+		for _, info := range got {
+			branches[info.Branch] = true
+		}
+		if !branches["main"] || !branches["feature"] {
+			t.Errorf("expected main and feature, got %v", got)
 		}
 	})
 }

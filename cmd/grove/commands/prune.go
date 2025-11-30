@@ -30,8 +30,9 @@ const (
 type pruneType string
 
 const (
-	pruneGone  pruneType = "gone"
-	pruneStale pruneType = "stale"
+	pruneGone   pruneType = "gone"
+	pruneStale  pruneType = "stale"
+	pruneMerged pruneType = "merged"
 )
 
 // pruneCandidate represents a worktree that could be pruned
@@ -47,6 +48,7 @@ func NewPruneCmd() *cobra.Command {
 	var commit bool
 	var force bool
 	var stale string
+	var merged bool
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -61,19 +63,20 @@ func NewPruneCmd() *cobra.Command {
 			if cmd.Flags().Changed("stale") && stale == "" {
 				stale = config.GetStaleThreshold()
 			}
-			return runPrune(commit, force, stale)
+			return runPrune(commit, force, stale, merged)
 		},
 	}
 
 	cmd.Flags().BoolVar(&commit, "commit", false, "Actually remove worktrees (default is dry-run)")
 	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty, locked, or has unpushed commits")
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Also include worktrees with no commits in duration (e.g., 30d, 2w, 6m; default: %s)", config.GetStaleThreshold()))
+	cmd.Flags().BoolVar(&merged, "merged", false, "Also include worktrees with branches merged into the default branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	return cmd
 }
 
-func runPrune(commit, force bool, stale string) error {
+func runPrune(commit, force bool, stale string, merged bool) error {
 	// Parse stale threshold if provided
 	var staleCutoff int64
 	if stale != "" {
@@ -101,6 +104,16 @@ func runPrune(commit, force bool, stale string) error {
 		logger.Warning("Failed to fetch: %v", err)
 	}
 
+	// Get default branch for merged check
+	var defaultBranch string
+	if merged {
+		defaultBranch, err = git.GetDefaultBranch(bareDir)
+		if err != nil {
+			logger.Warning("Could not determine default branch: %v", err)
+			merged = false // Disable merged check if we can't determine default branch
+		}
+	}
+
 	// Get all worktrees with info
 	infos, err := git.ListWorktreesWithInfo(bareDir, false)
 	if err != nil {
@@ -118,7 +131,21 @@ func runPrune(commit, force bool, stale string) error {
 				reason:    reason,
 				pruneType: pruneGone,
 			})
-			continue // Don't double-count as stale
+			continue // Don't double-count as stale or merged
+		}
+
+		// Check for merged (only if --merged flag was passed)
+		if merged && info.Branch != "" && info.Branch != defaultBranch {
+			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
+			if mergeErr == nil && isMerged {
+				reason := determineSkipReason(info, cwd, force)
+				candidates = append(candidates, pruneCandidate{
+					info:      info,
+					reason:    reason,
+					pruneType: pruneMerged,
+				})
+				continue // Don't double-count as stale
+			}
 		}
 
 		// Check for stale (only if --stale flag was passed)

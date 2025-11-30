@@ -12,8 +12,8 @@ import (
 
 func TestNewAddCmd(t *testing.T) {
 	cmd := NewAddCmd()
-	if cmd.Use != "add <branch|#PR|PR-URL>" {
-		t.Errorf("expected Use to be 'add <branch|#PR|PR-URL>', got %q", cmd.Use)
+	if cmd.Use != "add <branch|#PR|PR-URL|ref>" {
+		t.Errorf("expected Use to be 'add <branch|#PR|PR-URL|ref>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")
@@ -31,6 +31,22 @@ func TestNewAddCmd_HasSwitchFlag(t *testing.T) {
 	}
 }
 
+func TestNewAddCmd_HasBaseFlag(t *testing.T) {
+	cmd := NewAddCmd()
+	flag := cmd.Flags().Lookup("base")
+	if flag == nil {
+		t.Fatal("expected --base flag to exist")
+	}
+}
+
+func TestNewAddCmd_HasDetachFlag(t *testing.T) {
+	cmd := NewAddCmd()
+	flag := cmd.Flags().Lookup("detach")
+	if flag == nil {
+		t.Fatal("expected --detach flag to exist")
+	}
+}
+
 func TestRunAdd_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -43,7 +59,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd("feature-test", false)
+	err = runAdd("feature-test", false, "", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}

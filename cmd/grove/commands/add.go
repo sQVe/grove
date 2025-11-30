@@ -19,37 +19,52 @@ import (
 )
 
 func NewAddCmd() *cobra.Command {
+	var baseBranch string
+	var detach bool
+
 	cmd := &cobra.Command{
-		Use:   "add <branch|#PR|PR-URL>",
+		Use:   "add <branch|#PR|PR-URL|ref>",
 		Short: "Add a new worktree",
 		Long: `Add a new worktree for a branch or GitHub pull request.
 
 If the branch exists (locally or on remote), creates a worktree for it.
 If the branch doesn't exist, creates both the branch and worktree.
 If a PR reference is given, fetches PR metadata and creates a worktree for the PR's branch.
+With --detach, creates a worktree in detached HEAD state at the specified ref (commit/tag).
 
 Examples:
   grove add feature/auth                              # Add worktree for new branch
   grove add main                                      # Add worktree for existing branch
   grove add -s feature/auth                           # Add and switch to worktree
+  grove add --base main feature/auth                  # New branch from main, not HEAD
+  grove add --detach v1.0.0                           # Detached worktree at tag
   grove add #123                                      # Add worktree for PR #123
   grove add https://github.com/owner/repo/pull/123    # Add worktree from PR URL`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args[0], switchTo)
+			return runAdd(args[0], switchTo, baseBranch, detach)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
+	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
+	cmd.Flags().BoolVar(&detach, "detach", false, "Create worktree in detached HEAD state at ref")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
+
+	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
 
 	return cmd
 }
 
-func runAdd(branchOrPR string, switchTo bool) error {
+func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) error {
 	branchOrPR = strings.TrimSpace(branchOrPR)
+
+	// Validate flag combinations
+	if detach && baseBranch != "" {
+		return fmt.Errorf("--detach and --base cannot be used together")
+	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -81,14 +96,25 @@ func runAdd(branchOrPR string, switchTo bool) error {
 
 	// Check if this is a PR reference
 	if github.IsPRReference(branchOrPR) {
+		if baseBranch != "" {
+			return fmt.Errorf("--base cannot be used with PR references")
+		}
+		if detach {
+			return fmt.Errorf("--detach cannot be used with PR references")
+		}
 		return runAddFromPR(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
 	}
 
+	// Detached worktree
+	if detach {
+		return runAddDetached(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+	}
+
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+	return runAddFromBranch(branchOrPR, switchTo, baseBranch, bareDir, workspaceRoot, sourceWorktree)
 }
 
-func runAddFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromBranch(branch string, switchTo bool, baseBranch, bareDir, workspaceRoot, sourceWorktree string) error {
 	dirName := workspace.SanitizeBranchName(branch)
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
@@ -112,12 +138,29 @@ func runAddFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sour
 	}
 
 	if exists {
+		if baseBranch != "" {
+			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
+		}
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
 	} else {
-		if err := git.CreateWorktreeWithNewBranch(bareDir, worktreePath, branch, true); err != nil {
-			return fmt.Errorf("failed to create worktree: %w", err)
+		if baseBranch != "" {
+			// Validate base branch exists
+			baseExists, err := git.BranchExists(bareDir, baseBranch)
+			if err != nil {
+				return fmt.Errorf("failed to check base branch: %w", err)
+			}
+			if !baseExists {
+				return fmt.Errorf("base branch %q does not exist", baseBranch)
+			}
+			if err := git.CreateWorktreeWithNewBranchFrom(bareDir, worktreePath, branch, baseBranch, true); err != nil {
+				return fmt.Errorf("failed to create worktree: %w", err)
+			}
+		} else {
+			if err := git.CreateWorktreeWithNewBranch(bareDir, worktreePath, branch, true); err != nil {
+				return fmt.Errorf("failed to create worktree: %w", err)
+			}
 		}
 	}
 
@@ -137,6 +180,40 @@ func runAddFromBranch(branch string, switchTo bool, bareDir, workspaceRoot, sour
 		fmt.Println(worktreePath) // Path for shell wrapper to cd into
 	} else {
 		logger.Success("Created worktree at %s", worktreePath)
+		logPreserveResult(preserveResult)
+		logHookResult(hookResult)
+	}
+	return nil
+}
+
+func runAddDetached(ref string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
+	// Sanitize ref for directory name (e.g., v1.0.0 -> v1.0.0, abc123 -> abc123)
+	dirName := workspace.SanitizeBranchName(ref)
+	worktreePath := filepath.Join(workspaceRoot, dirName)
+
+	// Check directory doesn't already exist
+	if _, err := os.Stat(worktreePath); err == nil {
+		return fmt.Errorf("directory already exists: %s", worktreePath)
+	}
+
+	// Validate ref exists
+	if err := git.RefExists(bareDir, ref); err != nil {
+		return fmt.Errorf("ref %q does not exist", ref)
+	}
+
+	if err := git.CreateWorktreeDetached(bareDir, worktreePath, ref, true); err != nil {
+		return fmt.Errorf("failed to create detached worktree: %w", err)
+	}
+
+	// Note: Auto-lock not applied for detached worktrees (no branch to lock)
+
+	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	hookResult := runAddHooks(sourceWorktree, worktreePath)
+
+	if switchTo {
+		fmt.Println(worktreePath)
+	} else {
+		logger.Success("Created detached worktree at %s", worktreePath)
 		logPreserveResult(preserveResult)
 		logHookResult(hookResult)
 	}
@@ -428,5 +505,30 @@ func completeAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]st
 		}
 	}
 
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeBaseBranch(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	bareDir, err := workspace.FindBareDir(cwd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	branches, err := git.ListBranches(bareDir)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	var completions []string
+	for _, b := range branches {
+		if strings.HasPrefix(b, toComplete) {
+			completions = append(completions, b)
+		}
+	}
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }

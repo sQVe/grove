@@ -19,6 +19,7 @@ func NewListCmd() *cobra.Command {
 	var fast bool
 	var jsonOutput bool
 	var verbose bool
+	var filter string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -29,19 +30,22 @@ func NewListCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(fast, jsonOutput, verbose)
+			return runList(fast, jsonOutput, verbose, filter)
 		},
 	}
 
 	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status for faster output")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra details (paths, upstream names)")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status: dirty,ahead,behind,gone,locked (comma-separated)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
+
+	_ = cmd.RegisterFlagCompletionFunc("filter", completeFilterValues)
 
 	return cmd
 }
 
-func runList(fast, jsonOutput, verbose bool) error {
+func runList(fast, jsonOutput, verbose bool, filter string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -57,6 +61,9 @@ func runList(fast, jsonOutput, verbose bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
+
+	// Apply filter if specified
+	infos = filterWorktrees(infos, filter)
 
 	// Determine current branch (also works from subdirectories)
 	currentBranch := ""
@@ -158,4 +165,87 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 		}
 	}
 	return nil
+}
+
+func filterWorktrees(infos []*git.WorktreeInfo, filter string) []*git.WorktreeInfo {
+	filters := parseFilters(filter)
+	if len(filters) == 0 {
+		return infos
+	}
+
+	var filtered []*git.WorktreeInfo
+	for _, info := range infos {
+		if matchesAnyFilter(info, filters) {
+			filtered = append(filtered, info)
+		}
+	}
+	return filtered
+}
+
+func parseFilters(filter string) []string {
+	if filter == "" {
+		return nil
+	}
+
+	parts := strings.Split(filter, ",")
+	var filters []string
+	for _, p := range parts {
+		p = strings.TrimSpace(strings.ToLower(p))
+		if p != "" {
+			filters = append(filters, p)
+		}
+	}
+	return filters
+}
+
+func matchesAnyFilter(info *git.WorktreeInfo, filters []string) bool {
+	for _, f := range filters {
+		switch f {
+		case "dirty":
+			if info.Dirty {
+				return true
+			}
+		case "ahead":
+			if info.Ahead > 0 {
+				return true
+			}
+		case "behind":
+			if info.Behind > 0 {
+				return true
+			}
+		case "gone":
+			if info.Gone {
+				return true
+			}
+		case "locked":
+			if info.Locked {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func completeFilterValues(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	validFilters := []string{"dirty", "ahead", "behind", "gone", "locked"}
+
+	parts := strings.Split(toComplete, ",")
+	lastPart := parts[len(parts)-1]
+	prefix := ""
+	if len(parts) > 1 {
+		prefix = strings.Join(parts[:len(parts)-1], ",") + ","
+	}
+
+	selected := make(map[string]bool)
+	for _, p := range parts[:len(parts)-1] {
+		selected[strings.TrimSpace(p)] = true
+	}
+
+	var completions []string
+	for _, f := range validFilters {
+		if !selected[f] && strings.HasPrefix(f, lastPart) {
+			completions = append(completions, prefix+f)
+		}
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 }

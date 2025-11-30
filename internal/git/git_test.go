@@ -151,7 +151,7 @@ func TestCloneQuietMode(t *testing.T) {
 	tempDir := t.TempDir()
 	bareDir := filepath.Join(tempDir, "test.bare")
 
-	err := Clone("file:///nonexistent/repo.git", bareDir, true)
+	err := Clone("file:///nonexistent/repo.git", bareDir, true, false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -165,7 +165,7 @@ func TestCloneVerboseMode(t *testing.T) {
 	tempDir := t.TempDir()
 	bareDir := filepath.Join(tempDir, "test.bare")
 
-	err := Clone("file:///nonexistent/repo.git", bareDir, false)
+	err := Clone("file:///nonexistent/repo.git", bareDir, false, false)
 	if err == nil {
 		t.Fatal("Expected error for non-existent repo")
 	}
@@ -1335,6 +1335,83 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		}
 		if err.Error() != "branch name cannot be empty" {
 			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
+	t.Run("fails with empty base", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranchFrom("/repo", "/wt", "branch", "", true)
+		if err == nil {
+			t.Fatal("expected error for empty base")
+		}
+		if err.Error() != "base reference cannot be empty" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("fails with empty bare repo path", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranchFrom("", "/wt", "branch", "main", true)
+		if err == nil {
+			t.Fatal("expected error for empty bare repo path")
+		}
+	})
+
+	t.Run("fails with empty worktree path", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranchFrom("/repo", "", "branch", "main", true)
+		if err == nil {
+			t.Fatal("expected error for empty worktree path")
+		}
+	})
+
+	t.Run("fails with empty branch name", func(t *testing.T) {
+		err := CreateWorktreeWithNewBranchFrom("/repo", "/wt", "", "main", true)
+		if err == nil {
+			t.Fatal("expected error for empty branch name")
+		}
+	})
+}
+
+func TestCreateWorktreeDetached(t *testing.T) {
+	t.Run("fails with empty bare repo path", func(t *testing.T) {
+		err := CreateWorktreeDetached("", "/wt", "v1.0.0", true)
+		if err == nil {
+			t.Fatal("expected error for empty bare repo path")
+		}
+	})
+
+	t.Run("fails with empty worktree path", func(t *testing.T) {
+		err := CreateWorktreeDetached("/repo", "", "v1.0.0", true)
+		if err == nil {
+			t.Fatal("expected error for empty worktree path")
+		}
+	})
+
+	t.Run("fails with empty ref", func(t *testing.T) {
+		err := CreateWorktreeDetached("/repo", "/wt", "", true)
+		if err == nil {
+			t.Fatal("expected error for empty ref")
+		}
+		if err.Error() != "ref cannot be empty" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestRefExists(t *testing.T) {
+	t.Run("returns error for non-existent ref", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		err := RefExists(repo.Path, "nonexistent-tag-12345")
+		if err == nil {
+			t.Error("expected error for non-existent ref")
+		}
+	})
+
+	t.Run("returns nil for existing branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		err := RefExists(repo.Path, "main")
+		if err != nil {
+			t.Errorf("expected nil for existing branch, got: %v", err)
 		}
 	})
 }
@@ -2727,6 +2804,131 @@ func TestGetWorktreeLockReason(t *testing.T) {
 		reason := GetWorktreeLockReason(nonexistentPath)
 		if reason != "" {
 			t.Errorf("expected empty reason for nonexistent worktree, got %q", reason)
+		}
+	})
+}
+
+func TestGetDefaultBranch(t *testing.T) {
+	t.Run("returns main for bare repo with main branch", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create bare directory: %v", err)
+		}
+
+		// Initialize bare repo with main branch
+		cmd := exec.Command("git", "init", "--bare", "-b", "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to init bare repo: %v", err)
+		}
+
+		branch, err := GetDefaultBranch(bareDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if branch != "main" {
+			t.Errorf("expected 'main', got %q", branch)
+		}
+	})
+
+	t.Run("returns master for bare repo with master branch", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create bare directory: %v", err)
+		}
+
+		// Initialize bare repo with master branch
+		cmd := exec.Command("git", "init", "--bare", "-b", "master") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to init bare repo: %v", err)
+		}
+
+		branch, err := GetDefaultBranch(bareDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if branch != "master" {
+			t.Errorf("expected 'master', got %q", branch)
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		_, err := GetDefaultBranch("")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+}
+
+func TestIsBranchMerged(t *testing.T) {
+	t.Run("returns true for branch merged via regular merge", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t, testDefaultBranch)
+
+		// Create feature branch with a commit
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "content")
+		repo.Add("feature.txt")
+		repo.Commit("Add feature")
+
+		// Merge into main
+		repo.Checkout(testDefaultBranch)
+		repo.Merge("feature")
+
+		merged, err := IsBranchMerged(repo.Path, "feature", testDefaultBranch)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !merged {
+			t.Error("expected branch to be detected as merged")
+		}
+	})
+
+	t.Run("returns false for unmerged branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t, testDefaultBranch)
+
+		// Create feature branch with a commit
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "content")
+		repo.Add("feature.txt")
+		repo.Commit("Add feature")
+
+		// Don't merge - go back to main
+		repo.Checkout(testDefaultBranch)
+
+		merged, err := IsBranchMerged(repo.Path, "feature", testDefaultBranch)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if merged {
+			t.Error("expected branch to NOT be detected as merged")
+		}
+	})
+
+	t.Run("returns true for branch merged via squash merge", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t, testDefaultBranch)
+
+		// Create feature branch with commits
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "content")
+		repo.Add("feature.txt")
+		repo.Commit("Add feature")
+
+		// Squash merge into main
+		repo.Checkout(testDefaultBranch)
+		repo.SquashMerge("feature")
+
+		merged, err := IsBranchMerged(repo.Path, "feature", testDefaultBranch)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !merged {
+			t.Error("expected squash-merged branch to be detected as merged")
 		}
 	})
 }

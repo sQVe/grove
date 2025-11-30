@@ -27,6 +27,7 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 func NewCloneCmd() *cobra.Command {
 	var branches string
 	var verbose bool
+	var shallow bool
 
 	cloneCmd := &cobra.Command{
 		Use:   "clone <url|PR-URL> [directory]",
@@ -71,7 +72,7 @@ Examples:
 			}
 
 			// Regular clone
-			if err := workspace.CloneAndInitialize(urlOrPR, targetDir, branches, verbose); err != nil {
+			if err := workspace.CloneAndInitialize(urlOrPR, targetDir, branches, verbose, shallow); err != nil {
 				return err
 			}
 
@@ -81,6 +82,7 @@ Examples:
 	}
 	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")
 	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show detailed git output during clone and worktree creation")
+	cloneCmd.Flags().BoolVar(&shallow, "shallow", false, "Create a shallow clone (depth=1)")
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 
 	return cloneCmd

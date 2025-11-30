@@ -72,7 +72,7 @@ func RestoreNormalConfig(path string) error {
 }
 
 // Clone clones a git repository as bare into the specified path
-func Clone(url, path string, quiet bool) error {
+func Clone(url, path string, quiet, shallow bool) error {
 	if url == "" {
 		return errors.New("repository URL cannot be empty")
 	}
@@ -80,14 +80,17 @@ func Clone(url, path string, quiet bool) error {
 		return errors.New("destination path cannot be empty")
 	}
 
-	var cmd *exec.Cmd
+	args := []string{"clone", "--bare"}
 	if quiet {
-		logger.Debug("Executing: git clone --bare --quiet %s %s", url, path)
-		cmd = exec.Command("git", "clone", "--bare", "--quiet", url, path)
-	} else {
-		logger.Debug("Executing: git clone --bare %s %s", url, path)
-		cmd = exec.Command("git", "clone", "--bare", url, path)
+		args = append(args, "--quiet")
 	}
+	if shallow {
+		args = append(args, "--depth", "1")
+	}
+	args = append(args, url, path)
+
+	logger.Debug("Executing: git %s", strings.Join(args, " "))
+	cmd := exec.Command("git", args...)
 
 	return runGitCommand(cmd, quiet)
 }
@@ -186,6 +189,59 @@ func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bo
 	cmd.Dir = bareRepo
 
 	return runGitCommand(cmd, quiet)
+}
+
+// CreateWorktreeWithNewBranchFrom creates a new worktree with a new branch based on a specific commit/branch.
+// Uses: git worktree add -b <newbranch> <path> <base>
+func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string, quiet bool) error {
+	if bareRepo == "" {
+		return errors.New("bare repository path cannot be empty")
+	}
+	if worktreePath == "" {
+		return errors.New("worktree path cannot be empty")
+	}
+	if branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
+	if base == "" {
+		return errors.New("base reference cannot be empty")
+	}
+
+	logger.Debug("Executing: git worktree add -b %s %s %s", branch, worktreePath, base)
+	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath, base)
+	cmd.Dir = bareRepo
+
+	return runGitCommand(cmd, quiet)
+}
+
+// CreateWorktreeDetached creates a worktree in detached HEAD state at the specified ref.
+// Uses: git worktree add --detach <path> <ref>
+func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) error {
+	if bareRepo == "" {
+		return errors.New("bare repository path cannot be empty")
+	}
+	if worktreePath == "" {
+		return errors.New("worktree path cannot be empty")
+	}
+	if ref == "" {
+		return errors.New("ref cannot be empty")
+	}
+
+	logger.Debug("Executing: git worktree add --detach %s %s", worktreePath, ref)
+	cmd := exec.Command("git", "worktree", "add", "--detach", worktreePath, ref)
+	cmd.Dir = bareRepo
+
+	return runGitCommand(cmd, quiet)
+}
+
+// RefExists checks if a ref (commit, tag, branch) exists
+func RefExists(repoPath, ref string) error {
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", ref)
+	cmd.Dir = repoPath
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ref not found")
+	}
+	return nil
 }
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository
@@ -1265,4 +1321,115 @@ func FetchBranch(repoPath, remote, branch string) error {
 	cmd.Dir = repoPath
 
 	return runGitCommand(cmd, true)
+}
+
+// IsBranchMerged checks if a branch has been merged into the target branch.
+// It detects both regular merges (via ancestry) and squash merges (via patch-id comparison).
+func IsBranchMerged(repoPath, branch, targetBranch string) (bool, error) {
+	if repoPath == "" {
+		return false, errors.New("repository path cannot be empty")
+	}
+	if branch == "" {
+		return false, errors.New("branch name cannot be empty")
+	}
+	if targetBranch == "" {
+		return false, errors.New("target branch name cannot be empty")
+	}
+
+	// Check regular merge (ancestry)
+	if isMergedByAncestry(repoPath, branch, targetBranch) {
+		return true, nil
+	}
+
+	// Check squash merge (patch-id comparison)
+	return isMergedByPatchID(repoPath, branch, targetBranch)
+}
+
+// isMergedByAncestry checks if branch is an ancestor of targetBranch
+func isMergedByAncestry(repoPath, branch, targetBranch string) bool {
+	// git merge-base --is-ancestor returns 0 if branch is ancestor of targetBranch
+	cmd := exec.Command("git", "merge-base", "--is-ancestor", branch, targetBranch) // nolint:gosec
+	cmd.Dir = repoPath
+	return cmd.Run() == nil
+}
+
+// isMergedByPatchID detects squash merges by comparing patch-ids
+func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
+	// Get merge-base between branch and target
+	mergeBaseCmd := exec.Command("git", "merge-base", branch, targetBranch) // nolint:gosec
+	mergeBaseCmd.Dir = repoPath
+	mergeBaseOutput, err := mergeBaseCmd.Output()
+	if err != nil {
+		return false, nil //nolint:nilerr // No common ancestor means not merged
+	}
+	mergeBase := strings.TrimSpace(string(mergeBaseOutput))
+
+	// Get patch-ids for commits on the feature branch since merge-base
+	branchPatchIDs, err := getPatchIDs(repoPath, mergeBase, branch)
+	if err != nil || len(branchPatchIDs) == 0 {
+		return false, nil //nolint:nilerr // Error getting patch-ids means we can't determine merge status
+	}
+
+	// Get patch-ids for commits on target branch since merge-base
+	targetPatchIDs, err := getPatchIDs(repoPath, mergeBase, targetBranch)
+	if err != nil || len(targetPatchIDs) == 0 {
+		return false, nil //nolint:nilerr // Error getting patch-ids means we can't determine merge status
+	}
+
+	// Check if all branch patch-ids exist in target
+	for _, patchID := range branchPatchIDs {
+		found := false
+		for _, targetPatchID := range targetPatchIDs {
+			if patchID == targetPatchID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// getPatchIDs returns the patch-ids for commits between base and head
+func getPatchIDs(repoPath, base, head string) ([]string, error) {
+	// git log base..head --format=%H | git patch-id
+	logCmd := exec.Command("git", "log", "--format=%H", base+".."+head) // nolint:gosec
+	logCmd.Dir = repoPath
+	commits, err := logCmd.Output()
+	if err != nil || len(commits) == 0 {
+		return nil, err
+	}
+
+	var patchIDs []string
+	for _, commit := range strings.Split(strings.TrimSpace(string(commits)), "\n") {
+		if commit == "" {
+			continue
+		}
+		// Get the diff for this commit and compute patch-id
+		diffCmd := exec.Command("git", "diff-tree", "-p", commit) // nolint:gosec
+		diffCmd.Dir = repoPath
+		diffOutput, err := diffCmd.Output()
+		if err != nil || len(diffOutput) == 0 {
+			continue
+		}
+
+		patchIDCmd := exec.Command("git", "patch-id", "--stable") // nolint:gosec
+		patchIDCmd.Dir = repoPath
+		patchIDCmd.Stdin = bytes.NewReader(diffOutput)
+		patchIDOutput, err := patchIDCmd.Output()
+		if err != nil {
+			continue
+		}
+
+		// Output format: "patchid commitid"
+		parts := strings.Fields(string(patchIDOutput))
+		if len(parts) >= 1 {
+			patchIDs = append(patchIDs, parts[0])
+		}
+	}
+
+	return patchIDs, nil
 }
