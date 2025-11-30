@@ -1,6 +1,6 @@
 //go:build !windows
 
-package commands
+package workspace
 
 import (
 	"os"

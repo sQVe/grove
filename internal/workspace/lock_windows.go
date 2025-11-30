@@ -1,6 +1,6 @@
 //go:build windows
 
-package commands
+package workspace
 
 import (
 	"golang.org/x/sys/windows"

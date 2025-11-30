@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -104,12 +103,9 @@ func runMove(oldBranch, newBranch string) error {
 
 	// Acquire workspace lock
 	lockFile := filepath.Join(workspaceRoot, ".grove-worktree.lock")
-	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
+	lockHandle, err := workspace.AcquireWorkspaceLock(lockFile)
 	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("another grove operation is in progress; if this is wrong, remove %s", lockFile)
-		}
-		return fmt.Errorf("failed to acquire lock: %w", err)
+		return err
 	}
 	defer func() {
 		_ = lockHandle.Close()
