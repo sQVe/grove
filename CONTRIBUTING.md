@@ -2,16 +2,6 @@
 
 Thanks for contributing! Grove makes Git worktrees simple, and we want contributing to Grove to be simple too.
 
-## Project Context
-
-Before diving in, check out our steering documents to understand the project vision and standards:
-
--   **[Product Vision](PRODUCT.md)** - Mission, target users, and value propositions
--   **[Technical Standards](ARCHITECTURE.md)** - Architecture principles, tech stack, and patterns
--   **[Project Structure](STRUCTURE.md)** - File organization and naming conventions
-
-These documents guide all development decisions and ensure consistency across the project.
-
 ## Quick Setup
 
 | Step        | Command                                               |
@@ -20,18 +10,62 @@ These documents guide all development decisions and ensure consistency across th
 | **Install** | `go mod download`                                     |
 | **Verify**  | `mage test:unit && mage lint && mage build:dev`       |
 
-**Prerequisites:** Go 1.21+, Git 2.5+, golangci-lint 1.50+, Mage build system
+**Prerequisites:** Go 1.24+, Git 2.5+, golangci-lint, gotestsum, Mage
+
+## Tech Stack
+
+**Runtime:**
+
+-   **Go 1.24+** — Standard library preferred over external dependencies
+-   **spf13/cobra** — CLI framework
+-   **charmbracelet/lipgloss** — Terminal styling
+-   **muesli/termenv** — Terminal capability detection
+-   **rogpeppe/go-internal** — Testscript integration tests
+
+**Development:**
+
+-   **magefile/mage** — Build automation
+-   **golangci-lint** — Linting with gofumpt and goimports
+-   **gotestsum** — Test runner with better output
+
+## Workspace Architecture
+
+Grove stores Git data in a bare repository (`.bare`) with worktrees as sibling directories:
+
+```
+project/
+├── .bare/           # Bare Git repository (objects, refs)
+├── .git             # File: "gitdir: .bare"
+├── main/            # Worktree for main branch
+├── feature-auth/    # Worktree for feature/auth
+└── bugfix-login/    # Worktree for bugfix/login
+```
+
+**Components:**
+
+-   `.bare` directory holds the complete Git repository without a working tree
+-   `.git` file redirects Git operations to `.bare`
+-   Worktree directories contain isolated working copies
+-   Branch names like `feature/auth` become `feature-auth` (slashes replaced with dashes)
+
+**Benefits:**
+
+-   Work on multiple branches simultaneously without stashing
+-   Each worktree maintains independent working directory and index
+-   All worktrees share Git objects — no duplication
+
+**Detection:** Grove finds workspaces by traversing parent directories for `.bare` or `.git` files containing `gitdir: .bare`.
 
 ## Testing Strategy
 
 Test the code that breaks, not the code that makes the metrics green.
 
-**Unit tests** (`*_test.go`) - Test internal functions directly. Use real Git.
+**Unit tests** (`*_test.go`) — Internal functions. Use real Git.
 
 -   Single function behavior and error conditions
 -   Tests should be short and focused, and most importantly, fast
 
-**Testscript tests** (`testdata/script/*.txt`) - Test CLI commands and workflows.
+**Testscript tests** (`cmd/grove/testdata/script/*.txt`) — CLI commands and workflows.
 
 -   User-facing behavior and error messages
 -   Complex setups or multi-step flows
@@ -111,7 +145,7 @@ logger.Success("Removed worktree '%s'", name)
 Use `internal/formatter` for consistent worktree formatting:
 
 ```go
-import "grove/internal/formatter"
+import "github.com/sqve/grove/internal/formatter"
 
 // Format indicators
 marker := formatter.CurrentMarker(isCurrent)  //  or * or space
