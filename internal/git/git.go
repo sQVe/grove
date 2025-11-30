@@ -1,7 +1,6 @@
 package git
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -9,9 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/sqve/grove/internal/config"
@@ -31,12 +27,6 @@ const (
 	markerRebaseMerge    = "rebase-merge"
 )
 
-// Regex patterns for parsing git output
-var (
-	aheadPattern  = regexp.MustCompile(`ahead (\d+)`)
-	behindPattern = regexp.MustCompile(`behind (\d+)`)
-)
-
 // GitCommand creates an exec.Cmd with timeout context if configured.
 // Returns the command and a cancel function that must be called when done.
 func GitCommand(name string, arg ...string) (*exec.Cmd, context.CancelFunc) {
@@ -51,21 +41,80 @@ func GitCommand(name string, arg ...string) (*exec.Cmd, context.CancelFunc) {
 // runGitCommand executes a git command with consistent stderr capture and error handling
 func runGitCommand(cmd *exec.Cmd, quiet bool) error {
 	if quiet {
-		var stderr bytes.Buffer
-		cmd.Stderr = &stderr
-
-		if err := cmd.Run(); err != nil {
-			if stderr.Len() > 0 {
-				return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-			}
-			return err
-		}
-		return nil
+		return executeWithStderr(cmd)
 	}
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// executeWithStderr runs cmd and returns error with stderr context if available.
+func executeWithStderr(cmd *exec.Cmd) error {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return err
+	}
+	return nil
+}
+
+// executeWithOutput runs cmd and returns stdout as string, with stderr in error if failed.
+func executeWithOutput(cmd *exec.Cmd) (string, error) {
+	out, err := executeWithOutputBuffer(cmd)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+// executeWithOutputBuffer runs cmd and returns stdout buffer, with stderr in error if failed.
+// Use this when you need to process output line-by-line with a scanner.
+func executeWithOutputBuffer(cmd *exec.Cmd) (*bytes.Buffer, error) {
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		}
+		return nil, err
+	}
+	return &stdout, nil
+}
+
+// resolveGitDir returns the actual git directory for a repository or worktree.
+func resolveGitDir(path string) (string, error) {
+	gitPath := filepath.Join(path, ".git")
+
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return "", err
+	}
+
+	if info.IsDir() {
+		return gitPath, nil
+	}
+
+	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
+	if err != nil {
+		return "", err
+	}
+
+	line := strings.TrimSpace(string(content))
+	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
+		if filepath.IsAbs(after) {
+			return after, nil
+		}
+		return filepath.Join(path, after), nil
+	}
+
+	return "", fmt.Errorf("invalid .git file format")
 }
 
 // InitBare initializes a bare git repository in the specified directory
@@ -138,134 +187,24 @@ func FetchPrune(repoPath string) error {
 	return runGitCommand(cmd, true)
 }
 
-// ListBranches returns a list of all branches in a bare repository
-func ListBranches(bareRepo string) ([]string, error) {
-	logger.Debug("Executing: git branch -a --format=%%(refname:short) in %s", bareRepo)
-	cmd, cancel := GitCommand("git", "branch", "-a", "--format=%(refname:short)")
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return nil, err
+// FetchBranch fetches a specific branch from a remote.
+func FetchBranch(repoPath, remote, branch string) error {
+	if repoPath == "" {
+		return errors.New("repository path cannot be empty")
 	}
-
-	branchSet := make(map[string]bool)
-	scanner := bufio.NewScanner(&out)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || line == "origin" {
-			continue
-		}
-
-		if branchName, ok := strings.CutPrefix(line, "origin/"); ok {
-			if branchName != "HEAD" {
-				branchSet[branchName] = true
-			}
-		} else {
-			branchSet[line] = true
-		}
-	}
-
-	var branches []string
-	for branch := range branchSet {
-		branches = append(branches, branch)
-	}
-
-	return branches, scanner.Err()
-}
-
-// CreateWorktree creates a new worktree from a bare repository
-func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
+	if remote == "" {
+		return errors.New("remote name cannot be empty")
 	}
 	if branch == "" {
 		return errors.New("branch name cannot be empty")
 	}
 
-	logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
-	cmd, cancel := GitCommand("git", "worktree", "add", worktreePath, branch)
+	logger.Debug("Executing: git fetch %s %s in %s", remote, branch, repoPath)
+	cmd, cancel := GitCommand("git", "fetch", remote, branch) // nolint:gosec // Validated input
 	defer cancel()
-	cmd.Dir = bareRepo
+	cmd.Dir = repoPath
 
-	return runGitCommand(cmd, quiet)
-}
-
-// CreateWorktreeWithNewBranch creates a new worktree with a new branch.
-// Uses: git worktree add -b <branch> <path>
-func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add -b %s %s", branch, worktreePath)
-	cmd, cancel := GitCommand("git", "worktree", "add", "-b", branch, worktreePath)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return runGitCommand(cmd, quiet)
-}
-
-// CreateWorktreeWithNewBranchFrom creates a new worktree with a new branch based on a specific commit/branch.
-// Uses: git worktree add -b <newbranch> <path> <base>
-func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-	if base == "" {
-		return errors.New("base reference cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add -b %s %s %s", branch, worktreePath, base)
-	cmd, cancel := GitCommand("git", "worktree", "add", "-b", branch, worktreePath, base)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return runGitCommand(cmd, quiet)
-}
-
-// CreateWorktreeDetached creates a worktree in detached HEAD state at the specified ref.
-// Uses: git worktree add --detach <path> <ref>
-func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if ref == "" {
-		return errors.New("ref cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --detach %s %s", worktreePath, ref)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--detach", worktreePath, ref)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return runGitCommand(cmd, quiet)
+	return runGitCommand(cmd, true)
 }
 
 // RefExists checks if a ref (commit, tag, branch) exists
@@ -285,36 +224,6 @@ func IsInsideGitRepo(path string) bool {
 	defer cancel()
 	cmd.Dir = path
 	return cmd.Run() == nil
-}
-
-// IsWorktree checks if the given path is a git worktree
-func IsWorktree(path string) bool {
-	gitPath := filepath.Join(path, ".git")
-	return fs.FileExists(gitPath)
-}
-
-// FindWorktreeRoot walks up from the given path to find the worktree root.
-// Returns the path containing the .git file, or error if not in a worktree.
-func FindWorktreeRoot(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
-	if err != nil {
-		return "", err
-	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		gitPath := filepath.Join(dir, ".git")
-		if fs.FileExists(gitPath) {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("not in a worktree")
-		}
-		dir = parent
-	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
 }
 
 // GetGitDir returns the path to the git directory for the given path.
@@ -345,1064 +254,6 @@ func GetGitDir(path string) (string, error) {
 	}
 
 	return "", fmt.Errorf("not a git repository")
-}
-
-// GetWorktreeGitDir returns the gitdir path for a worktree.
-// Returns ("", nil) if the path is not a worktree (no .git file).
-// Returns an error if the .git file exists but is unreadable or malformed.
-func GetWorktreeGitDir(worktreePath string) (string, error) {
-	gitFile := filepath.Join(worktreePath, ".git")
-	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil // Not a worktree - expected case
-		}
-		return "", fmt.Errorf("failed to read .git file: %w", err)
-	}
-
-	line := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(line, "gitdir:") {
-		return "", fmt.Errorf("invalid .git file format: missing gitdir prefix")
-	}
-
-	gitdir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
-	if !filepath.IsAbs(gitdir) {
-		gitdir = filepath.Join(worktreePath, gitdir)
-	}
-	return filepath.Clean(gitdir), nil
-}
-
-// IsWorktreeLocked checks if a worktree is locked.
-func IsWorktreeLocked(worktreePath string) bool {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
-	if err != nil {
-		logger.Debug("Failed to get worktree gitdir for lock check: %v", err)
-		return false
-	}
-	if gitdir == "" {
-		return false
-	}
-	lockFile := filepath.Join(gitdir, "locked")
-	_, err = os.Stat(lockFile)
-	return err == nil
-}
-
-// LockWorktree locks a worktree with an optional reason
-func LockWorktree(bareDir, worktreePath, reason string) error {
-	args := []string{"worktree", "lock"}
-	if reason != "" {
-		args = append(args, "--reason", reason)
-	}
-	args = append(args, worktreePath)
-	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd, cancel := GitCommand("git", args...) //nolint:gosec // Worktree path validated
-	defer cancel()
-	cmd.Dir = bareDir
-	return runGitCommand(cmd, true)
-}
-
-// GetWorktreeLockReason returns the lock reason for a worktree.
-func GetWorktreeLockReason(worktreePath string) string {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
-	if err != nil {
-		logger.Debug("Failed to get worktree gitdir for lock reason: %v", err)
-		return ""
-	}
-	if gitdir == "" {
-		return ""
-	}
-	lockFile := filepath.Join(gitdir, "locked")
-	content, err := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(content))
-}
-
-// UnlockWorktree unlocks a locked worktree
-func UnlockWorktree(bareDir, worktreePath string) error {
-	logger.Debug("Executing: git worktree unlock %s in %s", worktreePath, bareDir)
-	cmd, cancel := GitCommand("git", "worktree", "unlock", worktreePath) //nolint:gosec // Worktree path validated
-	defer cancel()
-	cmd.Dir = bareDir
-	return runGitCommand(cmd, true)
-}
-
-// RemoveWorktree removes a worktree directory
-func RemoveWorktree(bareDir, worktreePath string, force bool) error {
-	args := []string{"worktree", "remove", worktreePath}
-	if force {
-		args = append(args, "--force")
-	}
-	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd, cancel := GitCommand("git", args...) // nolint:gosec // Worktree path comes from git worktree list
-	defer cancel()
-	cmd.Dir = bareDir
-	return runGitCommand(cmd, true)
-}
-
-// DeleteBranch deletes a local branch
-func DeleteBranch(repoPath, branchName string, force bool) error {
-	flag := "-d"
-	if force {
-		flag = "-D"
-	}
-	logger.Debug("Executing: git branch %s %s in %s", flag, branchName, repoPath)
-	cmd, cancel := GitCommand("git", "branch", flag, branchName) //nolint:gosec // Branch name comes from validated input
-	defer cancel()
-	cmd.Dir = repoPath
-	return runGitCommand(cmd, true)
-}
-
-// CheckGitChanges runs git status once and returns both tracked and any changes
-func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
-	cmd, cancel := GitCommand("git", "status", "--porcelain")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return false, false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		logger.Debug("Git status failed: %v", err)
-		return false, false, err
-	}
-
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		logger.Debug("Repository status: clean (no changes)")
-		return false, false, nil
-	}
-
-	hasAnyChanges = true
-
-	lines := strings.Split(output, "\n")
-	changeCount := len(lines)
-	for _, line := range lines {
-		if line == "" {
-			changeCount--
-			continue
-		}
-		if !strings.HasPrefix(line, "??") {
-			hasTrackedChanges = true
-			break
-		}
-	}
-
-	logger.Debug("Repository status: %d changes detected, tracked changes: %t", changeCount, hasTrackedChanges)
-	return hasAnyChanges, hasTrackedChanges, nil
-}
-
-// GetCurrentBranch returns the current branch name
-func GetCurrentBranch(path string) (string, error) {
-	if path == "" {
-		return "", errors.New("repository path cannot be empty")
-	}
-
-	gitDir, err := resolveGitDir(path)
-	if err != nil {
-		return "", err
-	}
-
-	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return "", err
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	if after, ok := strings.CutPrefix(line, "ref: refs/heads/"); ok {
-		return after, nil
-	}
-
-	return "", fmt.Errorf("detached HEAD state")
-}
-
-// IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
-// An unborn HEAD occurs when HEAD points to a branch ref that doesn't exist,
-// which happens in newly initialized repos before the first commit.
-func IsUnbornHead(path string) (bool, error) {
-	if path == "" {
-		return false, errors.New("repository path cannot be empty")
-	}
-
-	gitDir, err := resolveGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return false, err
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	if !strings.HasPrefix(line, "ref: ") {
-		return false, nil
-	}
-
-	refPath := strings.TrimPrefix(line, "ref: ")
-
-	looseRef := filepath.Join(gitDir, refPath)
-	if _, err := os.Stat(looseRef); err == nil {
-		return false, nil
-	}
-
-	packedRefsPath := filepath.Join(gitDir, "packed-refs")
-	if packedRefs, err := os.ReadFile(packedRefsPath); err == nil { // nolint:gosec
-		for _, packedLine := range strings.Split(string(packedRefs), "\n") {
-			if strings.HasPrefix(packedLine, "#") || strings.HasPrefix(packedLine, "^") {
-				continue
-			}
-			fields := strings.Fields(packedLine)
-			if len(fields) >= 2 && fields[1] == refPath {
-				return false, nil
-			}
-		}
-	}
-
-	return true, nil
-}
-
-// resolveGitDir returns the actual git directory for a repository or worktree.
-func resolveGitDir(path string) (string, error) {
-	gitPath := filepath.Join(path, ".git")
-
-	info, err := os.Stat(gitPath)
-	if err != nil {
-		return "", err
-	}
-
-	if info.IsDir() {
-		return gitPath, nil
-	}
-
-	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
-	if err != nil {
-		return "", err
-	}
-
-	line := strings.TrimSpace(string(content))
-	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
-		if filepath.IsAbs(after) {
-			return after, nil
-		}
-		return filepath.Join(path, after), nil
-	}
-
-	return "", fmt.Errorf("invalid .git file format")
-}
-
-// GetDefaultBranch returns the default branch for a bare repository
-func GetDefaultBranch(bareDir string) (string, error) {
-	if bareDir == "" {
-		return "", errors.New("repository path cannot be empty")
-	}
-
-	headFile := filepath.Join(bareDir, "HEAD")
-
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return "", fmt.Errorf("failed to read HEAD: %w", err)
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	if after, ok := strings.CutPrefix(line, "ref: refs/heads/"); ok {
-		return after, nil
-	}
-
-	return "", fmt.Errorf("could not determine default branch from HEAD")
-}
-
-// IsDetachedHead checks if the repository is in detached HEAD state
-func IsDetachedHead(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	headFile := filepath.Join(gitDir, "HEAD")
-
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return false, err
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	return !strings.HasPrefix(line, "ref: refs/heads/"), nil
-}
-
-// HasOngoingOperation checks for merge/rebase/cherry-pick operations
-func HasOngoingOperation(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	markers := []string{
-		markerCherryPickHead,
-		markerMergeHead,
-		markerRevertHead,
-		markerRebaseApply,
-		markerRebaseMerge,
-	}
-
-	for _, marker := range markers {
-		if fs.PathExists(filepath.Join(gitDir, marker)) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-// GetOngoingOperation returns the name of any ongoing git operation, or empty string if none.
-// Returns: "merging", "rebasing", "cherry-picking", "reverting", or ""
-func GetOngoingOperation(path string) (string, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return "", err
-	}
-
-	if fs.PathExists(filepath.Join(gitDir, markerMergeHead)) {
-		return "merging", nil
-	}
-	if fs.PathExists(filepath.Join(gitDir, markerRebaseMerge)) || fs.PathExists(filepath.Join(gitDir, markerRebaseApply)) {
-		return "rebasing", nil
-	}
-	if fs.PathExists(filepath.Join(gitDir, markerCherryPickHead)) {
-		return "cherry-picking", nil
-	}
-	if fs.PathExists(filepath.Join(gitDir, markerRevertHead)) {
-		return "reverting", nil
-	}
-
-	return "", nil
-}
-
-// ListWorktrees returns paths to existing worktrees, excluding the main repository
-func ListWorktrees(repoPath string) ([]string, error) {
-	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
-	cmd, cancel := GitCommand("git", "worktree", "list", "--porcelain")
-	defer cancel()
-	cmd.Dir = repoPath
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return nil, err
-	}
-
-	absRepoPath, err := filepath.Abs(repoPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var worktrees []string
-	scanner := bufio.NewScanner(&out)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Porcelain format: "worktree /path/to/worktree" on its own line
-		if !strings.HasPrefix(line, "worktree ") {
-			continue
-		}
-
-		worktreePath := strings.TrimPrefix(line, "worktree ")
-
-		absWorktreePath, err := filepath.Abs(worktreePath)
-		if err != nil {
-			return nil, err
-		}
-
-		// Skip the main worktree (same as repo path)
-		if absWorktreePath == absRepoPath {
-			continue
-		}
-
-		worktrees = append(worktrees, worktreePath)
-	}
-
-	return worktrees, scanner.Err()
-}
-
-// HasLockFiles checks if there are any active git lock files
-func HasLockFiles(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	lockFiles, err := filepath.Glob(filepath.Join(gitDir, "*.lock"))
-	if err != nil {
-		return false, err
-	}
-
-	return len(lockFiles) > 0, nil
-}
-
-// HasUnresolvedConflicts checks if there are unresolved merge conflicts
-func HasUnresolvedConflicts(path string) (bool, error) {
-	cmd, cancel := GitCommand("git", "ls-files", "-u")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return false, err
-	}
-
-	return strings.TrimSpace(out.String()) != "", nil
-}
-
-// GetConflictCount returns the number of files with unresolved merge conflicts
-func GetConflictCount(path string) (int, error) {
-	cmd, cancel := GitCommand("git", "ls-files", "-u")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return 0, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return 0, err
-	}
-
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		return 0, nil
-	}
-
-	files := make(map[string]bool)
-	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 4 {
-			files[fields[3]] = true
-		}
-	}
-
-	return len(files), nil
-}
-
-// HasSubmodules checks if the repository has submodules
-func HasSubmodules(path string) (bool, error) {
-	// Check for .gitmodules file first, since it is more reliable than git
-	// submodule status.
-	gitModulesPath := filepath.Join(path, ".gitmodules")
-	if fs.FileExists(gitModulesPath) {
-		return true, nil
-	}
-
-	cmd, cancel := GitCommand("git", "submodule", "status")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return false, err
-	}
-
-	output := strings.TrimSpace(out.String())
-	return output != "", nil
-}
-
-// HasUnpushedCommits checks if the current branch has unpushed commits
-func HasUnpushedCommits(path string) (bool, error) {
-	cmdUpstream, cancelUpstream := GitCommand("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-	defer cancelUpstream()
-	cmdUpstream.Dir = path
-	var upstreamStderr bytes.Buffer
-	cmdUpstream.Stderr = &upstreamStderr
-
-	if err := cmdUpstream.Run(); err != nil {
-		return false, fmt.Errorf("%w: %s", ErrNoUpstreamConfigured, strings.TrimSpace(upstreamStderr.String()))
-	}
-
-	cmdLog, cancelLog := GitCommand("git", "log", "@{u}..HEAD", "--oneline")
-	defer cancelLog()
-	cmdLog.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmdLog.Stdout = &out
-	cmdLog.Stderr = &stderr
-
-	if err := cmdLog.Run(); err != nil {
-		return false, fmt.Errorf("failed to check unpushed commits: %w: %s", err, strings.TrimSpace(stderr.String()))
-	}
-
-	output := strings.TrimSpace(out.String())
-	return output != "", nil
-}
-
-// ListLocalBranches returns a list of all local branches in a repository
-func ListLocalBranches(path string) ([]string, error) {
-	if path == "" {
-		return nil, errors.New("repository path cannot be empty")
-	}
-	cmd, cancel := GitCommand("git", "branch", "--format=%(refname:short)")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return nil, err
-	}
-
-	var branches []string
-	scanner := bufio.NewScanner(&out)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			branches = append(branches, line)
-		}
-	}
-
-	return branches, scanner.Err()
-}
-
-// BranchExists checks if a branch exists locally or on any remote
-func BranchExists(repoPath, branchName string) (bool, error) {
-	if repoPath == "" || branchName == "" {
-		return false, errors.New("repository path and branch name cannot be empty")
-	}
-
-	cmd, cancel := GitCommand("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
-	cmd.Dir = repoPath
-	err := cmd.Run()
-	cancel()
-	if err == nil {
-		return true, nil
-	}
-
-	remotesCmd, cancelRemotes := GitCommand("git", "remote")
-	defer cancelRemotes()
-	remotesCmd.Dir = repoPath
-	output, err := remotesCmd.Output()
-	if err != nil {
-		return false, nil //nolint:nilerr // Intentional: remote errors mean branch not found remotely
-	}
-
-	remotes := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, remote := range remotes {
-		if remote == "" {
-			continue
-		}
-		remoteBranch := remote + "/" + branchName
-		cmd, cancelCmd := GitCommand("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
-		cmd.Dir = repoPath
-		err := cmd.Run()
-		cancelCmd()
-		if err == nil {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-// ErrConfigNotFound is returned when a config key is not found
-var ErrConfigNotFound = errors.New("config key not found")
-
-// IsConfigNotFoundError returns true if error indicates config not found
-func IsConfigNotFoundError(err error) bool {
-	return errors.Is(err, ErrConfigNotFound)
-}
-
-// GetConfig gets a single config value
-func GetConfig(key string, global bool) (string, error) {
-	logger.Debug("Getting git config: %s (global=%v)", key, global)
-
-	args := []string{"config", "--get"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
-			return "", ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return "", err
-	}
-
-	return strings.TrimSpace(stdout.String()), nil
-}
-
-// GetConfigs gets all config values for keys with a given prefix
-func GetConfigs(prefix string, global bool) (map[string][]string, error) {
-	logger.Debug("Getting git configs with prefix: %s (global=%v)", prefix, global)
-
-	args := []string{"config", "--get-regexp"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, prefix)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
-			return make(map[string][]string), nil
-		}
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return nil, err
-	}
-
-	configs := make(map[string][]string)
-	scanner := bufio.NewScanner(&stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) == 2 {
-			key, value := parts[0], parts[1]
-			configs[key] = append(configs[key], value)
-		}
-	}
-
-	return configs, scanner.Err()
-}
-
-// SetConfig sets a config value, replacing any existing value
-func SetConfig(key, value string, global bool) error {
-	logger.Debug("Setting git config: %s=%s (global=%v)", key, value, global)
-
-	args := []string{"config"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key, value)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
-}
-
-// AddConfig adds a value to a multi-value config key
-func AddConfig(key, value string, global bool) error {
-	logger.Debug("Adding git config: %s=%s (global=%v)", key, value, global)
-
-	args := []string{"config", "--add"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key, value)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
-}
-
-// UnsetConfig removes a config key and all its values
-func UnsetConfig(key string, global bool) error {
-	logger.Debug("Unsetting git config: %s (global=%v)", key, global)
-
-	args := []string{"config", "--unset-all"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
-			return ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
-}
-
-// UnsetConfigValue removes a specific value from a config key using pattern matching
-func UnsetConfigValue(key, valuePattern string, global bool) error {
-	logger.Debug("Unsetting git config value: %s=%s (global=%v)", key, valuePattern, global)
-
-	args := []string{"config", "--unset-all", "--fixed-value"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key, valuePattern)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
-			return ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
-}
-
-// WorktreeInfo contains status information about a worktree
-type WorktreeInfo struct {
-	Path           string // Absolute path to worktree
-	Branch         string // Branch name
-	Upstream       string // Upstream branch name (e.g., "origin/main")
-	Dirty          bool   // Has uncommitted changes
-	Ahead          int    // Commits ahead of upstream
-	Behind         int    // Commits behind upstream
-	Gone           bool   // Upstream branch deleted
-	NoUpstream     bool   // No upstream configured
-	Locked         bool   // Worktree is locked
-	LockReason     string // Reason for lock (empty if not locked)
-	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
-}
-
-// FindWorktreeByBranch finds a worktree by branch name from a list of worktree infos.
-// Returns nil if no worktree exists for the given branch.
-func FindWorktreeByBranch(infos []*WorktreeInfo, branch string) *WorktreeInfo {
-	for _, info := range infos {
-		if info.Branch == branch {
-			return info
-		}
-	}
-	return nil
-}
-
-// GetLastCommitTime returns the Unix timestamp of the last commit in a repository.
-// Returns 0 if the repository has no commits or on error.
-func GetLastCommitTime(path string) int64 {
-	cmd, cancel := GitCommand("git", "log", "-1", "--format=%ct", "HEAD")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	if err := cmd.Run(); err != nil {
-		return 0
-	}
-
-	var timestamp int64
-	if _, err := fmt.Sscanf(strings.TrimSpace(out.String()), "%d", &timestamp); err != nil {
-		return 0
-	}
-
-	return timestamp
-}
-
-// GetWorktreeInfo returns status information for a worktree
-func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
-	if path == "" {
-		return nil, errors.New("worktree path cannot be empty")
-	}
-
-	info := &WorktreeInfo{Path: path}
-
-	branch, err := GetCurrentBranch(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get branch: %w", err)
-	}
-	info.Branch = branch
-
-	hasChanges, _, err := CheckGitChanges(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check changes: %w", err)
-	}
-	info.Dirty = hasChanges
-
-	syncStatus := GetSyncStatus(path)
-	info.Upstream = syncStatus.Upstream
-	info.Ahead = syncStatus.Ahead
-	info.Behind = syncStatus.Behind
-	info.Gone = syncStatus.Gone
-	info.NoUpstream = syncStatus.NoUpstream
-
-	info.LastCommitTime = GetLastCommitTime(path)
-
-	return info, nil
-}
-
-// SyncStatus contains sync information relative to upstream
-type SyncStatus struct {
-	Upstream   string // Upstream branch name (e.g., "origin/main")
-	Ahead      int    // Commits ahead of upstream
-	Behind     int    // Commits behind upstream
-	Gone       bool   // Upstream branch deleted
-	NoUpstream bool   // No upstream configured
-	Error      error  // Non-nil if status couldn't be determined due to git error
-}
-
-// GetSyncStatus returns sync status relative to upstream.
-// Uses git for-each-ref to reliably detect "gone" upstream branches.
-// Check the Error field to distinguish "no upstream" from "git command failed".
-func GetSyncStatus(path string) *SyncStatus {
-	status := &SyncStatus{}
-
-	// Get current branch name
-	cmdBranch, cancelBranch := GitCommand("git", "rev-parse", "--abbrev-ref", "HEAD") // nolint:gosec
-	cmdBranch.Dir = path
-	var branchOut bytes.Buffer
-	cmdBranch.Stdout = &branchOut
-	err := cmdBranch.Run()
-	cancelBranch()
-	if err != nil {
-		status.NoUpstream = true
-		status.Error = fmt.Errorf("failed to get current branch: %w", err)
-		return status
-	}
-	branch := strings.TrimSpace(branchOut.String())
-	if branch == "" || branch == "HEAD" {
-		// Detached HEAD - expected condition, not an error
-		status.NoUpstream = true
-		return status
-	}
-
-	// Use for-each-ref to get upstream info and track status in one command
-	// Format: "upstream_ref track_info" e.g. "refs/remotes/origin/main [ahead 1, behind 2]" or "refs/remotes/origin/gone [gone]"
-	cmdRef, cancelRef := GitCommand("git", "for-each-ref", "--format=%(upstream) %(upstream:track)", fmt.Sprintf("refs/heads/%s", branch)) // nolint:gosec
-	defer cancelRef()
-	cmdRef.Dir = path
-	var refOut bytes.Buffer
-	cmdRef.Stdout = &refOut
-	if err := cmdRef.Run(); err != nil {
-		status.NoUpstream = true
-		status.Error = fmt.Errorf("failed to get upstream info: %w", err)
-		return status
-	}
-
-	output := strings.TrimSpace(refOut.String())
-	if output == "" {
-		status.NoUpstream = true
-		return status
-	}
-
-	// Parse upstream ref (first space-separated field)
-	parts := strings.SplitN(output, " ", 2)
-	upstreamRef := parts[0]
-	if upstreamRef == "" {
-		status.NoUpstream = true
-		return status
-	}
-
-	// Convert refs/remotes/origin/main to origin/main
-	status.Upstream = strings.TrimPrefix(upstreamRef, "refs/remotes/")
-
-	// Check for track info
-	if len(parts) > 1 {
-		trackInfo := parts[1]
-		if strings.Contains(trackInfo, "[gone]") {
-			status.Gone = true
-			return status
-		}
-		// Parse ahead/behind from track info like "[ahead 1, behind 2]" or "[ahead 1]" or "[behind 2]"
-		if match := aheadPattern.FindStringSubmatch(trackInfo); match != nil {
-			status.Ahead, _ = strconv.Atoi(match[1])
-		}
-		if match := behindPattern.FindStringSubmatch(trackInfo); match != nil {
-			status.Behind, _ = strconv.Atoi(match[1])
-		}
-	}
-
-	return status
-}
-
-// ListWorktreesWithInfo returns info for all worktrees in a grove workspace.
-func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
-	paths, err := ListWorktrees(bareDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var infos []*WorktreeInfo
-	for _, path := range paths {
-		var info *WorktreeInfo
-		if fast {
-			branch, err := GetCurrentBranch(path)
-			if err != nil {
-				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
-				continue
-			}
-			info = &WorktreeInfo{
-				Path:   path,
-				Branch: branch,
-			}
-		} else {
-			var err error
-			info, err = GetWorktreeInfo(path)
-			if err != nil {
-				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
-				continue
-			}
-		}
-
-		info.Locked = IsWorktreeLocked(path)
-		info.LockReason = GetWorktreeLockReason(path)
-
-		infos = append(infos, info)
-	}
-
-	sort.Slice(infos, func(i, j int) bool {
-		return infos[i].Branch < infos[j].Branch
-	})
-
-	return infos, nil
-}
-
-// GetStashCount returns the number of stashes in a repository
-func GetStashCount(path string) (int, error) {
-	cmd, cancel := GitCommand("git", "stash", "list")
-	defer cancel()
-	cmd.Dir = path
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return 0, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return 0, err
-	}
-
-	output := strings.TrimSpace(out.String())
-	if output == "" {
-		return 0, nil
-	}
-
-	return len(strings.Split(output, "\n")), nil
-}
-
-// RenameBranch renames a branch using git branch -m
-func RenameBranch(repoPath, oldName, newName string) error {
-	if repoPath == "" || oldName == "" || newName == "" {
-		return errors.New("repository path, old name, and new name cannot be empty")
-	}
-
-	logger.Debug("Executing: git branch -m %s %s in %s", oldName, newName, repoPath)
-	cmd, cancel := GitCommand("git", "branch", "-m", oldName, newName) // nolint:gosec // Branch names from validated input
-	defer cancel()
-	cmd.Dir = repoPath
-
-	return runGitCommand(cmd, true)
-}
-
-// RepairWorktree runs git worktree repair to fix worktree paths after directory moves.
-func RepairWorktree(bareDir, worktreePath string) error {
-	if bareDir == "" {
-		return errors.New("bare directory path cannot be empty")
-	}
-
-	args := []string{"worktree", "repair"}
-	if worktreePath != "" {
-		args = append(args, worktreePath)
-	}
-
-	logger.Debug("Executing: git %v in %s", args, bareDir)
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	cmd.Dir = bareDir
-
-	return runGitCommand(cmd, true)
-}
-
-// SetUpstreamBranch sets the upstream tracking branch for a local branch
-func SetUpstreamBranch(worktreePath, upstream string) error {
-	if worktreePath == "" || upstream == "" {
-		return errors.New("worktree path and upstream cannot be empty")
-	}
-
-	logger.Debug("Executing: git branch --set-upstream-to=%s in %s", upstream, worktreePath)
-	cmd, cancel := GitCommand("git", "branch", "--set-upstream-to="+upstream) // nolint:gosec // Upstream from validated input
-	defer cancel()
-	cmd.Dir = worktreePath
-
-	return runGitCommand(cmd, true)
 }
 
 // AddRemote adds a new remote to the repository.
@@ -1493,90 +344,4 @@ func ListIgnoredFiles(dir string) ([]string, error) {
 		}
 	}
 	return files, nil
-}
-
-// FetchBranch fetches a specific branch from a remote.
-func FetchBranch(repoPath, remote, branch string) error {
-	if repoPath == "" {
-		return errors.New("repository path cannot be empty")
-	}
-	if remote == "" {
-		return errors.New("remote name cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git fetch %s %s in %s", remote, branch, repoPath)
-	cmd, cancel := GitCommand("git", "fetch", remote, branch) // nolint:gosec // Validated input
-	defer cancel()
-	cmd.Dir = repoPath
-
-	return runGitCommand(cmd, true)
-}
-
-// IsBranchMerged checks if a branch has been merged into the target branch.
-// It detects both regular merges (via ancestry) and squash merges (via patch-id comparison).
-func IsBranchMerged(repoPath, branch, targetBranch string) (bool, error) {
-	if repoPath == "" {
-		return false, errors.New("repository path cannot be empty")
-	}
-	if branch == "" {
-		return false, errors.New("branch name cannot be empty")
-	}
-	if targetBranch == "" {
-		return false, errors.New("target branch name cannot be empty")
-	}
-
-	// Check regular merge (ancestry)
-	if isMergedByAncestry(repoPath, branch, targetBranch) {
-		return true, nil
-	}
-
-	// Check squash merge (patch-id comparison)
-	return isMergedByPatchID(repoPath, branch, targetBranch)
-}
-
-// isMergedByAncestry checks if branch is an ancestor of targetBranch
-func isMergedByAncestry(repoPath, branch, targetBranch string) bool {
-	// git merge-base --is-ancestor returns 0 if branch is ancestor of targetBranch
-	cmd, cancel := GitCommand("git", "merge-base", "--is-ancestor", branch, targetBranch) // nolint:gosec
-	defer cancel()
-	cmd.Dir = repoPath
-	return cmd.Run() == nil
-}
-
-// isMergedByPatchID detects squash merges using git cherry.
-// Optimized from O(n) subprocess calls to a single git cherry call.
-func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
-	// git cherry marks commits with "-" if an equivalent patch exists in target,
-	// and "+" if the commit is unique to the branch (not in target).
-	// This does the patch-id comparison internally in a single call.
-	cmd, cancel := GitCommand("git", "cherry", "-v", targetBranch, branch) // nolint:gosec
-	defer cancel()
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return false, fmt.Errorf("failed to check patch-id merge status: %w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
-		// No commits unique to branch - already handled by ancestry check
-		return true, nil
-	}
-
-	// If any commit is marked with "+", it's NOT in target (not squash-merged)
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		// Lines starting with "+ " are NOT in target
-		if strings.HasPrefix(line, "+ ") {
-			return false, nil
-		}
-	}
-
-	// All commits marked with "-" means they're all in target (squash-merged)
-	return true, nil
 }
