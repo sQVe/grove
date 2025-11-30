@@ -65,6 +65,56 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 	}
 }
 
+func TestRunAdd_PRValidation(t *testing.T) {
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("base flag cannot be used with PR number", func(t *testing.T) {
+		err := runAdd("#123", false, "main", false)
+		if err == nil || err.Error() != "--base cannot be used with PR references" {
+			t.Errorf("expected base/PR error, got %v", err)
+		}
+	})
+
+	t.Run("detach flag cannot be used with PR number", func(t *testing.T) {
+		err := runAdd("#123", false, "", true)
+		if err == nil || err.Error() != "--detach cannot be used with PR references" {
+			t.Errorf("expected detach/PR error, got %v", err)
+		}
+	})
+
+	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
+		err := runAdd("https://github.com/owner/repo/pull/456", false, "main", false)
+		if err == nil || err.Error() != "--base cannot be used with PR references" {
+			t.Errorf("expected base/PR error, got %v", err)
+		}
+	})
+
+	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
+		err := runAdd("https://github.com/owner/repo/pull/456", false, "", true)
+		if err == nil || err.Error() != "--detach cannot be used with PR references" {
+			t.Errorf("expected detach/PR error, got %v", err)
+		}
+	})
+}
+
+func TestRunAdd_DetachBaseValidation(t *testing.T) {
+	t.Run("detach and base cannot be used together", func(t *testing.T) {
+		err := runAdd("v1.0.0", false, "main", true)
+		if err == nil || err.Error() != "--detach and --base cannot be used together" {
+			t.Errorf("expected detach/base error, got %v", err)
+		}
+	})
+}
+
 func TestFindSourceWorktree(t *testing.T) {
 	t.Run("returns empty at workspace root", func(t *testing.T) {
 		workspaceRoot := t.TempDir()

@@ -62,5 +62,21 @@ cd /tmp
 ! exec grove add feature
 stderr 'not in a grove workspace'
 
+## Error: --base cannot be used with PR references
+
+cd $WORK/workspace/main
+! exec grove add --base main '#123'
+stderr 'cannot be used with PR references'
+
+## Error: --detach cannot be used with PR references
+
+! exec grove add --detach '#123'
+stderr 'cannot be used with PR references'
+
+## Error: --detach and --base cannot be used together
+
+! exec grove add --detach --base main v1.0.0
+stderr 'cannot be used together'
+
 -- README.md --
 # Test

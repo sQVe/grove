@@ -1,12 +1,13 @@
 package commands
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
@@ -60,9 +61,19 @@ Examples:
 func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) error {
 	branchOrPR = strings.TrimSpace(branchOrPR)
 
-	// Validate flag combinations
+	// Validate flag combinations early (before filesystem operations)
 	if detach && baseBranch != "" {
 		return fmt.Errorf("--detach and --base cannot be used together")
+	}
+
+	isPR := github.IsPRReference(branchOrPR)
+	if isPR {
+		if baseBranch != "" {
+			return fmt.Errorf("--base cannot be used with PR references")
+		}
+		if detach {
+			return fmt.Errorf("--detach cannot be used with PR references")
+		}
 	}
 
 	cwd, err := os.Getwd()
@@ -79,12 +90,9 @@ func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) er
 
 	// Acquire workspace lock to prevent concurrent worktree creation
 	lockFile := filepath.Join(workspaceRoot, ".grove-worktree.lock")
-	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
+	lockHandle, err := acquireWorkspaceLock(lockFile)
 	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("another grove operation is in progress; if this is wrong, remove %s", lockFile)
-		}
-		return fmt.Errorf("failed to acquire lock: %w", err)
+		return err
 	}
 	defer func() {
 		_ = lockHandle.Close()
@@ -93,14 +101,8 @@ func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) er
 
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
 
-	// Check if this is a PR reference
-	if github.IsPRReference(branchOrPR) {
-		if baseBranch != "" {
-			return fmt.Errorf("--base cannot be used with PR references")
-		}
-		if detach {
-			return fmt.Errorf("--detach cannot be used with PR references")
-		}
+	// Handle PR reference
+	if isPR {
 		return runAddFromPR(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
 	}
 
@@ -335,19 +337,11 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 
 // getRepoFromOrigin extracts owner/repo from the origin remote URL.
 func getRepoFromOrigin(bareDir string) (*github.RepoRef, error) {
-	cmd, cancel := git.GitCommand("git", "remote", "get-url", "origin")
-	defer cancel()
-	cmd.Dir = bareDir
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to get origin URL: %w", err)
+	url, err := git.GetRemoteURL(bareDir, "origin")
+	if err != nil {
+		return nil, err
 	}
-
-	return github.ParseRepoURL(strings.TrimSpace(stdout.String()))
+	return github.ParseRepoURL(url)
 }
 
 func findSourceWorktree(cwd, workspaceRoot string) string {
@@ -531,4 +525,57 @@ func completeBaseBranch(cmd *cobra.Command, args []string, toComplete string) ([
 		}
 	}
 	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// acquireWorkspaceLock attempts to acquire a lock file, with staleness detection.
+// If a lock file exists, checks if the owning process is still running.
+// Stale locks (from crashed processes) are automatically removed.
+func acquireWorkspaceLock(lockFile string) (*os.File, error) {
+	// Try to create the lock file exclusively
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
+	if err == nil {
+		// Lock acquired - write our PID
+		_, _ = lockHandle.WriteString(strconv.Itoa(os.Getpid()))
+		return lockHandle, nil
+	}
+
+	if !errors.Is(err, os.ErrExist) {
+		return nil, fmt.Errorf("failed to acquire lock: %w", err)
+	}
+
+	// Lock file exists - check if it's stale
+	content, readErr := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
+	if readErr != nil {
+		// Can't read lock file - assume it's in use
+		return nil, fmt.Errorf("another grove operation is in progress; if this is wrong, remove %s", lockFile)
+	}
+
+	pidStr := strings.TrimSpace(string(content))
+	pid, parseErr := strconv.Atoi(pidStr)
+	if parseErr != nil {
+		// Invalid PID in lock file - assume stale
+		logger.Debug("Lock file contains invalid PID %q, removing stale lock", pidStr)
+		_ = os.Remove(lockFile)
+		return acquireWorkspaceLock(lockFile) // Retry
+	}
+
+	// Check if process is still running
+	process, findErr := os.FindProcess(pid)
+	if findErr != nil {
+		// Process doesn't exist - lock is stale
+		logger.Debug("Lock held by non-existent process %d, removing stale lock", pid)
+		_ = os.Remove(lockFile)
+		return acquireWorkspaceLock(lockFile) // Retry
+	}
+
+	// On Unix, FindProcess always succeeds - need to send signal 0 to check
+	if signalErr := process.Signal(syscall.Signal(0)); signalErr != nil {
+		// Process doesn't exist - lock is stale
+		logger.Debug("Lock held by terminated process %d, removing stale lock", pid)
+		_ = os.Remove(lockFile)
+		return acquireWorkspaceLock(lockFile) // Retry
+	}
+
+	// Process is still running - lock is valid
+	return nil, fmt.Errorf("another grove operation (PID %d) is in progress; if this is wrong, remove %s", pid, lockFile)
 }
