@@ -6,8 +6,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/sqve/grove/internal/config"
 )
 
 func TestDebugLogging(t *testing.T) {
@@ -16,7 +14,7 @@ func TestDebugLogging(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		config.Global.Debug = false
+		Init(false, false) // plain=false, debug=false
 		Debug("This should not appear")
 
 		_ = w.Close()
@@ -36,7 +34,7 @@ func TestDebugLogging(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stderr = w
 
-		config.Global.Debug = true
+		Init(false, true) // plain=false, debug=true
 		Debug("This should appear")
 
 		_ = w.Close()
@@ -61,7 +59,7 @@ func TestPlainOutput(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		config.Global.Plain = true
+		Init(true, false) // plain=true, debug=false
 		Success("test message")
 
 		_ = w.Close()
@@ -84,7 +82,7 @@ func TestPlainOutput(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		config.Global.Plain = false
+		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Success("test message with colors")
 
@@ -110,7 +108,7 @@ func TestInfoAndWarning(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		config.Global.Plain = false
+		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Info("info message")
 
@@ -134,7 +132,7 @@ func TestInfoAndWarning(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		config.Global.Plain = false
+		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Warning("warning message")
 
@@ -156,8 +154,7 @@ func TestInfoAndWarning(t *testing.T) {
 
 func TestWorktreeListItem(t *testing.T) {
 	t.Run("formats current worktree with bullet in plain mode", func(t *testing.T) {
-		config.Global.Plain = true
-		defer func() { config.Global.Plain = false }()
+		Init(true, false) // plain=true, debug=false
 
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
@@ -181,8 +178,7 @@ func TestWorktreeListItem(t *testing.T) {
 	})
 
 	t.Run("formats non-current worktree without bullet in plain mode", func(t *testing.T) {
-		config.Global.Plain = true
-		defer func() { config.Global.Plain = false }()
+		Init(true, false) // plain=true, debug=false
 
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
@@ -206,7 +202,7 @@ func TestWorktreeListItem(t *testing.T) {
 	})
 
 	t.Run("formats current worktree with unicode bullet in colored mode", func(t *testing.T) {
-		config.Global.Plain = false
+		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 
 		oldStdout := os.Stdout

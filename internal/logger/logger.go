@@ -6,13 +6,35 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/styles"
 )
 
+// Logger state - initialized once at startup
+var state struct {
+	plain bool
+	debug bool
+}
+
+// Init initializes the logger with the given settings.
+// Should be called once at startup after config is loaded.
+func Init(plain, debug bool) {
+	state.plain = plain
+	state.debug = debug
+}
+
+// isPlain returns true if plain output mode is enabled
+func isPlain() bool {
+	return state.plain
+}
+
+// isDebug returns true if debug logging is enabled
+func isDebug() bool {
+	return state.debug
+}
+
 // Debug prints debug information when debug mode is enabled
 func Debug(format string, args ...any) {
-	if config.IsDebug() {
+	if isDebug() {
 		fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
 	}
 }
@@ -20,7 +42,7 @@ func Debug(format string, args ...any) {
 // Success prints success messages
 func Success(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Println(message)
 	} else {
 		fmt.Printf("%s %s\n", styles.Render(&styles.Success, "✓"), message)
@@ -30,7 +52,7 @@ func Success(format string, args ...any) {
 // Error prints error messages to stderr
 func Error(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", message)
 	} else {
 		fmt.Fprintf(os.Stderr, "%s %s\n", styles.Render(&styles.Error, "✗"), message)
@@ -40,7 +62,7 @@ func Error(format string, args ...any) {
 // Info prints informational messages
 func Info(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Println(message)
 	} else {
 		fmt.Printf("%s %s\n", styles.Render(&styles.Info, "→"), message)
@@ -50,7 +72,7 @@ func Info(format string, args ...any) {
 // Warning prints warning messages
 func Warning(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Printf("Warning: %s\n", message)
 	} else {
 		fmt.Printf("%s %s\n", styles.Render(&styles.Warning, "⚠"), message)
@@ -60,7 +82,7 @@ func Warning(format string, args ...any) {
 // Dimmed prints dimmed/secondary messages
 func Dimmed(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Println(message)
 	} else {
 		fmt.Println(styles.Render(&styles.Dimmed, message))
@@ -70,7 +92,7 @@ func Dimmed(format string, args ...any) {
 // ListItem prints a list item (used for worktree creation output, etc.)
 func ListItem(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Printf("  - %s\n", message)
 	} else {
 		fmt.Printf("  %s %s\n", styles.Render(&styles.Success, "✓"), message)
@@ -79,7 +101,7 @@ func ListItem(format string, args ...any) {
 
 // ListItemWithNote prints a list item with an optional note in parentheses
 func ListItemWithNote(main, note string) {
-	if config.IsPlain() {
+	if isPlain() {
 		if note != "" {
 			fmt.Printf("  - %s (%s)\n", main, note)
 		} else {
@@ -102,7 +124,7 @@ func ListItemWithNote(main, note string) {
 // ListSubItem prints an indented sub-item (used for additional details under a list item)
 func ListSubItem(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Printf("    > %s\n", message)
 	} else {
 		fmt.Printf("    %s %s\n", styles.Render(&styles.Dimmed, "↳"), message)
@@ -117,7 +139,7 @@ func ListItemGroup(header string, items []string) {
 	}
 	ListSubItem("%s", header)
 	for _, item := range items {
-		if config.IsPlain() {
+		if isPlain() {
 			fmt.Printf("        %s\n", item)
 		} else {
 			fmt.Printf("        %s\n", styles.Render(&styles.Dimmed, item))
@@ -134,7 +156,7 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 
 	namePadded := fmt.Sprintf("%-*s", nameWidth, name)
 
-	if config.IsPlain() {
+	if isPlain() {
 		if lockIndicator != "" {
 			fmt.Printf("%s %s %s %s %s\n", marker, namePadded, status, lockIndicator, syncStatus)
 		} else {
@@ -162,7 +184,7 @@ func WorktreeListItem(name string, current bool, status, syncStatus string, name
 
 // StartSpinner starts a spinner with a message and returns a stop function
 func StartSpinner(message string) func() {
-	if config.IsPlain() {
+	if isPlain() {
 		fmt.Printf("%s %s\n", styles.Render(&styles.Info, "→"), message)
 		return func() {}
 	}

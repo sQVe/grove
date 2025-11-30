@@ -11,6 +11,7 @@ import (
 
 func main() {
 	config.LoadFromGitConfig()
+	logger.Init(config.IsPlain(), config.IsDebug())
 
 	rootCmd := &cobra.Command{
 		Use:           "grove",
@@ -33,6 +34,8 @@ func main() {
 					config.Global.Debug = false
 				}
 			}
+			// Re-init logger after flag overrides
+			logger.Init(config.IsPlain(), config.IsDebug())
 			logger.Debug("Grove starting with config: plain=%v, debug=%v",
 				config.IsPlain(), config.IsDebug())
 		},
