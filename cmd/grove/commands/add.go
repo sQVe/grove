@@ -335,7 +335,8 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 
 // getRepoFromOrigin extracts owner/repo from the origin remote URL.
 func getRepoFromOrigin(bareDir string) (*github.RepoRef, error) {
-	cmd := git.GitCommand("git", "remote", "get-url", "origin")
+	cmd, cancel := git.GitCommand("git", "remote", "get-url", "origin")
+	defer cancel()
 	cmd.Dir = bareDir
 
 	var stdout, stderr bytes.Buffer

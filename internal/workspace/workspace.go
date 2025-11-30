@@ -441,7 +441,7 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 
 		if i == 0 {
 			logger.Debug("Executing: git worktree add --no-checkout %s %s in %s", worktreePath, branch, bareDir)
-			cmd := git.GitCommand("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
+			cmd, cancel := git.GitCommand("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
 			cmd.Dir = bareDir
 
 			var stderr bytes.Buffer
@@ -452,7 +452,9 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 				cmd.Stderr = &stderr
 			}
 
-			if err := cmd.Run(); err != nil {
+			err := cmd.Run()
+			cancel()
+			if err != nil {
 				if !verbose && stderr.Len() > 0 {
 					return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
 				}
@@ -539,7 +541,8 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
 	logger.Debug("Executing: git checkout -f %s in %s", firstBranch, firstWorktreeAbsPath)
-	checkoutCmd := git.GitCommand("git", "checkout", "-f", firstBranch) // nolint:gosec
+	checkoutCmd, cancel := git.GitCommand("git", "checkout", "-f", firstBranch) // nolint:gosec
+	defer cancel()
 	checkoutCmd.Dir = firstWorktreeAbsPath
 
 	var checkoutStderr bytes.Buffer
@@ -646,7 +649,8 @@ func parseBranches(branches, skipBranch string) []string {
 // findIgnoredFiles returns a list of git-ignored files in the given directory
 func findIgnoredFiles(dir string) ([]string, error) {
 	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
-	cmd := git.GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	cmd, cancel := git.GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	defer cancel()
 	cmd.Dir = dir
 
 	output, err := cmd.Output()
