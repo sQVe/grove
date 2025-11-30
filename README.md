@@ -39,14 +39,14 @@ Grove makes Git worktree management accessible to any developer. Work on multipl
 
 **Instead of:**
 
--   Stashing/unstashing when switching branches
--   Complex `git worktree` commands
--   Multiple repository clones
+- Stashing/unstashing when switching branches
+- Complex `git worktree` commands
+- Multiple repository clones
 
 **Grove provides:**
 
--   Simple workspace initialization
--   Branch-like worktree management
--   Cross-platform compatibility
+- Simple workspace initialization
+- Branch-like worktree management
+- Cross-platform compatibility
 
 MIT License

@@ -23,8 +23,8 @@
 
 ### `init`
 
--   [x] Should output help if no arguments are passed
--   [x] Should fail if given a sub-command that does not exist
+- [x] Should output help if no arguments are passed
+- [x] Should fail if given a sub-command that does not exist
 
 #### `init new`
 
@@ -36,14 +36,14 @@
 
 **Notes:**
 
--   When given a directory name, the output should always output an absolute path.
+- When given a directory name, the output should always output an absolute path.
 
 **Failure conditions:**
 
--   [x] Should accept at most 1 argument
--   [x] Not inside a grove workspace already
--   [x] Current/specified directory is not empty
--   [x] Current/specified directory is a Git repository
+- [x] Should accept at most 1 argument
+- [x] Not inside a grove workspace already
+- [x] Current/specified directory is not empty
+- [x] Current/specified directory is a Git repository
 
 #### `init convert`
 
@@ -62,22 +62,22 @@
 
 **Notes:**
 
--   Preserve common git-ignored files in created worktrees to match normal git behavior:
-    -   `.env` and `.env.local` files
-    -   Local config overrides (`*.local.json`, `*.local.yaml`, etc.)
-    -   Credential files require explicit opt-in for security
+- Preserve common git-ignored files in created worktrees to match normal git behavior:
+    - `.env` and `.env.local` files
+    - Local config overrides (`*.local.json`, `*.local.yaml`, etc.)
+    - Credential files require explicit opt-in for security
 
 **Failure conditions:**
 
--   [x] Should not accept any arguments
--   [x] Current directory is not a Git repository
--   [x] Current directory is already a Grove workspace
--   [x] Repository is in detached HEAD state
--   [x] Repository has ongoing merge/rebase
--   [x] Should not convert when in a dirty state
--   [x] Should not output double error message:
--   [x] Should revert all changes on failure
--   [x] Convert branch names to safe directory names
+- [x] Should not accept any arguments
+- [x] Current directory is not a Git repository
+- [x] Current directory is already a Grove workspace
+- [x] Repository is in detached HEAD state
+- [x] Repository has ongoing merge/rebase
+- [x] Should not convert when in a dirty state
+- [x] Should not output double error message:
+- [x] Should revert all changes on failure
+- [x] Convert branch names to safe directory names
 
 ### `clone`
 
@@ -99,17 +99,17 @@
 
 **Notes:**
 
--   PR cloning requires `gh` CLI to be installed and authenticated
--   Uses `gh repo clone` to respect user's protocol preference (SSH/HTTPS)
--   Fork PRs automatically add a remote named `pr-{number}-{owner}`
+- PR cloning requires `gh` CLI to be installed and authenticated
+- Uses `gh repo clone` to respect user's protocol preference (SSH/HTTPS)
+- Fork PRs automatically add a remote named `pr-{number}-{owner}`
 
 **Failure conditions:**
 
--   [x] Should accept 1 or 2 arguments.
--   [x] Not inside a grove workspace already
--   [x] Current/specified directory is not empty
--   [x] Current/specified directory is a Git repository
--   [x] Convert branch name to safe directory name
+- [x] Should accept 1 or 2 arguments.
+- [x] Not inside a grove workspace already
+- [x] Current/specified directory is not empty
+- [x] Current/specified directory is a Git repository
+- [x] Convert branch name to safe directory name
 
 ### `config`
 
@@ -130,24 +130,24 @@
 
 **Notes:**
 
--   Two config layers: `.grove.toml` (team-shareable) and git config (personal)
--   Config precedence varies by setting type:
-    -   Team settings (preserve patterns): TOML > git config > defaults
-    -   Personal settings (plain, debug): git config > TOML > defaults
--   `--shared` and `--global` flags required for set/unset operations
+- Two config layers: `.grove.toml` (team-shareable) and git config (personal)
+- Config precedence varies by setting type:
+    - Team settings (preserve patterns): TOML > git config > defaults
+    - Personal settings (plain, debug): git config > TOML > defaults
+- `--shared` and `--global` flags required for set/unset operations
 
 **Config keys:**
 
--   `grove.plain` - Disable colors/symbols (boolean, default: false)
--   `grove.debug` - Enable debug output (boolean, default: false)
--   `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
-    -   Default patterns: `.env`, `.env.keys`, `.env.local`, `.env.*.local`, `.envrc`, `docker-compose.override.yml`, `*.local.json`, `*.local.toml`, `*.local.yaml`, `*.local.yml`
-    -   Note: Credential files (`*.key`, `*.pem`) not included by default for security
--   `grove.autoLock` - Branch patterns to auto-lock when creating worktrees (multi-value)
-    -   Default patterns: `main`, `master`, `develop`
-    -   Supports glob patterns (e.g., `release/*`)
-    -   Locked with reason: "Auto-locked (grove.autoLock)"
--   `hooks.add` - Commands to run after adding worktrees (TOML only, array)
+- `grove.plain` - Disable colors/symbols (boolean, default: false)
+- `grove.debug` - Enable debug output (boolean, default: false)
+- `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
+    - Default patterns: `.env`, `.env.keys`, `.env.local`, `.env.*.local`, `.envrc`, `docker-compose.override.yml`, `*.local.json`, `*.local.toml`, `*.local.yaml`, `*.local.yml`
+    - Note: Credential files (`*.key`, `*.pem`) not included by default for security
+- `grove.autoLock` - Branch patterns to auto-lock when creating worktrees (multi-value)
+    - Default patterns: `main`, `master`, `develop`
+    - Supports glob patterns (e.g., `release/*`)
+    - Locked with reason: "Auto-locked (grove.autoLock)"
+- `hooks.add` - Commands to run after adding worktrees (TOML only, array)
 
 ### `switch`
 
@@ -176,11 +176,11 @@
 
 **Notes:**
 
--   `--base` useful when HEAD isn't what you want to branch from
--   `--detach` useful for inspecting releases, hotfixes on tags
--   PR support requires `gh` CLI to be installed and authenticated
--   PR format: `#123` (requires being in a grove workspace) or full GitHub PR URL
--   Fork PRs automatically add a remote named `pr-{number}-{owner}`
+- `--base` useful when HEAD isn't what you want to branch from
+- `--detach` useful for inspecting releases, hotfixes on tags
+- PR support requires `gh` CLI to be installed and authenticated
+- PR format: `#123` (requires being in a grove workspace) or full GitHub PR URL
+- Fork PRs automatically add a remote named `pr-{number}-{owner}`
 
 ### `status`
 
@@ -206,17 +206,17 @@
 
 **Notes:**
 
--   Uses `git branch -vv` to detect `[gone]` remote tracking branches
--   Dry-run by default for safety
--   Skips dirty worktrees and locked worktrees unless `--force`
--   `--merged` detects both regular merges (via ancestry) and squash merges (via patch-id comparison)
--   Most critical feature - solves biggest daily pain point
+- Uses `git branch -vv` to detect `[gone]` remote tracking branches
+- Dry-run by default for safety
+- Skips dirty worktrees and locked worktrees unless `--force`
+- `--merged` detects both regular merges (via ancestry) and squash merges (via patch-id comparison)
+- Most critical feature - solves biggest daily pain point
 
 **Failure conditions:**
 
--   [x] Should not remove worktrees with uncommitted changes without `--force`
--   [x] Should not remove locked worktrees without `--force`
--   [x] Should require confirmation before destructive operations
+- [x] Should not remove worktrees with uncommitted changes without `--force`
+- [x] Should not remove locked worktrees without `--force`
+- [x] Should require confirmation before destructive operations
 
 ### `list`
 
@@ -263,10 +263,10 @@
 
 **Notes:**
 
--   Single command answers "where is my work?" and "what needs attention?"
--   Rich default shows everything useful at a glance
--   Performance-conscious with --fast escape hatch
--   JSON output enables editor/IDE integration
+- Single command answers "where is my work?" and "what needs attention?"
+- Rich default shows everything useful at a glance
+- Performance-conscious with --fast escape hatch
+- JSON output enables editor/IDE integration
 
 ### `exec`
 
@@ -280,16 +280,16 @@
 
 **Notes:**
 
--   Uses `--` separator to clearly delineate Grove args from command
--   Perfect for `npm install`, dependency updates across branches
--   Sequential execution with branch headers keeps output readable
--   Use `bash -c "cmd1 && cmd2"` for multiple commands
+- Uses `--` separator to clearly delineate Grove args from command
+- Perfect for `npm install`, dependency updates across branches
+- Sequential execution with branch headers keeps output readable
+- Use `bash -c "cmd1 && cmd2"` for multiple commands
 
 **Failure conditions:**
 
--   [x] Should handle command failures gracefully (continue by default)
--   [x] Should clearly identify which worktree each output comes from
--   [x] Should report summary at end (succeeded/failed counts)
+- [x] Should handle command failures gracefully (continue by default)
+- [x] Should clearly identify which worktree each output comes from
+- [x] Should report summary at end (succeeded/failed counts)
 
 ### `move`
 
@@ -301,15 +301,15 @@
 
 **Notes:**
 
--   Atomically handles git branch -m, directory rename, and upstream updates
--   Eliminates the painful 4-step manual process
--   Maintains worktree functionality throughout move
+- Atomically handles git branch -m, directory rename, and upstream updates
+- Eliminates the painful 4-step manual process
+- Maintains worktree functionality throughout move
 
 **Failure conditions:**
 
--   [x] Should not move if worktree has uncommitted changes
--   [x] Should not move if target branch name already exists
--   [x] Should revert all changes if any step fails
+- [x] Should not move if worktree has uncommitted changes
+- [x] Should not move if target branch name already exists
+- [x] Should revert all changes if any step fails
 
 ### `remove`
 
@@ -322,16 +322,16 @@
 
 **Notes:**
 
--   Wraps `git worktree remove` with Grove conventions
--   Safe by default: refuses to remove dirty or locked worktrees
--   `--branch` flag provides convenient cleanup of merged branches
+- Wraps `git worktree remove` with Grove conventions
+- Safe by default: refuses to remove dirty or locked worktrees
+- `--branch` flag provides convenient cleanup of merged branches
 
 **Failure conditions:**
 
--   [x] Should not remove worktree with uncommitted changes without `--force`
--   [x] Should not remove locked worktrees without `--force`
--   [x] Should not remove the current worktree
--   [x] Should warn if branch has unpushed commits when using `--branch`
+- [x] Should not remove worktree with uncommitted changes without `--force`
+- [x] Should not remove locked worktrees without `--force`
+- [x] Should not remove the current worktree
+- [x] Should warn if branch has unpushed commits when using `--branch`
 
 ### `lock`
 
@@ -343,9 +343,9 @@
 
 **Notes:**
 
--   Locked worktrees are protected from `prune` and `remove`
--   Lock reason displayed in `list --verbose` and `status`
--   Auto-lock: configurable branch patterns are locked on creation (see `grove.autoLock` config)
+- Locked worktrees are protected from `prune` and `remove`
+- Lock reason displayed in `list --verbose` and `status`
+- Auto-lock: configurable branch patterns are locked on creation (see `grove.autoLock` config)
 
 ### `unlock`
 
@@ -373,15 +373,15 @@
 
 **Notes:**
 
--   Diagnoses common worktree setup problems
--   Output categorized by severity: errors (must fix), warnings (should fix), info (awareness)
--   `--fix` only auto-fixes reversible issues (repair links, prune stale entries)
--   `--fix` never auto-deletes branches or worktrees
+- Diagnoses common worktree setup problems
+- Output categorized by severity: errors (must fix), warnings (should fix), info (awareness)
+- `--fix` only auto-fixes reversible issues (repair links, prune stale entries)
+- `--fix` never auto-deletes branches or worktrees
 
 **Failure conditions:**
 
--   [ ] Broken .git pointer is an error (worktree unusable)
--   [ ] Duplicate branch checkout is an error (causes git state corruption)
--   [ ] Invalid config syntax is an error (blocks grove operations)
--   [ ] Detached HEAD is a warning (incomplete setup)
--   [ ] Missing upstream is info (may be intentional)
+- [ ] Broken .git pointer is an error (worktree unusable)
+- [ ] Duplicate branch checkout is an error (causes git state corruption)
+- [ ] Invalid config syntax is an error (blocks grove operations)
+- [ ] Detached HEAD is a warning (incomplete setup)
+- [ ] Missing upstream is info (may be intentional)

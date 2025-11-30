@@ -16,17 +16,17 @@ Thanks for contributing! Grove makes Git worktrees simple, and we want contribut
 
 **Runtime:**
 
--   **Go 1.24+** — Standard library preferred over external dependencies
--   **spf13/cobra** — CLI framework
--   **charmbracelet/lipgloss** — Terminal styling
--   **muesli/termenv** — Terminal capability detection
--   **rogpeppe/go-internal** — Testscript integration tests
+- **Go 1.24+** — Standard library preferred over external dependencies
+- **spf13/cobra** — CLI framework
+- **charmbracelet/lipgloss** — Terminal styling
+- **muesli/termenv** — Terminal capability detection
+- **rogpeppe/go-internal** — Testscript integration tests
 
 **Development:**
 
--   **magefile/mage** — Build automation
--   **golangci-lint** — Linting with gofumpt and goimports
--   **gotestsum** — Test runner with better output
+- **magefile/mage** — Build automation
+- **golangci-lint** — Linting with gofumpt and goimports
+- **gotestsum** — Test runner with better output
 
 ## Workspace Architecture
 
@@ -43,16 +43,16 @@ project/
 
 **Components:**
 
--   `.bare` directory holds the complete Git repository without a working tree
--   `.git` file redirects Git operations to `.bare`
--   Worktree directories contain isolated working copies
--   Branch names like `feature/auth` become `feature-auth` (slashes replaced with dashes)
+- `.bare` directory holds the complete Git repository without a working tree
+- `.git` file redirects Git operations to `.bare`
+- Worktree directories contain isolated working copies
+- Branch names like `feature/auth` become `feature-auth` (slashes replaced with dashes)
 
 **Benefits:**
 
--   Work on multiple branches simultaneously without stashing
--   Each worktree maintains independent working directory and index
--   All worktrees share Git objects — no duplication
+- Work on multiple branches simultaneously without stashing
+- Each worktree maintains independent working directory and index
+- All worktrees share Git objects — no duplication
 
 **Detection:** Grove finds workspaces by traversing parent directories for `.bare` or `.git` files containing `gitdir: .bare`.
 
@@ -62,25 +62,25 @@ Test the code that breaks, not the code that makes the metrics green.
 
 **Unit tests** (`*_test.go`) — Internal functions. Use real Git.
 
--   Single function behavior and error conditions
--   Tests should be short and focused, and most importantly, fast
+- Single function behavior and error conditions
+- Tests should be short and focused, and most importantly, fast
 
 **Testscript tests** (`cmd/grove/testdata/script/*.txt`) — CLI commands and workflows.
 
--   User-facing behavior and error messages
--   Complex setups or multi-step flows
--   Exit codes and command integration
+- User-facing behavior and error messages
+- Complex setups or multi-step flows
+- Exit codes and command integration
 
 **Decision:**
 
--   Can a user type it? → Testscript
--   Are we testing a flow? → Testscript
--   Otherwise → Unit test
+- Can a user type it? → Testscript
+- Are we testing a flow? → Testscript
+- Otherwise → Unit test
 
 **Testscript organization:**
 
--   `*_validation.txt` - Fast tests: arguments, help, preconditions
--   `*_integration.txt` - Slower tests: actual Git operations, shared fixtures
+- `*_validation.txt` - Fast tests: arguments, help, preconditions
+- `*_integration.txt` - Slower tests: actual Git operations, shared fixtures
 
 ## CLI Output Style Guide
 
@@ -91,7 +91,7 @@ Consistent output makes Grove predictable and professional. Follow these pattern
 | Symbol | Meaning  | When to use                                    |
 | ------ | -------- | ---------------------------------------------- |
 | `✓`    | Success  | Operation completed                            |
-| `⚠`   | Warning  | Something the user should know, not an error   |
+| `⚠`    | Warning  | Something the user should know, not an error   |
 | `✗`    | Error    | Operation failed                               |
 | `→`    | Info     | Purely informational (config location, etc.)   |
 | `↳`    | Sub-item | Noteworthy details about a completed operation |
