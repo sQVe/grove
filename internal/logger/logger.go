@@ -4,32 +4,33 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sqve/grove/internal/styles"
 )
 
-// Logger state - initialized once at startup
-var state struct {
-	plain bool
-	debug bool
-}
+// Logger state - initialized once at startup, read from goroutines
+var (
+	plainMode atomic.Bool
+	debugMode atomic.Bool
+)
 
 // Init initializes the logger with the given settings.
 // Should be called once at startup after config is loaded.
 func Init(plain, debug bool) {
-	state.plain = plain
-	state.debug = debug
+	plainMode.Store(plain)
+	debugMode.Store(debug)
 }
 
 // isPlain returns true if plain output mode is enabled
 func isPlain() bool {
-	return state.plain
+	return plainMode.Load()
 }
 
 // isDebug returns true if debug logging is enabled
 func isDebug() bool {
-	return state.debug
+	return debugMode.Load()
 }
 
 // Debug prints debug information when debug mode is enabled
