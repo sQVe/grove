@@ -594,8 +594,8 @@ func GetOngoingOperation(path string) (string, error) {
 
 // ListWorktrees returns paths to existing worktrees, excluding the main repository
 func ListWorktrees(repoPath string) ([]string, error) {
-	logger.Debug("Executing: git worktree list in %s", repoPath)
-	cmd := exec.Command("git", "worktree", "list")
+	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
+	cmd := exec.Command("git", "worktree", "list", "--porcelain")
 	cmd.Dir = repoPath
 
 	var out bytes.Buffer
@@ -610,33 +610,29 @@ func ListWorktrees(repoPath string) ([]string, error) {
 		return nil, err
 	}
 
+	absRepoPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
 	var worktrees []string
 	scanner := bufio.NewScanner(&out)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		line := scanner.Text()
+
+		// Porcelain format: "worktree /path/to/worktree" on its own line
+		if !strings.HasPrefix(line, "worktree ") {
 			continue
 		}
 
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-
-		worktreePath := fields[0]
-
-		if len(fields) > 1 && strings.Contains(line, "(bare)") {
-			continue
-		}
+		worktreePath := strings.TrimPrefix(line, "worktree ")
 
 		absWorktreePath, err := filepath.Abs(worktreePath)
 		if err != nil {
 			return nil, err
 		}
-		absRepoPath, err := filepath.Abs(repoPath)
-		if err != nil {
-			return nil, err
-		}
+
+		// Skip the main worktree (same as repo path)
 		if absWorktreePath == absRepoPath {
 			continue
 		}

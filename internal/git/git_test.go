@@ -518,6 +518,32 @@ func TestListWorktrees(t *testing.T) {
 		}
 	})
 
+	t.Run("handles worktree paths with spaces", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create a worktree with spaces in the path
+		worktreeDir := filepath.Join(repo.Dir, "branch with spaces")
+
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature-spaces") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		worktrees, err := ListWorktrees(repo.Path)
+		if err != nil {
+			t.Fatalf("ListWorktrees failed: %v", err)
+		}
+
+		if len(worktrees) != 1 {
+			t.Fatalf("expected 1 worktree, got %d: %v", len(worktrees), worktrees)
+		}
+
+		if worktrees[0] != worktreeDir {
+			t.Errorf("expected worktree path %q, got %q", worktreeDir, worktrees[0])
+		}
+	})
+
 	t.Run("fails for non-git directory", func(t *testing.T) {
 		tempDir := t.TempDir()
 
