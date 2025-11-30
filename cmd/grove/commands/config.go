@@ -320,10 +320,10 @@ func runConfigListShared() error {
 	}
 
 	// Print TOML values
-	if cfg.Plain {
+	if cfg.Plain != nil && *cfg.Plain {
 		fmt.Println("plain=true")
 	}
-	if cfg.Debug {
+	if cfg.Debug != nil && *cfg.Debug {
 		fmt.Println("debug=true")
 	}
 	for _, p := range cfg.Preserve.Patterns {
@@ -430,9 +430,13 @@ func runConfigGetShared(key string) error {
 
 	switch strings.ToLower(key) {
 	case configKeyPlain, tomlKeyPlain:
-		fmt.Println(cfg.Plain)
+		if cfg.Plain != nil {
+			fmt.Println(*cfg.Plain)
+		}
 	case configKeyDebug, tomlKeyDebug:
-		fmt.Println(cfg.Debug)
+		if cfg.Debug != nil {
+			fmt.Println(*cfg.Debug)
+		}
 	case configKeyPreserve, tomlKeyPreserve:
 		for _, p := range cfg.Preserve.Patterns {
 			fmt.Println(p)
@@ -543,9 +547,9 @@ func runConfigSetShared(key, value string) error {
 
 	switch normalizedKey {
 	case "grove.plain", "plain":
-		cfg.Plain = boolValue
+		cfg.Plain = &boolValue
 	case "grove.debug", "debug":
-		cfg.Debug = boolValue
+		cfg.Debug = &boolValue
 	}
 
 	return config.WriteToFile(worktreeDir, &cfg)
@@ -593,9 +597,9 @@ func runConfigUnsetShared(key string) error {
 	normalizedKey := strings.ToLower(key)
 	switch normalizedKey {
 	case "grove.plain", "plain":
-		cfg.Plain = false
+		cfg.Plain = nil
 	case "grove.debug", "debug":
-		cfg.Debug = false
+		cfg.Debug = nil
 	case "grove.preserve", "preserve.patterns":
 		cfg.Preserve.Patterns = nil
 	case "hooks.add":

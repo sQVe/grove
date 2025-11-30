@@ -26,8 +26,8 @@ type FileConfig struct {
 	Autolock struct {
 		Patterns []string `toml:"patterns"`
 	} `toml:"autolock"`
-	Plain          bool   `toml:"plain"`
-	Debug          bool   `toml:"debug"`
+	Plain          *bool  `toml:"plain"`
+	Debug          *bool  `toml:"debug"`
 	NerdFonts      *bool  `toml:"nerd_fonts"`
 	StaleThreshold string `toml:"stale_threshold"`
 }
@@ -121,24 +121,14 @@ func GetMergedAutoLockPatterns(worktreeDir string) []string {
 // GetMergedPlain: git config > TOML > default
 func GetMergedPlain(worktreeDir string) bool {
 	return getMergedBool(worktreeDir, "grove.plain",
-		func(cfg FileConfig) *bool {
-			if cfg.Plain {
-				return &cfg.Plain
-			}
-			return nil
-		},
+		func(cfg FileConfig) *bool { return cfg.Plain },
 		DefaultConfig.Plain)
 }
 
 // GetMergedDebug: git config > TOML > default
 func GetMergedDebug(worktreeDir string) bool {
 	return getMergedBool(worktreeDir, "grove.debug",
-		func(cfg FileConfig) *bool {
-			if cfg.Debug {
-				return &cfg.Debug
-			}
-			return nil
-		},
+		func(cfg FileConfig) *bool { return cfg.Debug },
 		DefaultConfig.Debug)
 }
 

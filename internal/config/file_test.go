@@ -75,10 +75,10 @@ debug = false
 			t.Fatalf("LoadFromFile failed: %v", err)
 		}
 
-		if cfg.Plain != true {
+		if cfg.Plain == nil || *cfg.Plain != true {
 			t.Error("Expected plain to be true")
 		}
-		if cfg.Debug != false {
+		if cfg.Debug == nil || *cfg.Debug != false {
 			t.Error("Expected debug to be false")
 		}
 	})
@@ -120,9 +120,11 @@ func TestWriteToFile(t *testing.T) {
 	t.Run("writes valid TOML to file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
+		plainTrue := true
+		debugFalse := false
 		cfg := FileConfig{
-			Plain: true,
-			Debug: false,
+			Plain: &plainTrue,
+			Debug: &debugFalse,
 		}
 		cfg.Preserve.Patterns = []string{".env", ".secret"}
 		cfg.Hooks.Add = []string{"npm install"}
@@ -137,7 +139,7 @@ func TestWriteToFile(t *testing.T) {
 			t.Fatalf("LoadFromFile failed: %v", err)
 		}
 
-		if loaded.Plain != cfg.Plain {
+		if loaded.Plain == nil || cfg.Plain == nil || *loaded.Plain != *cfg.Plain {
 			t.Errorf("Expected plain=%v, got %v", cfg.Plain, loaded.Plain)
 		}
 		if len(loaded.Preserve.Patterns) != 2 {
@@ -156,7 +158,8 @@ func TestWriteToFile(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cfg := FileConfig{Plain: true}
+		plainTrue := true
+		cfg := FileConfig{Plain: &plainTrue}
 		if err := WriteToFile(tmpDir, &cfg); err != nil {
 			t.Fatalf("WriteToFile failed: %v", err)
 		}
@@ -166,7 +169,7 @@ func TestWriteToFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("LoadFromFile failed: %v", err)
 		}
-		if loaded.Plain != true {
+		if loaded.Plain == nil || *loaded.Plain != true {
 			t.Error("Expected atomic write to update file")
 		}
 
@@ -304,6 +307,22 @@ patterns = [".toml-pattern"]
 
 		if plain != true {
 			t.Error("Expected TOML value when no git config")
+		}
+	})
+
+	t.Run("TOML plain=false is respected (not treated as unset)", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		// This tests the bug fix: plain = false should be explicitly set, not treated as "not set"
+		tomlContent := `plain = false`
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+
+		plain := GetMergedPlain(tmpDir)
+
+		// plain = false in TOML should be returned (not the default)
+		if plain != false {
+			t.Error("Expected TOML plain=false to be respected")
 		}
 	})
 
