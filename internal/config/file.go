@@ -63,7 +63,7 @@ func GetMergedPreservePatterns(worktreeDir string) []string {
 		return cfg.Preserve.Patterns
 	}
 
-	patterns := getGitConfigs("grove.preserve")
+	patterns := getGitConfigsInDir("grove.preserve", worktreeDir)
 	if len(patterns) > 0 {
 		return patterns
 	}
@@ -73,7 +73,7 @@ func GetMergedPreservePatterns(worktreeDir string) []string {
 
 // GetMergedPlain: git config > TOML > default
 func GetMergedPlain(worktreeDir string) bool {
-	if value := getGitConfig("grove.plain"); value != "" {
+	if value := getGitConfigInDir("grove.plain", worktreeDir); value != "" {
 		return isTruthy(value)
 	}
 
@@ -89,7 +89,7 @@ func GetMergedPlain(worktreeDir string) bool {
 
 // GetMergedDebug: git config > TOML > default
 func GetMergedDebug(worktreeDir string) bool {
-	if value := getGitConfig("grove.debug"); value != "" {
+	if value := getGitConfigInDir("grove.debug", worktreeDir); value != "" {
 		return isTruthy(value)
 	}
 
@@ -105,7 +105,7 @@ func GetMergedDebug(worktreeDir string) bool {
 
 // GetMergedNerdFonts: git config > TOML > default
 func GetMergedNerdFonts(worktreeDir string) bool {
-	if value := getGitConfig("grove.nerdFonts"); value != "" {
+	if value := getGitConfigInDir("grove.nerdFonts", worktreeDir); value != "" {
 		return isTruthy(value)
 	}
 
@@ -121,7 +121,7 @@ func GetMergedNerdFonts(worktreeDir string) bool {
 
 // GetMergedStaleThreshold: git config > TOML > default
 func GetMergedStaleThreshold(worktreeDir string) string {
-	if value := getGitConfig("grove.staleThreshold"); value != "" {
+	if value := getGitConfigInDir("grove.staleThreshold", worktreeDir); value != "" {
 		return value
 	}
 
@@ -144,7 +144,7 @@ func GetMergedAutoLockPatterns(worktreeDir string) []string {
 		return cfg.Autolock.Patterns
 	}
 
-	patterns := getGitConfigs("grove.autoLock")
+	patterns := getGitConfigsInDir("grove.autoLock", worktreeDir)
 	if len(patterns) > 0 {
 		return patterns
 	}

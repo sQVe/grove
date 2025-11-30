@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -303,6 +302,14 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository is in detached HEAD state")
 	}
 
+	unborn, err := git.IsUnbornHead(targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to check for unborn HEAD: %w", err)
+	}
+	if unborn {
+		return fmt.Errorf("cannot convert: repository has no commits (unborn HEAD)")
+	}
+
 	hasOngoing, err := git.HasOngoingOperation(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for ongoing operations: %w", err)
@@ -380,7 +387,7 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 
 		if i == 0 {
 			logger.Debug("Executing: git worktree add --no-checkout %s %s in %s", worktreePath, branch, bareDir)
-			cmd := exec.Command("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
+			cmd := git.GitCommand("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
 			cmd.Dir = bareDir
 
 			var stderr bytes.Buffer
@@ -478,7 +485,7 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
 	logger.Debug("Executing: git checkout -f %s in %s", firstBranch, firstWorktreeAbsPath)
-	checkoutCmd := exec.Command("git", "checkout", "-f", firstBranch) // nolint:gosec
+	checkoutCmd := git.GitCommand("git", "checkout", "-f", firstBranch) // nolint:gosec
 	checkoutCmd.Dir = firstWorktreeAbsPath
 
 	var checkoutStderr bytes.Buffer
@@ -499,7 +506,7 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 }
 
 // createWorktreesForConversion creates worktrees for specified branches and moves files to current branch
-func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles []string, movedFiles *[]string) ([]string, error) {
+func createWorktreesForConversion(targetDir, currentBranch, branches string, verbose bool, ignoredFiles, preservePatterns []string, movedFiles *[]string) ([]string, error) {
 	bareDir := filepath.Join(targetDir, ".bare")
 	cleanedBranches := parseBranches(branches, "")
 
@@ -526,7 +533,7 @@ func createWorktreesForConversion(targetDir, currentBranch, branches string, ver
 		return nil, err
 	}
 
-	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles)
+	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles, preservePatterns)
 	if err != nil {
 		return createdWorktrees, err
 	}
@@ -585,7 +592,7 @@ func parseBranches(branches, skipBranch string) []string {
 // findIgnoredFiles returns a list of git-ignored files in the given directory
 func findIgnoredFiles(dir string) ([]string, error) {
 	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
-	cmd := exec.Command("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	cmd := git.GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
 	cmd.Dir = dir
 
 	output, err := cmd.Output()
@@ -616,12 +623,15 @@ func matchesPattern(filePath, pattern string) bool {
 }
 
 // preserveIgnoredFilesFromList copies matching ignored files to all worktrees
-func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []string) (count int, matchedPatterns []string, err error) {
+// If patterns is nil, it will be loaded from config (only works if .git exists in sourceDir)
+func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles, patterns []string) (count int, matchedPatterns []string, err error) {
 	if len(ignoredFiles) == 0 {
 		return 0, nil, nil
 	}
 
-	patterns := config.GetMergedPreservePatterns(sourceDir)
+	if patterns == nil {
+		patterns = config.GetMergedPreservePatterns(sourceDir)
+	}
 
 	var filesToCopy []string
 	matchedPatternsMap := make(map[string]bool)
@@ -710,6 +720,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 	defer func() { _ = os.Remove(lockFile) }()
 
 	var ignoredFiles []string
+	var preservePatterns []string
 	if branches != "" {
 		files, err := findIgnoredFiles(targetDir)
 		if err != nil {
@@ -717,6 +728,8 @@ func Convert(targetDir, branches string, verbose bool) error {
 		} else {
 			ignoredFiles = files
 		}
+		// Get preserve patterns BEFORE moving .git to .bare (git config needs .git)
+		preservePatterns = config.GetMergedPreservePatterns(targetDir)
 	}
 
 	currentBranch, err := setupBareRepo(targetDir)
@@ -795,7 +808,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 
 	if branches != "" {
 		var err error
-		createdWorktrees, err = createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles, &movedFiles)
+		createdWorktrees, err = createWorktreesForConversion(targetDir, currentBranch, branches, verbose, ignoredFiles, preservePatterns, &movedFiles)
 		if err != nil {
 			return err
 		}

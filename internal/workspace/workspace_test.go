@@ -100,7 +100,7 @@ func TestPreserveIgnoredFilesFromList_NoIgnoredFiles(t *testing.T) {
 	tempDir := t.TempDir()
 	branches := []string{"main", "develop"}
 
-	count, patterns, err := preserveIgnoredFilesFromList(tempDir, branches, []string{})
+	count, patterns, err := preserveIgnoredFilesFromList(tempDir, branches, []string{}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 	}
 
 	ignoredFiles := []string{".env", "ignored.txt"}
-	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles)
+	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -203,7 +203,7 @@ patterns = ["*.custom"]
 	}
 
 	ignoredFiles := []string{customFileName}
-	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles)
+	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,7 +256,7 @@ patterns = ["*.tomltest"]
 	}
 
 	ignoredFiles := []string{testFileName}
-	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles)
+	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 
 	// Do not create the file ".env" even though it matches default preserve pattern
 	ignoredFiles := []string{".env"}
-	_, _, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles)
+	_, _, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles, nil)
 	if err == nil {
 		t.Error("expected error due to missing source file, got nil")
 	}
