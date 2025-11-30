@@ -16,7 +16,7 @@ import (
 // WorktreeInfo contains status information about a worktree
 type WorktreeInfo struct {
 	Path           string // Absolute path to worktree
-	Branch         string // Branch name
+	Branch         string // Branch name (or commit hash if detached)
 	Upstream       string // Upstream branch name (e.g., "origin/main")
 	Dirty          bool   // Has uncommitted changes
 	Ahead          int    // Commits ahead of upstream
@@ -26,6 +26,7 @@ type WorktreeInfo struct {
 	Locked         bool   // Worktree is locked
 	LockReason     string // Reason for lock (empty if not locked)
 	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
+	Detached       bool   // Worktree is in detached HEAD state
 }
 
 // CreateWorktree creates a new worktree from a bare repository
@@ -202,14 +203,15 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 	for _, path := range paths {
 		var info *WorktreeInfo
 		if fast {
-			branch, err := GetCurrentBranch(path)
+			branch, detached, err := GetCurrentBranchOrDetached(path)
 			if err != nil {
 				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
 				continue
 			}
 			info = &WorktreeInfo{
-				Path:   path,
-				Branch: branch,
+				Path:     path,
+				Branch:   branch,
+				Detached: detached,
 			}
 		} else {
 			var err error
@@ -241,11 +243,12 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 
 	info := &WorktreeInfo{Path: path}
 
-	branch, err := GetCurrentBranch(path)
+	branch, detached, err := GetCurrentBranchOrDetached(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get branch: %w", err)
 	}
 	info.Branch = branch
+	info.Detached = detached
 
 	hasChanges, _, err := CheckGitChanges(path)
 	if err != nil {
@@ -254,6 +257,9 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	info.Dirty = hasChanges
 
 	syncStatus := GetSyncStatus(path)
+	if syncStatus.Error != nil {
+		logger.Debug("Failed to get sync status for %s: %v", path, syncStatus.Error)
+	}
 	info.Upstream = syncStatus.Upstream
 	info.Ahead = syncStatus.Ahead
 	info.Behind = syncStatus.Behind
