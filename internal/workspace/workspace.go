@@ -845,7 +845,14 @@ func Convert(targetDir, branches string, verbose bool) error {
 			recoveryInstructions.WriteString("3. Run: git config --bool core.bare false\n")
 			recoveryInstructions.WriteString("\nDelete this file after recovery is complete.\n")
 
-			if err := os.WriteFile(recoveryFile, []byte(recoveryInstructions.String()), fs.FileStrict); err == nil {
+			if err := os.WriteFile(recoveryFile, []byte(recoveryInstructions.String()), fs.FileStrict); err != nil {
+				logger.Error("Failed to write recovery file: %v", err)
+				// Try fallback location
+				fallbackFile := filepath.Join(os.TempDir(), fmt.Sprintf("grove-recovery-%d.txt", os.Getpid()))
+				if fallbackErr := os.WriteFile(fallbackFile, []byte(recoveryInstructions.String()), fs.FileStrict); fallbackErr == nil {
+					logger.Error("Recovery instructions saved to: %s", fallbackFile)
+				}
+			} else {
 				logger.Error("Recovery instructions saved to: %s", recoveryFile)
 			}
 
