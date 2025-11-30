@@ -535,3 +535,160 @@ func TestFindBareDir(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveConfigDir(t *testing.T) {
+	t.Run("returns worktree root when inside worktree", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+
+		// Create bare repo
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a worktree directory with .git file
+		worktreeDir := filepath.Join(workspaceDir, "main")
+		if err := os.MkdirAll(worktreeDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		gitFile := filepath.Join(worktreeDir, ".git")
+		if err := os.WriteFile(gitFile, []byte("gitdir: ../.bare/worktrees/main"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Test from worktree root
+		result, err := ResolveConfigDir(worktreeDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != worktreeDir {
+			t.Errorf("expected %s, got %s", worktreeDir, result)
+		}
+
+		// Test from subdirectory within worktree
+		subDir := filepath.Join(worktreeDir, "src", "pkg")
+		if err := os.MkdirAll(subDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		result, err = ResolveConfigDir(subDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != worktreeDir {
+			t.Errorf("expected %s, got %s", worktreeDir, result)
+		}
+	})
+
+	t.Run("returns default branch worktree from workspace root", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+
+		// Create bare repo with HEAD pointing to main
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		// HEAD file should already point to refs/heads/main by default
+
+		// Create main worktree directory
+		mainWorktree := filepath.Join(workspaceDir, "main")
+		if err := os.MkdirAll(mainWorktree, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(mainWorktree, ".git"), []byte("gitdir: ../.bare/worktrees/main"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create another worktree (alphabetically first)
+		alphaWorktree := filepath.Join(workspaceDir, "alpha")
+		if err := os.MkdirAll(alphaWorktree, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(alphaWorktree, ".git"), []byte("gitdir: ../.bare/worktrees/alpha"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Register worktrees with git (create worktree metadata)
+		worktreesDir := filepath.Join(bareDir, "worktrees")
+		for _, name := range []string{"main", "alpha"} {
+			wtDir := filepath.Join(worktreesDir, name)
+			if err := os.MkdirAll(wtDir, fs.DirGit); err != nil {
+				t.Fatal(err)
+			}
+			gitdirPath := filepath.Join(workspaceDir, name)
+			if err := os.WriteFile(filepath.Join(wtDir, "gitdir"), []byte(gitdirPath), fs.FileStrict); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		result, err := ResolveConfigDir(workspaceDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != mainWorktree {
+			t.Errorf("expected default branch worktree %s, got %s", mainWorktree, result)
+		}
+	})
+
+	t.Run("returns first worktree when default branch missing", func(t *testing.T) {
+		workspaceDir := t.TempDir()
+		bareDir := filepath.Join(workspaceDir, ".bare")
+
+		// Create bare repo
+		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create only a feature worktree (no main)
+		featureWorktree := filepath.Join(workspaceDir, "feature")
+		if err := os.MkdirAll(featureWorktree, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(featureWorktree, ".git"), []byte("gitdir: ../.bare/worktrees/feature"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Register worktree with git
+		worktreesDir := filepath.Join(bareDir, "worktrees", "feature")
+		if err := os.MkdirAll(worktreesDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(worktreesDir, "gitdir"), []byte(featureWorktree), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := ResolveConfigDir(workspaceDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != featureWorktree {
+			t.Errorf("expected first worktree %s, got %s", featureWorktree, result)
+		}
+	})
+
+	t.Run("returns error outside workspace", func(t *testing.T) {
+		dir := t.TempDir()
+
+		_, err := ResolveConfigDir(dir)
+		if err == nil {
+			t.Error("expected error for non-workspace dir")
+		}
+		if !errors.Is(err, ErrNotInWorkspace) {
+			t.Errorf("expected ErrNotInWorkspace, got %v", err)
+		}
+	})
+}

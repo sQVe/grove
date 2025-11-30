@@ -71,6 +71,60 @@ func IsInsideGroveWorkspace(path string) bool {
 	return err == nil
 }
 
+// ResolveConfigDir finds the appropriate directory for reading config.
+// If inside a worktree, returns that worktree's root.
+// If at workspace root, returns the default branch worktree or first available worktree.
+func ResolveConfigDir(startPath string) (string, error) {
+	absPath, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", err
+	}
+
+	dir := absPath
+	for i := 0; i < maxDirectoryIterations; i++ {
+		bareDir := filepath.Join(dir, ".bare")
+		if fs.DirectoryExists(bareDir) {
+			return findCanonicalConfigDir(bareDir, dir)
+		}
+
+		gitPath := filepath.Join(dir, ".git")
+		if info, err := os.Stat(gitPath); err == nil && !info.IsDir() {
+			return dir, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", ErrNotInWorkspace
+		}
+		dir = parent
+	}
+
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
+}
+
+// findCanonicalConfigDir finds the config directory when at workspace root.
+// Priority: default branch worktree > first worktree in list.
+func findCanonicalConfigDir(bareDir, workspaceRoot string) (string, error) {
+	defaultBranch, err := git.GetDefaultBranch(bareDir)
+	if err == nil && defaultBranch != "" {
+		defaultWorktree := filepath.Join(workspaceRoot, SanitizeBranchName(defaultBranch))
+		if fs.DirectoryExists(defaultWorktree) {
+			return defaultWorktree, nil
+		}
+	}
+
+	worktrees, err := git.ListWorktrees(bareDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	if len(worktrees) == 0 {
+		return "", fmt.Errorf("no worktrees found in workspace")
+	}
+
+	return worktrees[0], nil
+}
+
 // ValidateAndPrepareDirectory validates and prepares a directory for grove workspace.
 // It rejects directories inside existing git repos or grove workspaces,
 // rejects non-empty directories, and creates the directory if it doesn't exist.

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -125,34 +124,21 @@ func isBooleanKey(key string) bool {
 	})
 }
 
-// findWorktreeDir finds the current worktree directory or returns empty string
+// findWorktreeDir finds the current worktree directory or returns empty string.
+// When at workspace root, returns the canonical config directory (default branch worktree
+// or first worktree if default branch is missing).
 func findWorktreeDir() string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
 	}
 
-	bareDir, err := workspace.FindBareDir(cwd)
+	dir, err := workspace.ResolveConfigDir(cwd)
 	if err != nil {
 		return ""
 	}
 
-	// Check if we're in a worktree (not workspace root)
-	if git.IsWorktree(cwd) {
-		return cwd
-	}
-
-	// Walk up to find worktree root
-	workspaceRoot := bareDir[:len(bareDir)-5] // Remove "/.bare"
-	dir := cwd
-	for dir != workspaceRoot && dir != "/" {
-		if git.IsWorktree(dir) {
-			return dir
-		}
-		dir = filepath.Dir(dir)
-	}
-
-	return ""
+	return dir
 }
 
 // NewConfigCmd creates the config command with all subcommands
@@ -325,7 +311,7 @@ func runConfigList(shared, global bool) error {
 func runConfigListShared() error {
 	worktreeDir := findWorktreeDir()
 	if worktreeDir == "" {
-		return errors.New("not in a worktree (run from inside a worktree to access .grove.toml)")
+		return errors.New("not in a grove workspace")
 	}
 
 	cfg, err := config.LoadFromFile(worktreeDir)
@@ -434,7 +420,7 @@ func runConfigGet(key string, shared, global bool) error {
 func runConfigGetShared(key string) error {
 	worktreeDir := findWorktreeDir()
 	if worktreeDir == "" {
-		return errors.New("not in a worktree (run from inside a worktree to access .grove.toml)")
+		return errors.New("not in a grove workspace")
 	}
 
 	cfg, err := config.LoadFromFile(worktreeDir)
@@ -534,7 +520,7 @@ func runConfigSet(key, value string, shared, global bool) error {
 func runConfigSetShared(key, value string) error {
 	worktreeDir := findWorktreeDir()
 	if worktreeDir == "" {
-		return errors.New("not in a worktree (run from inside a worktree to access .grove.toml)")
+		return errors.New("not in a grove workspace")
 	}
 
 	normalizedKey := strings.ToLower(key)
@@ -596,7 +582,7 @@ func runConfigUnset(key, value string, shared, global bool) error {
 func runConfigUnsetShared(key string) error {
 	worktreeDir := findWorktreeDir()
 	if worktreeDir == "" {
-		return errors.New("not in a worktree (run from inside a worktree to access .grove.toml)")
+		return errors.New("not in a grove workspace")
 	}
 
 	cfg, err := config.LoadFromFile(worktreeDir)
@@ -644,7 +630,7 @@ func runConfigUnsetGlobal(key, value string) error {
 func runConfigInit(force bool) error {
 	worktreeDir := findWorktreeDir()
 	if worktreeDir == "" {
-		return errors.New("not in a worktree (run from inside a worktree)")
+		return errors.New("not in a grove workspace")
 	}
 
 	if config.FileConfigExists(worktreeDir) && !force {
