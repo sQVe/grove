@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sqve/grove/internal/config"
@@ -19,6 +21,21 @@ import (
 
 // ErrNoUpstreamConfigured is returned when a branch has no upstream configured
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
+
+// Git operation marker files/directories
+const (
+	markerMergeHead      = "MERGE_HEAD"
+	markerCherryPickHead = "CHERRY_PICK_HEAD"
+	markerRevertHead     = "REVERT_HEAD"
+	markerRebaseApply    = "rebase-apply"
+	markerRebaseMerge    = "rebase-merge"
+)
+
+// Regex patterns for parsing git output
+var (
+	aheadPattern  = regexp.MustCompile(`ahead (\d+)`)
+	behindPattern = regexp.MustCompile(`behind (\d+)`)
+)
 
 // GitCommand creates an exec.Cmd with timeout context if configured.
 // Returns the command and a cancel function that must be called when done.
@@ -257,7 +274,7 @@ func RefExists(repoPath, ref string) error {
 	defer cancel()
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ref not found")
+		return fmt.Errorf("ref %q not found: %w", ref, err)
 	}
 	return nil
 }
@@ -276,10 +293,6 @@ func IsWorktree(path string) bool {
 	return fs.FileExists(gitPath)
 }
 
-// maxDirectoryIterations limits directory traversal to prevent infinite loops
-// from symlink cycles. 100 levels is generous for any sane filesystem depth.
-const maxDirectoryIterations = 100
-
 // FindWorktreeRoot walks up from the given path to find the worktree root.
 // Returns the path containing the .git file, or error if not in a worktree.
 func FindWorktreeRoot(startPath string) (string, error) {
@@ -289,7 +302,7 @@ func FindWorktreeRoot(startPath string) (string, error) {
 	}
 
 	dir := absPath
-	for i := 0; i < maxDirectoryIterations; i++ {
+	for i := 0; i < fs.MaxDirectoryIterations; i++ {
 		gitPath := filepath.Join(dir, ".git")
 		if fs.FileExists(gitPath) {
 			return dir, nil
@@ -301,7 +314,7 @@ func FindWorktreeRoot(startPath string) (string, error) {
 		}
 		dir = parent
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
 }
 
 // GetGitDir returns the path to the git directory for the given path.
@@ -335,33 +348,42 @@ func GetGitDir(path string) (string, error) {
 }
 
 // GetWorktreeGitDir returns the gitdir path for a worktree.
-func GetWorktreeGitDir(worktreePath string) string {
+// Returns ("", nil) if the path is not a worktree (no .git file).
+// Returns an error if the .git file exists but is unreadable or malformed.
+func GetWorktreeGitDir(worktreePath string) (string, error) {
 	gitFile := filepath.Join(worktreePath, ".git")
 	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
 	if err != nil {
-		return ""
+		if os.IsNotExist(err) {
+			return "", nil // Not a worktree - expected case
+		}
+		return "", fmt.Errorf("failed to read .git file: %w", err)
 	}
 
 	line := strings.TrimSpace(string(content))
 	if !strings.HasPrefix(line, "gitdir:") {
-		return ""
+		return "", fmt.Errorf("invalid .git file format: missing gitdir prefix")
 	}
 
 	gitdir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
 	if !filepath.IsAbs(gitdir) {
 		gitdir = filepath.Join(worktreePath, gitdir)
 	}
-	return filepath.Clean(gitdir)
+	return filepath.Clean(gitdir), nil
 }
 
 // IsWorktreeLocked checks if a worktree is locked.
 func IsWorktreeLocked(worktreePath string) bool {
-	gitdir := GetWorktreeGitDir(worktreePath)
+	gitdir, err := GetWorktreeGitDir(worktreePath)
+	if err != nil {
+		logger.Debug("Failed to get worktree gitdir for lock check: %v", err)
+		return false
+	}
 	if gitdir == "" {
 		return false
 	}
 	lockFile := filepath.Join(gitdir, "locked")
-	_, err := os.Stat(lockFile)
+	_, err = os.Stat(lockFile)
 	return err == nil
 }
 
@@ -381,7 +403,11 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 
 // GetWorktreeLockReason returns the lock reason for a worktree.
 func GetWorktreeLockReason(worktreePath string) string {
-	gitdir := GetWorktreeGitDir(worktreePath)
+	gitdir, err := GetWorktreeGitDir(worktreePath)
+	if err != nil {
+		logger.Debug("Failed to get worktree gitdir for lock reason: %v", err)
+		return ""
+	}
 	if gitdir == "" {
 		return ""
 	}
@@ -624,11 +650,11 @@ func HasOngoingOperation(path string) (bool, error) {
 	}
 
 	markers := []string{
-		"CHERRY_PICK_HEAD",
-		"MERGE_HEAD",
-		"REVERT_HEAD",
-		"rebase-apply",
-		"rebase-merge",
+		markerCherryPickHead,
+		markerMergeHead,
+		markerRevertHead,
+		markerRebaseApply,
+		markerRebaseMerge,
 	}
 
 	for _, marker := range markers {
@@ -648,16 +674,16 @@ func GetOngoingOperation(path string) (string, error) {
 		return "", err
 	}
 
-	if fs.PathExists(filepath.Join(gitDir, "MERGE_HEAD")) {
+	if fs.PathExists(filepath.Join(gitDir, markerMergeHead)) {
 		return "merging", nil
 	}
-	if fs.PathExists(filepath.Join(gitDir, "rebase-merge")) || fs.PathExists(filepath.Join(gitDir, "rebase-apply")) {
+	if fs.PathExists(filepath.Join(gitDir, markerRebaseMerge)) || fs.PathExists(filepath.Join(gitDir, markerRebaseApply)) {
 		return "rebasing", nil
 	}
-	if fs.PathExists(filepath.Join(gitDir, "CHERRY_PICK_HEAD")) {
+	if fs.PathExists(filepath.Join(gitDir, markerCherryPickHead)) {
 		return "cherry-picking", nil
 	}
-	if fs.PathExists(filepath.Join(gitDir, "REVERT_HEAD")) {
+	if fs.PathExists(filepath.Join(gitDir, markerRevertHead)) {
 		return "reverting", nil
 	}
 
@@ -1115,6 +1141,17 @@ type WorktreeInfo struct {
 	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
 }
 
+// FindWorktreeByBranch finds a worktree by branch name from a list of worktree infos.
+// Returns nil if no worktree exists for the given branch.
+func FindWorktreeByBranch(infos []*WorktreeInfo, branch string) *WorktreeInfo {
+	for _, info := range infos {
+		if info.Branch == branch {
+			return info
+		}
+	}
+	return nil
+}
+
 // GetLastCommitTime returns the Unix timestamp of the last commit in a repository.
 // Returns 0 if the repository has no commits or on error.
 func GetLastCommitTime(path string) int64 {
@@ -1176,10 +1213,12 @@ type SyncStatus struct {
 	Behind     int    // Commits behind upstream
 	Gone       bool   // Upstream branch deleted
 	NoUpstream bool   // No upstream configured
+	Error      error  // Non-nil if status couldn't be determined due to git error
 }
 
 // GetSyncStatus returns sync status relative to upstream.
 // Uses git for-each-ref to reliably detect "gone" upstream branches.
+// Check the Error field to distinguish "no upstream" from "git command failed".
 func GetSyncStatus(path string) *SyncStatus {
 	status := &SyncStatus{}
 
@@ -1192,11 +1231,12 @@ func GetSyncStatus(path string) *SyncStatus {
 	cancelBranch()
 	if err != nil {
 		status.NoUpstream = true
+		status.Error = fmt.Errorf("failed to get current branch: %w", err)
 		return status
 	}
 	branch := strings.TrimSpace(branchOut.String())
 	if branch == "" || branch == "HEAD" {
-		// Detached HEAD
+		// Detached HEAD - expected condition, not an error
 		status.NoUpstream = true
 		return status
 	}
@@ -1208,8 +1248,9 @@ func GetSyncStatus(path string) *SyncStatus {
 	cmdRef.Dir = path
 	var refOut bytes.Buffer
 	cmdRef.Stdout = &refOut
-	if cmdRef.Run() != nil {
+	if err := cmdRef.Run(); err != nil {
 		status.NoUpstream = true
+		status.Error = fmt.Errorf("failed to get upstream info: %w", err)
 		return status
 	}
 
@@ -1238,21 +1279,11 @@ func GetSyncStatus(path string) *SyncStatus {
 			return status
 		}
 		// Parse ahead/behind from track info like "[ahead 1, behind 2]" or "[ahead 1]" or "[behind 2]"
-		if strings.Contains(trackInfo, "ahead") {
-			var ahead int
-			if _, err := fmt.Sscanf(trackInfo, "[ahead %d", &ahead); err == nil {
-				status.Ahead = ahead
-			} else if n, _ := fmt.Sscanf(trackInfo, "[behind %d, ahead %d]", &status.Behind, &ahead); n == 2 {
-				status.Ahead = ahead
-			}
+		if match := aheadPattern.FindStringSubmatch(trackInfo); match != nil {
+			status.Ahead, _ = strconv.Atoi(match[1])
 		}
-		if strings.Contains(trackInfo, "behind") {
-			var behind int
-			if _, err := fmt.Sscanf(trackInfo, "[behind %d", &behind); err == nil {
-				status.Behind = behind
-			} else if n, _ := fmt.Sscanf(trackInfo, "[ahead %d, behind %d]", &status.Ahead, &behind); n == 2 {
-				status.Behind = behind
-			}
+		if match := behindPattern.FindStringSubmatch(trackInfo); match != nil {
+			status.Behind, _ = strconv.Atoi(match[1])
 		}
 	}
 
@@ -1415,6 +1446,55 @@ func RemoteExists(repoPath, name string) (bool, error) {
 	return true, nil
 }
 
+// GetRemoteURL returns the URL for a named remote.
+func GetRemoteURL(repoPath, name string) (string, error) {
+	if repoPath == "" {
+		return "", errors.New("repository path cannot be empty")
+	}
+	if name == "" {
+		return "", errors.New("remote name cannot be empty")
+	}
+
+	cmd, cancel := GitCommand("git", "remote", "get-url", name) // nolint:gosec // Validated input
+	defer cancel()
+	cmd.Dir = repoPath
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get URL for remote %q: %w", name, err)
+	}
+
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+// ListIgnoredFiles returns a list of git-ignored files in the given directory.
+func ListIgnoredFiles(dir string) ([]string, error) {
+	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
+	cmd, cancel := GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	defer cancel()
+	cmd.Dir = dir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ignored files: %w", err)
+	}
+
+	if len(output) == 0 {
+		return nil, nil
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var files []string
+	for _, line := range lines {
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
+}
+
 // FetchBranch fetches a specific branch from a remote.
 func FetchBranch(repoPath, remote, branch string) error {
 	if repoPath == "" {
@@ -1477,7 +1557,7 @@ func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
 	if err != nil {
-		return false, nil //nolint:nilerr // Error running cherry means we can't determine merge status
+		return false, fmt.Errorf("failed to check patch-id merge status: %w", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")

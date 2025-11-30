@@ -17,6 +17,10 @@ const (
 	DirGit   = 0o755 // rwxr-xr-x - git-compatible directory
 	FileExec = 0o755 // rwxr-xr-x - executable file
 	FileGit  = 0o644 // rw-r--r-- - git-compatible file
+
+	// MaxDirectoryIterations limits directory traversal to prevent infinite loops
+	// from symlink cycles. 100 levels is generous for any sane filesystem depth.
+	MaxDirectoryIterations = 100
 )
 
 // DirectoryExists checks if a directory exists

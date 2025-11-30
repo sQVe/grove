@@ -51,14 +51,7 @@ func runUnlock(branch string) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	var worktreeInfo *git.WorktreeInfo
-	for _, info := range infos {
-		if info.Branch == branch {
-			worktreeInfo = info
-			break
-		}
-	}
-
+	worktreeInfo := git.FindWorktreeByBranch(infos, branch)
 	if worktreeInfo == nil {
 		return fmt.Errorf("no worktree found for branch %q", branch)
 	}
