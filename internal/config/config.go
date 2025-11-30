@@ -102,25 +102,18 @@ func GetTimeout() time.Duration {
 	return DefaultConfig.Timeout
 }
 
-// ShouldAutoLock checks if a branch name matches any auto-lock pattern
+// ShouldAutoLock checks if a branch name matches any auto-lock pattern.
 func ShouldAutoLock(branch string) bool {
 	patterns := GetAutoLockPatterns()
 	for _, pattern := range patterns {
-		// Exact match
-		if pattern == branch {
-			return true
-		}
-		// Glob pattern match (e.g., "release/*")
-		if matchGlobPattern(pattern, branch) {
+		if pattern == branch || matchGlobPattern(pattern, branch) {
 			return true
 		}
 	}
 	return false
 }
 
-// matchGlobPattern performs simple glob matching supporting * wildcard
 func matchGlobPattern(pattern, name string) bool {
-	// Simple pattern matching: only support trailing /* for now
 	if strings.HasSuffix(pattern, "/*") {
 		prefix := strings.TrimSuffix(pattern, "/*")
 		return strings.HasPrefix(name, prefix+"/")
@@ -185,14 +178,9 @@ func getGitConfigInDir(key, dir string) string {
 	output, err := cmd.Output()
 	if err != nil {
 		exitErr := &exec.ExitError{}
-		if errors.As(err, &exitErr) {
-			// Exit code 1 = key not found (expected)
-			if exitErr.ExitCode() == 1 {
-				return ""
-			}
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return ""
 		}
-		// Real error (git not found, permission denied, etc.)
-		// Log directly to stderr to avoid import cycle with logger package
 		if Global.Debug {
 			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
 		}
@@ -215,14 +203,9 @@ func getGitConfigsInDir(key, dir string) []string {
 	output, err := cmd.Output()
 	if err != nil {
 		exitErr := &exec.ExitError{}
-		if errors.As(err, &exitErr) {
-			// Exit code 1 = key not found (expected)
-			if exitErr.ExitCode() == 1 {
-				return nil
-			}
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return nil
 		}
-		// Real error (git not found, permission denied, etc.)
-		// Log directly to stderr to avoid import cycle with logger package
 		if Global.Debug {
 			fmt.Fprintf(os.Stderr, "[DEBUG] git config error for %s: %v\n", key, err)
 		}

@@ -21,15 +21,10 @@ import (
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
 
 // GitCommand creates an exec.Cmd with timeout context if configured.
-// This should be used instead of exec.Command for git operations.
 func GitCommand(name string, arg ...string) *exec.Cmd {
 	timeout := config.GetTimeout()
 	if timeout > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		// Note: We can't call cancel() here since the command hasn't run yet.
-		// The context will be cancelled automatically when the timeout expires.
-		// This is a known limitation - the cancel func is for cleanup if we want
-		// to cancel early, but for timeout-only use cases this is fine.
 		_ = cancel
 		return exec.CommandContext(ctx, name, arg...)
 	}
@@ -507,25 +502,20 @@ func IsUnbornHead(path string) (bool, error) {
 
 	line := strings.TrimSpace(string(content))
 
-	// If HEAD is a direct commit reference (detached), it's not unborn
 	if !strings.HasPrefix(line, "ref: ") {
 		return false, nil
 	}
 
-	// Extract the ref path (e.g., "refs/heads/main")
 	refPath := strings.TrimPrefix(line, "ref: ")
 
-	// Check if the ref exists as a loose ref
 	looseRef := filepath.Join(gitDir, refPath)
 	if _, err := os.Stat(looseRef); err == nil {
 		return false, nil
 	}
 
-	// Check packed-refs for the ref
 	packedRefsPath := filepath.Join(gitDir, "packed-refs")
 	if packedRefs, err := os.ReadFile(packedRefsPath); err == nil { // nolint:gosec
 		for _, packedLine := range strings.Split(string(packedRefs), "\n") {
-			// packed-refs format: "<sha> <ref>" or "^<sha>" for peeled tags
 			if strings.HasPrefix(packedLine, "#") || strings.HasPrefix(packedLine, "^") {
 				continue
 			}
@@ -536,7 +526,6 @@ func IsUnbornHead(path string) (bool, error) {
 		}
 	}
 
-	// Ref doesn't exist - HEAD is unborn
 	return true, nil
 }
 
