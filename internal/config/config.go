@@ -6,16 +6,18 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Global holds the global configuration state for Grove
 var Global struct {
-	Plain            bool     // Disable colors and symbols
-	Debug            bool     // Enable debug logging
-	NerdFonts        bool     // Use Nerd Font icons (when not in plain mode)
-	PreservePatterns []string // Patterns for ignored files to preserve in new worktrees
-	StaleThreshold   string   // Default threshold for stale worktree detection (e.g., "30d")
-	AutoLockPatterns []string // Patterns for branches to auto-lock when creating worktrees
+	Plain            bool          // Disable colors and symbols
+	Debug            bool          // Enable debug logging
+	NerdFonts        bool          // Use Nerd Font icons (when not in plain mode)
+	PreservePatterns []string      // Patterns for ignored files to preserve in new worktrees
+	StaleThreshold   string        // Default threshold for stale worktree detection (e.g., "30d")
+	AutoLockPatterns []string      // Patterns for branches to auto-lock when creating worktrees
+	Timeout          time.Duration // Command timeout (0 = no timeout)
 }
 
 // DefaultConfig contains the default configuration values
@@ -26,11 +28,13 @@ var DefaultConfig = struct {
 	PreservePatterns []string
 	StaleThreshold   string
 	AutoLockPatterns []string
+	Timeout          time.Duration
 }{
 	Plain:          false,
 	Debug:          false,
 	NerdFonts:      true,
 	StaleThreshold: "30d",
+	Timeout:        30 * time.Second,
 	PreservePatterns: []string{
 		".env",
 		".env.keys",
@@ -90,6 +94,14 @@ func GetAutoLockPatterns() []string {
 	return DefaultConfig.AutoLockPatterns
 }
 
+// GetTimeout returns the configured command timeout
+func GetTimeout() time.Duration {
+	if Global.Timeout > 0 {
+		return Global.Timeout
+	}
+	return DefaultConfig.Timeout
+}
+
 // ShouldAutoLock checks if a branch name matches any auto-lock pattern
 func ShouldAutoLock(branch string) bool {
 	patterns := GetAutoLockPatterns()
@@ -122,6 +134,7 @@ func LoadFromGitConfig() {
 	Global.Debug = DefaultConfig.Debug
 	Global.NerdFonts = DefaultConfig.NerdFonts
 	Global.StaleThreshold = DefaultConfig.StaleThreshold
+	Global.Timeout = DefaultConfig.Timeout
 	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
 
@@ -141,6 +154,12 @@ func LoadFromGitConfig() {
 		Global.StaleThreshold = value
 	}
 
+	if value := getGitConfig("grove.timeout"); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			Global.Timeout = d
+		}
+	}
+
 	patterns := getGitConfigs("grove.preserve")
 	if len(patterns) > 0 {
 		Global.PreservePatterns = patterns
@@ -154,7 +173,15 @@ func LoadFromGitConfig() {
 
 // getGitConfig gets a single config value, returns empty string if not found
 func getGitConfig(key string) string {
+	return getGitConfigInDir(key, "")
+}
+
+// getGitConfigInDir gets a single config value from a specific directory
+func getGitConfigInDir(key, dir string) string {
 	cmd := exec.Command("git", "config", "--get", key)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		exitErr := &exec.ExitError{}
@@ -176,7 +203,15 @@ func getGitConfig(key string) string {
 
 // getGitConfigs gets all values for a multi-value config key
 func getGitConfigs(key string) []string {
+	return getGitConfigsInDir(key, "")
+}
+
+// getGitConfigsInDir gets all values for a multi-value config key from a specific directory
+func getGitConfigsInDir(key, dir string) []string {
 	cmd := exec.Command("git", "config", "--get-all", key)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		exitErr := &exec.ExitError{}

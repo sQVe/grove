@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 )
 
 // setupGitRepo creates a temporary git repo and changes to it
@@ -87,6 +88,7 @@ func resetGlobal() {
 	Global.PreservePatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
+	Global.Timeout = 0
 }
 
 func TestLoadFromGitConfig(t *testing.T) {
@@ -462,6 +464,27 @@ func TestShouldAutoLock(t *testing.T) {
 		}
 		if ShouldAutoLock("release") {
 			t.Error("Expected 'release' (without slash) not to match 'release/*'")
+		}
+	})
+}
+
+func TestGetTimeout(t *testing.T) {
+	t.Run("returns default when Global is zero", func(t *testing.T) {
+		resetGlobal()
+
+		timeout := GetTimeout()
+		if timeout != DefaultConfig.Timeout {
+			t.Errorf("Expected %v, got %v", DefaultConfig.Timeout, timeout)
+		}
+	})
+
+	t.Run("returns Global timeout when set", func(t *testing.T) {
+		resetGlobal()
+		Global.Timeout = 60 * time.Second
+
+		timeout := GetTimeout()
+		if timeout != 60*time.Second {
+			t.Errorf("Expected 60s, got %v", timeout)
 		}
 	})
 }

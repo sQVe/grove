@@ -3,6 +3,7 @@ package git
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,12 +12,29 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/logger"
 )
 
 // ErrNoUpstreamConfigured is returned when a branch has no upstream configured
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
+
+// GitCommand creates an exec.Cmd with timeout context if configured.
+// This should be used instead of exec.Command for git operations.
+func GitCommand(name string, arg ...string) *exec.Cmd {
+	timeout := config.GetTimeout()
+	if timeout > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		// Note: We can't call cancel() here since the command hasn't run yet.
+		// The context will be cancelled automatically when the timeout expires.
+		// This is a known limitation - the cancel func is for cleanup if we want
+		// to cancel early, but for timeout-only use cases this is fine.
+		_ = cancel
+		return exec.CommandContext(ctx, name, arg...)
+	}
+	return exec.Command(name, arg...)
+}
 
 // runGitCommand executes a git command with consistent stderr capture and error handling
 func runGitCommand(cmd *exec.Cmd, quiet bool) error {
@@ -44,7 +62,7 @@ func InitBare(path string) error {
 		return errors.New("repository path cannot be empty")
 	}
 	logger.Debug("Executing: git init --bare in %s", path)
-	cmd := exec.Command("git", "init", "--bare")
+	cmd := GitCommand("git", "init", "--bare")
 	cmd.Dir = path
 	return runGitCommand(cmd, true) // Always quiet for init
 }
@@ -55,7 +73,7 @@ func ConfigureBare(path string) error {
 		return errors.New("repository path cannot be empty")
 	}
 	logger.Debug("Executing: git config --bool core.bare true in %s", path)
-	cmd := exec.Command("git", "config", "--bool", "core.bare", "true")
+	cmd := GitCommand("git", "config", "--bool", "core.bare", "true")
 	cmd.Dir = path
 	return runGitCommand(cmd, true)
 }
@@ -66,7 +84,7 @@ func RestoreNormalConfig(path string) error {
 		return errors.New("repository path cannot be empty")
 	}
 	logger.Debug("Executing: git config --bool core.bare false in %s", path)
-	cmd := exec.Command("git", "config", "--bool", "core.bare", "false")
+	cmd := GitCommand("git", "config", "--bool", "core.bare", "false")
 	cmd.Dir = path
 	return runGitCommand(cmd, true)
 }
@@ -90,7 +108,7 @@ func Clone(url, path string, quiet, shallow bool) error {
 	args = append(args, url, path)
 
 	logger.Debug("Executing: git %s", strings.Join(args, " "))
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 
 	return runGitCommand(cmd, quiet)
 }
@@ -98,7 +116,7 @@ func Clone(url, path string, quiet, shallow bool) error {
 // FetchPrune runs git fetch --prune to update remote tracking refs and remove stale ones
 func FetchPrune(repoPath string) error {
 	logger.Debug("Executing: git fetch --prune in %s", repoPath)
-	cmd := exec.Command("git", "fetch", "--prune")
+	cmd := GitCommand("git", "fetch", "--prune")
 	cmd.Dir = repoPath
 	return runGitCommand(cmd, true)
 }
@@ -106,7 +124,7 @@ func FetchPrune(repoPath string) error {
 // ListBranches returns a list of all branches in a bare repository
 func ListBranches(bareRepo string) ([]string, error) {
 	logger.Debug("Executing: git branch -a --format=%%(refname:short) in %s", bareRepo)
-	cmd := exec.Command("git", "branch", "-a", "--format=%(refname:short)")
+	cmd := GitCommand("git", "branch", "-a", "--format=%(refname:short)")
 	cmd.Dir = bareRepo
 
 	var out bytes.Buffer
@@ -158,14 +176,8 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 		return errors.New("branch name cannot be empty")
 	}
 
-	var cmd *exec.Cmd
-	if quiet {
-		logger.Debug("Executing: git worktree add %s %s (quiet)", worktreePath, branch)
-		cmd = exec.Command("git", "worktree", "add", worktreePath, branch)
-	} else {
-		logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
-		cmd = exec.Command("git", "worktree", "add", worktreePath, branch)
-	}
+	logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
+	cmd := GitCommand("git", "worktree", "add", worktreePath, branch)
 	cmd.Dir = bareRepo
 
 	return runGitCommand(cmd, quiet)
@@ -185,7 +197,7 @@ func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bo
 	}
 
 	logger.Debug("Executing: git worktree add -b %s %s", branch, worktreePath)
-	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
+	cmd := GitCommand("git", "worktree", "add", "-b", branch, worktreePath)
 	cmd.Dir = bareRepo
 
 	return runGitCommand(cmd, quiet)
@@ -208,7 +220,7 @@ func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string
 	}
 
 	logger.Debug("Executing: git worktree add -b %s %s %s", branch, worktreePath, base)
-	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath, base)
+	cmd := GitCommand("git", "worktree", "add", "-b", branch, worktreePath, base)
 	cmd.Dir = bareRepo
 
 	return runGitCommand(cmd, quiet)
@@ -228,7 +240,7 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 	}
 
 	logger.Debug("Executing: git worktree add --detach %s %s", worktreePath, ref)
-	cmd := exec.Command("git", "worktree", "add", "--detach", worktreePath, ref)
+	cmd := GitCommand("git", "worktree", "add", "--detach", worktreePath, ref)
 	cmd.Dir = bareRepo
 
 	return runGitCommand(cmd, quiet)
@@ -236,7 +248,7 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 
 // RefExists checks if a ref (commit, tag, branch) exists
 func RefExists(repoPath, ref string) error {
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", ref)
+	cmd := GitCommand("git", "rev-parse", "--verify", "--quiet", ref)
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("ref not found")
@@ -246,7 +258,7 @@ func RefExists(repoPath, ref string) error {
 
 // IsInsideGitRepo checks if the given path is inside an existing git repository
 func IsInsideGitRepo(path string) bool {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd := GitCommand("git", "rev-parse", "--show-toplevel")
 	cmd.Dir = path
 	return cmd.Run() == nil
 }
@@ -354,7 +366,7 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 	}
 	args = append(args, worktreePath)
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd := exec.Command("git", args...) //nolint:gosec // Worktree path validated
+	cmd := GitCommand("git", args...) //nolint:gosec // Worktree path validated
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
 }
@@ -376,7 +388,7 @@ func GetWorktreeLockReason(worktreePath string) string {
 // UnlockWorktree unlocks a locked worktree
 func UnlockWorktree(bareDir, worktreePath string) error {
 	logger.Debug("Executing: git worktree unlock %s in %s", worktreePath, bareDir)
-	cmd := exec.Command("git", "worktree", "unlock", worktreePath) //nolint:gosec // Worktree path validated
+	cmd := GitCommand("git", "worktree", "unlock", worktreePath) //nolint:gosec // Worktree path validated
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
 }
@@ -388,7 +400,7 @@ func RemoveWorktree(bareDir, worktreePath string, force bool) error {
 		args = append(args, "--force")
 	}
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd := exec.Command("git", args...) // nolint:gosec // Worktree path comes from git worktree list
+	cmd := GitCommand("git", args...) // nolint:gosec // Worktree path comes from git worktree list
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
 }
@@ -400,14 +412,14 @@ func DeleteBranch(repoPath, branchName string, force bool) error {
 		flag = "-D"
 	}
 	logger.Debug("Executing: git branch %s %s in %s", flag, branchName, repoPath)
-	cmd := exec.Command("git", "branch", flag, branchName) //nolint:gosec // Branch name comes from validated input
+	cmd := GitCommand("git", "branch", flag, branchName) //nolint:gosec // Branch name comes from validated input
 	cmd.Dir = repoPath
 	return runGitCommand(cmd, true)
 }
 
 // CheckGitChanges runs git status once and returns both tracked and any changes
 func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err error) {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := GitCommand("git", "status", "--porcelain")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -472,6 +484,60 @@ func GetCurrentBranch(path string) (string, error) {
 	}
 
 	return "", fmt.Errorf("detached HEAD state")
+}
+
+// IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
+// An unborn HEAD occurs when HEAD points to a branch ref that doesn't exist,
+// which happens in newly initialized repos before the first commit.
+func IsUnbornHead(path string) (bool, error) {
+	if path == "" {
+		return false, errors.New("repository path cannot be empty")
+	}
+
+	gitDir, err := resolveGitDir(path)
+	if err != nil {
+		return false, err
+	}
+
+	headFile := filepath.Join(gitDir, "HEAD")
+	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	if err != nil {
+		return false, err
+	}
+
+	line := strings.TrimSpace(string(content))
+
+	// If HEAD is a direct commit reference (detached), it's not unborn
+	if !strings.HasPrefix(line, "ref: ") {
+		return false, nil
+	}
+
+	// Extract the ref path (e.g., "refs/heads/main")
+	refPath := strings.TrimPrefix(line, "ref: ")
+
+	// Check if the ref exists as a loose ref
+	looseRef := filepath.Join(gitDir, refPath)
+	if _, err := os.Stat(looseRef); err == nil {
+		return false, nil
+	}
+
+	// Check packed-refs for the ref
+	packedRefsPath := filepath.Join(gitDir, "packed-refs")
+	if packedRefs, err := os.ReadFile(packedRefsPath); err == nil { // nolint:gosec
+		for _, packedLine := range strings.Split(string(packedRefs), "\n") {
+			// packed-refs format: "<sha> <ref>" or "^<sha>" for peeled tags
+			if strings.HasPrefix(packedLine, "#") || strings.HasPrefix(packedLine, "^") {
+				continue
+			}
+			fields := strings.Fields(packedLine)
+			if len(fields) >= 2 && fields[1] == refPath {
+				return false, nil
+			}
+		}
+	}
+
+	// Ref doesn't exist - HEAD is unborn
+	return true, nil
 }
 
 // resolveGitDir returns the actual git directory for a repository or worktree.
@@ -595,7 +661,7 @@ func GetOngoingOperation(path string) (string, error) {
 // ListWorktrees returns paths to existing worktrees, excluding the main repository
 func ListWorktrees(repoPath string) ([]string, error) {
 	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
-	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	cmd := GitCommand("git", "worktree", "list", "--porcelain")
 	cmd.Dir = repoPath
 
 	var out bytes.Buffer
@@ -660,7 +726,7 @@ func HasLockFiles(path string) (bool, error) {
 
 // HasUnresolvedConflicts checks if there are unresolved merge conflicts
 func HasUnresolvedConflicts(path string) (bool, error) {
-	cmd := exec.Command("git", "ls-files", "-u")
+	cmd := GitCommand("git", "ls-files", "-u")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -680,7 +746,7 @@ func HasUnresolvedConflicts(path string) (bool, error) {
 
 // GetConflictCount returns the number of files with unresolved merge conflicts
 func GetConflictCount(path string) (int, error) {
-	cmd := exec.Command("git", "ls-files", "-u")
+	cmd := GitCommand("git", "ls-files", "-u")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -720,7 +786,7 @@ func HasSubmodules(path string) (bool, error) {
 		return true, nil
 	}
 
-	cmd := exec.Command("git", "submodule", "status")
+	cmd := GitCommand("git", "submodule", "status")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -741,7 +807,7 @@ func HasSubmodules(path string) (bool, error) {
 
 // HasUnpushedCommits checks if the current branch has unpushed commits
 func HasUnpushedCommits(path string) (bool, error) {
-	cmdUpstream := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmdUpstream := GitCommand("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	cmdUpstream.Dir = path
 	var upstreamStderr bytes.Buffer
 	cmdUpstream.Stderr = &upstreamStderr
@@ -750,7 +816,7 @@ func HasUnpushedCommits(path string) (bool, error) {
 		return false, fmt.Errorf("%w: %s", ErrNoUpstreamConfigured, strings.TrimSpace(upstreamStderr.String()))
 	}
 
-	cmdLog := exec.Command("git", "log", "@{u}..HEAD", "--oneline")
+	cmdLog := GitCommand("git", "log", "@{u}..HEAD", "--oneline")
 	cmdLog.Dir = path
 
 	var out bytes.Buffer
@@ -771,7 +837,7 @@ func ListLocalBranches(path string) ([]string, error) {
 	if path == "" {
 		return nil, errors.New("repository path cannot be empty")
 	}
-	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
+	cmd := GitCommand("git", "branch", "--format=%(refname:short)")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -804,13 +870,13 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
 
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
+	cmd := GitCommand("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
 	cmd.Dir = repoPath
 	if cmd.Run() == nil {
 		return true, nil
 	}
 
-	remotesCmd := exec.Command("git", "remote")
+	remotesCmd := GitCommand("git", "remote")
 	remotesCmd.Dir = repoPath
 	output, err := remotesCmd.Output()
 	if err != nil {
@@ -823,7 +889,7 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 			continue
 		}
 		remoteBranch := remote + "/" + branchName
-		cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
+		cmd := GitCommand("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
 		cmd.Dir = repoPath
 		if cmd.Run() == nil {
 			return true, nil
@@ -851,7 +917,7 @@ func GetConfig(key string, global bool) (string, error) {
 	}
 	args = append(args, key)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -879,7 +945,7 @@ func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 	}
 	args = append(args, prefix)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -918,7 +984,7 @@ func SetConfig(key, value string, global bool) error {
 	}
 	args = append(args, key, value)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -942,7 +1008,7 @@ func AddConfig(key, value string, global bool) error {
 	}
 	args = append(args, key, value)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -966,7 +1032,7 @@ func UnsetConfig(key string, global bool) error {
 	}
 	args = append(args, key)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -993,7 +1059,7 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 	}
 	args = append(args, key, valuePattern)
 
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -1028,7 +1094,7 @@ type WorktreeInfo struct {
 // GetLastCommitTime returns the Unix timestamp of the last commit in a repository.
 // Returns 0 if the repository has no commits or on error.
 func GetLastCommitTime(path string) int64 {
-	cmd := exec.Command("git", "log", "-1", "--format=%ct", "HEAD")
+	cmd := GitCommand("git", "log", "-1", "--format=%ct", "HEAD")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -1088,62 +1154,77 @@ type SyncStatus struct {
 }
 
 // GetSyncStatus returns sync status relative to upstream.
+// Uses git for-each-ref to reliably detect "gone" upstream branches.
 func GetSyncStatus(path string) *SyncStatus {
 	status := &SyncStatus{}
 
-	branch, err := GetCurrentBranch(path)
-	if err != nil {
+	// Get current branch name
+	cmdBranch := GitCommand("git", "rev-parse", "--abbrev-ref", "HEAD") // nolint:gosec
+	cmdBranch.Dir = path
+	var branchOut bytes.Buffer
+	cmdBranch.Stdout = &branchOut
+	if cmdBranch.Run() != nil {
+		status.NoUpstream = true
+		return status
+	}
+	branch := strings.TrimSpace(branchOut.String())
+	if branch == "" || branch == "HEAD" {
+		// Detached HEAD
 		status.NoUpstream = true
 		return status
 	}
 
-	cmdRemote := exec.Command("git", "config", "--get", fmt.Sprintf("branch.%s.remote", branch)) // nolint:gosec // Branch name from GetCurrentBranch
-	cmdRemote.Dir = path
-	var remoteOut bytes.Buffer
-	cmdRemote.Stdout = &remoteOut
-	if cmdRemote.Run() != nil {
+	// Use for-each-ref to get upstream info and track status in one command
+	// Format: "upstream_ref track_info" e.g. "refs/remotes/origin/main [ahead 1, behind 2]" or "refs/remotes/origin/gone [gone]"
+	cmdRef := GitCommand("git", "for-each-ref", "--format=%(upstream) %(upstream:track)", fmt.Sprintf("refs/heads/%s", branch)) // nolint:gosec
+	cmdRef.Dir = path
+	var refOut bytes.Buffer
+	cmdRef.Stdout = &refOut
+	if cmdRef.Run() != nil {
 		status.NoUpstream = true
 		return status
 	}
-	remote := strings.TrimSpace(remoteOut.String())
 
-	cmdMerge := exec.Command("git", "config", "--get", fmt.Sprintf("branch.%s.merge", branch)) // nolint:gosec // Branch name from GetCurrentBranch
-	cmdMerge.Dir = path
-	var mergeOut bytes.Buffer
-	cmdMerge.Stdout = &mergeOut
-	if cmdMerge.Run() != nil {
+	output := strings.TrimSpace(refOut.String())
+	if output == "" {
 		status.NoUpstream = true
 		return status
 	}
-	mergeRef := strings.TrimSpace(mergeOut.String())
 
-	upstreamBranch := strings.TrimPrefix(mergeRef, "refs/heads/")
-	status.Upstream = fmt.Sprintf("%s/%s", remote, upstreamBranch)
-
-	cmdCheck := exec.Command("git", "rev-parse", "--verify", fmt.Sprintf("refs/remotes/%s", status.Upstream)) // nolint:gosec // Upstream from git config
-	cmdCheck.Dir = path
-	if cmdCheck.Run() != nil {
-		status.Gone = true
+	// Parse upstream ref (first space-separated field)
+	parts := strings.SplitN(output, " ", 2)
+	upstreamRef := parts[0]
+	if upstreamRef == "" {
+		status.NoUpstream = true
 		return status
 	}
 
-	cmdAhead := exec.Command("git", "rev-list", "--count", fmt.Sprintf("%s..HEAD", status.Upstream)) // nolint:gosec // Upstream from git config
-	cmdAhead.Dir = path
-	var aheadOut bytes.Buffer
-	cmdAhead.Stdout = &aheadOut
-	if cmdAhead.Run() == nil {
-		if _, err := fmt.Sscanf(strings.TrimSpace(aheadOut.String()), "%d", &status.Ahead); err != nil {
-			logger.Debug("Failed to parse ahead count from %q: %v", aheadOut.String(), err)
+	// Convert refs/remotes/origin/main to origin/main
+	status.Upstream = strings.TrimPrefix(upstreamRef, "refs/remotes/")
+
+	// Check for track info
+	if len(parts) > 1 {
+		trackInfo := parts[1]
+		if strings.Contains(trackInfo, "[gone]") {
+			status.Gone = true
+			return status
 		}
-	}
-
-	cmdBehind := exec.Command("git", "rev-list", "--count", fmt.Sprintf("HEAD..%s", status.Upstream)) // nolint:gosec // Upstream from git config
-	cmdBehind.Dir = path
-	var behindOut bytes.Buffer
-	cmdBehind.Stdout = &behindOut
-	if cmdBehind.Run() == nil {
-		if _, err := fmt.Sscanf(strings.TrimSpace(behindOut.String()), "%d", &status.Behind); err != nil {
-			logger.Debug("Failed to parse behind count from %q: %v", behindOut.String(), err)
+		// Parse ahead/behind from track info like "[ahead 1, behind 2]" or "[ahead 1]" or "[behind 2]"
+		if strings.Contains(trackInfo, "ahead") {
+			var ahead int
+			if _, err := fmt.Sscanf(trackInfo, "[ahead %d", &ahead); err == nil {
+				status.Ahead = ahead
+			} else if n, _ := fmt.Sscanf(trackInfo, "[behind %d, ahead %d]", &status.Behind, &ahead); n == 2 {
+				status.Ahead = ahead
+			}
+		}
+		if strings.Contains(trackInfo, "behind") {
+			var behind int
+			if _, err := fmt.Sscanf(trackInfo, "[behind %d", &behind); err == nil {
+				status.Behind = behind
+			} else if n, _ := fmt.Sscanf(trackInfo, "[ahead %d, behind %d]", &status.Ahead, &behind); n == 2 {
+				status.Behind = behind
+			}
 		}
 	}
 
@@ -1194,7 +1275,7 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 
 // GetStashCount returns the number of stashes in a repository
 func GetStashCount(path string) (int, error) {
-	cmd := exec.Command("git", "stash", "list")
+	cmd := GitCommand("git", "stash", "list")
 	cmd.Dir = path
 
 	var out bytes.Buffer
@@ -1224,7 +1305,7 @@ func RenameBranch(repoPath, oldName, newName string) error {
 	}
 
 	logger.Debug("Executing: git branch -m %s %s in %s", oldName, newName, repoPath)
-	cmd := exec.Command("git", "branch", "-m", oldName, newName) // nolint:gosec // Branch names from validated input
+	cmd := GitCommand("git", "branch", "-m", oldName, newName) // nolint:gosec // Branch names from validated input
 	cmd.Dir = repoPath
 
 	return runGitCommand(cmd, true)
@@ -1242,7 +1323,7 @@ func RepairWorktree(bareDir, worktreePath string) error {
 	}
 
 	logger.Debug("Executing: git %v in %s", args, bareDir)
-	cmd := exec.Command("git", args...)
+	cmd := GitCommand("git", args...)
 	cmd.Dir = bareDir
 
 	return runGitCommand(cmd, true)
@@ -1255,7 +1336,7 @@ func SetUpstreamBranch(worktreePath, upstream string) error {
 	}
 
 	logger.Debug("Executing: git branch --set-upstream-to=%s in %s", upstream, worktreePath)
-	cmd := exec.Command("git", "branch", "--set-upstream-to="+upstream) // nolint:gosec // Upstream from validated input
+	cmd := GitCommand("git", "branch", "--set-upstream-to="+upstream) // nolint:gosec // Upstream from validated input
 	cmd.Dir = worktreePath
 
 	return runGitCommand(cmd, true)
@@ -1274,7 +1355,7 @@ func AddRemote(repoPath, name, url string) error {
 	}
 
 	logger.Debug("Executing: git remote add %s %s in %s", name, url, repoPath)
-	cmd := exec.Command("git", "remote", "add", name, url) // nolint:gosec // Validated input
+	cmd := GitCommand("git", "remote", "add", name, url) // nolint:gosec // Validated input
 	cmd.Dir = repoPath
 
 	return runGitCommand(cmd, true)
@@ -1289,7 +1370,7 @@ func RemoteExists(repoPath, name string) (bool, error) {
 		return false, errors.New("remote name cannot be empty")
 	}
 
-	cmd := exec.Command("git", "remote", "get-url", name) // nolint:gosec // Validated input
+	cmd := GitCommand("git", "remote", "get-url", name) // nolint:gosec // Validated input
 	cmd.Dir = repoPath
 
 	if err := cmd.Run(); err != nil {
@@ -1313,7 +1394,7 @@ func FetchBranch(repoPath, remote, branch string) error {
 	}
 
 	logger.Debug("Executing: git fetch %s %s in %s", remote, branch, repoPath)
-	cmd := exec.Command("git", "fetch", remote, branch) // nolint:gosec // Validated input
+	cmd := GitCommand("git", "fetch", remote, branch) // nolint:gosec // Validated input
 	cmd.Dir = repoPath
 
 	return runGitCommand(cmd, true)
@@ -1344,88 +1425,41 @@ func IsBranchMerged(repoPath, branch, targetBranch string) (bool, error) {
 // isMergedByAncestry checks if branch is an ancestor of targetBranch
 func isMergedByAncestry(repoPath, branch, targetBranch string) bool {
 	// git merge-base --is-ancestor returns 0 if branch is ancestor of targetBranch
-	cmd := exec.Command("git", "merge-base", "--is-ancestor", branch, targetBranch) // nolint:gosec
+	cmd := GitCommand("git", "merge-base", "--is-ancestor", branch, targetBranch) // nolint:gosec
 	cmd.Dir = repoPath
 	return cmd.Run() == nil
 }
 
-// isMergedByPatchID detects squash merges by comparing patch-ids
+// isMergedByPatchID detects squash merges using git cherry.
+// Optimized from O(n) subprocess calls to a single git cherry call.
 func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
-	// Get merge-base between branch and target
-	mergeBaseCmd := exec.Command("git", "merge-base", branch, targetBranch) // nolint:gosec
-	mergeBaseCmd.Dir = repoPath
-	mergeBaseOutput, err := mergeBaseCmd.Output()
+	// git cherry marks commits with "-" if an equivalent patch exists in target,
+	// and "+" if the commit is unique to the branch (not in target).
+	// This does the patch-id comparison internally in a single call.
+	cmd := GitCommand("git", "cherry", "-v", targetBranch, branch) // nolint:gosec
+	cmd.Dir = repoPath
+	output, err := cmd.Output()
 	if err != nil {
-		return false, nil //nolint:nilerr // No common ancestor means not merged
-	}
-	mergeBase := strings.TrimSpace(string(mergeBaseOutput))
-
-	// Get patch-ids for commits on the feature branch since merge-base
-	branchPatchIDs, err := getPatchIDs(repoPath, mergeBase, branch)
-	if err != nil || len(branchPatchIDs) == 0 {
-		return false, nil //nolint:nilerr // Error getting patch-ids means we can't determine merge status
+		return false, nil //nolint:nilerr // Error running cherry means we can't determine merge status
 	}
 
-	// Get patch-ids for commits on target branch since merge-base
-	targetPatchIDs, err := getPatchIDs(repoPath, mergeBase, targetBranch)
-	if err != nil || len(targetPatchIDs) == 0 {
-		return false, nil //nolint:nilerr // Error getting patch-ids means we can't determine merge status
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 0 || (len(lines) == 1 && lines[0] == "") {
+		// No commits unique to branch - already handled by ancestry check
+		return true, nil
 	}
 
-	// Check if all branch patch-ids exist in target
-	for _, patchID := range branchPatchIDs {
-		found := false
-		for _, targetPatchID := range targetPatchIDs {
-			if patchID == targetPatchID {
-				found = true
-				break
-			}
+	// If any commit is marked with "+", it's NOT in target (not squash-merged)
+	for _, line := range lines {
+		if line == "" {
+			continue
 		}
-		if !found {
+		// Lines starting with "+ " are NOT in target
+		if strings.HasPrefix(line, "+ ") {
 			return false, nil
 		}
 	}
 
+	// All commits marked with "-" means they're all in target (squash-merged)
 	return true, nil
-}
-
-// getPatchIDs returns the patch-ids for commits between base and head
-func getPatchIDs(repoPath, base, head string) ([]string, error) {
-	// git log base..head --format=%H | git patch-id
-	logCmd := exec.Command("git", "log", "--format=%H", base+".."+head) // nolint:gosec
-	logCmd.Dir = repoPath
-	commits, err := logCmd.Output()
-	if err != nil || len(commits) == 0 {
-		return nil, err
-	}
-
-	var patchIDs []string
-	for _, commit := range strings.Split(strings.TrimSpace(string(commits)), "\n") {
-		if commit == "" {
-			continue
-		}
-		// Get the diff for this commit and compute patch-id
-		diffCmd := exec.Command("git", "diff-tree", "-p", commit) // nolint:gosec
-		diffCmd.Dir = repoPath
-		diffOutput, err := diffCmd.Output()
-		if err != nil || len(diffOutput) == 0 {
-			continue
-		}
-
-		patchIDCmd := exec.Command("git", "patch-id", "--stable") // nolint:gosec
-		patchIDCmd.Dir = repoPath
-		patchIDCmd.Stdin = bytes.NewReader(diffOutput)
-		patchIDOutput, err := patchIDCmd.Output()
-		if err != nil {
-			continue
-		}
-
-		// Output format: "patchid commitid"
-		parts := strings.Fields(string(patchIDOutput))
-		if len(parts) >= 1 {
-			patchIDs = append(patchIDs, parts[0])
-		}
-	}
-
-	return patchIDs, nil
 }
