@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
@@ -115,12 +116,28 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 		workspaceDir = filepath.Join(cwd, ref.Repo)
 	}
 
-	// Create workspace directory
-	if err := os.MkdirAll(workspaceDir, 0o755); err != nil { //nolint:gosec // Directory needs to be accessible
-		return fmt.Errorf("failed to create workspace directory: %w", err)
+	// Validate and create workspace directory
+	if err := workspace.ValidateAndPrepareDirectory(workspaceDir); err != nil {
+		return err
 	}
 
 	bareDir := filepath.Join(workspaceDir, ".bare")
+	gitFile := filepath.Join(workspaceDir, ".git")
+
+	// Cleanup function for failure cases
+	cleanup := func(worktreePath string) {
+		if err := os.Remove(gitFile); err != nil && !os.IsNotExist(err) {
+			logger.Warning("Failed to remove .git file during cleanup: %v", err)
+		}
+		if err := fs.RemoveAll(bareDir); err != nil {
+			logger.Warning("Failed to remove .bare during cleanup: %v", err)
+		}
+		if worktreePath != "" {
+			if err := fs.RemoveAll(worktreePath); err != nil {
+				logger.Warning("Failed to remove worktree during cleanup: %v", err)
+			}
+		}
+	}
 
 	// Clone using gh repo clone (respects user's protocol preference)
 	logger.Info("Cloning %s/%s...", ref.Owner, ref.Repo)
@@ -136,6 +153,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	}
 
 	if err := cmd.Run(); err != nil {
+		cleanup("")
 		errStr := strings.TrimSpace(stderr.String())
 		if errStr != "" {
 			return fmt.Errorf("clone failed: %s", errStr)
@@ -144,8 +162,8 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	}
 
 	// Create .git file pointing to .bare
-	gitFile := filepath.Join(workspaceDir, ".git")
 	if err := os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o644); err != nil { //nolint:gosec // .git file needs standard permissions
+		cleanup("")
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
@@ -153,6 +171,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	logger.Info("Fetching PR #%d...", ref.Number)
 	prInfo, err := github.FetchPRInfo(ref.Owner, ref.Repo, ref.Number)
 	if err != nil {
+		cleanup("")
 		return err
 	}
 
@@ -165,32 +184,38 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
 		remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
 		if err != nil {
+			cleanup("")
 			return fmt.Errorf("failed to get fork URL: %w", err)
 		}
 
 		logger.Info("Adding remote %s for fork...", remoteName)
 		if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
+			cleanup("")
 			return fmt.Errorf("failed to add fork remote: %w", err)
 		}
 
 		logger.Info("Fetching branch %s from fork...", branch)
 		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
+			cleanup("")
 			return fmt.Errorf("failed to fetch fork branch: %w", err)
 		}
 
 		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
 		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, !verbose); err != nil {
+			cleanup(worktreePath)
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
 	} else {
 		// Same-repo PR: fetch and create worktree
 		logger.Info("Fetching branch %s...", branch)
 		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+			cleanup("")
 			return fmt.Errorf("failed to fetch branch: %w", err)
 		}
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
+			cleanup(worktreePath)
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
 	}
