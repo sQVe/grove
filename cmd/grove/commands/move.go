@@ -165,7 +165,10 @@ func runMove(oldBranch, newBranch string) error {
 			remote := parts[0]
 			newUpstream := fmt.Sprintf("%s/%s", remote, newBranch)
 			// Check if new upstream exists on remote
-			if exists, _ := git.BranchExists(bareDir, newUpstream); exists {
+			exists, err := git.BranchExists(bareDir, newUpstream)
+			if err != nil {
+				logger.Warning("Failed to check if upstream exists: %v", err)
+			} else if exists {
 				if err := git.SetUpstreamBranch(newWorktreePath, newUpstream); err != nil {
 					logger.Warning("Failed to update upstream: %v", err)
 				}
