@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
 )
 
@@ -186,14 +186,13 @@ func TestPreserveIgnoredFilesFromList_CustomPattern(t *testing.T) {
 		t.Fatalf("failed to create branch directory %s: %v", branchDir, err)
 	}
 
-	// Save original config
-	originalPatterns := config.Global.PreservePatterns
-	defer func() {
-		config.Global.PreservePatterns = originalPatterns
-	}()
-
-	// Set custom preserve patterns
-	config.Global.PreservePatterns = []string{"*.custom"}
+	// Create .grove.toml with custom pattern
+	tomlContent := `[preserve]
+patterns = ["*.custom"]
+`
+	if err := os.WriteFile(filepath.Join(tempDir, ".grove.toml"), []byte(tomlContent), fs.FileStrict); err != nil {
+		t.Fatalf("failed to create .grove.toml: %v", err)
+	}
 
 	// Create a file that matches the custom pattern
 	customFileName := "data.custom"
@@ -230,6 +229,59 @@ func TestPreserveIgnoredFilesFromList_CustomPattern(t *testing.T) {
 	}
 }
 
+func TestPreserveIgnoredFilesFromList_ReadsTomlConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	branches := []string{"feature"}
+
+	// Create worktree directory
+	branchDir := filepath.Join(tempDir, SanitizeBranchName("feature"))
+	if err := os.MkdirAll(branchDir, fs.DirGit); err != nil {
+		t.Fatalf("failed to create branch directory %s: %v", branchDir, err)
+	}
+
+	// Create .grove.toml with a custom pattern
+	tomlContent := `[preserve]
+patterns = ["*.tomltest"]
+`
+	if err := os.WriteFile(filepath.Join(tempDir, ".grove.toml"), []byte(tomlContent), fs.FileStrict); err != nil {
+		t.Fatalf("failed to create .grove.toml: %v", err)
+	}
+
+	// Create a file that matches the TOML pattern (NOT the global default)
+	testFileName := "data.tomltest"
+	testFilePath := filepath.Join(tempDir, testFileName)
+	content := []byte("toml config content")
+	if err := os.WriteFile(testFilePath, content, fs.FileStrict); err != nil {
+		t.Fatalf("failed to create file %s: %v", testFilePath, err)
+	}
+
+	ignoredFiles := []string{testFileName}
+	count, matched, err := preserveIgnoredFilesFromList(tempDir, branches, ignoredFiles)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if count != 1 {
+		t.Errorf("expected preserved file count 1, got %d (TOML config pattern not read)", count)
+	}
+	found := false
+	for _, pat := range matched {
+		if pat == "*.tomltest" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected matched patterns to include '*.tomltest' from .grove.toml, got %v", matched)
+	}
+
+	// Verify the file is copied to the worktree directory
+	preservedFile := filepath.Join(branchDir, testFileName)
+	if _, err := os.Stat(preservedFile); err != nil {
+		t.Errorf("expected preserved file %s in branch 'feature', error: %v", preservedFile, err)
+	}
+}
+
 func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 	tempDir := t.TempDir()
 	branches := []string{"main"}
@@ -249,6 +301,164 @@ func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 	if !strings.Contains(err.Error(), "failed to preserve file") {
 		t.Errorf("expected error message about failing to preserve file, got: %v", err)
 	}
+}
+
+func TestParseBranches(t *testing.T) {
+	tests := []struct {
+		name       string
+		branches   string
+		skipBranch string
+		want       []string
+	}{
+		{"single branch", "main", "", []string{"main"}},
+		{"multiple branches", "main,develop,feature", "", []string{"main", "develop", "feature"}},
+		{"with spaces", " main , develop , feature ", "", []string{"main", "develop", "feature"}},
+		{"with skip branch", "main,develop,feature", "develop", []string{"main", "feature"}},
+		{"empty string", "", "", nil},
+		{"only whitespace", "   ", "", nil},
+		{"skip only branch", "main", "main", nil},
+		{"trailing comma", "main,develop,", "", []string{"main", "develop"}},
+		{"leading comma", ",main,develop", "", []string{"main", "develop"}},
+		{"multiple commas", "main,,develop", "", []string{"main", "develop"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseBranches(tt.branches, tt.skipBranch)
+			if len(got) != len(tt.want) {
+				t.Errorf("parseBranches(%q, %q) = %v, want %v", tt.branches, tt.skipBranch, got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("parseBranches(%q, %q)[%d] = %q, want %q", tt.branches, tt.skipBranch, i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestMatchesPattern(t *testing.T) {
+	tests := []struct {
+		name     string
+		filePath string
+		pattern  string
+		want     bool
+	}{
+		{"exact match filename", ".env", ".env", true},
+		{"exact match path", "config/.env", ".env", true},
+		{"wildcard extension", "data.json", "*.json", true},
+		{"wildcard path", "config/data.json", "*.json", true},
+		{"no match", "data.txt", "*.json", false},
+		{"no match different name", "readme.md", ".env", false},
+		{"nested path exact", "deep/nested/.env", ".env", true},
+		{"wildcard prefix", "test.env.local", "*.env.local", true},
+		{"partial no match", ".env.local", ".env", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesPattern(tt.filePath, tt.pattern)
+			if got != tt.want {
+				t.Errorf("matchesPattern(%q, %q) = %v, want %v", tt.filePath, tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateAndPrepareDirectory(t *testing.T) {
+	t.Run("rejects non-empty directory", func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Create a file to make directory non-empty
+		if err := os.WriteFile(filepath.Join(dir, "existing.txt"), []byte("data"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		err := ValidateAndPrepareDirectory(dir)
+		if err == nil {
+			t.Error("expected error for non-empty directory")
+		}
+		if !strings.Contains(err.Error(), "not empty") {
+			t.Errorf("expected 'not empty' error, got: %v", err)
+		}
+	})
+
+	t.Run("rejects directory inside git repository", func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Initialize a real git repo
+		cmd := exec.Command("git", "init")
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to init git repo: %v", err)
+		}
+
+		// Create existing subdir inside the git repo
+		subDir := filepath.Join(dir, "subdir")
+		if err := os.Mkdir(subDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		err := ValidateAndPrepareDirectory(subDir)
+		if err == nil {
+			t.Error("expected error for directory inside git repo")
+		}
+		if !strings.Contains(err.Error(), "existing git repository") {
+			t.Errorf("expected 'existing git repository' error, got: %v", err)
+		}
+	})
+
+	t.Run("rejects directory inside grove workspace", func(t *testing.T) {
+		dir := t.TempDir()
+
+		// Create .bare directory to simulate grove workspace
+		if err := os.Mkdir(filepath.Join(dir, ".bare"), fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create existing subdir inside the grove workspace
+		subDir := filepath.Join(dir, "subdir")
+		if err := os.Mkdir(subDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		err := ValidateAndPrepareDirectory(subDir)
+		if err == nil {
+			t.Error("expected error for directory inside grove workspace")
+		}
+		if !strings.Contains(err.Error(), "existing grove workspace") {
+			t.Errorf("expected 'existing grove workspace' error, got: %v", err)
+		}
+	})
+
+	t.Run("accepts empty existing directory", func(t *testing.T) {
+		dir := t.TempDir()
+
+		err := ValidateAndPrepareDirectory(dir)
+		if err != nil {
+			t.Errorf("unexpected error for empty directory: %v", err)
+		}
+	})
+
+	t.Run("creates new directory if it does not exist", func(t *testing.T) {
+		parentDir := t.TempDir()
+		newDir := filepath.Join(parentDir, "newdir")
+
+		err := ValidateAndPrepareDirectory(newDir)
+		if err != nil {
+			t.Errorf("unexpected error creating new directory: %v", err)
+		}
+
+		// Verify directory was created
+		info, err := os.Stat(newDir)
+		if err != nil {
+			t.Errorf("expected directory to be created, got error: %v", err)
+		}
+		if !info.IsDir() {
+			t.Error("expected created path to be a directory")
+		}
+	})
 }
 
 func TestFindBareDir(t *testing.T) {

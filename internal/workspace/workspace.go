@@ -72,8 +72,10 @@ func IsInsideGroveWorkspace(path string) bool {
 	return err == nil
 }
 
-// validateAndPrepareDirectory validates and prepares a directory for grove workspace
-func validateAndPrepareDirectory(path string) error {
+// ValidateAndPrepareDirectory validates and prepares a directory for grove workspace.
+// It rejects directories inside existing git repos or grove workspaces,
+// rejects non-empty directories, and creates the directory if it doesn't exist.
+func ValidateAndPrepareDirectory(path string) error {
 	if git.IsInsideGitRepo(path) {
 		return fmt.Errorf("cannot initialize grove inside existing git repository")
 	}
@@ -161,7 +163,7 @@ func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 
 // Initialize creates a new grove workspace in the specified directory
 func Initialize(path string) error {
-	if err := validateAndPrepareDirectory(path); err != nil {
+	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
 
@@ -189,7 +191,7 @@ func Initialize(path string) error {
 
 // CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
 func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error {
-	if err := validateAndPrepareDirectory(path); err != nil {
+	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
 
@@ -619,7 +621,7 @@ func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles []str
 		return 0, nil, nil
 	}
 
-	patterns := config.GetPreservePatterns()
+	patterns := config.GetMergedPreservePatterns(sourceDir)
 
 	var filesToCopy []string
 	matchedPatternsMap := make(map[string]bool)
