@@ -37,10 +37,6 @@ func SanitizeBranchName(branch string) string {
 	return replacer.Replace(branch)
 }
 
-// maxDirectoryIterations limits directory traversal to prevent infinite loops
-// from symlink cycles. 100 levels is generous for any sane filesystem depth.
-const maxDirectoryIterations = 100
-
 // FindBareDir finds the .bare directory for a grove workspace
 // by walking up the directory tree from the given path
 func FindBareDir(startPath string) (string, error) {
@@ -50,7 +46,7 @@ func FindBareDir(startPath string) (string, error) {
 	}
 
 	dir := absPath
-	for i := 0; i < maxDirectoryIterations; i++ {
+	for i := 0; i < fs.MaxDirectoryIterations; i++ {
 		bareDir := filepath.Join(dir, ".bare")
 		if fs.DirectoryExists(bareDir) {
 			return bareDir, nil
@@ -62,7 +58,7 @@ func FindBareDir(startPath string) (string, error) {
 		}
 		dir = parent
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
 }
 
 // IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
@@ -81,7 +77,7 @@ func ResolveConfigDir(startPath string) (string, error) {
 	}
 
 	dir := absPath
-	for i := 0; i < maxDirectoryIterations; i++ {
+	for i := 0; i < fs.MaxDirectoryIterations; i++ {
 		bareDir := filepath.Join(dir, ".bare")
 		if fs.DirectoryExists(bareDir) {
 			return findCanonicalConfigDir(bareDir, dir)
@@ -99,7 +95,7 @@ func ResolveConfigDir(startPath string) (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", maxDirectoryIterations)
+	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
 }
 
 // findCanonicalConfigDir finds the config directory when at workspace root.
@@ -648,24 +644,7 @@ func parseBranches(branches, skipBranch string) []string {
 
 // findIgnoredFiles returns a list of git-ignored files in the given directory
 func findIgnoredFiles(dir string) ([]string, error) {
-	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
-	cmd, cancel := git.GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
-	defer cancel()
-	cmd.Dir = dir
-
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list ignored files: %w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var files []string
-	for _, line := range lines {
-		if trimmed := strings.TrimSpace(line); trimmed != "" {
-			files = append(files, trimmed)
-		}
-	}
-	return files, nil
+	return git.ListIgnoredFiles(dir)
 }
 
 // matchesPattern checks if a file path matches a single pattern
@@ -853,6 +832,23 @@ func Convert(targetDir, branches string, verbose bool) error {
 		if len(restoreErrors) > 0 {
 			logger.Error("CRITICAL: Restoration incomplete. Failed to restore: %v", restoreErrors)
 			logger.Error("Your repository may be in an inconsistent state.")
+
+			// Write recovery instructions to a file so they're not lost in terminal scrollback
+			recoveryFile := filepath.Join(targetDir, ".grove-recovery.txt")
+			var recoveryInstructions strings.Builder
+			recoveryInstructions.WriteString("Grove conversion failed. Manual recovery steps:\n\n")
+			recoveryInstructions.WriteString(fmt.Sprintf("Failed to restore: %v\n\n", restoreErrors))
+			if len(createdWorktrees) > 0 {
+				recoveryInstructions.WriteString(fmt.Sprintf("1. Check for files in: %s\n", createdWorktrees[0]))
+			}
+			recoveryInstructions.WriteString("2. Ensure .git directory exists and is not bare\n")
+			recoveryInstructions.WriteString("3. Run: git config --bool core.bare false\n")
+			recoveryInstructions.WriteString("\nDelete this file after recovery is complete.\n")
+
+			if err := os.WriteFile(recoveryFile, []byte(recoveryInstructions.String()), fs.FileStrict); err == nil {
+				logger.Error("Recovery instructions saved to: %s", recoveryFile)
+			}
+
 			logger.Error("To recover manually:")
 			if len(createdWorktrees) > 0 {
 				logger.Error("1. Check for files in: %s", createdWorktrees[0])
