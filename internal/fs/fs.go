@@ -151,6 +151,27 @@ func CopyFile(src, dst string, perm os.FileMode) error {
 	return nil
 }
 
+// CopyFileExclusive copies content from src to dst, failing if dst already exists.
+// Returns os.ErrExist if destination file exists. This avoids TOCTOU races.
+func CopyFileExclusive(src, dst string, perm os.FileMode) error {
+	in, err := os.Open(src) // nolint:gosec // Controlled path from git ignored files
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // nolint:gosec // Controlled path for worktree files
+	if err != nil {
+		return err
+	}
+	defer func() { _ = out.Close() }()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return nil
+}
+
 // WriteFileAtomic writes data to a file atomically by writing to a temp file then renaming
 func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	tmpPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())

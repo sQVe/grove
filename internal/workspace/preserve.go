@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -41,11 +42,6 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles [
 		sourcePath := filepath.Join(sourceDir, file)
 		destPath := filepath.Join(destDir, file)
 
-		if _, err := os.Stat(destPath); err == nil {
-			result.Skipped = append(result.Skipped, file)
-			continue
-		}
-
 		if _, err := os.Stat(sourcePath); err != nil {
 			logger.Debug("Source file does not exist, skipping: %s", sourcePath)
 			continue
@@ -55,7 +51,12 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles [
 			return nil, err
 		}
 
-		if err := fs.CopyFile(sourcePath, destPath, fs.FileGit); err != nil {
+		// Use exclusive copy to atomically skip existing files (avoids TOCTOU race)
+		if err := fs.CopyFileExclusive(sourcePath, destPath, fs.FileGit); err != nil {
+			if errors.Is(err, os.ErrExist) {
+				result.Skipped = append(result.Skipped, file)
+				continue
+			}
 			return nil, err
 		}
 
