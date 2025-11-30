@@ -291,7 +291,11 @@ func RemoteExists(repoPath, name string) (bool, error) {
 
 	if err := cmd.Run(); err != nil {
 		// Exit code 2 means remote not found - this is expected, not an error
-		return false, nil //nolint:nilerr // Expected: remote not found is not an error condition
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 2 {
+			return false, nil
+		}
+		return false, err
 	}
 
 	return true, nil
