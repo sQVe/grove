@@ -93,7 +93,7 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 	remotesCmd.Dir = repoPath
 	output, err := remotesCmd.Output()
 	if err != nil {
-		return false, nil //nolint:nilerr // Intentional: remote errors mean branch not found remotely
+		return false, fmt.Errorf("failed to list remotes: %w", err)
 	}
 
 	remotes := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -137,7 +137,33 @@ func GetCurrentBranch(path string) (string, error) {
 		return after, nil
 	}
 
-	return "", fmt.Errorf("detached HEAD state")
+	return "", ErrDetachedHead
+}
+
+// ErrDetachedHead is returned when the worktree is in detached HEAD state
+var ErrDetachedHead = errors.New("detached HEAD state")
+
+// GetCurrentBranchOrDetached returns the branch name, or the short commit hash if detached.
+// Returns (branch, detached, error) where detached indicates if HEAD is detached.
+func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err error) {
+	branch, err = GetCurrentBranch(path)
+	if err == nil {
+		return branch, false, nil
+	}
+	if !errors.Is(err, ErrDetachedHead) {
+		return "", false, err
+	}
+
+	// Get short commit hash for detached HEAD
+	cmd, cancel := GitCommand("git", "rev-parse", "--short", "HEAD")
+	defer cancel()
+	cmd.Dir = path
+	var output []byte
+	output, err = cmd.Output()
+	if err != nil {
+		return "", true, nil // detached but couldn't get hash
+	}
+	return strings.TrimSpace(string(output)), true, nil
 }
 
 // GetDefaultBranch returns the default branch for a bare repository

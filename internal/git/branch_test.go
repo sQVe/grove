@@ -289,15 +289,12 @@ func TestBranchExists(t *testing.T) {
 		}
 	})
 
-	t.Run("returns false for non-git directory", func(t *testing.T) {
+	t.Run("returns error for non-git directory", func(t *testing.T) {
 		tempDir := t.TempDir()
 
-		exists, err := BranchExists(tempDir, "main")
-		if err != nil {
-			t.Fatalf("BranchExists failed: %v", err)
-		}
-		if exists {
-			t.Error("expected branch to not exist in non-git directory")
+		_, err := BranchExists(tempDir, "main")
+		if err == nil {
+			t.Error("expected error for non-git directory")
 		}
 	})
 
