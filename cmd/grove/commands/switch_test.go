@@ -18,6 +18,26 @@ func TestNewSwitchCmd(t *testing.T) {
 	}
 }
 
+func TestNewSwitchCmd_RequiresOneArg(t *testing.T) {
+	cmd := NewSwitchCmd()
+
+	// Check that Args is set to expect exactly 1 argument
+	err := cmd.Args(cmd, []string{})
+	if err == nil {
+		t.Error("expected error when no arguments provided")
+	}
+
+	err = cmd.Args(cmd, []string{"branch1", "branch2"})
+	if err == nil {
+		t.Error("expected error when too many arguments provided")
+	}
+
+	err = cmd.Args(cmd, []string{"branch1"})
+	if err != nil {
+		t.Errorf("unexpected error with single argument: %v", err)
+	}
+}
+
 func TestRunSwitch_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -44,5 +64,14 @@ func TestNewSwitchCmd_HasShellInitSubcommand(t *testing.T) {
 	}
 	if subCmd.Name() != "shell-init" {
 		t.Errorf("expected subcommand name 'shell-init', got %q", subCmd.Name())
+	}
+}
+
+func TestNewSwitchCmd_ValidArgsFunction(t *testing.T) {
+	cmd := NewSwitchCmd()
+
+	// ValidArgsFunction should be set
+	if cmd.ValidArgsFunction == nil {
+		t.Error("expected ValidArgsFunction to be set")
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -113,6 +114,89 @@ func TestFormatAge(t *testing.T) {
 			got := formatAge(tt.timestamp)
 			if got != tt.expected {
 				t.Errorf("formatAge(%d) = %q, want %q", tt.timestamp, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDetermineSkipReason(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     *git.WorktreeInfo
+		cwd      string
+		force    bool
+		expected skipReason
+	}{
+		{
+			name:     "current worktree is protected",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/main"},
+			cwd:      "/tmp/workspace/main",
+			force:    false,
+			expected: skipCurrent,
+		},
+		{
+			name:     "subdirectory of current worktree is protected",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/main"},
+			cwd:      "/tmp/workspace/main/src/app",
+			force:    false,
+			expected: skipCurrent,
+		},
+		{
+			name:     "dirty worktree without force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Dirty: true},
+			cwd:      "/tmp/workspace/main",
+			force:    false,
+			expected: skipDirty,
+		},
+		{
+			name:     "dirty worktree with force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Dirty: true},
+			cwd:      "/tmp/workspace/main",
+			force:    true,
+			expected: skipNone,
+		},
+		{
+			name:     "locked worktree without force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Locked: true},
+			cwd:      "/tmp/workspace/main",
+			force:    false,
+			expected: skipLocked,
+		},
+		{
+			name:     "locked worktree with force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Locked: true},
+			cwd:      "/tmp/workspace/main",
+			force:    true,
+			expected: skipNone,
+		},
+		{
+			name:     "unpushed commits without force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Ahead: 3},
+			cwd:      "/tmp/workspace/main",
+			force:    false,
+			expected: skipUnpushed,
+		},
+		{
+			name:     "unpushed commits with force",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature", Ahead: 3},
+			cwd:      "/tmp/workspace/main",
+			force:    true,
+			expected: skipNone,
+		},
+		{
+			name:     "clean worktree",
+			info:     &git.WorktreeInfo{Path: "/tmp/workspace/feature"},
+			cwd:      "/tmp/workspace/main",
+			force:    false,
+			expected: skipNone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := determineSkipReason(tt.info, tt.cwd, tt.force)
+			if got != tt.expected {
+				t.Errorf("determineSkipReason() = %q, want %q", got, tt.expected)
 			}
 		})
 	}
