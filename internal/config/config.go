@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+// globalMu protects access to the Global struct
+var globalMu sync.RWMutex
 
 // Global holds the global configuration state for Grove
 var Global struct {
@@ -57,21 +62,43 @@ var DefaultConfig = struct {
 
 // IsPlain returns true if plain output mode is enabled
 func IsPlain() bool {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return Global.Plain
 }
 
 // IsDebug returns true if debug logging is enabled
 func IsDebug() bool {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return Global.Debug
 }
 
 // IsNerdFonts returns true if Nerd Font icons should be used
 func IsNerdFonts() bool {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return Global.NerdFonts
+}
+
+// SetPlain sets the plain output mode
+func SetPlain(v bool) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	Global.Plain = v
+}
+
+// SetDebug sets the debug logging mode
+func SetDebug(v bool) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	Global.Debug = v
 }
 
 // GetPreservePatterns returns the configured preserve patterns or defaults
 func GetPreservePatterns() []string {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	if len(Global.PreservePatterns) > 0 {
 		return Global.PreservePatterns
 	}
@@ -80,6 +107,8 @@ func GetPreservePatterns() []string {
 
 // GetStaleThreshold returns the configured stale threshold or default
 func GetStaleThreshold() string {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	if Global.StaleThreshold != "" {
 		return Global.StaleThreshold
 	}
@@ -88,6 +117,8 @@ func GetStaleThreshold() string {
 
 // GetAutoLockPatterns returns the configured auto-lock patterns or defaults
 func GetAutoLockPatterns() []string {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	if len(Global.AutoLockPatterns) > 0 {
 		return Global.AutoLockPatterns
 	}
@@ -96,6 +127,8 @@ func GetAutoLockPatterns() []string {
 
 // GetTimeout returns the configured command timeout
 func GetTimeout() time.Duration {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	if Global.Timeout > 0 {
 		return Global.Timeout
 	}
@@ -123,6 +156,8 @@ func matchGlobPattern(pattern, name string) bool {
 
 // LoadFromGitConfig loads configuration from git config, merging with defaults
 func LoadFromGitConfig() {
+	globalMu.Lock()
+	defer globalMu.Unlock()
 	Global.Plain = DefaultConfig.Plain
 	Global.Debug = DefaultConfig.Debug
 	Global.NerdFonts = DefaultConfig.NerdFonts
@@ -144,7 +179,10 @@ func LoadFromGitConfig() {
 	}
 
 	if value := getGitConfig("grove.staleThreshold"); value != "" {
-		Global.StaleThreshold = value
+		if isValidStaleThreshold(value) {
+			Global.StaleThreshold = value
+		}
+		// Invalid values are silently ignored, using default
 	}
 
 	if value := getGitConfig("grove.timeout"); value != "" {
@@ -228,6 +266,20 @@ func isTruthy(value string) bool {
 	return lower == "true" || lower == "1" || lower == "yes" || lower == "on"
 }
 
+// isValidStaleThreshold checks if a stale threshold value has valid format (e.g., "30d", "2w", "1m")
+func isValidStaleThreshold(s string) bool {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if len(s) < 2 {
+		return false
+	}
+	unit := s[len(s)-1]
+	if unit != 'd' && unit != 'w' && unit != 'm' {
+		return false
+	}
+	num, err := strconv.Atoi(s[:len(s)-1])
+	return err == nil && num > 0
+}
+
 // Snapshot captures the current Global config state.
 // Used for testing to save/restore config.
 type Snapshot struct {
@@ -242,6 +294,8 @@ type Snapshot struct {
 
 // SaveSnapshot returns a copy of the current Global config.
 func SaveSnapshot() Snapshot {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
 	return Snapshot{
 		Plain:            Global.Plain,
 		Debug:            Global.Debug,
@@ -255,6 +309,8 @@ func SaveSnapshot() Snapshot {
 
 // RestoreSnapshot restores Global config from a snapshot.
 func RestoreSnapshot(s *Snapshot) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
 	Global.Plain = s.Plain
 	Global.Debug = s.Debug
 	Global.NerdFonts = s.NerdFonts

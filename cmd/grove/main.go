@@ -21,18 +21,12 @@ func main() {
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if cmd.Flags().Changed("plain") {
-				if plain, _ := cmd.Flags().GetBool("plain"); plain {
-					config.Global.Plain = true
-				} else {
-					config.Global.Plain = false
-				}
+				plain, _ := cmd.Flags().GetBool("plain")
+				config.SetPlain(plain)
 			}
 			if cmd.Flags().Changed("debug") {
-				if debug, _ := cmd.Flags().GetBool("debug"); debug {
-					config.Global.Debug = true
-				} else {
-					config.Global.Debug = false
-				}
+				debug, _ := cmd.Flags().GetBool("debug")
+				config.SetDebug(debug)
 			}
 			// Re-init logger after flag overrides
 			logger.Init(config.IsPlain(), config.IsDebug())
