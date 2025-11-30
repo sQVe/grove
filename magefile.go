@@ -160,7 +160,7 @@ func Format() error {
 	}
 
 	fmt.Println("Formatting Markdown/JSON/YAML...")
-	return sh.RunV("npx", "--yes", "prettier", "--write", ".")
+	return sh.RunV("npx", "prettier", "--write", ".")
 }
 
 // Deadcode finds unused code in the project.

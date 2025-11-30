@@ -26,6 +26,9 @@ build/
 bin/
 test-archive/
 
+# Node
+node_modules/
+
 # Local env files.
 /.env
 .env.*
