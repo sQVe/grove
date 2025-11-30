@@ -1599,6 +1599,69 @@ func TestGetSyncStatus(t *testing.T) {
 			t.Errorf("expected 1 commit behind, got %d", status.Behind)
 		}
 	})
+
+	t.Run("detects gone upstream after branch deleted on remote", func(t *testing.T) {
+		t.Parallel()
+		// Create bare repo to act as remote
+		remoteDir := t.TempDir()
+		remoteRepo := filepath.Join(remoteDir, "remote.git")
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create local repo and push main
+		repo := testgit.NewTestRepo(t)
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "main")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create and push a feature branch
+		cmd = exec.Command("git", "checkout", "-b", "feature-gone")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "push", "-u", "origin", "feature-gone")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Delete the branch on the remote
+		cmd = exec.Command("git", "branch", "-D", "feature-gone")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Fetch to update remote tracking refs (with prune)
+		cmd = exec.Command("git", "fetch", "--prune")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		status := GetSyncStatus(repo.Path)
+
+		if !status.Gone {
+			t.Error("expected Gone to be true when upstream branch was deleted")
+		}
+		if status.NoUpstream {
+			t.Error("expected NoUpstream to be false (branch still tracks deleted remote)")
+		}
+	})
 }
 
 func TestFetchPrune(t *testing.T) {
@@ -2955,6 +3018,83 @@ func TestIsBranchMerged(t *testing.T) {
 		}
 		if !merged {
 			t.Error("expected squash-merged branch to be detected as merged")
+		}
+	})
+}
+
+func TestIsUnbornHead(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		_, err := IsUnbornHead("")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns false for repo with commits", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		unborn, err := IsUnbornHead(repo.Path)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if unborn {
+			t.Error("expected unborn to be false for repo with commits")
+		}
+	})
+
+	t.Run("returns true for repo without commits", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		repoPath := filepath.Join(dir, "empty-repo")
+
+		if err := os.MkdirAll(repoPath, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "-b", "main")
+		cmd.Dir = repoPath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to init repo: %v", err)
+		}
+
+		unborn, err := IsUnbornHead(repoPath)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !unborn {
+			t.Error("expected unborn to be true for repo without commits")
+		}
+	})
+
+	t.Run("returns false for detached HEAD", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// Get current commit hash and checkout to detached HEAD
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = repo.Path
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed to get HEAD: %v", err)
+		}
+		hash := strings.TrimSpace(string(out))
+
+		cmd = exec.Command("git", "checkout", hash) // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to checkout: %v", err)
+		}
+
+		unborn, err := IsUnbornHead(repo.Path)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if unborn {
+			t.Error("expected unborn to be false for detached HEAD")
 		}
 	})
 }
