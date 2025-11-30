@@ -320,5 +320,11 @@ func GetStashCount(path string) (int, error) {
 		return 0, nil
 	}
 
-	return len(strings.Split(output, "\n")), nil
+	count := 0
+	for _, line := range strings.Split(output, "\n") {
+		if line != "" {
+			count++
+		}
+	}
+	return count, nil
 }
