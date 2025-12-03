@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -184,7 +185,7 @@ func TestGetConfigCompletions(t *testing.T) {
 		{
 			name:       "empty completion shows all keys",
 			toComplete: "",
-			want:       []string{"grove.plain", "grove.debug", "grove.nerdFonts", "grove.preserve"},
+			want:       []string{"grove.debug", "grove.nerdFonts", "grove.plain", "grove.preserve"},
 		},
 		{
 			name:       "partial grove.p completion",
@@ -196,18 +197,29 @@ func TestGetConfigCompletions(t *testing.T) {
 			toComplete: "grove.d",
 			want:       []string{"grove.debug"},
 		},
+		{
+			name:       "no matches returns empty",
+			toComplete: "xyz",
+			want:       []string{},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getConfigCompletions(tt.toComplete)
+
+			// Sort both slices for order-independent comparison
+			slices.Sort(got)
+			slices.Sort(tt.want)
+
 			if len(got) != len(tt.want) {
-				t.Errorf("getConfigCompletions(%q) returned %d items, want %d", tt.toComplete, len(got), len(tt.want))
+				t.Errorf("getConfigCompletions(%q) = %v, want %v", tt.toComplete, got, tt.want)
 				return
 			}
 			for i, want := range tt.want {
-				if i >= len(got) || got[i] != want {
-					t.Errorf("getConfigCompletions(%q)[%d] = %q, want %q", tt.toComplete, i, got[i], want)
+				if got[i] != want {
+					t.Errorf("getConfigCompletions(%q) = %v, want %v", tt.toComplete, got, tt.want)
+					return
 				}
 			}
 		})
@@ -223,7 +235,7 @@ func TestGetBooleanCompletions(t *testing.T) {
 		{
 			name:       "empty completion shows boolean values",
 			toComplete: "",
-			want:       []string{"true", "false"},
+			want:       []string{"false", "true"},
 		},
 		{
 			name:       "partial true completion",
@@ -235,18 +247,29 @@ func TestGetBooleanCompletions(t *testing.T) {
 			toComplete: "f",
 			want:       []string{"false"},
 		},
+		{
+			name:       "no matches returns empty",
+			toComplete: "xyz",
+			want:       []string{},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getBooleanCompletions(tt.toComplete)
+
+			// Sort both slices for order-independent comparison
+			slices.Sort(got)
+			slices.Sort(tt.want)
+
 			if len(got) != len(tt.want) {
-				t.Errorf("getBooleanCompletions(%q) returned %d items, want %d", tt.toComplete, len(got), len(tt.want))
+				t.Errorf("getBooleanCompletions(%q) = %v, want %v", tt.toComplete, got, tt.want)
 				return
 			}
 			for i, want := range tt.want {
-				if i >= len(got) || got[i] != want {
-					t.Errorf("getBooleanCompletions(%q)[%d] = %q, want %q", tt.toComplete, i, got[i], want)
+				if got[i] != want {
+					t.Errorf("getBooleanCompletions(%q) = %v, want %v", tt.toComplete, got, tt.want)
+					return
 				}
 			}
 		})

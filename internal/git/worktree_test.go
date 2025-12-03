@@ -10,23 +10,61 @@ import (
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
+// Error message constants for test assertions.
+const (
+	errBareRepoPathEmpty  = "bare repository path cannot be empty"
+	errWorktreePathEmpty  = "worktree path cannot be empty"
+	errBranchNameEmpty    = "branch name cannot be empty"
+	errBaseReferenceEmpty = "base reference cannot be empty"
+	errRefEmpty           = "ref cannot be empty"
+)
+
 func TestCreateWorktree(t *testing.T) {
-	tempDir := t.TempDir()
-	bareDir := filepath.Join(tempDir, "test.bare")
-	worktreeDir := filepath.Join(tempDir, "main")
+	t.Run("fails with non-existent branch in empty repo", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
+		worktreeDir := filepath.Join(tempDir, "main")
 
-	if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
-		t.Fatalf("failed to create bare directory: %v", err)
-	}
+		if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create bare directory: %v", err)
+		}
 
-	if err := InitBare(bareDir); err != nil {
-		t.Fatalf("failed to create bare repo: %v", err)
-	}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatalf("failed to create bare repo: %v", err)
+		}
 
-	err := CreateWorktree(bareDir, worktreeDir, "main", false)
-	if err == nil {
-		t.Fatal("Expected error as main branch doesn't exist in empty repo")
-	}
+		err := CreateWorktree(bareDir, worktreeDir, "main", false)
+		if err == nil {
+			t.Fatal("expected error as main branch doesn't exist in empty repo")
+		}
+	})
+
+	t.Run("succeeds with existing branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+
+		// Create a branch first
+		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create branch: %v", err)
+		}
+
+		err := CreateWorktree(repo.Path, worktreeDir, "feature", true)
+		if err != nil {
+			t.Fatalf("CreateWorktree failed: %v", err)
+		}
+
+		// Verify worktree was created
+		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
+			t.Error("worktree directory was not created")
+		}
+
+		// Verify it's recognized as a worktree
+		if !IsWorktree(worktreeDir) {
+			t.Error("created directory is not recognized as a worktree")
+		}
+	})
 }
 
 func TestIsWorktree(t *testing.T) {
@@ -479,7 +517,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
-		if err.Error() != "bare repository path cannot be empty" {
+		if err.Error() != errBareRepoPathEmpty {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -489,7 +527,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
 		}
-		if err.Error() != "worktree path cannot be empty" {
+		if err.Error() != errWorktreePathEmpty {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -499,7 +537,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty branch name")
 		}
-		if err.Error() != "branch name cannot be empty" {
+		if err.Error() != errBranchNameEmpty {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -511,7 +549,7 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty base")
 		}
-		if err.Error() != "base reference cannot be empty" {
+		if err.Error() != errBaseReferenceEmpty {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -521,6 +559,9 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
+		if err.Error() != errBareRepoPathEmpty {
+			t.Errorf("unexpected error: %v", err)
+		}
 	})
 
 	t.Run("fails with empty worktree path", func(t *testing.T) {
@@ -528,12 +569,18 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
 		}
+		if err.Error() != errWorktreePathEmpty {
+			t.Errorf("unexpected error: %v", err)
+		}
 	})
 
 	t.Run("fails with empty branch name", func(t *testing.T) {
 		err := CreateWorktreeWithNewBranchFrom("/repo", "/wt", "", "main", true)
 		if err == nil {
 			t.Fatal("expected error for empty branch name")
+		}
+		if err.Error() != errBranchNameEmpty {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 }
@@ -544,12 +591,18 @@ func TestCreateWorktreeDetached(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
+		if err.Error() != errBareRepoPathEmpty {
+			t.Errorf("unexpected error: %v", err)
+		}
 	})
 
 	t.Run("fails with empty worktree path", func(t *testing.T) {
 		err := CreateWorktreeDetached("/repo", "", "v1.0.0", true)
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
+		}
+		if err.Error() != errWorktreePathEmpty {
+			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
@@ -558,7 +611,7 @@ func TestCreateWorktreeDetached(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for empty ref")
 		}
-		if err.Error() != "ref cannot be empty" {
+		if err.Error() != errRefEmpty {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -937,6 +990,28 @@ func TestLockWorktree(t *testing.T) {
 		err := LockWorktree(repo.Path, "/nonexistent/worktree", "test reason")
 		if err == nil {
 			t.Fatal("LockWorktree should fail for nonexistent worktree")
+		}
+	})
+
+	t.Run("fails for already locked worktree", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "feature")
+
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		// Lock the worktree first
+		if err := LockWorktree(repo.Path, worktreePath, "first lock"); err != nil {
+			t.Fatalf("first LockWorktree failed: %v", err)
+		}
+
+		// Try to lock again - should fail
+		err := LockWorktree(repo.Path, worktreePath, "second lock")
+		if err == nil {
+			t.Fatal("LockWorktree should fail for already locked worktree")
 		}
 	})
 }

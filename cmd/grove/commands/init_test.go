@@ -106,6 +106,16 @@ func TestGetBranchCompletions(t *testing.T) {
 }
 
 func TestResolveTargetDirectory(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+
+	relativePathAbs, err := filepath.Abs("relative/path")
+	if err != nil {
+		t.Fatalf("failed to get absolute path: %v", err)
+	}
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -117,21 +127,21 @@ func TestResolveTargetDirectory(t *testing.T) {
 			name:     "no args returns current directory",
 			args:     []string{},
 			argIndex: 0,
-			want:     "", // Will be set to current working directory
+			want:     cwd,
 			wantErr:  false,
 		},
 		{
 			name:     "arg index beyond length returns current directory",
 			args:     []string{"test"},
 			argIndex: 1,
-			want:     "",
+			want:     cwd,
 			wantErr:  false,
 		},
 		{
 			name:     "relative path gets absolute",
 			args:     []string{"relative/path"},
 			argIndex: 0,
-			want:     "", // Will be set to absolute path
+			want:     relativePathAbs,
 			wantErr:  false,
 		},
 		{
@@ -152,28 +162,7 @@ func TestResolveTargetDirectory(t *testing.T) {
 				return
 			}
 
-			if tt.want == "" {
-				switch tt.name {
-				case "no args returns current directory", "arg index beyond length returns current directory":
-					// Should return current working directory
-					cwd, cwdErr := os.Getwd()
-					if cwdErr != nil {
-						t.Fatalf("failed to get current directory: %v", cwdErr)
-					}
-					if got != cwd {
-						t.Errorf("resolveTargetDirectory() = %v, want current directory %v", got, cwd)
-					}
-				case "relative path gets absolute":
-					// Should return absolute path of relative path
-					expected, absErr := filepath.Abs(tt.args[0])
-					if absErr != nil {
-						t.Fatalf("failed to get absolute path: %v", absErr)
-					}
-					if got != expected {
-						t.Errorf("resolveTargetDirectory() = %v, want %v", got, expected)
-					}
-				}
-			} else if got != tt.want {
+			if got != tt.want {
 				t.Errorf("resolveTargetDirectory() = %v, want %v", got, tt.want)
 			}
 		})

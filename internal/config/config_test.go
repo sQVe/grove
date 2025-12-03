@@ -166,18 +166,60 @@ func TestMainLoadingSequence(t *testing.T) {
 	cleanup := setupGitRepo(t)
 	defer cleanup()
 
-	t.Run("main loading sequence works correctly", func(t *testing.T) {
+	t.Run("loads multiple config values in sequence", func(t *testing.T) {
 		resetGlobal()
 
+		// Set multiple config values
 		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
 			t.Fatal(err)
 		}
+		if err := exec.Command("git", "config", "grove.debug", "true").Run(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "config", "grove.nerdFonts", "false").Run(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
+			_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
+			_ = exec.Command("git", "config", "--unset", "grove.nerdFonts").Run()
+		}()
+
+		LoadFromGitConfig()
+
+		// Verify all values were loaded
+		if !IsPlain() {
+			t.Error("Expected grove.plain to be loaded as true")
+		}
+		if !IsDebug() {
+			t.Error("Expected grove.debug to be loaded as true")
+		}
+		if IsNerdFonts() {
+			t.Error("Expected grove.nerdFonts to be loaded as false")
+		}
+	})
+
+	t.Run("uses defaults for unset values", func(t *testing.T) {
+		resetGlobal()
+
+		// Only set plain, leave debug and nerdFonts unset
+		if err := exec.Command("git", "config", "grove.plain", "true").Run(); err != nil {
+			t.Fatal(err)
+		}
+		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
+		_ = exec.Command("git", "config", "--unset", "grove.nerdFonts").Run()
 		defer func() { _ = exec.Command("git", "config", "--unset", "grove.plain").Run() }()
 
 		LoadFromGitConfig()
 
 		if !IsPlain() {
-			t.Error("Expected git config to be loaded")
+			t.Error("Expected grove.plain to be true from git config")
+		}
+		if IsDebug() {
+			t.Error("Expected grove.debug to be false (default)")
+		}
+		if !IsNerdFonts() {
+			t.Error("Expected grove.nerdFonts to be true (default)")
 		}
 	})
 }
@@ -590,6 +632,10 @@ func TestGetTimeout(t *testing.T) {
 	})
 
 	t.Run("returns default after LoadFromGitConfig", func(t *testing.T) {
+		// LoadFromGitConfig requires a git repo context
+		cleanup := setupGitRepo(t)
+		defer cleanup()
+
 		resetGlobal()
 		LoadFromGitConfig()
 

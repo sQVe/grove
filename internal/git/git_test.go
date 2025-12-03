@@ -48,8 +48,10 @@ func TestInitBareGitNotAvailable(t *testing.T) {
 		t.Fatal("InitBare should fail when git is not available")
 	}
 
-	if err.Error() != `exec: "git": executable file not found in $PATH` {
-		t.Errorf("expected git not found error, got: %v", err)
+	// Error message format varies by OS, but should indicate git not found
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "git") || !strings.Contains(errMsg, "executable file not found") {
+		t.Errorf("expected git executable not found error, got: %v", err)
 	}
 }
 
@@ -104,32 +106,36 @@ func TestConfigureBare(t *testing.T) {
 	})
 }
 
-func TestCloneQuietMode(t *testing.T) {
-	tempDir := t.TempDir()
-	bareDir := filepath.Join(tempDir, "test.bare")
+func TestClone(t *testing.T) {
+	t.Run("returns error for non-existent repo in quiet mode", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
 
-	err := Clone("file:///nonexistent/repo.git", bareDir, true, false)
-	if err == nil {
-		t.Fatal("Expected error for non-existent repo")
-	}
+		// quiet=true suppresses git's progress output but errors must still be captured
+		err := Clone("file:///nonexistent/repo.git", bareDir, true, false)
+		if err == nil {
+			t.Fatal("expected error for non-existent repo")
+		}
 
-	if err.Error() == "" {
-		t.Error("Error message should not be empty in quiet mode")
-	}
-}
+		if err.Error() == "" {
+			t.Error("error message should not be empty even in quiet mode")
+		}
+	})
 
-func TestCloneVerboseMode(t *testing.T) {
-	tempDir := t.TempDir()
-	bareDir := filepath.Join(tempDir, "test.bare")
+	t.Run("returns error for non-existent repo in verbose mode", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, "test.bare")
 
-	err := Clone("file:///nonexistent/repo.git", bareDir, false, false)
-	if err == nil {
-		t.Fatal("Expected error for non-existent repo")
-	}
+		// quiet=false allows git's progress output; verify errors still work
+		err := Clone("file:///nonexistent/repo.git", bareDir, false, false)
+		if err == nil {
+			t.Fatal("expected error for non-existent repo")
+		}
 
-	if err.Error() == "" {
-		t.Error("Error message should not be empty in verbose mode")
-	}
+		if err.Error() == "" {
+			t.Error("error message should not be empty in verbose mode")
+		}
+	})
 }
 
 func TestIsInsideGitRepo_NotGitRepo(t *testing.T) {

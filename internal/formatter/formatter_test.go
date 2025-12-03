@@ -14,12 +14,12 @@ func TestCurrentMarker(t *testing.T) {
 		isCurrent bool
 		plain     bool
 		nerdFonts bool
-		want      string
+		wantExact string // Use for plain mode (no ANSI codes)
 	}{
 		{"not current returns space", false, false, true, " "},
 		{"current plain mode returns asterisk", true, true, true, "*"},
 		{"current styled no nerd fonts returns asterisk", true, false, false, "*"},
-		{"current styled with nerd fonts returns styled icon", true, false, true, iconCurrent},
+		{"current styled with nerd fonts contains icon", true, false, true, iconCurrent},
 	}
 
 	for _, tt := range tests {
@@ -29,13 +29,14 @@ func TestCurrentMarker(t *testing.T) {
 
 			got := CurrentMarker(tt.isCurrent)
 
-			if tt.plain || !tt.nerdFonts {
-				if got != tt.want {
-					t.Errorf("CurrentMarker(%v) = %q, want %q", tt.isCurrent, got, tt.want)
+			// Plain mode returns exact value; styled mode may wrap with ANSI codes
+			if tt.plain {
+				if got != tt.wantExact {
+					t.Errorf("CurrentMarker(%v) = %q, want %q", tt.isCurrent, got, tt.wantExact)
 				}
 			} else {
-				if !strings.Contains(got, tt.want) {
-					t.Errorf("CurrentMarker(%v) = %q, want to contain %q", tt.isCurrent, got, tt.want)
+				if !strings.Contains(got, tt.wantExact) {
+					t.Errorf("CurrentMarker(%v) = %q, want to contain %q", tt.isCurrent, got, tt.wantExact)
 				}
 			}
 		})
@@ -48,12 +49,12 @@ func TestLock(t *testing.T) {
 		isLocked  bool
 		plain     bool
 		nerdFonts bool
-		want      string
+		wantExact string // Use for plain mode or when not locked
 	}{
 		{"not locked returns empty", false, false, true, ""},
 		{"locked plain mode", true, true, true, "[locked]"},
 		{"locked no nerd fonts", true, false, false, "[locked]"},
-		{"locked styled with nerd fonts", true, false, true, iconLock},
+		{"locked styled with nerd fonts contains icon", true, false, true, iconLock},
 	}
 
 	for _, tt := range tests {
@@ -63,13 +64,14 @@ func TestLock(t *testing.T) {
 
 			got := Lock(tt.isLocked)
 
-			if tt.plain || !tt.nerdFonts || !tt.isLocked {
-				if got != tt.want {
-					t.Errorf("Lock(%v) = %q, want %q", tt.isLocked, got, tt.want)
+			// Plain mode or unlocked returns exact value; styled+locked may have ANSI codes
+			if tt.plain || !tt.isLocked {
+				if got != tt.wantExact {
+					t.Errorf("Lock(%v) = %q, want %q", tt.isLocked, got, tt.wantExact)
 				}
 			} else {
-				if !strings.Contains(got, tt.want) {
-					t.Errorf("Lock(%v) = %q, want to contain %q", tt.isLocked, got, tt.want)
+				if !strings.Contains(got, tt.wantExact) {
+					t.Errorf("Lock(%v) = %q, want to contain %q", tt.isLocked, got, tt.wantExact)
 				}
 			}
 		})
@@ -82,12 +84,12 @@ func TestDirty(t *testing.T) {
 		isDirty   bool
 		plain     bool
 		nerdFonts bool
-		want      string
+		wantExact string // Use for plain mode or when not dirty
 	}{
 		{"not dirty returns empty", false, false, true, ""},
 		{"dirty plain mode", true, true, true, "[dirty]"},
 		{"dirty no nerd fonts", true, false, false, "[dirty]"},
-		{"dirty styled with nerd fonts", true, false, true, iconDirty},
+		{"dirty styled with nerd fonts contains icon", true, false, true, iconDirty},
 	}
 
 	for _, tt := range tests {
@@ -97,13 +99,14 @@ func TestDirty(t *testing.T) {
 
 			got := Dirty(tt.isDirty)
 
-			if tt.plain || !tt.nerdFonts || !tt.isDirty {
-				if got != tt.want {
-					t.Errorf("Dirty(%v) = %q, want %q", tt.isDirty, got, tt.want)
+			// Plain mode or not dirty returns exact value; styled+dirty may have ANSI codes
+			if tt.plain || !tt.isDirty {
+				if got != tt.wantExact {
+					t.Errorf("Dirty(%v) = %q, want %q", tt.isDirty, got, tt.wantExact)
 				}
 			} else {
-				if !strings.Contains(got, tt.want) {
-					t.Errorf("Dirty(%v) = %q, want to contain %q", tt.isDirty, got, tt.want)
+				if !strings.Contains(got, tt.wantExact) {
+					t.Errorf("Dirty(%v) = %q, want to contain %q", tt.isDirty, got, tt.wantExact)
 				}
 			}
 		})

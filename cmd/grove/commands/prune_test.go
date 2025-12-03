@@ -92,28 +92,53 @@ func TestParseDuration(t *testing.T) {
 func TestFormatAge(t *testing.T) {
 	now := time.Now()
 
+	// Helper to compute timestamp from offset
+	ts := func(offset time.Duration) int64 {
+		return now.Add(offset).Unix()
+	}
+
 	tests := []struct {
 		name      string
 		timestamp int64
 		expected  string
 	}{
+		// Edge cases
 		{"zero timestamp", 0, ""},
-		{"today", now.Unix(), "today"},
-		{"yesterday", now.Add(-25 * time.Hour).Unix(), "yesterday"},
-		{"3 days ago", now.Add(-3 * 24 * time.Hour).Unix(), "3 days ago"},
-		{"1 week ago", now.Add(-8 * 24 * time.Hour).Unix(), "1 week ago"},
-		{"2 weeks ago", now.Add(-15 * 24 * time.Hour).Unix(), "2 weeks ago"},
-		{"1 month ago", now.Add(-35 * 24 * time.Hour).Unix(), "1 month ago"},
-		{"3 months ago", now.Add(-95 * 24 * time.Hour).Unix(), "3 months ago"},
-		{"1 year ago", now.Add(-400 * 24 * time.Hour).Unix(), "1 year ago"},
-		{"2 years ago", now.Add(-800 * 24 * time.Hour).Unix(), "2 years ago"},
+
+		// Today boundary: < 24 hours
+		{"just now", ts(0), "today"},
+		{"23 hours ago still today", ts(-23 * time.Hour), "today"},
+
+		// Yesterday boundary: 24-48 hours
+		{"25 hours ago is yesterday", ts(-25 * time.Hour), "yesterday"},
+		{"47 hours ago still yesterday", ts(-47 * time.Hour), "yesterday"},
+
+		// Days ago boundary: 2-6 days
+		{"49 hours ago is 2 days ago", ts(-49 * time.Hour), "2 days ago"},
+		{"3 days ago", ts(-3 * 24 * time.Hour), "3 days ago"},
+		{"6 days ago", ts(-6 * 24 * time.Hour), "6 days ago"},
+
+		// Weeks boundary: 7-29 days
+		{"8 days ago is 1 week ago", ts(-8 * 24 * time.Hour), "1 week ago"},
+		{"13 days ago still 1 week ago", ts(-13 * 24 * time.Hour), "1 week ago"},
+		{"15 days ago is 2 weeks ago", ts(-15 * 24 * time.Hour), "2 weeks ago"},
+		{"28 days ago is 4 weeks ago", ts(-28 * 24 * time.Hour), "4 weeks ago"},
+
+		// Months boundary: 30-364 days
+		{"35 days ago is 1 month ago", ts(-35 * 24 * time.Hour), "1 month ago"},
+		{"65 days ago is 2 months ago", ts(-65 * 24 * time.Hour), "2 months ago"},
+		{"95 days ago is 3 months ago", ts(-95 * 24 * time.Hour), "3 months ago"},
+
+		// Years boundary: 365+ days
+		{"400 days ago is 1 year ago", ts(-400 * 24 * time.Hour), "1 year ago"},
+		{"800 days ago is 2 years ago", ts(-800 * 24 * time.Hour), "2 years ago"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := formatAge(tt.timestamp)
 			if got != tt.expected {
-				t.Errorf("formatAge(%d) = %q, want %q", tt.timestamp, got, tt.expected)
+				t.Errorf("formatAge() = %q, want %q", got, tt.expected)
 			}
 		})
 	}

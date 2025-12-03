@@ -74,6 +74,50 @@ func TestHasOngoingOperation(t *testing.T) {
 		}
 	})
 
+	t.Run("detects revert operation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
+
+		revertHead := filepath.Join(gitDir, "REVERT_HEAD")
+		if err := os.WriteFile(revertHead, []byte("commit-hash"), fs.FileGit); err != nil {
+			t.Fatalf("failed to create REVERT_HEAD: %v", err)
+		}
+
+		hasOperation, err := HasOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed: %v", err)
+		}
+		if !hasOperation {
+			t.Error("expected revert operation to be detected")
+		}
+	})
+
+	t.Run("detects rebase-apply operation", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+
+		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create git directory: %v", err)
+		}
+
+		rebaseApplyDir := filepath.Join(gitDir, "rebase-apply")
+		if err := os.Mkdir(rebaseApplyDir, fs.DirGit); err != nil {
+			t.Fatalf("failed to create rebase-apply: %v", err)
+		}
+
+		hasOperation, err := HasOngoingOperation(tempDir)
+		if err != nil {
+			t.Fatalf("HasOngoingOperation failed: %v", err)
+		}
+		if !hasOperation {
+			t.Error("expected rebase-apply operation to be detected")
+		}
+	})
+
 	t.Run("fails for non-git directory", func(t *testing.T) {
 		tempDir := t.TempDir()
 

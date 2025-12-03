@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -76,5 +77,11 @@ func TestNewMoveCmd_ValidArgsFunction(t *testing.T) {
 
 	if cmd.ValidArgsFunction == nil {
 		t.Error("expected ValidArgsFunction to be set")
+	}
+
+	// When already has first arg, should not complete further (second arg is free-form)
+	_, directive := cmd.ValidArgsFunction(cmd, []string{"existing"}, "")
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Errorf("expected ShellCompDirectiveNoFileComp when first arg present, got %v", directive)
 	}
 }

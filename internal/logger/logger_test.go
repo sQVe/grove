@@ -102,8 +102,31 @@ func TestPlainOutput(t *testing.T) {
 	})
 }
 
-func TestInfoAndWarning(t *testing.T) {
-	t.Run("info message contains correct symbol and colors", func(t *testing.T) {
+func TestInfo(t *testing.T) {
+	t.Run("plain mode outputs message without symbols", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		Init(true, false) // plain=true, debug=false
+		Info("info message")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+
+		if !strings.Contains(output, "info message") {
+			t.Error("Info output should contain the message")
+		}
+		if strings.Contains(output, "\033[") {
+			t.Error("Plain mode should not contain ANSI escape codes")
+		}
+	})
+
+	t.Run("colored mode outputs with symbol and colors", func(t *testing.T) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
@@ -126,8 +149,33 @@ func TestInfoAndWarning(t *testing.T) {
 			t.Error("Info output should contain ANSI escape codes")
 		}
 	})
+}
 
-	t.Run("warning message contains correct symbol and colors", func(t *testing.T) {
+func TestWarning(t *testing.T) {
+	t.Run("plain mode outputs message without symbols", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		Init(true, false) // plain=true, debug=false
+		Warning("warning message")
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+
+		if !strings.Contains(output, "warning message") {
+			t.Error("Warning output should contain the message")
+		}
+		if strings.Contains(output, "\033[") {
+			t.Error("Plain mode should not contain ANSI escape codes")
+		}
+	})
+
+	t.Run("colored mode outputs with symbol and colors", func(t *testing.T) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w

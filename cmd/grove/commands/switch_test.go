@@ -1,10 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -74,6 +78,12 @@ func TestNewSwitchCmd_ValidArgsFunction(t *testing.T) {
 	if cmd.ValidArgsFunction == nil {
 		t.Error("expected ValidArgsFunction to be set")
 	}
+
+	// When already has an arg, should return no file completion
+	_, directive := cmd.ValidArgsFunction(cmd, []string{"existing"}, "")
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Errorf("expected ShellCompDirectiveNoFileComp when args present, got %v", directive)
+	}
 }
 
 func TestDetectShell(t *testing.T) {
@@ -107,27 +117,50 @@ func TestDetectShell(t *testing.T) {
 
 func TestPrintShellIntegration(t *testing.T) {
 	tests := []struct {
-		shell   string
-		wantErr bool
+		shell       string
+		wantErr     bool
+		wantContain string // expected content in output
 	}{
-		{"bash", false},
-		{"zsh", false},
-		{"sh", false},
-		{"dash", false},
-		{"fish", false},
-		{"powershell", false},
-		{"pwsh", false},
-		{"tcsh", true}, // unsupported
+		{"bash", false, "grove()"},
+		{"zsh", false, "grove()"},
+		{"sh", false, "grove()"},
+		{"dash", false, "grove()"},
+		{"fish", false, "function grove"},
+		{"powershell", false, "function grove"},
+		{"pwsh", false, "function grove"},
+		{"tcsh", true, ""}, // unsupported
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.shell, func(t *testing.T) {
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
 			err := printShellIntegration(tt.shell)
-			if tt.wantErr && err == nil {
-				t.Errorf("expected error for shell %q", tt.shell)
+
+			_ = w.Close()
+			os.Stdout = oldStdout
+
+			var buf bytes.Buffer
+			_, _ = io.Copy(&buf, r)
+			output := buf.String()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error for shell %q", tt.shell)
+				}
+				return
 			}
-			if !tt.wantErr && err != nil {
+
+			if err != nil {
 				t.Errorf("unexpected error for shell %q: %v", tt.shell, err)
+				return
+			}
+
+			if !strings.Contains(output, tt.wantContain) {
+				t.Errorf("printShellIntegration(%q) output = %q, want to contain %q", tt.shell, output, tt.wantContain)
 			}
 		})
 	}

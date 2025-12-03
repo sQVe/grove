@@ -2,6 +2,8 @@ package commands
 
 import (
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestNewCloneCmd(t *testing.T) {
@@ -45,15 +47,21 @@ func TestNewCloneCmd_PreRunE(t *testing.T) {
 }
 
 func TestNewCloneCmd_RunE_Validation(t *testing.T) {
+	// These tests simulate edge cases where --branches is explicitly provided
+	// but with empty/invalid values. We must manually set Changed=true because
+	// flag.Set("", value) doesn't mark the flag as changed when value is empty.
+
 	t.Run("rejects empty branches value", func(t *testing.T) {
 		cmd := NewCloneCmd()
 		_ = cmd.Flags().Set("branches", "")
-		// Mark the flag as changed to trigger validation
 		cmd.Flags().Lookup("branches").Changed = true
 
 		err := cmd.RunE(cmd, []string{"https://github.com/owner/repo"})
 		if err == nil {
-			t.Error("expected error for empty branches value")
+			t.Fatal("expected error for empty branches value")
+		}
+		if err.Error() != "no branches specified" {
+			t.Errorf("unexpected error message: %v", err)
 		}
 	})
 
@@ -64,7 +72,10 @@ func TestNewCloneCmd_RunE_Validation(t *testing.T) {
 
 		err := cmd.RunE(cmd, []string{"https://github.com/owner/repo"})
 		if err == nil {
-			t.Error("expected error for quoted empty branches value")
+			t.Fatal("expected error for quoted empty branches value")
+		}
+		if err.Error() != "no branches specified" {
+			t.Errorf("unexpected error message: %v", err)
 		}
 	})
 }
@@ -77,16 +88,18 @@ func TestNewCloneCmd_ValidArgsFunction(t *testing.T) {
 		if completions != nil {
 			t.Errorf("expected nil completions for first arg, got %v", completions)
 		}
-		if directive != 4 { // cobra.ShellCompDirectiveNoFileComp
+		if directive != cobra.ShellCompDirectiveNoFileComp {
 			t.Errorf("expected ShellCompDirectiveNoFileComp, got %v", directive)
 		}
 	})
 
 	t.Run("returns directory filtering for second arg", func(t *testing.T) {
-		completions, _ := cmd.ValidArgsFunction(cmd, []string{"url"}, "")
-		// Second arg should allow directory completion (nil completions)
+		completions, directive := cmd.ValidArgsFunction(cmd, []string{"url"}, "")
 		if completions != nil {
-			t.Errorf("expected nil completions for second arg (directory), got %v", completions)
+			t.Errorf("expected nil completions for second arg, got %v", completions)
+		}
+		if directive != cobra.ShellCompDirectiveFilterDirs {
+			t.Errorf("expected ShellCompDirectiveFilterDirs, got %v", directive)
 		}
 	})
 }

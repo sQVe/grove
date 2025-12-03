@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -230,8 +231,78 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 }
 
 func TestFindIgnoredFilesInWorktree(t *testing.T) {
-	// This function wraps git ls-files, hard to unit test without real git repo
-	// Integration tests cover this in create_test.go
+	t.Run("returns ignored files in worktree", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Initialize git repo
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tmpDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git init failed: %v", err)
+		}
+
+		// Create .gitignore
+		gitignore := filepath.Join(tmpDir, ".gitignore")
+		if err := os.WriteFile(gitignore, []byte(".env\n*.log\n"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create ignored files
+		if err := os.WriteFile(filepath.Join(tmpDir, ".env"), []byte("SECRET=x"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, "debug.log"), []byte("log"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a tracked file (should not appear in ignored list)
+		if err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		files, err := FindIgnoredFilesInWorktree(tmpDir)
+		if err != nil {
+			t.Fatalf("FindIgnoredFilesInWorktree failed: %v", err)
+		}
+
+		if len(files) != 2 {
+			t.Errorf("expected 2 ignored files, got %d: %v", len(files), files)
+		}
+	})
+
+	t.Run("returns empty for directory with no ignored files", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tmpDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git init failed: %v", err)
+		}
+
+		// Create .gitignore but no matching files
+		gitignore := filepath.Join(tmpDir, ".gitignore")
+		if err := os.WriteFile(gitignore, []byte(".env\n"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		files, err := FindIgnoredFilesInWorktree(tmpDir)
+		if err != nil {
+			t.Fatalf("FindIgnoredFilesInWorktree failed: %v", err)
+		}
+
+		if len(files) != 0 {
+			t.Errorf("expected 0 files, got %d: %v", len(files), files)
+		}
+	})
+
+	t.Run("returns error for non-git directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		_, err := FindIgnoredFilesInWorktree(tmpDir)
+		if err == nil {
+			t.Error("expected error for non-git directory")
+		}
+	})
 }
 
 func TestGetPreservePatternsForCreate(t *testing.T) {

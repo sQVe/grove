@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
@@ -214,6 +215,9 @@ func TestRunExec_InvalidWorktree(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for non-existent worktree")
 	}
+	if !strings.Contains(err.Error(), `worktree "nonexistent" not found`) {
+		t.Errorf("expected 'worktree not found' error, got: %v", err)
+	}
 }
 
 func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
@@ -233,22 +237,21 @@ func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	// Run a command that fails in main but succeeds in feature
-	// Use bash to create a marker AND fail based on branch
-	// This tests that execution continues despite failure
-	err := runExec(true, false, nil, []string{"sh", "-c", "touch marker.txt && [ -f nonexistent.marker ]"})
+	// Run a command that creates a marker file then fails (exit 1).
+	// Both worktrees will fail, but execution should continue to all worktrees.
+	err := runExec(true, false, nil, []string{"sh", "-c", "touch marker.txt && exit 1"})
 
-	// Should return error (some failed)
+	// Should return error (all executions failed)
 	if err == nil {
-		t.Error("expected error when command fails")
+		t.Fatal("expected error when command fails")
 	}
 
-	// Both worktrees should have marker (execution continued)
+	// Both worktrees should have marker, proving execution continued to all worktrees
 	if _, statErr := os.Stat(filepath.Join(mainPath, "marker.txt")); os.IsNotExist(statErr) {
 		t.Error("marker should exist in main worktree")
 	}
 	if _, statErr := os.Stat(filepath.Join(featurePath, "marker.txt")); os.IsNotExist(statErr) {
-		t.Error("marker should exist in feature worktree (execution should continue)")
+		t.Error("marker should exist in feature worktree (execution should continue despite first failure)")
 	}
 }
 
@@ -258,33 +261,34 @@ func TestRunExec_FailFast(t *testing.T) {
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
-	// Create feature worktree
-	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	// Create worktree with name that sorts before "main" alphabetically.
+	// This ensures deterministic execution order for the test.
+	aaaPath := filepath.Join(tempDir, "aaa")
+	cmd := exec.Command("git", "worktree", "add", "-b", "aaa", aaaPath) //nolint:gosec
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("failed to create feature worktree: %v", err)
+		t.Fatalf("failed to create aaa worktree: %v", err)
 	}
 
 	// Change to main worktree
 	_ = os.Chdir(mainPath)
 
-	// Run a command that always fails - with fail-fast
-	// Worktrees are sorted alphabetically, so feature runs before main
+	// Run a command that creates a marker then fails, with --fail-fast.
+	// Worktrees are processed in alphabetical order by directory name.
 	err := runExec(true, true, nil, []string{"sh", "-c", "touch failfast-marker.txt && exit 1"})
 
 	// Should return error
 	if err == nil {
-		t.Error("expected error when command fails with --fail-fast")
+		t.Fatal("expected error when command fails with --fail-fast")
 	}
 
-	// Only the first worktree (alphabetically: feature) should have marker
-	// Main should NOT have marker because fail-fast stops after first failure
-	if _, statErr := os.Stat(filepath.Join(featurePath, "failfast-marker.txt")); os.IsNotExist(statErr) {
-		t.Error("marker should exist in feature worktree (first to run)")
+	// Only the first worktree (alphabetically: "aaa") should have marker.
+	// "main" should NOT have marker because --fail-fast stops after first failure.
+	if _, statErr := os.Stat(filepath.Join(aaaPath, "failfast-marker.txt")); os.IsNotExist(statErr) {
+		t.Error("marker should exist in 'aaa' worktree (first alphabetically)")
 	}
 	if _, statErr := os.Stat(filepath.Join(mainPath, "failfast-marker.txt")); !os.IsNotExist(statErr) {
-		t.Error("marker should NOT exist in main worktree (fail-fast should stop)")
+		t.Error("marker should NOT exist in 'main' worktree (fail-fast stops after first failure)")
 	}
 }
 

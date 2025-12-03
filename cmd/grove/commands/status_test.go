@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -51,25 +52,23 @@ func TestNewStatusCmd_ValidArgsFunction(t *testing.T) {
 	if completions != nil {
 		t.Errorf("expected nil completions, got %v", completions)
 	}
-	if directive != 4 { // cobra.ShellCompDirectiveNoFileComp
+	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected ShellCompDirectiveNoFileComp, got %v", directive)
 	}
 }
 
-func TestRunStatus(t *testing.T) {
-	t.Run("returns error when not in workspace", func(t *testing.T) {
-		origDir, _ := os.Getwd()
-		defer func() { _ = os.Chdir(origDir) }()
+func TestRunStatus_NotInWorkspace(t *testing.T) {
+	origDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origDir) }()
 
-		tmpDir := t.TempDir()
-		_ = os.Chdir(tmpDir)
+	tmpDir := t.TempDir()
+	_ = os.Chdir(tmpDir)
 
-		err := runStatus(false, false)
-		if err == nil {
-			t.Error("expected error for non-workspace directory")
-		}
-		if !errors.Is(err, workspace.ErrNotInWorkspace) {
-			t.Errorf("expected ErrNotInWorkspace, got: %v", err)
-		}
-	})
+	err := runStatus(false, false)
+	if err == nil {
+		t.Error("expected error for non-workspace directory")
+	}
+	if !errors.Is(err, workspace.ErrNotInWorkspace) {
+		t.Errorf("expected ErrNotInWorkspace, got: %v", err)
+	}
 }

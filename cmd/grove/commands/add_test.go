@@ -12,11 +12,40 @@ import (
 
 func TestNewAddCmd(t *testing.T) {
 	cmd := NewAddCmd()
+
+	// Verify command structure
 	if cmd.Use != "add <branch|#PR|PR-URL|ref>" {
-		t.Errorf("expected Use to be 'add <branch|#PR|PR-URL|ref>', got %q", cmd.Use)
+		t.Errorf("unexpected Use: %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")
+	}
+
+	// Verify required flags exist with correct configuration
+	flags := []struct {
+		name      string
+		shorthand string
+	}{
+		{"switch", "s"},
+		{"base", ""},
+		{"detach", ""},
+		{"name", ""},
+	}
+
+	for _, f := range flags {
+		flag := cmd.Flags().Lookup(f.name)
+		if flag == nil {
+			t.Errorf("expected --%s flag to exist", f.name)
+			continue
+		}
+		if f.shorthand != "" && flag.Shorthand != f.shorthand {
+			t.Errorf("--%s: expected shorthand %q, got %q", f.name, f.shorthand, flag.Shorthand)
+		}
+	}
+
+	// Verify ValidArgsFunction is set
+	if cmd.ValidArgsFunction == nil {
+		t.Error("expected ValidArgsFunction to be set")
 	}
 }
 
@@ -37,6 +66,12 @@ func TestNewAddCmd_HasBaseFlag(t *testing.T) {
 	if flag == nil {
 		t.Fatal("expected --base flag to exist")
 	}
+	if flag.DefValue != "" {
+		t.Errorf("expected default value '', got %q", flag.DefValue)
+	}
+	if flag.Value.Type() != "string" {
+		t.Errorf("expected string type, got %q", flag.Value.Type())
+	}
 }
 
 func TestNewAddCmd_HasDetachFlag(t *testing.T) {
@@ -45,6 +80,12 @@ func TestNewAddCmd_HasDetachFlag(t *testing.T) {
 	if flag == nil {
 		t.Fatal("expected --detach flag to exist")
 	}
+	if flag.DefValue != "false" {
+		t.Errorf("expected default value 'false', got %q", flag.DefValue)
+	}
+	if flag.Value.Type() != "bool" {
+		t.Errorf("expected bool type, got %q", flag.Value.Type())
+	}
 }
 
 func TestNewAddCmd_HasNameFlag(t *testing.T) {
@@ -52,6 +93,12 @@ func TestNewAddCmd_HasNameFlag(t *testing.T) {
 	flag := cmd.Flags().Lookup("name")
 	if flag == nil {
 		t.Fatal("expected --name flag to exist")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("expected default value '', got %q", flag.DefValue)
+	}
+	if flag.Value.Type() != "string" {
+		t.Errorf("expected string type, got %q", flag.Value.Type())
 	}
 }
 
