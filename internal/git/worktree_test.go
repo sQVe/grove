@@ -199,11 +199,13 @@ func TestGetWorktreeInfo(t *testing.T) {
 		}
 	})
 
-	t.Run("fails for detached HEAD", func(t *testing.T) {
+	t.Run("fails for incomplete git directory", func(t *testing.T) {
 		t.Parallel()
 		tempDir := t.TempDir()
 		gitDir := filepath.Join(tempDir, ".git")
 
+		// Create a fake .git directory with only a HEAD file (not a complete git repo)
+		// This tests that GetWorktreeInfo fails gracefully on malformed worktrees
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
 			t.Fatalf("failed to create git directory: %v", err)
 		}
@@ -215,7 +217,7 @@ func TestGetWorktreeInfo(t *testing.T) {
 
 		_, err := GetWorktreeInfo(tempDir)
 		if err == nil {
-			t.Fatal("expected error for detached HEAD")
+			t.Fatal("expected error for incomplete git directory")
 		}
 	})
 }
@@ -377,6 +379,64 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		}
 		if infos[0].LockReason != expectedReason {
 			t.Errorf("expected LockReason %q, got %q", expectedReason, infos[0].LockReason)
+		}
+	})
+
+	t.Run("includes detached HEAD worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create a detached worktree
+		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create detached worktree: %v", err)
+		}
+
+		infos, err := ListWorktreesWithInfo(repo.Path, false)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree (detached should be included), got %d", len(infos))
+		}
+
+		if !infos[0].Detached {
+			t.Error("expected Detached to be true for detached worktree")
+		}
+
+		if infos[0].Branch == "" {
+			t.Error("expected Branch to contain commit hash, got empty string")
+		}
+	})
+
+	t.Run("includes detached HEAD worktrees in fast mode", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Create a detached worktree
+		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create detached worktree: %v", err)
+		}
+
+		infos, err := ListWorktreesWithInfo(repo.Path, true)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo (fast) failed: %v", err)
+		}
+
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 worktree (detached should be included), got %d", len(infos))
+		}
+
+		if !infos[0].Detached {
+			t.Error("expected Detached to be true for detached worktree")
+		}
+
+		if infos[0].Branch == "" {
+			t.Error("expected Branch to contain commit hash, got empty string")
 		}
 	})
 }

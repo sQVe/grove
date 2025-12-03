@@ -205,20 +205,37 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 		if fast {
 			branch, detached, err := GetCurrentBranchOrDetached(path)
 			if err != nil {
-				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
-				continue
-			}
-			info = &WorktreeInfo{
-				Path:     path,
-				Branch:   branch,
-				Detached: detached,
+				if errors.Is(err, ErrDetachedHead) {
+					info = &WorktreeInfo{
+						Path:     path,
+						Branch:   "(detached)",
+						Detached: true,
+					}
+				} else {
+					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
+					continue
+				}
+			} else {
+				info = &WorktreeInfo{
+					Path:     path,
+					Branch:   branch,
+					Detached: detached,
+				}
 			}
 		} else {
 			var err error
 			info, err = GetWorktreeInfo(path)
 			if err != nil {
-				logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
-				continue
+				if errors.Is(err, ErrDetachedHead) {
+					info = &WorktreeInfo{
+						Path:     path,
+						Branch:   "(detached)",
+						Detached: true,
+					}
+				} else {
+					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
+					continue
+				}
 			}
 		}
 
