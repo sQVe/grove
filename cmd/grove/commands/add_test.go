@@ -47,6 +47,14 @@ func TestNewAddCmd_HasDetachFlag(t *testing.T) {
 	}
 }
 
+func TestNewAddCmd_HasNameFlag(t *testing.T) {
+	cmd := NewAddCmd()
+	flag := cmd.Flags().Lookup("name")
+	if flag == nil {
+		t.Fatal("expected --name flag to exist")
+	}
+}
+
 func TestRunAdd_NotInWorkspace(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -59,7 +67,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd("feature-test", false, "", false)
+	err = runAdd("feature-test", false, "", "", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -78,28 +86,28 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 
 	t.Run("base flag cannot be used with PR number", func(t *testing.T) {
-		err := runAdd("#123", false, "main", false)
+		err := runAdd("#123", false, "main", "", false)
 		if err == nil || err.Error() != "--base cannot be used with PR references" {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR number", func(t *testing.T) {
-		err := runAdd("#123", false, "", true)
+		err := runAdd("#123", false, "", "", true)
 		if err == nil || err.Error() != "--detach cannot be used with PR references" {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd("https://github.com/owner/repo/pull/456", false, "main", false)
+		err := runAdd("https://github.com/owner/repo/pull/456", false, "main", "", false)
 		if err == nil || err.Error() != "--base cannot be used with PR references" {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd("https://github.com/owner/repo/pull/456", false, "", true)
+		err := runAdd("https://github.com/owner/repo/pull/456", false, "", "", true)
 		if err == nil || err.Error() != "--detach cannot be used with PR references" {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
@@ -108,7 +116,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 func TestRunAdd_DetachBaseValidation(t *testing.T) {
 	t.Run("detach and base cannot be used together", func(t *testing.T) {
-		err := runAdd("v1.0.0", false, "main", true)
+		err := runAdd("v1.0.0", false, "main", "", true)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
 		}

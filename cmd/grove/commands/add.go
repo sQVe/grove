@@ -17,37 +17,37 @@ import (
 
 func NewAddCmd() *cobra.Command {
 	var baseBranch string
+	var name string
 	var detach bool
 
 	cmd := &cobra.Command{
 		Use:   "add <branch|#PR|PR-URL|ref>",
 		Short: "Add a new worktree",
-		Long: `Add a new worktree for a branch or GitHub pull request.
+		Long: `Add a new worktree for a branch, pull request, or ref.
 
-If the branch exists (locally or on remote), creates a worktree for it.
-If the branch doesn't exist, creates both the branch and worktree.
-If a PR reference is given, fetches PR metadata and creates a worktree for the PR's branch.
-With --detach, creates a worktree in detached HEAD state at the specified ref (commit/tag).
+The directory name is derived from the branch name unless --name is specified.
 
 Examples:
-  grove add feature/auth                              # Add worktree for new branch
-  grove add main                                      # Add worktree for existing branch
-  grove add -s feature/auth                           # Add and switch to worktree
-  grove add --base main feature/auth                  # New branch from main, not HEAD
-  grove add --detach v1.0.0                           # Detached worktree at tag
-  grove add #123                                      # Add worktree for PR #123
-  grove add https://github.com/owner/repo/pull/123    # Add worktree from PR URL`,
+  grove add feature/auth              # Creates ./feature-auth worktree
+  grove add feature/auth --name auth  # Creates ./auth worktree
+  grove add main                      # Existing branch
+  grove add -s feature/auth           # Add and switch to worktree
+  grove add --base main feature/auth  # New branch from main
+  grove add --detach v1.0.0           # Detached HEAD at tag
+  grove add #123                      # PR by number
+  grove add PR-URL                    # PR by URL`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args[0], switchTo, baseBranch, detach)
+			return runAdd(args[0], switchTo, baseBranch, name, detach)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
-	cmd.Flags().BoolVar(&detach, "detach", false, "Create worktree in detached HEAD state at ref")
+	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
+	cmd.Flags().BoolVar(&detach, "detach", false, "Create worktree in detached HEAD state")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -55,8 +55,9 @@ Examples:
 	return cmd
 }
 
-func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) error {
+func runAdd(branchOrPR string, switchTo bool, baseBranch, name string, detach bool) error {
 	branchOrPR = strings.TrimSpace(branchOrPR)
+	name = strings.TrimSpace(name)
 
 	// Validate flag combinations early (before filesystem operations)
 	if detach && baseBranch != "" {
@@ -100,20 +101,23 @@ func runAdd(branchOrPR string, switchTo bool, baseBranch string, detach bool) er
 
 	// Handle PR reference
 	if isPR {
-		return runAddFromPR(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, bareDir, workspaceRoot, sourceWorktree)
+		return runAddDetached(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, baseBranch, bareDir, workspaceRoot, sourceWorktree)
+	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree)
 }
 
-func runAddFromBranch(branch string, switchTo bool, baseBranch, bareDir, workspaceRoot, sourceWorktree string) error {
-	dirName := workspace.SanitizeBranchName(branch)
+func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string) error {
+	dirName := name
+	if dirName == "" {
+		dirName = workspace.SanitizeBranchName(branch)
+	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
@@ -184,9 +188,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, bareDir, workspa
 	return nil
 }
 
-func runAddDetached(ref string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
-	// Sanitize ref for directory name (e.g., v1.0.0 -> v1.0.0, abc123 -> abc123)
-	dirName := workspace.SanitizeBranchName(ref)
+func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string) error {
+	dirName := name
+	if dirName == "" {
+		dirName = workspace.SanitizeBranchName(ref)
+	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
 	// Check directory doesn't already exist
@@ -218,7 +224,7 @@ func runAddDetached(ref string, switchTo bool, bareDir, workspaceRoot, sourceWor
 	return nil
 }
 
-func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -248,7 +254,10 @@ func runAddFromPR(prRef string, switchTo bool, bareDir, workspaceRoot, sourceWor
 	}
 
 	branch := prInfo.HeadRef
-	dirName := workspace.SanitizeBranchName(branch)
+	dirName := name
+	if dirName == "" {
+		dirName = workspace.SanitizeBranchName(branch)
+	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
 	// Check if worktree already exists
