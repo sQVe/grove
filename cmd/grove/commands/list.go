@@ -65,26 +65,28 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 	// Apply filter if specified
 	infos = filterWorktrees(infos, filter)
 
-	// Determine current branch (also works from subdirectories)
-	currentBranch := ""
+	// Determine current worktree path (also works from subdirectories)
+	currentPath := ""
 	for _, info := range infos {
 		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
-			currentBranch = info.Branch
+			currentPath = info.Path
 			break
 		}
 	}
 
 	if jsonOutput {
-		return outputJSON(infos, currentBranch)
+		return outputJSON(infos, currentPath)
 	}
 
-	return outputTable(infos, currentBranch, fast, verbose)
+	return outputTable(infos, currentPath, fast, verbose)
 }
 
 type worktreeJSON struct {
 	Name       string `json:"name"`
+	Branch     string `json:"branch,omitempty"`
 	Path       string `json:"path"`
 	Current    bool   `json:"current"`
+	Detached   bool   `json:"detached,omitempty"`
 	Upstream   string `json:"upstream,omitempty"`
 	Dirty      bool   `json:"dirty,omitempty"`
 	Ahead      int    `json:"ahead,omitempty"`
@@ -95,13 +97,14 @@ type worktreeJSON struct {
 	LockReason string `json:"lock_reason,omitempty"`
 }
 
-func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
+func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 	output := []worktreeJSON{}
 	for _, info := range infos {
-		output = append(output, worktreeJSON{
-			Name:       info.Branch,
+		entry := worktreeJSON{
+			Name:       filepath.Base(info.Path),
 			Path:       info.Path,
-			Current:    info.Branch == currentBranch,
+			Current:    info.Path == currentPath,
+			Detached:   info.Detached,
 			Upstream:   info.Upstream,
 			Dirty:      info.Dirty,
 			Ahead:      info.Ahead,
@@ -110,7 +113,11 @@ func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
 			NoUpstream: info.NoUpstream,
 			Locked:     info.Locked,
 			LockReason: info.LockReason,
-		})
+		}
+		if !info.Detached {
+			entry.Branch = info.Branch
+		}
+		output = append(output, entry)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
@@ -118,27 +125,38 @@ func outputJSON(infos []*git.WorktreeInfo, currentBranch string) error {
 	return enc.Encode(output)
 }
 
-func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose bool) error {
-	// Sort: current branch first, then alphabetically
+func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool) error {
+	// Sort: current worktree first, then alphabetically by worktree name
 	sort.SliceStable(infos, func(i, j int) bool {
-		iCurrent := infos[i].Branch == currentBranch
-		jCurrent := infos[j].Branch == currentBranch
+		iCurrent := infos[i].Path == currentPath
+		jCurrent := infos[j].Path == currentPath
 		if iCurrent != jCurrent {
-			return iCurrent // Current branch comes first
+			return iCurrent // Current worktree comes first
 		}
-		return false // Keep alphabetical order from ListWorktreesWithInfo
+		// Sort by worktree name (directory basename)
+		return filepath.Base(infos[i].Path) < filepath.Base(infos[j].Path)
 	})
 
-	// Calculate max branch name length for padding
+	// Calculate max widths for padding
 	maxNameLen := 0
+	maxBranchLen := 0
 	for _, info := range infos {
-		if len(info.Branch) > maxNameLen {
-			maxNameLen = len(info.Branch)
+		nameLen := len(filepath.Base(info.Path))
+		if nameLen > maxNameLen {
+			maxNameLen = nameLen
+		}
+
+		branchLen := len(info.Branch) + 2 // brackets add 2 chars
+		if info.Detached {
+			branchLen = 10 // "(detached)" is 10 chars
+		}
+		if branchLen > maxBranchLen {
+			maxBranchLen = branchLen
 		}
 	}
 
 	for _, info := range infos {
-		isCurrent := info.Branch == currentBranch
+		isCurrent := info.Path == currentPath
 
 		// In fast mode, we don't have sync status - create a copy with zeroed sync info
 		displayInfo := info
@@ -149,12 +167,13 @@ func outputTable(infos []*git.WorktreeInfo, currentBranch string, fast, verbose 
 				Upstream:   info.Upstream,
 				Locked:     info.Locked,
 				LockReason: info.LockReason,
+				Detached:   info.Detached,
 				NoUpstream: true, // This prevents showing sync status
 			}
 		}
 
 		// Print the worktree row using the formatter
-		fmt.Println(formatter.WorktreeRow(displayInfo, isCurrent, maxNameLen))
+		fmt.Println(formatter.WorktreeRow(displayInfo, isCurrent, maxNameLen, maxBranchLen))
 
 		// Print verbose sub-items
 		if verbose {

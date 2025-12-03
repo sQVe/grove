@@ -178,10 +178,11 @@ func outputStatusDefault(info *StatusInfo) error {
 		LockReason: info.LockReason,
 		Gone:       info.Gone,
 		NoUpstream: info.NoUpstream,
+		Detached:   info.Detached,
 	}
 
 	// Use consistent single-line format (same as list)
-	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0))
+	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0, 0))
 
 	return nil
 }
@@ -199,10 +200,11 @@ func outputStatusVerbose(info *StatusInfo) error {
 		LockReason: info.LockReason,
 		Gone:       info.Gone,
 		NoUpstream: info.NoUpstream,
+		Detached:   info.Detached,
 	}
 
 	// Print the worktree row (same format as default)
-	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0))
+	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0, 0))
 
 	// Print standard verbose sub-items (path, upstream, lock reason)
 	subItems := formatter.VerboseSubItems(wtInfo)

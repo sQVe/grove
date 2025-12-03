@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
@@ -121,7 +122,8 @@ func BranchName(name string) string {
 }
 
 // WorktreeRow formats a single worktree row for list/status output
-func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
+// Format: marker name [branch] indicators
+func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, namePadWidth, branchPadWidth int) string {
 	marker := CurrentMarker(isCurrent)
 	dirty := Dirty(info.Dirty)
 	lock := Lock(info.Locked)
@@ -133,13 +135,32 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, padWidth int) string {
 		sync = Sync(info.Ahead, info.Behind, !info.NoUpstream)
 	}
 
-	branchDisplay := info.Branch
-	branchLen := utf8.RuneCountInString(info.Branch)
-	if padWidth > 0 && branchLen < padWidth {
-		branchDisplay = info.Branch + strings.Repeat(" ", padWidth-branchLen)
+	// Worktree name (directory basename)
+	name := filepath.Base(info.Path)
+	nameLen := utf8.RuneCountInString(name)
+	nameDisplay := name
+	if namePadWidth > 0 && nameLen < namePadWidth {
+		nameDisplay = name + strings.Repeat(" ", namePadWidth-nameLen)
 	}
 
-	parts := []string{marker, styles.Render(&styles.Worktree, branchDisplay)}
+	// Branch display: [branch] or (detached)
+	var branchDisplay string
+	if info.Detached {
+		branchDisplay = styles.Render(&styles.Dimmed, "(detached)")
+	} else {
+		branchDisplay = styles.Render(&styles.Dimmed, "["+info.Branch+"]")
+	}
+
+	// Pad the branch display for alignment (calculate visible length excluding ANSI codes)
+	branchVisibleLen := len(info.Branch) + 2 // brackets add 2 chars
+	if info.Detached {
+		branchVisibleLen = 10 // "(detached)" is 10 chars
+	}
+	if branchPadWidth > 0 && branchVisibleLen < branchPadWidth {
+		branchDisplay += strings.Repeat(" ", branchPadWidth-branchVisibleLen)
+	}
+
+	parts := []string{marker, styles.Render(&styles.Worktree, nameDisplay), branchDisplay}
 
 	indicators := []string{}
 	if lock != "" {

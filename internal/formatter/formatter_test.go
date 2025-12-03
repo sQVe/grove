@@ -3,7 +3,6 @@ package formatter
 import (
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
@@ -309,22 +308,22 @@ func TestWorktreeRow(t *testing.T) {
 		},
 	}
 
-	// Additional test for UTF-8 branch name padding
-	t.Run("UTF-8 branch name padding uses character count", func(t *testing.T) {
+	// Additional test for UTF-8 worktree name padding
+	t.Run("UTF-8 worktree name padding uses character count", func(t *testing.T) {
 		config.Global.Plain = true
 		config.Global.NerdFonts = false
 
 		// "日本語" is 3 characters but 9 bytes
-		info := &git.WorktreeInfo{Branch: "日本語", Path: "/tmp/jp"}
-		padWidth := 10 // Need to pad to 10 characters
+		info := &git.WorktreeInfo{Branch: "main", Path: "/tmp/日本語"}
+		namePadWidth := 10 // Need to pad to 10 characters
 
-		got := WorktreeRow(info, false, padWidth)
+		got := WorktreeRow(info, false, namePadWidth, 0)
 
 		// Should have 7 spaces (10 - 3 chars), not 1 space (10 - 9 bytes)
 		expectedSpaces := 7
-		branchWithPad := "日本語" + strings.Repeat(" ", expectedSpaces)
-		if !strings.Contains(got, branchWithPad) {
-			t.Errorf("UTF-8 padding incorrect. Expected branch + %d spaces, got: %q", expectedSpaces, got)
+		nameWithPad := "日本語" + strings.Repeat(" ", expectedSpaces)
+		if !strings.Contains(got, nameWithPad) {
+			t.Errorf("UTF-8 padding incorrect. Expected name + %d spaces, got: %q", expectedSpaces, got)
 		}
 	})
 
@@ -333,19 +332,11 @@ func TestWorktreeRow(t *testing.T) {
 			config.Global.Plain = tt.plain
 			config.Global.NerdFonts = false
 
-			got := WorktreeRow(tt.info, tt.isCurrent, tt.padWidth)
+			got := WorktreeRow(tt.info, tt.isCurrent, tt.padWidth, 0)
 
 			for _, part := range tt.wantParts {
 				if !strings.Contains(got, part) {
 					t.Errorf("WorktreeRow() = %q, want to contain %q", got, part)
-				}
-			}
-
-			branchLen := utf8.RuneCountInString(tt.info.Branch)
-			if tt.padWidth > 0 && branchLen < tt.padWidth {
-				expectedPadding := tt.padWidth - branchLen
-				if !strings.Contains(got, strings.Repeat(" ", expectedPadding)) {
-					t.Errorf("WorktreeRow() should have %d spaces of padding", expectedPadding)
 				}
 			}
 		})
