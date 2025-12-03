@@ -86,6 +86,7 @@ func resetGlobal() {
 	Global.Debug = false
 	Global.NerdFonts = true // Default is true
 	Global.PreservePatterns = nil
+	Global.PreserveExcludePatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
 	Global.Timeout = 0
@@ -200,10 +201,6 @@ func TestDefaults(t *testing.T) {
 			".env.*.local",
 			".envrc",
 			".grove.toml",
-			"*.local.json",
-			"*.local.toml",
-			"*.local.yaml",
-			"*.local.yml",
 			"docker-compose.override.yml",
 		}
 
@@ -215,6 +212,67 @@ func TestDefaults(t *testing.T) {
 			if i >= len(DefaultConfig.PreservePatterns) || DefaultConfig.PreservePatterns[i] != expected {
 				t.Errorf("Expected preserve pattern %d to be %q, got %q", i, expected, DefaultConfig.PreservePatterns[i])
 			}
+		}
+
+		expectedExcludePatterns := []string{".cache", ".venv", "__pycache__", "build", "coverage", "dist", "node_modules", "out", "target", "vendor", "venv"}
+		if len(DefaultConfig.PreserveExcludePatterns) != len(expectedExcludePatterns) {
+			t.Errorf("Expected %d preserve exclude patterns, got %d", len(expectedExcludePatterns), len(DefaultConfig.PreserveExcludePatterns))
+		}
+		for i, expected := range expectedExcludePatterns {
+			if i >= len(DefaultConfig.PreserveExcludePatterns) || DefaultConfig.PreserveExcludePatterns[i] != expected {
+				t.Errorf("Expected preserve exclude pattern %d to be %q, got %q", i, expected, DefaultConfig.PreserveExcludePatterns[i])
+			}
+		}
+	})
+}
+
+func TestGetPreserveExcludePatterns(t *testing.T) {
+	t.Run("returns defaults when Global is empty", func(t *testing.T) {
+		resetGlobal()
+
+		patterns := GetPreserveExcludePatterns()
+		if len(patterns) != len(DefaultConfig.PreserveExcludePatterns) {
+			t.Errorf("Expected %d patterns, got %d", len(DefaultConfig.PreserveExcludePatterns), len(patterns))
+		}
+
+		for i, expected := range DefaultConfig.PreserveExcludePatterns {
+			if i >= len(patterns) || patterns[i] != expected {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, expected, patterns[i])
+			}
+		}
+	})
+
+	t.Run("returns Global patterns when set", func(t *testing.T) {
+		resetGlobal()
+		customPatterns := []string{"vendor", ".cache"}
+		Global.PreserveExcludePatterns = customPatterns
+
+		patterns := GetPreserveExcludePatterns()
+		if len(patterns) != len(customPatterns) {
+			t.Errorf("Expected %d patterns, got %d", len(customPatterns), len(patterns))
+		}
+
+		for i, expected := range customPatterns {
+			if i >= len(patterns) || patterns[i] != expected {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, expected, patterns[i])
+			}
+		}
+	})
+
+	t.Run("returned slice cannot mutate defaults", func(t *testing.T) {
+		resetGlobal()
+
+		patterns := GetPreserveExcludePatterns()
+		if len(patterns) == 0 {
+			t.Skip("No default exclude patterns")
+		}
+
+		originalFirst := DefaultConfig.PreserveExcludePatterns[0]
+		patterns[0] = "MUTATED"
+
+		if DefaultConfig.PreserveExcludePatterns[0] != originalFirst {
+			t.Errorf("DefaultConfig.PreserveExcludePatterns was mutated! Expected %q, got %q",
+				originalFirst, DefaultConfig.PreserveExcludePatterns[0])
 		}
 	})
 }

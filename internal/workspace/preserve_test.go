@@ -29,7 +29,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		// Set default patterns
 		patterns := []string{".env"}
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, []string{".env"})
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, []string{".env"}, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
@@ -66,7 +66,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 
 		patterns := []string{".env"}
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, []string{".env"})
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, []string{".env"}, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
@@ -96,12 +96,12 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		patterns := []string{".env"}
 		ignoredFiles := []string{".env", "other.txt"}
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles)
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
 
-		if len(result.Copied) != 1 || result.Copied[0] != ".env" {
+		if len(result.Copied) != 1 || result.Copied[0] != testEnvFile {
 			t.Errorf("Expected only .env to be copied, got %v", result.Copied)
 		}
 
@@ -128,7 +128,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		patterns := []string{".env.local"}
 		ignoredFiles := []string{"config/.env.local"}
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles)
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		patterns := []string{".env"}
 		ignoredFiles := []string{"other.txt"} // Doesn't match .env pattern
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles)
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
@@ -176,13 +176,55 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		patterns := []string{"*.local.json"}
 		ignoredFiles := []string{"config.local.json", "settings.local.json"}
 
-		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles)
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles, nil)
 		if err != nil {
 			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
 		}
 
 		if len(result.Copied) != 2 {
 			t.Errorf("Expected 2 copied files, got %d: %v", len(result.Copied), result.Copied)
+		}
+	})
+
+	t.Run("excludes files matching exclude patterns", func(t *testing.T) {
+		sourceDir := t.TempDir()
+		destDir := t.TempDir()
+
+		// Create .env in root (should be preserved)
+		if err := os.WriteFile(filepath.Join(sourceDir, ".env"), []byte("ROOT=true"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create .env in node_modules (should be excluded)
+		nodeModulesDir := filepath.Join(sourceDir, "node_modules", "some-package")
+		if err := os.MkdirAll(nodeModulesDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(nodeModulesDir, ".env"), []byte("EXCLUDED=true"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		patterns := []string{".env"}
+		ignoredFiles := []string{".env", "node_modules/some-package/.env"}
+		excludePatterns := []string{"node_modules"}
+
+		result, err := PreserveFilesToWorktree(sourceDir, destDir, patterns, ignoredFiles, excludePatterns)
+		if err != nil {
+			t.Fatalf("PreserveFilesToWorktree failed: %v", err)
+		}
+
+		// Only root .env should be copied, not the one in node_modules
+		if len(result.Copied) != 1 {
+			t.Errorf("Expected 1 copied file, got %d: %v", len(result.Copied), result.Copied)
+		}
+		if len(result.Copied) > 0 && result.Copied[0] != testEnvFile {
+			t.Errorf("Expected root .env to be copied, got %v", result.Copied)
+		}
+
+		// Verify node_modules/.env was NOT copied
+		excludedFile := filepath.Join(destDir, "node_modules", "some-package", ".env")
+		if _, err := os.Stat(excludedFile); err == nil {
+			t.Error("node_modules/.env should not have been copied")
 		}
 	})
 }

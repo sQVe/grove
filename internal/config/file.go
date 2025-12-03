@@ -19,6 +19,7 @@ var initTemplate string
 type FileConfig struct {
 	Preserve struct {
 		Patterns []string `toml:"patterns"`
+		Exclude  []string `toml:"exclude"`
 	} `toml:"preserve"`
 	Hooks struct {
 		Add []string `toml:"add"`
@@ -109,6 +110,13 @@ func GetMergedPreservePatterns(worktreeDir string) []string {
 	return getMergedPatterns(worktreeDir, "grove.preserve",
 		func(cfg FileConfig) []string { return cfg.Preserve.Patterns },
 		DefaultConfig.PreservePatterns)
+}
+
+// GetMergedPreserveExcludePatterns: TOML > git config > defaults
+func GetMergedPreserveExcludePatterns(worktreeDir string) []string {
+	return getMergedPatterns(worktreeDir, "grove.preserveExclude",
+		func(cfg FileConfig) []string { return cfg.Preserve.Exclude },
+		DefaultConfig.PreserveExcludePatterns)
 }
 
 // GetMergedAutoLockPatterns: TOML > git config > defaults

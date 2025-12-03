@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/logger"
@@ -15,7 +16,8 @@ type PreserveResult struct {
 }
 
 // PreserveFilesToWorktree copies matching files, skips existing (never overwrites).
-func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles []string) (*PreserveResult, error) {
+// excludePatterns contains path segments to exclude (e.g., "node_modules").
+func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles, excludePatterns []string) (*PreserveResult, error) {
 	result := &PreserveResult{}
 
 	if len(ignoredFiles) == 0 || len(patterns) == 0 {
@@ -24,6 +26,11 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles [
 
 	var filesToCopy []string
 	for _, file := range ignoredFiles {
+		// Skip files in excluded paths
+		if isExcludedPath(file, excludePatterns) {
+			continue
+		}
+
 		for _, pattern := range patterns {
 			if matchesPattern(file, pattern) {
 				filesToCopy = append(filesToCopy, file)
@@ -68,4 +75,22 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles [
 
 func FindIgnoredFilesInWorktree(worktreeDir string) ([]string, error) {
 	return findIgnoredFiles(worktreeDir)
+}
+
+// isExcludedPath checks if a file path contains any of the excluded path segments.
+func isExcludedPath(filePath string, excludePatterns []string) bool {
+	if len(excludePatterns) == 0 {
+		return false
+	}
+
+	parts := strings.Split(filePath, string(filepath.Separator))
+	for _, part := range parts {
+		for _, exclude := range excludePatterns {
+			if part == exclude {
+				return true
+			}
+		}
+	}
+
+	return false
 }

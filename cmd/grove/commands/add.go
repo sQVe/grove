@@ -403,9 +403,10 @@ func preserveFilesFromSource(sourceWorktree, destWorktree string) *workspace.Pre
 
 	// Get preserve patterns (uses merged config: TOML > git config > defaults)
 	patterns := config.GetMergedPreservePatterns(sourceWorktree)
+	excludePatterns := config.GetMergedPreserveExcludePatterns(sourceWorktree)
 
 	// Copy preserved files
-	result, err := workspace.PreserveFilesToWorktree(sourceWorktree, destWorktree, patterns, ignoredFiles)
+	result, err := workspace.PreserveFilesToWorktree(sourceWorktree, destWorktree, patterns, ignoredFiles, excludePatterns)
 	if err != nil {
 		logger.Debug("Failed to preserve files: %v", err)
 		return nil

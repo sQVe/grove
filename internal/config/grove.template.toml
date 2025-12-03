@@ -5,50 +5,58 @@
 # Files to copy from the current worktree when creating a new one.
 # Useful for environment files and local configuration that shouldn't be in git.
 # Supports glob patterns. These patterns override git config grove.preserve.
-# Default: .env, .env.keys, .env.local, .env.*.local, .envrc, .grove.toml,
-#          *.local.json, *.local.toml, *.local.yaml, *.local.yml,
-#          docker-compose.override.yml
 patterns = [
-    ".env",
-    ".env.keys",
-    ".env.local",
-    ".env.*.local",
-    ".envrc",
-    ".grove.toml",
-    "*.local.json",
-    "*.local.toml",
-    "*.local.yaml",
-    "*.local.yml",
-    "docker-compose.override.yml",
+  ".env",
+  ".env.keys",
+  ".env.local",
+  ".env.*.local",
+  ".envrc",
+  ".grove.toml",
+  "docker-compose.override.yml",
+]
+
+# Path segments to exclude from preservation.
+# Files containing any of these path segments will be skipped.
+exclude = [
+  # Caches
+  ".cache",
+  "__pycache__",
+
+  # Build output
+  "build",
+  "coverage",
+  "dist",
+  "out",
+  "target",
+
+  # Dependencies
+  ".venv",
+  "node_modules",
+  "vendor",
+  "venv",
 ]
 
 [hooks]
 # Shell commands to run after creating a worktree.
 # Runs sequentially, stops on first failure.
 # Examples: ["npm install"], ["go mod download", "make setup"]
-# Default: []
 add = []
 
 [autolock]
 # Branch patterns to automatically lock when creating worktrees.
 # Locked worktrees are protected from accidental deletion.
 # Supports exact matches and trailing /* wildcards (e.g., "release/*").
-# Default: ["develop", "main", "master"]
 patterns = ["develop", "main", "master"]
 
 # Use Nerd Font icons in output (when not in plain mode).
-# Default: true
 nerd_fonts = true
 
 # Threshold for marking worktrees as stale (no commits within this period).
 # Format: number followed by d (days), w (weeks), or m (months).
-# Default: "30d"
 stale_threshold = "30d"
 
 # Disable colors and symbols in output.
-# Default: false
 plain = false
 
 # Enable debug logging.
-# Default: false
 debug = false

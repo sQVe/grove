@@ -16,24 +16,26 @@ var globalMu sync.RWMutex
 
 // Global holds the global configuration state for Grove
 var Global struct {
-	Plain            bool          // Disable colors and symbols
-	Debug            bool          // Enable debug logging
-	NerdFonts        bool          // Use Nerd Font icons (when not in plain mode)
-	PreservePatterns []string      // Patterns for ignored files to preserve in new worktrees
-	StaleThreshold   string        // Default threshold for stale worktree detection (e.g., "30d")
-	AutoLockPatterns []string      // Patterns for branches to auto-lock when creating worktrees
-	Timeout          time.Duration // Command timeout (0 = no timeout)
+	Plain                   bool          // Disable colors and symbols
+	Debug                   bool          // Enable debug logging
+	NerdFonts               bool          // Use Nerd Font icons (when not in plain mode)
+	PreservePatterns        []string      // Patterns for ignored files to preserve in new worktrees
+	PreserveExcludePatterns []string      // Path segments to exclude from preservation (e.g., "node_modules")
+	StaleThreshold          string        // Default threshold for stale worktree detection (e.g., "30d")
+	AutoLockPatterns        []string      // Patterns for branches to auto-lock when creating worktrees
+	Timeout                 time.Duration // Command timeout (0 = no timeout)
 }
 
 // DefaultConfig contains the default configuration values
 var DefaultConfig = struct {
-	Plain            bool
-	Debug            bool
-	NerdFonts        bool
-	PreservePatterns []string
-	StaleThreshold   string
-	AutoLockPatterns []string
-	Timeout          time.Duration
+	Plain                   bool
+	Debug                   bool
+	NerdFonts               bool
+	PreservePatterns        []string
+	PreserveExcludePatterns []string
+	StaleThreshold          string
+	AutoLockPatterns        []string
+	Timeout                 time.Duration
 }{
 	Plain:          false,
 	Debug:          false,
@@ -47,11 +49,20 @@ var DefaultConfig = struct {
 		".env.*.local",
 		".envrc",
 		".grove.toml",
-		"*.local.json",
-		"*.local.toml",
-		"*.local.yaml",
-		"*.local.yml",
 		"docker-compose.override.yml",
+	},
+	PreserveExcludePatterns: []string{
+		".cache",
+		".venv",
+		"__pycache__",
+		"build",
+		"coverage",
+		"dist",
+		"node_modules",
+		"out",
+		"target",
+		"vendor",
+		"venv",
 	},
 	AutoLockPatterns: []string{
 		"develop",
@@ -104,6 +115,17 @@ func GetPreservePatterns() []string {
 		return append([]string{}, Global.PreservePatterns...)
 	}
 	return append([]string{}, DefaultConfig.PreservePatterns...)
+}
+
+// GetPreserveExcludePatterns returns the configured preserve exclude patterns or defaults.
+// Returns a copy to prevent callers from mutating the original slices.
+func GetPreserveExcludePatterns() []string {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
+	if len(Global.PreserveExcludePatterns) > 0 {
+		return append([]string{}, Global.PreserveExcludePatterns...)
+	}
+	return append([]string{}, DefaultConfig.PreserveExcludePatterns...)
 }
 
 // GetStaleThreshold returns the configured stale threshold or default
@@ -165,6 +187,8 @@ func LoadFromGitConfig() {
 	Global.Timeout = DefaultConfig.Timeout
 	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
+	Global.PreserveExcludePatterns = make([]string, len(DefaultConfig.PreserveExcludePatterns))
+	copy(Global.PreserveExcludePatterns, DefaultConfig.PreserveExcludePatterns)
 	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
 	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
 
@@ -196,6 +220,11 @@ func LoadFromGitConfig() {
 	patterns := getGitConfigs("grove.preserve")
 	if len(patterns) > 0 {
 		Global.PreservePatterns = patterns
+	}
+
+	excludePatterns := getGitConfigs("grove.preserveExclude")
+	if len(excludePatterns) > 0 {
+		Global.PreserveExcludePatterns = excludePatterns
 	}
 
 	autoLockPatterns := getGitConfigs("grove.autoLock")
@@ -285,13 +314,14 @@ func isValidStaleThreshold(s string) bool {
 // Snapshot captures the current Global config state.
 // Used for testing to save/restore config.
 type Snapshot struct {
-	Plain            bool
-	Debug            bool
-	NerdFonts        bool
-	PreservePatterns []string
-	StaleThreshold   string
-	AutoLockPatterns []string
-	Timeout          time.Duration
+	Plain                   bool
+	Debug                   bool
+	NerdFonts               bool
+	PreservePatterns        []string
+	PreserveExcludePatterns []string
+	StaleThreshold          string
+	AutoLockPatterns        []string
+	Timeout                 time.Duration
 }
 
 // SaveSnapshot returns a copy of the current Global config.
@@ -299,13 +329,14 @@ func SaveSnapshot() Snapshot {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
 	return Snapshot{
-		Plain:            Global.Plain,
-		Debug:            Global.Debug,
-		NerdFonts:        Global.NerdFonts,
-		PreservePatterns: append([]string{}, Global.PreservePatterns...),
-		StaleThreshold:   Global.StaleThreshold,
-		AutoLockPatterns: append([]string{}, Global.AutoLockPatterns...),
-		Timeout:          Global.Timeout,
+		Plain:                   Global.Plain,
+		Debug:                   Global.Debug,
+		NerdFonts:               Global.NerdFonts,
+		PreservePatterns:        append([]string{}, Global.PreservePatterns...),
+		PreserveExcludePatterns: append([]string{}, Global.PreserveExcludePatterns...),
+		StaleThreshold:          Global.StaleThreshold,
+		AutoLockPatterns:        append([]string{}, Global.AutoLockPatterns...),
+		Timeout:                 Global.Timeout,
 	}
 }
 
@@ -317,6 +348,7 @@ func RestoreSnapshot(s *Snapshot) {
 	Global.Debug = s.Debug
 	Global.NerdFonts = s.NerdFonts
 	Global.PreservePatterns = append([]string{}, s.PreservePatterns...)
+	Global.PreserveExcludePatterns = append([]string{}, s.PreserveExcludePatterns...)
 	Global.StaleThreshold = s.StaleThreshold
 	Global.AutoLockPatterns = append([]string{}, s.AutoLockPatterns...)
 	Global.Timeout = s.Timeout

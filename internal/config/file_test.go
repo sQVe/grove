@@ -34,6 +34,32 @@ patterns = [".env", ".env.local", "*.secret"]
 		}
 	})
 
+	t.Run("parses preserve exclude patterns from TOML", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tomlContent := `[preserve]
+exclude = ["node_modules", "vendor", ".cache"]
+`
+		tomlPath := filepath.Join(tmpDir, ".grove.toml")
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+			t.Fatal(err)
+		}
+
+		cfg, err := LoadFromFile(tmpDir)
+		if err != nil {
+			t.Fatalf("LoadFromFile failed: %v", err)
+		}
+
+		expected := []string{"node_modules", "vendor", ".cache"}
+		if len(cfg.Preserve.Exclude) != len(expected) {
+			t.Errorf("Expected %d exclude patterns, got %d", len(expected), len(cfg.Preserve.Exclude))
+		}
+		for i, exp := range expected {
+			if i >= len(cfg.Preserve.Exclude) || cfg.Preserve.Exclude[i] != exp {
+				t.Errorf("Expected exclude pattern %d to be %q, got %q", i, exp, cfg.Preserve.Exclude[i])
+			}
+		}
+	})
+
 	t.Run("parses hooks from TOML", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		tomlContent := `[hooks]
@@ -382,6 +408,34 @@ patterns = ["release/*"]
 
 		if len(patterns) != 1 || patterns[0] != "release/*" {
 			t.Errorf("Expected TOML patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("GetMergedPreserveExcludePatterns uses TOML first", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		tomlContent := `[preserve]
+exclude = ["vendor", ".cache"]
+`
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = exec.Command("git", "config", "grove.preserveExclude", "node_modules").Run()   //nolint:gosec
+
+		patterns := GetMergedPreserveExcludePatterns(tmpDir)
+
+		if len(patterns) != 2 || patterns[0] != "vendor" || patterns[1] != ".cache" {
+			t.Errorf("Expected TOML patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("GetMergedPreserveExcludePatterns falls back to defaults", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		patterns := GetMergedPreserveExcludePatterns(tmpDir)
+
+		if len(patterns) != len(DefaultConfig.PreserveExcludePatterns) {
+			t.Errorf("Expected default patterns, got %v", patterns)
 		}
 	})
 }

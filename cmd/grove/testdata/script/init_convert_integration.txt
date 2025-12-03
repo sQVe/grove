@@ -82,10 +82,8 @@ exec git checkout main
 # Create ignored files that match default preserve patterns
 exec sh -c 'echo "NODE_ENV=development" > .env'
 exec sh -c 'echo "LOCAL=true" > .env.local'
-exec sh -c 'echo "{\"debug\": true}" > config.local.json'
 exec sh -c 'echo "logs/" > .gitignore'
 exec sh -c 'echo ".env*" >> .gitignore'
-exec sh -c 'echo "*.local.*" >> .gitignore'
 exec git add .gitignore
 exec git commit -m 'add gitignore'
 exec grove init convert --branches main,develop
@@ -100,11 +98,9 @@ exists .git
 exists main/test-file.txt
 exists main/.env
 exists main/.env.local
-exists main/config.local.json
 exists develop/test-file.txt
 exists develop/.env
 exists develop/.env.local
-exists develop/config.local.json
 cd ..
 
 # Test init convert with custom preserve patterns from config

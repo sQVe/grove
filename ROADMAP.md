@@ -64,7 +64,7 @@
 
 - Preserve common git-ignored files in created worktrees to match normal git behavior:
     - `.env` and `.env.local` files
-    - Local config overrides (`*.local.json`, `*.local.yaml`, etc.)
+    - `docker-compose.override.yml` for local Docker configuration
     - Credential files require explicit opt-in for security
 
 **Failure conditions:**
@@ -141,8 +141,11 @@
 - `grove.plain` - Disable colors/symbols (boolean, default: false)
 - `grove.debug` - Enable debug output (boolean, default: false)
 - `grove.preserve` - Patterns for ignored files to preserve in new worktrees (multi-value)
-    - Default patterns: `.env`, `.env.keys`, `.env.local`, `.env.*.local`, `.envrc`, `docker-compose.override.yml`, `*.local.json`, `*.local.toml`, `*.local.yaml`, `*.local.yml`
+    - Default patterns: `.env`, `.env.keys`, `.env.local`, `.env.*.local`, `.envrc`, `.grove.toml`, `docker-compose.override.yml`
     - Note: Credential files (`*.key`, `*.pem`) not included by default for security
+- `grove.preserveExclude` - Path segments to exclude from preservation (multi-value)
+    - Default: `node_modules`
+    - Files containing any excluded segment in their path are skipped
 - `grove.autoLock` - Branch patterns to auto-lock when creating worktrees (multi-value)
     - Default patterns: `main`, `master`, `develop`
     - Supports glob patterns (e.g., `release/*`)
