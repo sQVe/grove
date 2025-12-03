@@ -33,10 +33,10 @@ func NewCloneCmd() *cobra.Command {
 	cloneCmd := &cobra.Command{
 		Use:   "clone <url|PR-URL> [directory]",
 		Short: "Clone a repository and create a grove workspace",
-		Long: `Clone a repository and create a grove workspace.
+		Long: `Clone a repository into a grove workspace.
 
-Can clone from a repository URL or a GitHub pull request URL.
-When cloning from a PR URL, creates a worktree for the PR's branch.
+Clones from a repository URL or GitHub pull request URL.
+From a PR URL, creates a worktree for the PR's branch.
 
 Examples:
   grove clone https://github.com/owner/repo                  # Clone repo
@@ -82,7 +82,7 @@ Examples:
 		},
 	}
 	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")
-	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show detailed git output during clone and worktree creation")
+	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show git output")
 	cloneCmd.Flags().BoolVar(&shallow, "shallow", false, "Create a shallow clone (depth=1)")
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 

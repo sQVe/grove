@@ -57,7 +57,7 @@ func NewInitCmd() *cobra.Command {
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize grove in current repository",
-		Long:  `Initialize grove in current repository`,
+		Long:  `Initialize grove. Use 'init new' or 'init convert'.`,
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
@@ -68,7 +68,12 @@ func NewInitCmd() *cobra.Command {
 	newCmd := &cobra.Command{
 		Use:   "new [directory]",
 		Short: "Create a new grove workspace",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `Create a new grove workspace.
+
+Examples:
+  grove init new              # Create in current directory
+  grove init new my-project   # Create in ./my-project`,
+		Args: cobra.MaximumNArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveFilterDirs
 		},
@@ -94,7 +99,12 @@ func NewInitCmd() *cobra.Command {
 	convertCmd := &cobra.Command{
 		Use:   "convert",
 		Short: "Convert existing Git repository to a grove workspace",
-		Args:  cobra.NoArgs,
+		Long: `Convert existing Git repository to a grove workspace.
+
+Examples:
+  grove init convert                          # Convert current repo
+  grove init convert --branches develop,test  # Also create worktrees for branches`,
+		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
@@ -113,8 +123,8 @@ func NewInitCmd() *cobra.Command {
 			return nil
 		},
 	}
-	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Additional branches to create worktrees for (comma-separated, current branch is always included)")
-	convertCmd.Flags().BoolVar(&convertVerbose, "verbose", false, "Show detailed git output during conversion")
+	convertCmd.Flags().StringVar(&convertBranches, "branches", "", "Additional branches for worktrees (comma-separated)")
+	convertCmd.Flags().BoolVar(&convertVerbose, "verbose", false, "Show git output")
 	_ = convertCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		currentBranch, err := git.GetCurrentBranch(".")
 		if err != nil {

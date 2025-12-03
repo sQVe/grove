@@ -37,13 +37,17 @@ func NewSwitchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "switch <worktree>",
 		Short: "Switch to a worktree",
-		Long: `Output the path to a worktree by name or branch.
+		Long: `Switch to a worktree by name or branch.
 
-Setup shell integration for seamless directory switching:
+Requires shell integration:
   eval "$(grove switch shell-init)"
 
-Then use 'grove switch <worktree>' to switch between worktrees.
-Accepts worktree name (directory) or branch name.`,
+Accepts worktree name (directory) or branch name.
+
+Examples:
+  grove switch main        # Switch to main worktree
+  grove switch feat-auth   # Switch by directory name
+  grove switch feat/auth   # Switch by branch name`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeSwitchArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,12 +68,11 @@ func newShellInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shell-init",
 		Short: "Output shell function for directory switching",
-		Long: `Output a shell function that wraps grove to enable seamless directory changes
-with 'grove switch' and 'grove add --switch'.
+		Long: `Print shell integration for 'grove switch' and 'grove add --switch'.
 
-Supported shells: bash, zsh, fish, sh, powershell
+Supported: bash, zsh, fish, sh, powershell
 
-Add to your shell config:
+Add to shell config:
   bash/zsh/sh: eval "$(grove switch shell-init)"
   fish:        grove switch shell-init | source
   powershell:  grove switch shell-init | Invoke-Expression`,

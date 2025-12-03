@@ -146,15 +146,14 @@ func NewConfigCmd() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "config",
 		Short: "Get and set grove configuration options",
-		Long: `Manage grove configuration settings.
+		Long: `Manage grove configuration.
 
-Configuration sources (in order of precedence for reading):
-  CLI flags and environment variables (always highest)
-  For team settings (preserve, hooks): .grove.toml > global git config
-  For personal settings (plain, debug): global git config > .grove.toml
+Precedence (highest to lowest):
+  CLI flags and environment variables
+  Team settings (preserve, hooks): .grove.toml > global git config
+  Personal settings (plain, debug): global git config > .grove.toml
 
-Use --shared to read/write .grove.toml (team settings).
-Use --global to read/write global git config (personal settings).`,
+Use --shared for .grove.toml, --global for git config.`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
@@ -164,11 +163,16 @@ Use --global to read/write global git config (personal settings).`,
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configuration settings",
-		Long: `List grove configuration settings.
+		Long: `List grove configuration.
 
-Without flags: shows effective (merged) configuration.
-With --shared: shows only .grove.toml settings.
-With --global: shows only global git config settings.`,
+Without flags: effective (merged) values.
+--shared: .grove.toml only.
+--global: git config only.
+
+Examples:
+  grove config list            # Show effective config
+  grove config list --shared   # Show .grove.toml settings
+  grove config list --global   # Show git config settings`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -187,9 +191,13 @@ With --global: shows only global git config settings.`,
 		Short: "Get a configuration value",
 		Long: `Get a configuration value.
 
-Without flags: shows effective (merged) value.
-With --shared: shows value from .grove.toml only.
-With --global: shows value from global git config only.`,
+Without flags: effective (merged) value.
+--shared: .grove.toml only.
+--global: git config only.
+
+Examples:
+  grove config get grove.plain           # Get effective value
+  grove config get grove.debug --global  # Get from git config`,
 		Args: cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
@@ -211,13 +219,12 @@ With --global: shows value from global git config only.`,
 		Short: "Set a configuration value",
 		Long: `Set a configuration value.
 
-Use --shared to write to .grove.toml (team settings).
-Use --global to write to global git config (personal settings).
+Requires --shared (.grove.toml) or --global (git config).
+Array values (preserve.patterns, hooks.add) must be edited in .grove.toml directly.
 
-One of --shared or --global must be specified.
-
-Note: Array values (preserve.patterns, hooks.add) cannot be set via this command.
-Edit .grove.toml directly for array values.`,
+Examples:
+  grove config set grove.plain true --global   # Enable plain mode globally
+  grove config set grove.debug true --shared   # Enable debug in .grove.toml`,
 		Args: cobra.ExactArgs(2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) == 0 {
@@ -242,12 +249,12 @@ Edit .grove.toml directly for array values.`,
 		Short: "Remove a configuration setting",
 		Long: `Remove a configuration setting.
 
-Use --shared to remove from .grove.toml.
-Use --global to remove from global git config.
+Requires --shared (.grove.toml) or --global (git config).
+For multi-value keys, specify a value to remove only that value.
 
-One of --shared or --global must be specified.
-
-For multi-value keys, optionally specify a value to remove only that value.`,
+Examples:
+  grove config unset grove.plain --global           # Remove from git config
+  grove config unset grove.preserve "*.log" --shared # Remove specific pattern`,
 		Args: cobra.RangeArgs(1, 2),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			global, _ := cmd.Flags().GetBool("global")
@@ -275,10 +282,13 @@ For multi-value keys, optionally specify a value to remove only that value.`,
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Create a .grove.toml template",
-		Long: `Create a .grove.toml configuration file with default values.
+		Long: `Create .grove.toml with default values.
 
-Must be run from inside a worktree (not workspace root).
-Skips if .grove.toml already exists (use --force to overwrite).`,
+Run from a worktree (not workspace root). Use --force to overwrite.
+
+Examples:
+  grove config init          # Create .grove.toml template
+  grove config init --force  # Overwrite existing file`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			force, _ := cmd.Flags().GetBool("force")

@@ -16,7 +16,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:           "grove",
 		Short:         "Grove - Git worktree management made simple",
-		Long:          `Grove is a tool that makes Git worktrees as simple as switching branches.`,
+		Long:          `Manage Git worktrees as easily as switching branches.`,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {

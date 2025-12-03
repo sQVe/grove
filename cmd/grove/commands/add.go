@@ -23,18 +23,18 @@ func NewAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <branch|#PR|PR-URL|ref>",
 		Short: "Add a new worktree",
-		Long: `Add a new worktree for a branch, pull request, or ref.
+		Long: `Create a worktree from a branch, pull request, or ref.
 
-The directory name is derived from the branch name unless --name is specified.
+The directory name derives from the branch name unless --name is specified.
 
 Examples:
-  grove add feature/auth              # Creates ./feature-auth worktree
-  grove add feature/auth --name auth  # Creates ./auth worktree
-  grove add main                      # Existing branch
-  grove add -s feature/auth           # Add and switch to worktree
-  grove add --base main feature/auth  # New branch from main
-  grove add --detach v1.0.0           # Detached HEAD at tag
-  grove add #123                      # Creates ./pr-123 worktree`,
+  grove add feat/auth              # Creates ./feat-auth worktree
+  grove add feat/auth --name auth  # Creates ./auth worktree
+  grove add main                   # Existing branch
+  grove add -s feat/auth           # Add and switch to worktree
+  grove add --base main feat/auth  # New branch from main
+  grove add --detach v1.0.0        # Detached HEAD at tag
+  grove add #123                   # Creates ./pr-123 worktree`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,7 +43,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolP("switch", "s", false, "Switch to the new worktree after creation")
+	cmd.Flags().BoolP("switch", "s", false, "Switch to the worktree after creating it")
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVar(&detach, "detach", false, "Create worktree in detached HEAD state")

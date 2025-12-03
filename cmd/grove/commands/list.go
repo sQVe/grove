@@ -24,7 +24,13 @@ func NewListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all worktrees with status",
-		Long:  `Show all worktrees in the grove workspace with their status and sync information.`,
+		Long: `Show all worktrees with status and sync state.
+
+Examples:
+  grove list                  # Show all worktrees
+  grove list --fast           # Skip remote sync checks
+  grove list --filter dirty   # Show only dirty worktrees
+  grove list --verbose        # Include paths and upstreams`,
 		Args:  cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -34,9 +40,9 @@ func NewListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status for faster output")
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
-	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show extra details (paths, upstream names)")
+	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status checks")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status: dirty,ahead,behind,gone,locked (comma-separated)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 

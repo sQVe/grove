@@ -26,13 +26,13 @@ func NewExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exec [--all | <worktree>...] -- <command>",
 		Short: "Execute a command in worktrees",
-		Long: `Execute a command in one or more worktrees.
+		Long: `Run a command in one or more worktrees.
 
 Examples:
-  grove exec --all -- npm install                          # All worktrees
-  grove exec main feature -- npm ci                        # Specific worktrees
-  grove exec --all --fail-fast -- go build                 # Stop on first failure
-  grove exec --all -- bash -c "npm install && npm test"    # Multiple commands`,
+  grove exec --all -- npm install                        # All worktrees
+  grove exec main feature -- npm ci                      # Named worktrees
+  grove exec --all --fail-fast -- go build               # Stop on first failure
+  grove exec --all -- bash -c "npm install && npm test"  # Multiple commands`,
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeExecArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

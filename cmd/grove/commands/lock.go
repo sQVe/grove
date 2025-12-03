@@ -19,14 +19,14 @@ func NewLockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock <worktree>",
 		Short: "Lock a worktree to prevent removal",
-		Long: `Lock a worktree to prevent it from being removed by prune or remove commands.
+		Long: `Lock a worktree to prevent removal.
 
-Locked worktrees are protected from accidental deletion. Use unlock to remove the lock.
+Locked worktrees resist prune and remove. Use unlock to clear.
 Accepts worktree name (directory) or branch name.
 
 Examples:
-  grove lock feature-auth                    # Lock worktree
-  grove lock feature-auth --reason "WIP"     # Lock with reason`,
+  grove lock feat-auth                 # Lock worktree
+  grove lock feat-auth --reason "WIP"  # Lock with reason`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeLockArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

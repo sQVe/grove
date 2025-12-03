@@ -53,7 +53,14 @@ func NewPruneCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prune",
 		Short: "Remove worktrees with deleted upstream branches",
-		Long:  `Remove worktrees whose upstream branches have been deleted (marked as "gone").`,
+		Long: `Remove worktrees with deleted upstream branches (marked "gone").
+
+Examples:
+  grove prune                 # Dry-run: show what would be removed
+  grove prune --commit        # Actually remove worktrees
+  grove prune --stale 30d     # Include inactive worktrees
+  grove prune --merged        # Include merged branches
+  grove prune --force         # Remove even if dirty or locked`,
 		Args:  cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -67,10 +74,10 @@ func NewPruneCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&commit, "commit", false, "Actually remove worktrees (default is dry-run)")
-	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty, locked, or has unpushed commits")
-	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Also include worktrees with no commits in duration (e.g., 30d, 2w, 6m; default: %s)", config.GetStaleThreshold()))
-	cmd.Flags().BoolVar(&merged, "merged", false, "Also include worktrees with branches merged into the default branch")
+	cmd.Flags().BoolVar(&commit, "commit", false, "Remove worktrees (dry-run without this flag)")
+	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty, locked, or unpushed")
+	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
+	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	return cmd

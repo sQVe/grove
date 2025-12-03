@@ -17,11 +17,12 @@ func NewUnlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unlock <worktree>",
 		Short: "Unlock a worktree to allow removal",
-		Long: `Unlock a worktree so it can be removed by prune or remove commands.
+		Long: `Unlock a worktree so it can be removed.
+
 Accepts worktree name (directory) or branch name.
 
-Examples:
-  grove unlock feature-auth     # Unlock worktree`,
+Example:
+  grove unlock feat-auth`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeUnlockArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

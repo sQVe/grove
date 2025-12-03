@@ -43,7 +43,12 @@ func NewStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show current worktree status",
-		Long:  `Display detailed status information for the current worktree.`,
+		Long: `Show detailed status for the current worktree.
+
+Examples:
+  grove status            # Show status summary
+  grove status --verbose  # Show all sections
+  grove status --json     # Output as JSON`,
 		Args:  cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -53,8 +58,8 @@ func NewStatusCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show full sectioned diagnostic output")
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show all diagnostic sections")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for status")
 
 	return cmd

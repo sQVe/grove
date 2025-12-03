@@ -16,14 +16,12 @@ func NewMoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "move <worktree> <new-branch>",
 		Short: "Move a branch and its worktree",
-		Long: `Move a branch and its associated worktree directory.
+		Long: `Rename a branch and its worktree directory atomically.
 
-This command atomically renames both the git branch and the worktree directory,
-updating all necessary references. The first argument accepts worktree name
-(directory) or branch name.
+Accepts worktree name (directory) or branch name.
 
-Examples:
-  grove move feature/old feature/new`,
+Example:
+  grove move feat/old feat/new`,
 		Args:              cobra.ExactArgs(2),
 		ValidArgsFunction: completeMoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

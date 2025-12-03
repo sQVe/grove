@@ -20,13 +20,14 @@ func NewRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <worktree>",
 		Short: "Remove a worktree",
-		Long: `Remove a worktree directory. Optionally delete the branch as well.
+		Long: `Remove a worktree, optionally deleting its branch.
+
 Accepts worktree name (directory) or branch name.
 
 Examples:
-  grove remove feature-auth        # Remove worktree only
-  grove remove --branch feature    # Remove worktree and delete branch
-  grove remove --force dirty-work  # Force remove even if dirty/locked`,
+  grove remove feat-auth        # Remove worktree
+  grove remove --branch feat    # Remove worktree and branch
+  grove remove --force wip      # Force remove if dirty or locked`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeRemoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
