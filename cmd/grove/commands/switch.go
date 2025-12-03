@@ -35,14 +35,15 @@ const (
 
 func NewSwitchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "switch <branch>",
+		Use:   "switch <worktree>",
 		Short: "Switch to a worktree",
-		Long: `Output the path to a worktree for the given branch.
+		Long: `Output the path to a worktree by name or branch.
 
 Setup shell integration for seamless directory switching:
   eval "$(grove switch shell-init)"
 
-Then use 'grove switch <branch>' to switch between worktrees.`,
+Then use 'grove switch <worktree>' to switch between worktrees.
+Accepts worktree name (directory) or branch name.`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeSwitchArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -126,8 +127,8 @@ func printShellIntegration(shell string) error {
 	return nil
 }
 
-func runSwitch(branch string) error {
-	branch = strings.TrimSpace(branch)
+func runSwitch(target string) error {
+	target = strings.TrimSpace(target)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -144,14 +145,23 @@ func runSwitch(branch string) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
+	// First try to match by worktree name (directory basename)
 	for _, info := range infos {
-		if info.Branch == branch {
+		if filepath.Base(info.Path) == target {
 			fmt.Println(info.Path)
 			return nil
 		}
 	}
 
-	return fmt.Errorf("%w: %s", ErrWorktreeNotFound, branch)
+	// Fall back to matching by branch name (backwards compatibility)
+	for _, info := range infos {
+		if info.Branch == target {
+			fmt.Println(info.Path)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
 }
 
 func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -179,7 +189,8 @@ func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([
 		// Exclude current worktree (check if cwd is at root or inside this worktree)
 		inWorktree := cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(os.PathSeparator))
 		if !inWorktree {
-			completions = append(completions, info.Branch)
+			// Suggest worktree name (directory basename)
+			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
 
