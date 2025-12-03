@@ -71,7 +71,7 @@ stdout '"lock_reason": "Do not delete"'
 ## Error: worktree not found
 
 ! exec grove lock nonexistent
-stderr 'no worktree found'
+stderr 'worktree not found'
 
 ## Error: not in workspace
 

@@ -7,7 +7,7 @@ exec git config --global commit.gpgsign false
 
 # Test prune command help
 exec grove prune --help
-stdout 'Remove worktrees whose upstream branches have been deleted'
+stdout 'Remove worktrees with deleted upstream branches'
 stdout 'Usage:'
 
 # Test prune flags exist in help

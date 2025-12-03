@@ -47,7 +47,7 @@ stderr 'not locked'
 ## Error: worktree not found
 
 ! exec grove unlock nonexistent
-stderr 'no worktree found'
+stderr 'worktree not found'
 
 ## Error: not in workspace
 

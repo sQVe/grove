@@ -7,7 +7,7 @@ exec git config --global commit.gpgsign false
 
 # Test clone command help
 exec grove clone --help
-stdout 'Clone a repository and create a grove workspace'
+stdout 'Clone a repository into a grove workspace'
 stdout 'Usage:'
 stdout '<url|PR-URL>'
 
