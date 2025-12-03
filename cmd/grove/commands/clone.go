@@ -176,7 +176,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	}
 
 	branch := prInfo.HeadRef
-	dirName := workspace.SanitizeBranchName(branch)
+	dirName := fmt.Sprintf("pr-%d", ref.Number)
 	worktreePath := filepath.Join(workspaceDir, dirName)
 
 	// Handle fork PRs

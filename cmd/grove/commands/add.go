@@ -34,8 +34,7 @@ Examples:
   grove add -s feature/auth           # Add and switch to worktree
   grove add --base main feature/auth  # New branch from main
   grove add --detach v1.0.0           # Detached HEAD at tag
-  grove add #123                      # PR by number
-  grove add PR-URL                    # PR by URL`,
+  grove add #123                      # Creates ./pr-123 worktree`,
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -256,7 +255,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	branch := prInfo.HeadRef
 	dirName := name
 	if dirName == "" {
-		dirName = workspace.SanitizeBranchName(branch)
+		dirName = fmt.Sprintf("pr-%d", ref.Number)
 	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
