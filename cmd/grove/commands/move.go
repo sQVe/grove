@@ -14,12 +14,13 @@ import (
 
 func NewMoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "move <old-branch> <new-branch>",
+		Use:   "move <worktree> <new-branch>",
 		Short: "Move a branch and its worktree",
 		Long: `Move a branch and its associated worktree directory.
 
 This command atomically renames both the git branch and the worktree directory,
-updating all necessary references.
+updating all necessary references. The first argument accepts worktree name
+(directory) or branch name.
 
 Examples:
   grove move feature/old feature/new`,
@@ -33,13 +34,9 @@ Examples:
 	return cmd
 }
 
-func runMove(oldBranch, newBranch string) error {
-	oldBranch = strings.TrimSpace(oldBranch)
+func runMove(target, newBranch string) error {
+	target = strings.TrimSpace(target)
 	newBranch = strings.TrimSpace(newBranch)
-
-	if oldBranch == newBranch {
-		return fmt.Errorf("old and new branch names are the same")
-	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -53,15 +50,19 @@ func runMove(oldBranch, newBranch string) error {
 
 	workspaceRoot := filepath.Dir(bareDir)
 
-	// Find the worktree for the old branch (fast: false to get Upstream info)
+	// Find the worktree (fast: false to get Upstream info)
 	infos, err := git.ListWorktreesWithInfo(bareDir, false)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktreeByBranch(infos, oldBranch)
+	worktreeInfo := git.FindWorktree(infos, target)
 	if worktreeInfo == nil {
-		return fmt.Errorf("no worktree found for branch %q", oldBranch)
+		return fmt.Errorf("worktree not found: %s", target)
+	}
+
+	if worktreeInfo.Branch == newBranch {
+		return fmt.Errorf("worktree already has branch %s", newBranch)
 	}
 
 	// Check if user is inside the worktree being renamed
@@ -89,7 +90,7 @@ func runMove(oldBranch, newBranch string) error {
 
 	// Check worktree is not locked
 	if git.IsWorktreeLocked(worktreeInfo.Path) {
-		return fmt.Errorf("worktree is locked; unlock it first with 'grove unlock %s'", oldBranch)
+		return fmt.Errorf("worktree is locked; unlock it first with 'grove unlock %s'", target)
 	}
 
 	// Calculate new worktree path
@@ -131,7 +132,7 @@ func runMove(oldBranch, newBranch string) error {
 		}
 
 		if branchRenamed {
-			if err := git.RenameBranch(bareDir, newBranch, oldBranch); err != nil {
+			if err := git.RenameBranch(bareDir, newBranch, worktreeInfo.Branch); err != nil {
 				logger.Error("Failed to restore branch name: %v", err)
 			}
 		}
@@ -141,7 +142,7 @@ func runMove(oldBranch, newBranch string) error {
 	}()
 
 	// Step 1: Rename the git branch
-	if err := git.RenameBranch(bareDir, oldBranch, newBranch); err != nil {
+	if err := git.RenameBranch(bareDir, worktreeInfo.Branch, newBranch); err != nil {
 		return fmt.Errorf("failed to rename branch: %w", err)
 	}
 	branchRenamed = true
@@ -181,9 +182,9 @@ func runMove(oldBranch, newBranch string) error {
 	dirMoved = false
 
 	if newDirName != newBranch {
-		logger.Success("Renamed %s to %s (dir: %s)", oldBranch, newBranch, newDirName)
+		logger.Success("Renamed %s to %s (dir: %s)", target, newBranch, newDirName)
 	} else {
-		logger.Success("Renamed %s to %s", oldBranch, newBranch)
+		logger.Success("Renamed %s to %s", target, newBranch)
 	}
 
 	return nil
@@ -214,7 +215,7 @@ func completeMoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	for _, info := range infos {
 		// Exclude current worktree
 		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(os.PathSeparator)) {
-			completions = append(completions, info.Branch)
+			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
 

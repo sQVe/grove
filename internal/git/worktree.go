@@ -409,3 +409,23 @@ func FindWorktreeByBranch(infos []*WorktreeInfo, branch string) *WorktreeInfo {
 	}
 	return nil
 }
+
+// FindWorktree finds a worktree by name (directory) or branch.
+// Matches by worktree directory basename first, then by branch name.
+func FindWorktree(infos []*WorktreeInfo, target string) *WorktreeInfo {
+	// First try worktree name (directory basename)
+	for _, info := range infos {
+		if filepath.Base(info.Path) == target {
+			return info
+		}
+	}
+
+	// Fall back to branch name
+	for _, info := range infos {
+		if info.Branch == target {
+			return info
+		}
+	}
+
+	return nil
+}

@@ -11,8 +11,8 @@ import (
 
 func TestNewMoveCmd(t *testing.T) {
 	cmd := NewMoveCmd()
-	if cmd.Use != "move <old-branch> <new-branch>" {
-		t.Errorf("expected Use to be 'move <old-branch> <new-branch>', got %q", cmd.Use)
+	if cmd.Use != "move <worktree> <new-branch>" {
+		t.Errorf("expected Use to be 'move <worktree> <new-branch>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description to be set")

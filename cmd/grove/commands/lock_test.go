@@ -17,8 +17,8 @@ import (
 func TestNewLockCmd(t *testing.T) {
 	cmd := NewLockCmd()
 
-	if cmd.Use != "lock <branch>" {
-		t.Errorf("expected Use 'lock <branch>', got %q", cmd.Use)
+	if cmd.Use != "lock <worktree>" {
+		t.Errorf("expected Use 'lock <worktree>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description")
@@ -70,8 +70,8 @@ func TestRunLock_BranchNotFound(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for non-existent branch")
 	}
-	if !strings.Contains(err.Error(), "no worktree found") {
-		t.Errorf("expected 'no worktree found' error, got: %v", err)
+	if !strings.Contains(err.Error(), "worktree not found") {
+		t.Errorf("expected 'worktree not found' error, got: %v", err)
 	}
 }
 

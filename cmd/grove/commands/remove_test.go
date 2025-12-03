@@ -17,8 +17,8 @@ import (
 func TestNewRemoveCmd(t *testing.T) {
 	cmd := NewRemoveCmd()
 
-	if cmd.Use != "remove <branch>" {
-		t.Errorf("expected Use 'remove <branch>', got %q", cmd.Use)
+	if cmd.Use != "remove <worktree>" {
+		t.Errorf("expected Use 'remove <worktree>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description")
@@ -73,8 +73,8 @@ func TestRunRemove_BranchNotFound(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for non-existent branch")
 	}
-	if !strings.Contains(err.Error(), "no worktree found") {
-		t.Errorf("expected 'no worktree found' error, got: %v", err)
+	if !strings.Contains(err.Error(), "worktree not found") {
+		t.Errorf("expected 'worktree not found' error, got: %v", err)
 	}
 }
 

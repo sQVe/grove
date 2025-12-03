@@ -18,9 +18,10 @@ func NewRemoveCmd() *cobra.Command {
 	var deleteBranch bool
 
 	cmd := &cobra.Command{
-		Use:   "remove <branch>",
+		Use:   "remove <worktree>",
 		Short: "Remove a worktree",
 		Long: `Remove a worktree directory. Optionally delete the branch as well.
+Accepts worktree name (directory) or branch name.
 
 Examples:
   grove remove feature-auth        # Remove worktree only
@@ -40,8 +41,8 @@ Examples:
 	return cmd
 }
 
-func runRemove(branch string, force, deleteBranch bool) error {
-	branch = strings.TrimSpace(branch)
+func runRemove(target string, force, deleteBranch bool) error {
+	target = strings.TrimSpace(target)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -53,15 +54,14 @@ func runRemove(branch string, force, deleteBranch bool) error {
 		return err
 	}
 
-	// Find the worktree for the branch
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktreeByBranch(infos, branch)
+	worktreeInfo := git.FindWorktree(infos, target)
 	if worktreeInfo == nil {
-		return fmt.Errorf("no worktree found for branch %q", branch)
+		return fmt.Errorf("worktree not found: %s", target)
 	}
 
 	// Check if user is inside the worktree being deleted
@@ -111,12 +111,12 @@ func runRemove(branch string, force, deleteBranch bool) error {
 			logger.Warning("Branch has %d unpushed commit(s)", aheadCount)
 		}
 
-		if err := git.DeleteBranch(bareDir, branch, force); err != nil {
+		if err := git.DeleteBranch(bareDir, worktreeInfo.Branch, force); err != nil {
 			return fmt.Errorf("worktree removed but failed to delete branch: %w", err)
 		}
-		logger.Success("Deleted worktree and branch %s", branch)
+		logger.Success("Deleted worktree and branch %s", target)
 	} else {
-		logger.Success("Deleted worktree %s", branch)
+		logger.Success("Deleted worktree %s", target)
 	}
 
 	return nil
@@ -147,7 +147,7 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	for _, info := range infos {
 		// Exclude current worktree
 		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(os.PathSeparator)) {
-			completions = append(completions, info.Branch)
+			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
 

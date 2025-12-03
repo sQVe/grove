@@ -17,8 +17,8 @@ import (
 func TestNewUnlockCmd(t *testing.T) {
 	cmd := NewUnlockCmd()
 
-	if cmd.Use != "unlock <branch>" {
-		t.Errorf("expected Use 'unlock <branch>', got %q", cmd.Use)
+	if cmd.Use != "unlock <worktree>" {
+		t.Errorf("expected Use 'unlock <worktree>', got %q", cmd.Use)
 	}
 	if cmd.Short == "" {
 		t.Error("expected Short description")
@@ -67,8 +67,8 @@ func TestRunUnlock_BranchNotFound(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for non-existent branch")
 	}
-	if !strings.Contains(err.Error(), "no worktree found") {
-		t.Errorf("expected 'no worktree found' error, got: %v", err)
+	if !strings.Contains(err.Error(), "worktree not found") {
+		t.Errorf("expected 'worktree not found' error, got: %v", err)
 	}
 }
 

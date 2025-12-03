@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,11 +17,12 @@ func NewLockCmd() *cobra.Command {
 	var reason string
 
 	cmd := &cobra.Command{
-		Use:   "lock <branch>",
+		Use:   "lock <worktree>",
 		Short: "Lock a worktree to prevent removal",
 		Long: `Lock a worktree to prevent it from being removed by prune or remove commands.
 
 Locked worktrees are protected from accidental deletion. Use unlock to remove the lock.
+Accepts worktree name (directory) or branch name.
 
 Examples:
   grove lock feature-auth                    # Lock worktree
@@ -38,8 +40,8 @@ Examples:
 	return cmd
 }
 
-func runLock(branch, reason string) error {
-	branch = strings.TrimSpace(branch)
+func runLock(target, reason string) error {
+	target = strings.TrimSpace(target)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -51,15 +53,14 @@ func runLock(branch, reason string) error {
 		return err
 	}
 
-	// Find the worktree for the branch
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktreeByBranch(infos, branch)
+	worktreeInfo := git.FindWorktree(infos, target)
 	if worktreeInfo == nil {
-		return fmt.Errorf("no worktree found for branch %q", branch)
+		return fmt.Errorf("worktree not found: %s", target)
 	}
 
 	// Check if already locked
@@ -77,9 +78,9 @@ func runLock(branch, reason string) error {
 	}
 
 	if reason != "" {
-		logger.Success("Locked worktree %s (%s)", branch, reason)
+		logger.Success("Locked worktree %s (%s)", target, reason)
 	} else {
-		logger.Success("Locked worktree %s", branch)
+		logger.Success("Locked worktree %s", target)
 	}
 
 	return nil
@@ -110,7 +111,7 @@ func completeLockArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	for _, info := range infos {
 		// Only include non-locked worktrees
 		if !info.Locked {
-			completions = append(completions, info.Branch)
+			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
 

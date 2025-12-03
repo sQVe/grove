@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,9 +15,10 @@ import (
 // NewUnlockCmd creates the unlock command
 func NewUnlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unlock <branch>",
+		Use:   "unlock <worktree>",
 		Short: "Unlock a worktree to allow removal",
 		Long: `Unlock a worktree so it can be removed by prune or remove commands.
+Accepts worktree name (directory) or branch name.
 
 Examples:
   grove unlock feature-auth     # Unlock worktree`,
@@ -32,8 +34,8 @@ Examples:
 	return cmd
 }
 
-func runUnlock(branch string) error {
-	branch = strings.TrimSpace(branch)
+func runUnlock(target string) error {
+	target = strings.TrimSpace(target)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -45,15 +47,14 @@ func runUnlock(branch string) error {
 		return err
 	}
 
-	// Find the worktree for the branch
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktreeByBranch(infos, branch)
+	worktreeInfo := git.FindWorktree(infos, target)
 	if worktreeInfo == nil {
-		return fmt.Errorf("no worktree found for branch %q", branch)
+		return fmt.Errorf("worktree not found: %s", target)
 	}
 
 	// Check if actually locked
@@ -66,7 +67,7 @@ func runUnlock(branch string) error {
 		return fmt.Errorf("failed to unlock worktree: %w", err)
 	}
 
-	logger.Success("Unlocked worktree %s", branch)
+	logger.Success("Unlocked worktree %s", target)
 
 	return nil
 }
@@ -96,7 +97,7 @@ func completeUnlockArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	for _, info := range infos {
 		// Only include locked worktrees
 		if info.Locked {
-			completions = append(completions, info.Branch)
+			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
 

@@ -991,3 +991,54 @@ func TestGetWorktreeLockReason(t *testing.T) {
 		}
 	})
 }
+
+func TestFindWorktree(t *testing.T) {
+	infos := []*WorktreeInfo{
+		{Path: "/workspace/main", Branch: "main"},
+		{Path: "/workspace/feature-auth", Branch: "feature/auth"},
+		{Path: "/workspace/bugfix", Branch: "bugfix/issue-123"},
+	}
+
+	t.Run("finds by worktree name", func(t *testing.T) {
+		result := FindWorktree(infos, "feature-auth")
+		if result == nil {
+			t.Fatal("expected to find worktree")
+		}
+		if result.Branch != "feature/auth" {
+			t.Errorf("expected branch feature/auth, got %s", result.Branch)
+		}
+	})
+
+	t.Run("finds by branch name as fallback", func(t *testing.T) {
+		result := FindWorktree(infos, "feature/auth")
+		if result == nil {
+			t.Fatal("expected to find worktree")
+		}
+		if result.Path != "/workspace/feature-auth" {
+			t.Errorf("expected path /workspace/feature-auth, got %s", result.Path)
+		}
+	})
+
+	t.Run("worktree name takes priority over branch name", func(t *testing.T) {
+		// Create a scenario where worktree name matches one entry
+		// but branch name would match another
+		testInfos := []*WorktreeInfo{
+			{Path: "/workspace/main", Branch: "main"},
+			{Path: "/workspace/develop", Branch: "main"}, // Different worktree with same branch
+		}
+		result := FindWorktree(testInfos, "develop")
+		if result == nil {
+			t.Fatal("expected to find worktree")
+		}
+		if result.Path != "/workspace/develop" {
+			t.Errorf("expected path /workspace/develop, got %s", result.Path)
+		}
+	})
+
+	t.Run("returns nil when not found", func(t *testing.T) {
+		result := FindWorktree(infos, "nonexistent")
+		if result != nil {
+			t.Errorf("expected nil, got %+v", result)
+		}
+	})
+}
