@@ -31,7 +31,7 @@ Examples:
   grove list --fast           # Skip remote sync checks
   grove list --filter dirty   # Show only dirty worktrees
   grove list --verbose        # Include paths and upstreams`,
-		Args:  cobra.NoArgs,
+		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},

@@ -61,7 +61,7 @@ Examples:
   grove prune --stale 30d     # Include inactive worktrees
   grove prune --merged        # Include merged branches
   grove prune --force         # Remove even if dirty or locked`,
-		Args:  cobra.NoArgs,
+		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},

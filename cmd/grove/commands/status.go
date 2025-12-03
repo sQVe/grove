@@ -49,7 +49,7 @@ Examples:
   grove status            # Show status summary
   grove status --verbose  # Show all sections
   grove status --json     # Output as JSON`,
-		Args:  cobra.NoArgs,
+		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
