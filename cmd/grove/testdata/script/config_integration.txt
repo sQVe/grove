@@ -1,36 +1,70 @@
-# Test config integration with git config
-
 # Test global set/get operations
 exec grove config set --global grove.plain true
+! stderr .
 exec grove config get --global grove.plain
 stdout '^true$'
+! stderr .
 
 exec grove config set --global grove.debug false
+! stderr .
 exec grove config get --global grove.debug
 stdout '^false$'
+! stderr .
 
 # Test list operation shows grove.* settings
 exec grove config list --global
 stdout 'grove.plain=true'
 stdout 'grove.debug=false'
+! stderr .
 
-# Test unset removes config
+# Test unset removes config and subsequent get fails
 exec grove config unset --global grove.debug
+! stderr .
 ! exec grove config get --global grove.debug
-stderr 'not found'
+stderr 'config key not found'
 
-# Test exit codes and error messages
+# Test get for non-existent key fails
 ! exec grove config get --global grove.missing
-stderr 'not found'
+stderr 'config key not found'
 
-# Test boolean values accepted
+# Test boolean values accepted (various formats)
 exec grove config set --global grove.plain true
+! stderr .
 exec grove config set --global grove.debug false
+! stderr .
 exec grove config set --global grove.plain yes
+! stderr .
 exec grove config set --global grove.debug no
+! stderr .
 exec grove config set --global grove.plain 1
+! stderr .
 exec grove config set --global grove.debug 0
+! stderr .
 
-# Clean up
+# Test invalid boolean value rejected
+! exec grove config set --global grove.plain maybe
+stderr 'invalid boolean value'
+
+# Test empty value rejected
+! exec grove config set --global grove.plain ""
+stderr 'invalid boolean value'
+
+# Test whitespace-only value rejected (shell splits whitespace into multiple args)
+! exec grove config set --global grove.plain "   "
+stderr 'accepts 2 arg'
+
+# Test unset non-existent key succeeds silently
+exec grove config unset --global grove.nonexistent
+! stderr .
+
+# Clean up and verify removal
 exec grove config unset --global grove.plain
+! stderr .
 exec grove config unset --global grove.debug
+! stderr .
+
+# Verify cleanup actually removed values
+! exec grove config get --global grove.plain
+stderr 'config key not found'
+! exec grove config get --global grove.debug
+stderr 'config key not found'

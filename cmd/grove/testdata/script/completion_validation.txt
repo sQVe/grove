@@ -1,24 +1,59 @@
-# Test completion command shows help
+# Test completion without arguments shows help
+exec grove completion
+stdout 'Generate the autocompletion script'
+stdout 'Available Commands:'
+stdout 'bash'
+stdout 'zsh'
+! stderr .
+
+# Test completion --help shows help
 exec grove completion --help
 stdout 'Generate the autocompletion script'
+! stderr .
 
 # Test bash completion generates script
 exec grove completion bash
 stdout '__start_grove'
 stdout 'complete -o default -F'
+! stderr .
 
 # Test zsh completion generates script
 exec grove completion zsh
 stdout '#compdef grove'
+! stderr .
 
 # Test fish completion generates script
 exec grove completion fish
 stdout 'complete -c grove'
+! stderr .
 
 # Test powershell completion generates script
 exec grove completion powershell
 stdout 'Register-ArgumentCompleter'
+! stderr .
 
-# Test invalid shell shows help
+# Test invalid shell shows help (no error, just shows available shells)
 exec grove completion invalid
 stdout 'Available Commands:'
+! stderr .
+
+# Test different shells produce different output
+# Bash uses __start_grove function name
+exec grove completion bash
+stdout '__start_grove'
+! stdout '#compdef'
+! stdout 'function grove'
+! stderr .
+
+# Zsh uses #compdef directive
+exec grove completion zsh
+stdout '#compdef grove'
+! stdout '__start_grove'
+! stderr .
+
+# Fish uses 'complete -c grove'
+exec grove completion fish
+stdout 'complete -c grove'
+! stdout '__start_grove'
+! stdout '#compdef'
+! stderr .

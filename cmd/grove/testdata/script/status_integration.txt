@@ -22,6 +22,7 @@ exec git config user.email "test@example.com"
 exec grove status --plain
 stdout '\* main'
 ! stdout '\[dirty\]'
+! stderr .
 
 # Test status with --json
 exec grove status --json
@@ -29,11 +30,13 @@ stdout '"branch":'
 stdout '"main"'
 stdout '"path":'
 stdout '"dirty": false'
+! stderr .
 
 # Test status with --verbose shows path sub-item
 exec grove status --verbose --plain
 stdout '\* main'
 stdout '> path:'
+! stderr .
 
 ## Dirty detection
 
@@ -41,6 +44,7 @@ stdout '> path:'
 cp $WORK/README.md dirty.txt
 exec grove status --plain
 stdout '\[dirty\]'
+! stderr .
 
 # Clean up
 rm dirty.txt
@@ -53,6 +57,7 @@ exec git add stash-me.txt
 exec git stash
 exec grove status --verbose --plain
 stdout 'stashes:'
+! stderr .
 
 # Clear stash
 exec git stash drop
@@ -66,22 +71,24 @@ cd src/components
 exec grove status --plain
 stdout '\* main'
 ! stdout '\[dirty\]'
+! stderr .
 
 # Test status --json from subdirectory
 exec grove status --json
 stdout '"branch": "main"'
+! stderr .
 
 ## Error handling
 
 # Test not in workspace error
 cd /tmp
 ! exec grove status
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 
 # Test not in worktree error (from workspace root)
 cd $WORK/workspace
 ! exec grove status
-stderr 'must be run in a work tree'
+stderr '^✗ failed to check changes.*must be run in a work tree'
 
 -- README.md --
 # Test

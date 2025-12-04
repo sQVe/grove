@@ -1,5 +1,3 @@
-# Auto-lock test: default branches should be locked automatically
-
 mkdir testrepo
 exec git init testrepo
 cd testrepo
@@ -17,21 +15,58 @@ cd ..
 
 mkdir workspace
 exec grove clone file://$WORK/testrepo workspace
+! stderr .
 cd workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 
 exec grove list --json
+# Verify main worktree is auto-locked with reason
+stdout '"name": "main"'
 stdout '"locked": true'
 stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'
+! stderr .
 
 ## Add non-default branch is not auto-locked
 
 exec grove add feature
-# Feature should not be locked
+! stderr .
 cd ../feature
 exec grove status --json
-! stdout '"locked": true'
+# Feature should not be locked (explicit false check)
+stdout '"locked": false'
+! stderr .
+
+## Verify main stays locked after adding feature
+
+cd ../main
+exec grove list --json
+# Main should still be locked
+stdout '"name": "main"'
+stdout '"locked": true'
+# Feature should be unlocked
+stdout '"name": "feature"'
+! stderr .
+
+## List shows both worktrees with correct lock status
+
+exec grove list --verbose --plain
+stdout 'main.*\[locked\]'
+stdout 'feature'
+# Feature line should NOT have [locked]
+! stdout 'feature.*\[locked\]'
+! stderr .
+
+## Auto-locked worktree can be unlocked
+
+exec grove unlock main
+stdout 'Unlocked worktree'
+! stderr .
+
+# Verify main is now unlocked
+exec grove status --json
+stdout '"locked": false'
+! stderr .
 
 -- README.md --
 # Test

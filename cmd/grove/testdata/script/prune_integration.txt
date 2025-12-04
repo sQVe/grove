@@ -43,6 +43,7 @@ exec git branch --set-upstream-to=origin/feature-dirty feature-dirty
 cd $WORK/workspace/main
 exec grove prune
 stdout 'No worktrees to prune'
+! stderr .
 
 ## Test: Detect gone worktree after remote branch deleted
 # Delete branch on "remote" (source repo)
@@ -53,6 +54,7 @@ exec grove prune
 stdout 'Would prune 1 worktree'
 stdout 'feature-to-delete'
 stdout 'Run with --commit to remove'
+! stderr .
 
 # Worktree should still exist (dry-run)
 exists $WORK/workspace/feature-to-delete
@@ -61,6 +63,7 @@ exists $WORK/workspace/feature-to-delete
 exec grove prune --commit
 stdout 'Pruned 1 worktree'
 stdout 'feature-to-delete'
+! stderr .
 
 # Worktree should be gone now
 ! exists $WORK/workspace/feature-to-delete
@@ -77,12 +80,14 @@ exec grove prune
 stdout 'Would skip 1 worktree'
 stdout 'feature-dirty'
 stdout 'dirty, use --force'
+! stderr .
 
 # --commit should skip dirty worktree
 exec grove prune --commit
 stdout 'Skipped 1 worktree'
 stdout 'feature-dirty'
 stdout 'dirty, use --force'
+! stderr .
 
 # Worktree should still exist
 exists $WORK/workspace/feature-dirty
@@ -91,6 +96,7 @@ exists $WORK/workspace/feature-dirty
 exec grove prune --commit --force
 stdout 'Pruned 1 worktree'
 stdout 'feature-dirty'
+! stderr .
 
 # Worktree should be gone now
 ! exists $WORK/workspace/feature-dirty
@@ -105,6 +111,7 @@ cd $WORK/workspace/.bare
 exec git fetch origin
 cd $WORK/workspace/main
 exec grove add feature-current
+! stderr .
 
 cd $WORK/workspace/feature-current
 exec git config user.name "Test"
@@ -119,12 +126,14 @@ exec grove prune
 stdout 'Would skip 1 worktree'
 stdout 'feature-current'
 stdout 'current worktree'
+! stderr .
 
 # --commit should skip current worktree
 exec grove prune --commit
 stdout 'Skipped 1 worktree'
 stdout 'feature-current'
 stdout 'current worktree'
+! stderr .
 
 # Worktree should still exist
 exists $WORK/workspace/feature-current
@@ -139,12 +148,14 @@ exec grove prune
 stdout 'Would skip 1 worktree'
 stdout 'feature-current'
 stdout 'current worktree'
+! stderr .
 
 # --commit from subdirectory should still skip current worktree
 exec grove prune --commit
 stdout 'Skipped 1 worktree'
 stdout 'feature-current'
 stdout 'current worktree'
+! stderr .
 
 # Worktree should still exist
 exists $WORK/workspace/feature-current
@@ -152,7 +163,7 @@ exists $WORK/workspace/feature-current
 ## Test: Error not in workspace
 cd /tmp
 ! exec grove prune
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 
 -- README.md --
 # Test

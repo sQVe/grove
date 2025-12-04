@@ -215,7 +215,7 @@ func TestRunExec_InvalidWorktree(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for non-existent worktree")
 	}
-	if !strings.Contains(err.Error(), `worktree "nonexistent" not found`) {
+	if !strings.Contains(err.Error(), "worktree not found: nonexistent") {
 		t.Errorf("expected 'worktree not found' error, got: %v", err)
 	}
 }

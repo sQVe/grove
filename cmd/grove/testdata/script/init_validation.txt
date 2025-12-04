@@ -1,13 +1,17 @@
-# Test init command help
+# Test init command help shows subcommands
 exec grove init --help
 stdout 'Initialize grove'
 stdout 'Usage:'
+stdout 'Available Commands:'
 stdout 'new'
+stdout 'convert'
+! stderr .
 
 # Test init command execution shows help
 exec grove init
 stdout 'Usage:'
+! stderr .
 
-# Test init rejects arguments
+# Test init rejects unknown subcommands
 ! exec grove init invalid
-stderr 'unknown command'
+stderr '^✗ unknown command "invalid" for "grove init"'

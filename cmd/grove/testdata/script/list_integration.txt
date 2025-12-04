@@ -26,12 +26,14 @@ exec grove list --plain
 stdout 'main'
 stdout 'develop'
 ! stdout '\[dirty\]'
+! stderr .
 
 # Test list with --fast skips status (no sync indicator shown)
 exec grove list --fast --plain
 stdout 'main'
 stdout 'develop'
 ! stdout '\[dirty\]'
+! stderr .
 
 # Test list with --json
 exec grove list --json
@@ -39,12 +41,14 @@ stdout '"name":'
 stdout '"main"'
 stdout '"develop"'
 stdout '"path":'
+! stderr .
 
 # Test list with --verbose shows path and upstream
 exec grove list --verbose
 stdout 'main'
 stdout 'develop'
 stdout 'workspace/main'
+! stderr .
 
 ## Dirty detection
 
@@ -52,6 +56,7 @@ stdout 'workspace/main'
 cp $WORK/README.md dirty.txt
 exec grove list --plain
 stdout '\[dirty\]'
+! stderr .
 
 # Clean up for next test
 rm dirty.txt
@@ -63,7 +68,9 @@ cd $WORK/workspace
 exec grove list --plain
 stdout 'main'
 stdout 'develop'
+# No asterisk prefix means no current worktree (we're at workspace root, not in a worktree)
 ! stdout '^\*'
+! stderr .
 
 ## Subdirectory handling
 
@@ -72,15 +79,17 @@ cd $WORK/workspace/main
 mkdir -p src/components
 cd src/components
 exec grove list --plain
+# Asterisk prefix marks current worktree
 stdout '^\*'
 stdout 'main'
+! stderr .
 
 ## Error handling
 
 # Test not in workspace error
 cd /tmp
 ! exec grove list
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 
 -- README.md --
 # Test

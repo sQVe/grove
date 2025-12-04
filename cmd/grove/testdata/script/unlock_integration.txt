@@ -18,42 +18,48 @@ cd workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 
-# Add and lock a worktree
+# Setup: Add and lock a worktree
 exec grove add feature
+! stderr .
 exec grove lock feature --reason 'Testing'
+! stderr .
 
-## Verify locked
+## Verify locked (precondition for unlock test)
 
 exec grove list --verbose
 stdout 'locked'
+! stderr .
 
 ## Unlock worktree
 
 exec grove unlock feature
 stdout 'Unlocked worktree'
+! stderr .
 
-## Verify unlocked (check status from feature worktree)
+## Verify unlocked
+# Use --json for reliable machine-readable check
 
 cd ../feature
 exec grove status --json
-! stdout '"locked": true'
+stdout '"locked": false'
+! stderr .
 cd ../main
 
 ## Error: already unlocked
 
 ! exec grove unlock feature
-stderr 'not locked'
+stderr '^✗ worktree is not locked'
 
 ## Error: worktree not found
 
 ! exec grove unlock nonexistent
-stderr 'worktree not found'
+stderr '^✗ worktree not found: nonexistent'
 
 ## Error: not in workspace
 
 cd /tmp
 ! exec grove unlock feature
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 
 -- README.md --
 # Test

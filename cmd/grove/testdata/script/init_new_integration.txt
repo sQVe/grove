@@ -1,17 +1,29 @@
 ## Success paths
 
 # Test init new creates workspace in target directory
+# Verifies: basic workspace creation with explicit directory argument
 mkdir new-basic-workspace
 exec grove init new new-basic-workspace
 stdout 'Initialized grove workspace'
 stdout 'new-basic-workspace'
+! stderr .
+# Verify workspace structure:
+#   .bare/ must be a directory (bare git repository)
+#   .git must be a file (gitfile pointing to .bare)
 exists new-basic-workspace/.bare
 exists new-basic-workspace/.git
+exec test -d new-basic-workspace/.bare
+exec test -f new-basic-workspace/.git
 
 # Test init new creates workspace with nested directory path
+# Verifies: parent directory creation when path has multiple levels
 mkdir new-nested-parent
 exec grove init new new-nested-parent/myproject
 stdout 'Initialized grove workspace'
 stdout 'new-nested-parent/myproject'
+! stderr .
 exists new-nested-parent/myproject/.bare
 exists new-nested-parent/myproject/.git
+# Verify structure constraints (directory vs file)
+exec test -d new-nested-parent/myproject/.bare
+exec test -f new-nested-parent/myproject/.git

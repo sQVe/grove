@@ -1,5 +1,8 @@
 # Test grove shows help with --help flag
 exec grove --help
+stdout 'Manage Git worktrees as easily as switching branches'
+stdout 'Available Commands'
+! stderr .
 
 # Test grove shows help with no arguments
 exec grove
@@ -12,3 +15,21 @@ stdout 'Flags'
 stdout '--debug'
 stdout '--help'
 stdout '--plain'
+! stderr .
+
+## Argument and flag validation
+
+# Test unknown command shows error
+! exec grove invalid
+stderr '^✗ unknown command "invalid" for "grove"'
+
+# Test unknown flag shows error
+! exec grove --invalid
+stderr '^✗ unknown flag: --invalid'
+
+## Global flags
+
+# Test --debug flag is recognized (doesn't error)
+exec grove --debug --help
+stdout 'Available Commands'
+! stderr .

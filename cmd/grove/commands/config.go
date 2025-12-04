@@ -303,7 +303,7 @@ Examples:
 
 func runConfigList(shared, global bool) error {
 	if shared && global {
-		return errors.New("cannot use both --shared and --global")
+		return errors.New("--shared and --global cannot be used together")
 	}
 
 	if shared {
@@ -412,7 +412,7 @@ func runConfigGet(key string, shared, global bool) error {
 	}
 
 	if shared && global {
-		return errors.New("cannot use both --shared and --global")
+		return errors.New("--shared and --global cannot be used together")
 	}
 
 	if shared {
@@ -521,7 +521,7 @@ func runConfigSet(key, value string, shared, global bool) error {
 	}
 
 	if shared && global {
-		return errors.New("cannot use both --shared and --global")
+		return errors.New("--shared and --global cannot be used together")
 	}
 
 	if shared {
@@ -545,7 +545,7 @@ func runConfigSetShared(key, value string) error {
 
 	// Validate boolean value
 	if !isValidBooleanValue(value) {
-		return fmt.Errorf("invalid boolean value '%s'", value)
+		return fmt.Errorf("invalid boolean value '%s' for key '%s'", value, key)
 	}
 
 	boolValue := strings.EqualFold(value, "true") || value == "1" || strings.EqualFold(value, "yes") || strings.EqualFold(value, "on")
@@ -583,7 +583,7 @@ func runConfigUnset(key, value string, shared, global bool) error {
 	}
 
 	if shared && global {
-		return errors.New("cannot use both --shared and --global")
+		return errors.New("--shared and --global cannot be used together")
 	}
 
 	if shared {

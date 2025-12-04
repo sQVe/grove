@@ -22,61 +22,72 @@ exec git config user.email "test@example.com"
 # Test switch outputs path to worktree
 exec grove switch develop
 stdout 'workspace/develop$'
+! stderr .
 
 # Test switch to current branch works too
 exec grove switch main
 stdout 'workspace/main$'
+! stderr .
 
 ## Error handling
 
 # Test switch to non-existent branch
 ! exec grove switch nonexistent
-stderr 'worktree not found'
+stderr '^✗ worktree not found: nonexistent'
 
 # Test not in workspace error
 cd /tmp
 ! exec grove switch main
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 
 ## Shell init - sh (used for bash/zsh/sh)
+# Generates a POSIX-compatible shell function that wraps `grove switch`
+# and cds to the output path. Must not use bash-specific syntax like [[ ]].
 
 cd $WORK/workspace/main
 exec grove switch shell-init --shell sh
 stdout 'grove\(\)'
 stdout 'command grove switch'
 stdout 'case "\$1" in'
+# POSIX shell uses [ ] for tests, not bash's [[ ]] which is non-portable
 ! stdout '\[\['
-
-# Test shell-init includes add --switch handling
 stdout 'grove add'
 stdout '\-\-switch'
+! stderr .
 
 ## Shell init - bash outputs POSIX script
+# Bash gets the same POSIX script as sh for maximum compatibility
 
 exec grove switch shell-init --shell bash
 stdout 'grove\(\)'
 stdout 'case "\$1" in'
+# POSIX shell uses [ ] for tests, not bash's [[ ]] which is non-portable
 ! stdout '\[\['
+! stderr .
 
 ## Shell init - fish
+# Fish shell uses different function syntax and variable scoping
 
 exec grove switch shell-init --shell fish
 stdout 'function grove'
 stdout 'command grove switch'
 stdout 'cd "\$target"'
 stdout 'set -l target'
+! stderr .
 
 ## Shell init - PowerShell
+# PowerShell uses different syntax and requires .exe suffix on Windows
 
 exec grove switch shell-init --shell powershell
 stdout 'function grove'
 stdout 'grove.exe switch'
 stdout 'Set-Location'
+! stderr .
 
 ## Shell init - unsupported shell
 
 ! exec grove switch shell-init --shell tcsh
-stderr 'unsupported shell'
+stderr '^✗ unsupported shell: tcsh'
 
 -- README.md --
 # Test

@@ -21,25 +21,33 @@ exec git config user.email "test@example.com"
 ## Add worktree for existing branch
 
 exec grove add existing-branch
-stdout 'Created worktree'
+stdout 'Created worktree at .*/existing-branch'
+! stderr .
 exists ../existing-branch
+# Verify worktree is on correct branch
+exec git -C ../existing-branch rev-parse --abbrev-ref HEAD
+stdout '^existing-branch$'
 
 ## Add worktree for new branch
 
 exec grove add feature/new-thing
-stdout 'Created worktree'
+stdout 'Created worktree at .*/feature-new-thing'
+! stderr .
 exists ../feature-new-thing
+# Verify worktree is on correct branch
+exec git -C ../feature-new-thing rev-parse --abbrev-ref HEAD
+stdout '^feature/new-thing$'
 
 ## Error: branch already has worktree
 
 ! exec grove add existing-branch
-stderr 'worktree already exists'
+stderr 'worktree already exists for branch'
 
 ## Error: directory already exists (main already has worktree directory)
 
 mkdir ../test-dir
 ! exec grove add test-dir
-stderr 'directory already exists'
+stderr 'directory already exists:.*test-dir'
 
 ## Add with --switch outputs path only
 
@@ -47,6 +55,7 @@ cd $WORK/workspace/main
 exec grove add --switch feature/switch-test
 stdout '^.*/feature-switch-test$'
 ! stdout 'Created worktree'
+! stderr .
 exists ../feature-switch-test
 
 ## Add with -s shorthand outputs path only
@@ -54,6 +63,7 @@ exists ../feature-switch-test
 exec grove add -s feature/short-flag
 stdout '^.*/feature-short-flag$'
 ! stdout 'Created worktree'
+! stderr .
 exists ../feature-short-flag
 
 ## Error: not in workspace
@@ -77,6 +87,42 @@ stderr 'cannot be used with PR references'
 
 ! exec grove add --detach --base main v1.0.0
 stderr 'cannot be used together'
+
+## Add with --base creates new branch from specified base
+
+cd $WORK/workspace/main
+exec grove add --base existing-branch feature/from-existing
+stdout 'Created worktree at .*/feature-from-existing'
+! stderr .
+exists ../feature-from-existing
+# Verify new branch was created
+exec git -C ../feature-from-existing rev-parse --abbrev-ref HEAD
+stdout '^feature/from-existing$'
+# Verify branch started from correct base (same commit as existing-branch)
+exec git -C ../feature-from-existing rev-parse HEAD
+cp stdout head_commit.txt
+exec git -C ../existing-branch rev-parse HEAD
+cmp stdout head_commit.txt
+
+## Error: --base with non-existent branch
+
+! exec grove add --base nonexistent-branch feature/from-nonexistent
+stderr 'does not exist'
+
+## Add with --detach creates detached HEAD worktree
+
+# Create a tag to use for detached HEAD
+exec git -C $WORK/testrepo tag v1.0.0
+cd $WORK/workspace/.bare
+exec git fetch --tags
+cd $WORK/workspace/main
+exec grove add --detach v1.0.0
+stdout 'Created detached worktree at .*/v1.0.0'
+! stderr .
+exists ../v1.0.0
+# Verify worktree is in detached HEAD state
+exec git -C ../v1.0.0 rev-parse --abbrev-ref HEAD
+stdout '^HEAD$'
 
 -- README.md --
 # Test

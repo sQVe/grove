@@ -9,18 +9,16 @@ exec git config --global commit.gpgsign false
 exec grove prune --help
 stdout 'Remove worktrees with deleted upstream branches'
 stdout 'Usage:'
-
-# Test prune flags exist in help
-exec grove prune --help
 stdout '--commit'
 stdout '--force'
 stdout '--stale'
+! stderr .
 
 ## Argument validation
 
 # Test prune rejects arguments
 ! exec grove prune extra-arg
-stderr 'unknown command'
+stderr '^✗ unknown command "extra-arg" for "grove prune"'
 
 ## Workspace validation
 
@@ -28,7 +26,7 @@ stderr 'unknown command'
 mkdir not-a-workspace
 cd not-a-workspace
 ! exec grove prune
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 cd ..
 
 # Test prune fails in regular git repo
@@ -36,7 +34,7 @@ mkdir git-repo
 cd git-repo
 exec git init
 ! exec grove prune
-stderr 'not in a grove workspace'
+stderr '^✗ not in a grove workspace'
 cd ..
 
 ## Stale duration validation
@@ -44,16 +42,16 @@ cd ..
 
 # Test invalid stale duration - invalid unit
 ! exec grove prune --stale 30x
-stderr 'unknown duration unit'
+stderr '^✗ unknown duration unit: x'
 
 # Test invalid stale duration - negative
 ! exec grove prune --stale -5d
-stderr 'duration must be positive'
+stderr '^✗ duration must be positive'
 
 # Test invalid stale duration - zero
 ! exec grove prune --stale 0d
-stderr 'duration must be positive'
+stderr '^✗ duration must be positive'
 
 # Test invalid stale duration - non-numeric
 ! exec grove prune --stale abcd
-stderr 'invalid duration'
+stderr '^✗ invalid duration number: abcd'

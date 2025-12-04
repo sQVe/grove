@@ -107,7 +107,7 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 		for _, name := range worktrees {
 			info, ok := worktreeMap[name]
 			if !ok {
-				return fmt.Errorf("worktree %q not found", name)
+				return fmt.Errorf("worktree not found: %s", name)
 			}
 			targets = append(targets, execTarget{branch: info.Branch, path: info.Path})
 		}
