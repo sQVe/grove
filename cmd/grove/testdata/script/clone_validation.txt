@@ -1,11 +1,9 @@
-# Setup git config once
-exec git config --global user.name "Test"
-exec git config --global user.email "test@example.com"
-exec git config --global commit.gpgsign false
+# grove clone validation tests
+# Tests clone command argument parsing and pre-condition validation
 
-## Help and basic functionality
+## Help output
 
-# Test clone command help
+# --help shows usage
 exec grove clone --help
 stdout 'Clone a repository into a grove workspace'
 stdout 'Usage:'
@@ -15,28 +13,28 @@ stdout '--branches'
 
 ## Argument validation
 
-# Test clone without arguments fails
+# No arguments
 ! exec grove clone
 stderr '^✗ accepts between 1 and 2 arg'
 stderr 'received 0'
 
-# Test clone with too many arguments fails
+# Too many arguments
 ! exec grove clone url dir extra
 stderr '^✗ accepts between 1 and 2 arg'
 stderr 'received 3'
 
 ## URL validation
 
-# Test clone with invalid URL fails
+# Invalid URL
 mkdir clone-invalid-url
 ! exec grove clone not-a-url clone-invalid-url
 stderr '^✗ failed to clone repository'
 
-# Test clone with URL and directory fails if directory doesn't exist
+# Nonexistent remote
 ! exec grove clone file:///nonexistent/repo.git nonexistent
 stderr '^✗ failed to clone repository'
 
-# Test clone in current directory fails due to network
+# Current directory with bad URL
 mkdir clone-current
 cd clone-current
 ! exec grove clone file:///nonexistent/repo.git
@@ -45,11 +43,11 @@ cd ..
 
 ## Directory validation
 
-# Test clone fails in non-empty directory
+# Non-empty directory (no arguments = current dir)
 ! exec grove clone file:///nonexistent/repo.git
 stderr '^✗ directory.*not empty'
 
-# Test clone fails when current directory is not empty
+# Current directory not empty
 mkdir clone-not-empty
 cp existing.txt clone-not-empty/existing.txt
 cd clone-not-empty
@@ -57,7 +55,7 @@ cd clone-not-empty
 stderr '^✗ directory.*clone-not-empty.*not empty'
 cd ..
 
-# Test clone fails when specified directory is not empty
+# Specified directory not empty
 mkdir clone-dir-not-empty
 cp existing.txt clone-dir-not-empty/existing.txt
 ! exec grove clone file:///nonexistent/repo.git clone-dir-not-empty
@@ -65,7 +63,7 @@ stderr '^✗ directory.*clone-dir-not-empty.*not empty'
 
 ## Git repository validation
 
-# Test clone fails when current directory is a Git repository
+# Current directory is git repo
 mkdir clone-git-repo
 cd clone-git-repo
 exec git init
@@ -73,7 +71,7 @@ exec git init
 stderr '^✗ cannot initialize grove inside existing git repository'
 cd ..
 
-# Test clone fails when specified directory is a Git repository
+# Specified directory is git repo
 mkdir clone-dir-git-repo
 cd clone-dir-git-repo
 exec git init
@@ -83,7 +81,7 @@ stderr '^✗ cannot initialize grove inside existing git repository'
 
 ## Grove workspace validation
 
-# Test clone fails inside existing grove workspace
+# Inside existing grove workspace
 mkdir clone-fails-inside-grove
 exec grove init new clone-fails-inside-grove
 cd clone-fails-inside-grove
@@ -91,7 +89,7 @@ cd clone-fails-inside-grove
 stderr '^✗ cannot initialize grove inside existing grove workspace'
 cd ..
 
-# Test clone with directory fails when directory is inside existing grove workspace
+# Nested inside existing grove workspace
 mkdir clone-fails-nested-grove
 exec grove init new clone-fails-nested-grove
 ! exec grove clone file:///nonexistent/repo.git clone-fails-nested-grove/nested
@@ -99,22 +97,22 @@ stderr '^✗ cannot initialize grove inside existing grove workspace'
 
 ## Branch validation
 
-# Test clone with empty branches flag
+# Empty branches flag
 mkdir clone-empty-branches
 ! exec grove clone file:///test/repo.git clone-empty-branches --branches ""
 stderr '^✗ no branches specified'
 
-# Test clone with single branch
+# Single branch (network error expected)
 mkdir clone-single-branch
 ! exec grove clone file:///test/repo.git clone-single-branch --branches "main"
 stderr '^✗ failed to clone repository'
 
-# Test clone with multiple branches
+# Multiple branches (network error expected)
 mkdir clone-multi-branch
 ! exec grove clone file:///test/repo.git clone-multi-branch --branches "main,develop,feat/test"
 stderr '^✗ failed to clone repository'
 
-# Test clone with --branches in current directory
+# --branches with current directory
 mkdir clone-branches-current
 cd clone-branches-current
 ! exec grove clone file:///test/repo.git --branches "main"

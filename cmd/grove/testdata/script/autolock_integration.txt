@@ -1,3 +1,7 @@
+# grove auto-lock integration tests
+# Tests auto-lock behavior during clone and add
+
+# Setup: Create test repository
 mkdir testrepo
 exec git init testrepo
 cd testrepo
@@ -11,7 +15,7 @@ exec git checkout -b feature
 exec git checkout main
 cd ..
 
-## Clone creates locked main worktree
+## Success: Clone creates locked main worktree
 
 mkdir workspace
 exec grove clone file://$WORK/testrepo workspace
@@ -27,7 +31,7 @@ stdout '"locked": true'
 stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'
 ! stderr .
 
-## Add non-default branch is not auto-locked
+## Success: Add non-default branch is not auto-locked
 
 exec grove add feature
 ! stderr .
@@ -37,7 +41,7 @@ exec grove status --json
 stdout '"locked": false'
 ! stderr .
 
-## Verify main stays locked after adding feature
+## Verify: Main stays locked after adding feature
 
 cd ../main
 exec grove list --json
@@ -48,7 +52,7 @@ stdout '"locked": true'
 stdout '"name": "feature"'
 ! stderr .
 
-## List shows both worktrees with correct lock status
+## Verify: List shows correct lock status
 
 exec grove list --verbose --plain
 stdout 'main.*\[locked\]'
@@ -57,7 +61,7 @@ stdout 'feature'
 ! stdout 'feature.*\[locked\]'
 ! stderr .
 
-## Auto-locked worktree can be unlocked
+## Success: Auto-locked worktree can be unlocked
 
 exec grove unlock main
 stdout 'Unlocked worktree'

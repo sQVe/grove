@@ -1,4 +1,9 @@
-# Test completion without arguments shows help
+# grove completion validation tests
+# Tests shell completion script generation
+
+## Help output
+
+# No shell argument shows help
 exec grove completion
 stdout 'Generate the autocompletion script'
 stdout 'Available Commands:'
@@ -6,38 +11,41 @@ stdout 'bash'
 stdout 'zsh'
 ! stderr .
 
-# Test completion --help shows help
+# --help shows help
 exec grove completion --help
 stdout 'Generate the autocompletion script'
 ! stderr .
 
-# Test bash completion generates script
+## Shell script generation
+
+# bash
 exec grove completion bash
 stdout '__start_grove'
 stdout 'complete -o default -F'
 ! stderr .
 
-# Test zsh completion generates script
+# zsh
 exec grove completion zsh
 stdout '#compdef grove'
 ! stderr .
 
-# Test fish completion generates script
+# fish
 exec grove completion fish
 stdout 'complete -c grove'
 ! stderr .
 
-# Test powershell completion generates script
+# powershell
 exec grove completion powershell
 stdout 'Register-ArgumentCompleter'
 ! stderr .
 
-# Test invalid shell shows help (no error, just shows available shells)
+# invalid shell shows help
 exec grove completion invalid
 stdout 'Available Commands:'
 ! stderr .
 
-# Test different shells produce different output
+## Output differentiation
+
 # Bash uses __start_grove function name
 exec grove completion bash
 stdout '__start_grove'

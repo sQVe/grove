@@ -1,8 +1,10 @@
-# Create grove workspace via clone
+# grove list integration tests
+# Tests worktree listing with real git state
+
+# Setup workspace with multiple worktrees
 mkdir testrepo
 exec git init testrepo
 cd testrepo
-# Use repo-local config (not global) to avoid CI conflicts
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 exec git config commit.gpgsign false
@@ -10,86 +12,415 @@ cp ../README.md .
 exec git add .
 exec git commit -m 'initial commit'
 exec git checkout -b develop
+exec git checkout -b feature/test
+exec git checkout main
 cd ..
 
 mkdir workspace
-exec grove clone file://$WORK/testrepo workspace --branches main,develop
+exec grove clone file://$WORK/testrepo workspace --branches main,develop,feature/test
 cd workspace/main
-# Set local git config in worktree too
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 
-## Basic list tests
+# Unlock auto-locked worktrees so we can test lock/unlock manually
+exec git -C $WORK/workspace/.bare worktree unlock ../main
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
 
-# Test basic list shows branches (no dirty indicator when clean)
+## No arguments → lists all worktrees
+
 exec grove list --plain
 stdout 'main'
 stdout 'develop'
-! stdout '\[dirty\]'
+stdout 'feature-test'
+! stdout '\[locked\]'
 ! stderr .
 
-# Test list with --fast skips status (no sync indicator shown)
+## Extra arguments → error
+
+! exec grove list foo
+stderr 'unknown command'
+
+## --fast flag → skip sync status checks
+
 exec grove list --fast --plain
 stdout 'main'
 stdout 'develop'
-! stdout '\[dirty\]'
 ! stderr .
 
-# Test list with --json
+## --json flag → JSON output
+
 exec grove list --json
 stdout '"name":'
 stdout '"main"'
-stdout '"develop"'
 stdout '"path":'
 ! stderr .
 
-# Test list with --verbose shows path and upstream
+## --verbose / -v flag → show path, upstream, lock reason
+
 exec grove list --verbose
 stdout 'main'
-stdout 'develop'
 stdout 'workspace/main'
 ! stderr .
 
-## Dirty detection
+exec grove list -v
+stdout 'main'
+! stderr .
 
-# Create uncommitted file
-cp $WORK/README.md dirty.txt
+## Filter with no matches → empty output
+
+exec grove list --filter dirty --plain
+! stdout 'main'
+! stdout 'develop'
+! stderr .
+
+## Dirty worktree (modified files) → dirty indicator
+
+exec sh -c 'echo "modified" >> README.md'
 exec grove list --plain
 stdout '\[dirty\]'
 ! stderr .
+# Clean up
+exec git checkout README.md
 
-# Clean up for next test
-rm dirty.txt
+## Dirty worktree (untracked files) → dirty indicator
 
-## Workspace root behavior
-
-# From workspace root, no branch should be marked as current (we're not in a worktree)
-cd $WORK/workspace
+exec sh -c 'echo "new" > untracked.txt'
 exec grove list --plain
-stdout 'main'
-stdout 'develop'
-# No asterisk prefix means no current worktree (we're at workspace root, not in a worktree)
-! stdout '^\*'
+stdout '\[dirty\]'
+! stderr .
+rm untracked.txt
+
+## Dirty worktree (staged files) → dirty indicator
+
+exec sh -c 'echo "staged" > staged.txt'
+exec git add staged.txt
+exec grove list --plain
+stdout '\[dirty\]'
+! stderr .
+exec git reset HEAD staged.txt
+rm staged.txt
+
+## Locked worktree → lock indicator
+
+exec git -C $WORK/workspace/.bare worktree lock ../develop
+exec grove list --plain
+stdout '\[locked\]'
 ! stderr .
 
-## Subdirectory handling
+## Locked with reason → reason shown in verbose
 
-# Test list from subdirectory marks correct current worktree
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Important work in progress'
+exec grove list --verbose
+stdout 'lock reason'
+stdout 'Important work in progress'
+! stderr .
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+
+## Detached HEAD → shows "(detached)"
+
+exec git tag v1.0.0
+exec grove add --detach v1.0.0
+exec grove list --plain
+stdout 'v1.0.0'
+stdout '\(detached\)'
+! stderr .
+
+## --filter dirty → only dirty worktrees
+
+exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+exec grove list --filter dirty --plain
+stdout 'develop'
+! stdout '^[^d]*main'
+! stderr .
+rm ../develop/dirty.txt
+
+## --filter locked → only locked worktrees
+
+exec git -C $WORK/workspace/.bare worktree lock ../feature-test
+exec grove list --filter locked --plain
+stdout 'feature-test'
+! stdout '^[^f]*main'
+! stdout '^[^f]*develop'
+! stderr .
+exec git -C $WORK/workspace/.bare worktree unlock ../feature-test
+
+## --filter dirty,locked → OR logic
+
+exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+exec git -C $WORK/workspace/.bare worktree lock ../feature-test
+exec grove list --filter dirty,locked --plain
+stdout 'develop'
+stdout 'feature-test'
+! stdout '^[^df]*main'
+! stderr .
+rm ../develop/dirty.txt
+exec git -C $WORK/workspace/.bare worktree unlock ../feature-test
+
+## --filter " dirty , locked " → whitespace trimmed
+
+exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+exec grove list --filter ' dirty ' --plain
+stdout 'develop'
+! stderr .
+rm ../develop/dirty.txt
+
+## --filter DIRTY → case-insensitive
+
+exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+exec grove list --filter DIRTY --plain
+stdout 'develop'
+! stderr .
+rm ../develop/dirty.txt
+
+## --filter invalid → unknown filter, matches nothing
+
+exec grove list --filter invalid --plain
+! stdout 'main'
+! stdout 'develop'
+! stderr .
+
+## --filter "" → empty filter, returns all
+
+exec grove list --filter '' --plain
+stdout 'main'
+stdout 'develop'
+! stderr .
+
+## Sync status tests - setup remote tracking
+
+# Create a bare remote to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+# Push main to establish tracking
+exec git push -u upstream main
+# Push develop too
+exec git -C ../develop push -u upstream develop
+
+## Ahead of upstream → shows ahead indicator
+
+# Create local commit ahead of upstream
+exec sh -c 'echo "ahead" > ahead.txt'
+exec git add ahead.txt
+exec git commit -m 'ahead commit'
+exec grove list --plain
+stdout '\+1'
+! stderr .
+
+## Behind upstream → shows behind indicator
+
+# Push main so we can fall behind
+exec git push upstream main
+# Create a commit on upstream/develop that local develop doesn't have
+# Use a temp clone since bare repos can't have working trees
+cd $WORK
+exec git clone remote-repo temp-clone
+cd temp-clone
+exec git config user.name "Remote"
+exec git config user.email "remote@example.com"
+exec git checkout develop
+exec sh -c 'echo "remote commit" > remote.txt'
+exec git add remote.txt
+exec git commit -m 'remote commit'
+exec git push origin develop
+cd $WORK/workspace/develop
+exec git fetch upstream
+exec grove list --plain
+stdout '\-1'
+! stderr .
+
+## Both ahead and behind → shows both indicators
+
+# Create local commit on develop (now ahead) while still behind
+exec sh -c 'echo "local develop" > local-dev.txt'
+exec git add local-dev.txt
+exec git commit -m 'local develop commit'
+exec grove list --plain
+stdout '\+1.*\-1'
+! stderr .
+
+## Upstream gone → shows gone indicator
+
+# Delete the upstream branch
+exec git -C $WORK/remote-repo branch -D develop
+exec git fetch upstream --prune
+exec grove list --plain
+stdout 'gone'
+! stderr .
+
+## No upstream configured → no sync indicator
+
 cd $WORK/workspace/main
+# feature-test has no upstream configured
+exec grove list --plain
+# feature-test line should not have sync indicators
+stdout 'feature-test.*\[feature/test\]'
+! stderr .
+
+## In sync with upstream → no indicator (clean)
+
+# Reset main to be in sync
+exec git fetch upstream
+exec git reset --hard upstream/main
+exec grove list --plain
+# main should have no sync indicators when in sync
+stdout '^\*.*main.*\[main\]'
+! stderr .
+
+## --fast skips sync status
+
+# Create local commit to be ahead (main is already ahead from earlier test)
+exec sh -c 'echo "local" > local.txt'
+exec git add local.txt
+exec git commit -m 'local commit'
+# With --fast, no sync indicators shown
+exec grove list --fast --plain
+! stdout '\+[0-9]'
+! stdout '\-[0-9]'
+! stdout 'gone'
+! stderr .
+
+## --fast skips dirty status too (dirty requires git status check)
+
+exec sh -c 'echo "dirty" > dirty.txt'
+exec grove list --fast --plain
+# Fast mode skips dirty detection (would require git status call)
+! stdout '\[dirty\]'
+! stderr .
+rm dirty.txt
+
+## --fast still shows lock status
+
+exec git -C $WORK/workspace/.bare worktree lock ../develop
+exec grove list --fast --plain
+stdout '\[locked\]'
+! stderr .
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+
+## CWD in worktree → marked as current, sorted first
+
+cd $WORK/workspace/main
+exec grove list --plain
+# Current marker should appear
+stdout '^\*'
+# Main should be first (current), then others alphabetically
+stdout '^.*main'
+! stderr .
+
+## CWD in worktree subdirectory → parent marked current
+
 mkdir -p src/components
 cd src/components
 exec grove list --plain
-# Asterisk prefix marks current worktree
 stdout '^\*'
 stdout 'main'
 ! stderr .
+cd $WORK/workspace/main
 
-## Error handling
+## CWD at workspace root → no current marker
 
-# Test not in workspace error
+cd $WORK/workspace
+exec grove list --plain
+! stdout '^\*'
+stdout 'main'
+stdout 'develop'
+! stderr .
+
+## Alphabetical sort after current
+
+cd $WORK/workspace/main
+exec grove list --plain
+# develop should come before feature-test alphabetically
+stdout 'develop'
+stdout 'feature-test'
+! stderr .
+
+## JSON output - all fields present
+
+exec grove list --json
+stdout '"name"'
+stdout '"path"'
+stdout '"current"'
+! stderr .
+
+## JSON output - detached worktree has detached: true
+
+exec grove list --json
+stdout '"detached": true'
+! stderr .
+
+## JSON output - locked worktree has locked: true, lock_reason
+
+exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Test reason'
+exec grove list --json
+stdout '"locked": true'
+stdout '"lock_reason": "Test reason"'
+! stderr .
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+
+## JSON output - clean worktree omits dirty: false (omitempty)
+
+exec grove list --json
+# Should NOT have "dirty": false for clean worktrees
+! stdout '"dirty": false'
+# Should NOT have "locked": false for unlocked worktrees
+! stdout '"locked": false'
+! stderr .
+
+## Corrupted worktree (phantom) → skipped with warning
+
+exec grove add phantom-test
+rm -r ../phantom-test
+# Grove skips corrupted worktrees and warns
+exec grove list --plain
+stdout 'may be corrupted'
+stdout 'main'
+# Clean up phantom via git prune
+exec git -C $WORK/workspace/.bare worktree prune
+
+## Branch with slashes → shows actual branch, dir is sanitized
+
+# feature/test was cloned earlier - dir is feature-test
+exec grove list --plain
+# Shows the actual branch name in brackets
+stdout 'feature-test.*\[feature/test\]'
+! stderr .
+
+## Very long branch name → displayed correctly
+
+# Create a branch with a very long name (100+ chars)
+exec git checkout -b this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
+exec git checkout main
+exec grove add this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
+exec grove list --plain
+stdout 'this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly'
+! stderr .
+exec grove remove this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
+
+## Shell completion: --filter suggests values
+
+exec grove __complete list --filter ''
+stdout 'dirty'
+stdout 'locked'
+stdout 'ahead'
+stdout 'behind'
+stdout 'gone'
+# stderr has completion directives - ignore
+
+## Shell completion: --filter with partial → filters suggestions
+
+exec grove __complete list --filter 'd'
+stdout 'dirty'
+# stderr has completion directives - ignore
+
+## Not in workspace → error
+
 cd /tmp
 ! exec grove list
-stderr '^✗ not in a grove workspace'
+stderr 'not in a grove workspace'
 
 -- README.md --
 # Test

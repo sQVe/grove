@@ -1,10 +1,15 @@
+# grove root validation tests
+# Tests root command help output and global flag validation
+
+## Help output
+
 # Test grove shows help with --help flag
 exec grove --help
 stdout 'Manage Git worktrees as easily as switching branches'
 stdout 'Available Commands'
 ! stderr .
 
-# Test grove shows help with no arguments
+# No arguments shows help
 exec grove
 stdout 'Manage Git worktrees as easily as switching branches'
 stdout 'Available Commands'
@@ -17,23 +22,23 @@ stdout '--help'
 stdout '--plain'
 ! stderr .
 
-## Argument and flag validation
+## Argument validation
 
-# Test unknown command shows error
+# Unknown command shows error
 ! exec grove invalid
 stderr '^✗ unknown command "invalid" for "grove"'
 
-# Test unknown flag shows error
+# Unknown flag shows error
 ! exec grove --invalid
 stderr '^✗ unknown flag: --invalid'
 
 ## Global flags
 
-# Test --debug flag is recognized (doesn't error)
+# --debug flag is recognized
 exec grove --debug --help
 stdout 'Available Commands'
 ! stderr .
 
-# Test --debug has no shorthand (matches git worktree convention)
+# --debug has no shorthand
 ! exec grove -d --help
 stderr 'unknown shorthand flag'

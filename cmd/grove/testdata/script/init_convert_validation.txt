@@ -1,6 +1,9 @@
-## Help and basic functionality
+# grove init convert validation tests
+# Tests init convert pre-condition checks
 
-# Test init convert command help
+## Help output
+
+# --help shows usage
 exec grove init convert --help
 stdout 'Convert existing Git repository to a grove workspace'
 stdout 'Usage:'
@@ -9,20 +12,20 @@ stdout '--branches'
 
 ## Argument validation
 
-# Test init convert rejects positional arguments
+# Rejects positional arguments
 ! exec grove init convert arg1
 stderr '^✗ unknown command "arg1" for "grove init convert"'
 
-## Pre-condition validation (in check order)
+## Pre-condition validation
 
-# Test init convert fails when not a git repository
+# Not a git repository
 mkdir not-git-repo
 cd not-git-repo
 ! exec grove init convert
 stderr '^✗ not a git repository'
 cd ..
 
-# Test init convert fails when already grove workspace
+# Already grove workspace
 mkdir already-grove
 exec grove init new already-grove
 cd already-grove
@@ -30,7 +33,7 @@ cd already-grove
 stderr '^✗ already a grove workspace'
 cd ..
 
-# Test init convert fails when repository is a worktree
+# Repository is a worktree
 mkdir convert-worktree-main
 cd convert-worktree-main
 exec git init
@@ -45,7 +48,7 @@ cd ../convert-worktree-feature
 stderr '^✗ cannot convert: repository is already a worktree'
 cd ..
 
-# Test init convert with unborn HEAD fails (git init but no commits)
+# Unborn HEAD (no commits)
 mkdir convert-unborn
 cd convert-unborn
 exec git init
@@ -53,7 +56,7 @@ exec git init
 stderr '^✗ cannot convert: repository has no commits'
 cd ..
 
-# Test init convert with detached HEAD fails
+# Detached HEAD
 mkdir convert-detached
 cd convert-detached
 exec git init
@@ -65,7 +68,7 @@ exec git checkout HEAD~0
 stderr '^✗ cannot convert: repository is in detached HEAD state'
 cd ..
 
-# Test init convert with staged changes fails
+# Staged changes
 mkdir convert-staged-changes
 cd convert-staged-changes
 exec git init
@@ -78,7 +81,7 @@ exec git add staged-file.txt
 stderr '^✗ cannot convert: repository has uncommitted changes'
 cd ..
 
-# Test init convert fails with untracked files
+# Untracked files
 mkdir convert-untracked-files
 cd convert-untracked-files
 exec git init
@@ -90,7 +93,7 @@ exec sh -c 'echo "this file should not be deleted" > untracked.txt'
 stderr '^✗ cannot convert: repository has uncommitted changes'
 cd ..
 
-# Test init convert fails with modified unstaged files
+# Modified unstaged files
 mkdir convert-modified-unstaged
 cd convert-modified-unstaged
 exec git init
@@ -102,7 +105,7 @@ exec sh -c 'echo "modified content" >> test-file.txt'
 stderr '^✗ cannot convert: repository has uncommitted changes'
 cd ..
 
-# Test init convert fails when repository has existing worktrees
+# Existing worktrees
 mkdir convert-has-worktrees
 cd convert-has-worktrees
 exec git init
@@ -116,7 +119,7 @@ exec git worktree add ../feature-worktree feature
 stderr '^✗ cannot convert: repository has existing worktrees'
 cd ..
 
-# Test init convert fails when lock files are present
+# Lock files present
 mkdir convert-lock-files
 cd convert-lock-files
 exec git init
@@ -128,7 +131,7 @@ exec sh -c 'touch .git/index.lock'
 stderr '^✗ cannot convert: repository has active lock files'
 cd ..
 
-# Test init convert fails when repository has submodules
+# Has submodules
 mkdir convert-submodules
 cd convert-submodules
 exec git init
@@ -140,7 +143,7 @@ cp ../gitmodules .gitmodules
 stderr '^✗ cannot convert: repository has submodules'
 cd ..
 
-# Test init convert fails when repository has unresolved conflicts
+# Unresolved conflicts
 mkdir convert-conflicts
 cd convert-conflicts
 exec git init
@@ -152,7 +155,7 @@ exec sh -c 'touch .git/MERGE_HEAD'
 stderr '^✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
-# Test init convert fails when repository has ongoing operations
+# Ongoing merge/rebase/cherry-pick
 mkdir convert-ongoing
 cd convert-ongoing
 exec git init
@@ -164,7 +167,7 @@ exec sh -c 'touch .git/MERGE_HEAD'
 stderr '^✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
-# Test init convert fails when repository has unpushed commits
+# Unpushed commits
 mkdir convert-unpushed-remote
 cd convert-unpushed-remote
 exec git init --bare

@@ -1,4 +1,7 @@
-# Create grove workspace via clone
+# grove add integration tests
+# Tests worktree creation with real git state
+
+# Setup: Create workspace via clone
 mkdir testrepo
 exec git init testrepo
 cd testrepo
@@ -18,7 +21,7 @@ cd workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 
-## Add worktree for existing branch
+## Success: Add existing branch
 
 exec grove add existing-branch
 stdout 'Created worktree at .*/existing-branch'
@@ -28,7 +31,7 @@ exists ../existing-branch
 exec git -C ../existing-branch rev-parse --abbrev-ref HEAD
 stdout '^existing-branch$'
 
-## Add worktree for new branch
+## Success: Add new branch
 
 exec grove add feature/new-thing
 stdout 'Created worktree at .*/feature-new-thing'
@@ -38,18 +41,18 @@ exists ../feature-new-thing
 exec git -C ../feature-new-thing rev-parse --abbrev-ref HEAD
 stdout '^feature/new-thing$'
 
-## Error: branch already has worktree
+## Error: Branch already has worktree
 
 ! exec grove add existing-branch
 stderr 'worktree already exists for branch'
 
-## Error: directory already exists (main already has worktree directory)
+## Error: Directory already exists
 
 mkdir ../test-dir
 ! exec grove add test-dir
 stderr 'directory already exists:.*test-dir'
 
-## Add with --switch outputs path only
+## Success: --switch outputs path only
 
 cd $WORK/workspace/main
 exec grove add --switch feature/switch-test
@@ -58,7 +61,7 @@ stdout '^.*/feature-switch-test$'
 ! stderr .
 exists ../feature-switch-test
 
-## Add with -s shorthand outputs path only
+## Success: -s shorthand outputs path only
 
 exec grove add -s feature/short-flag
 stdout '^.*/feature-short-flag$'
@@ -66,29 +69,29 @@ stdout '^.*/feature-short-flag$'
 ! stderr .
 exists ../feature-short-flag
 
-## Error: not in workspace
+## Error: Not in workspace
 
 cd /tmp
 ! exec grove add feature
 stderr 'not in a grove workspace'
 
-## Error: --base cannot be used with PR references
+## Error: --base with PR references
 
 cd $WORK/workspace/main
 ! exec grove add --base main '#123'
 stderr 'cannot be used with PR references'
 
-## Error: --detach cannot be used with PR references
+## Error: --detach with PR references
 
 ! exec grove add --detach '#123'
 stderr 'cannot be used with PR references'
 
-## Error: --detach and --base cannot be used together
+## Error: --detach and --base together
 
 ! exec grove add --detach --base main v1.0.0
 stderr 'cannot be used together'
 
-## Add with --base creates new branch from specified base
+## Success: --base creates branch from specified base
 
 cd $WORK/workspace/main
 exec grove add --base existing-branch feature/from-existing
@@ -104,12 +107,12 @@ cp stdout head_commit.txt
 exec git -C ../existing-branch rev-parse HEAD
 cmp stdout head_commit.txt
 
-## Error: --base with non-existent branch
+## Error: --base with nonexistent branch
 
 ! exec grove add --base nonexistent-branch feature/from-nonexistent
 stderr 'does not exist'
 
-## Add with --detach creates detached HEAD worktree
+## Success: --detach creates detached HEAD worktree
 
 # Create a tag to use for detached HEAD
 exec git -C $WORK/testrepo tag v1.0.0
@@ -124,7 +127,7 @@ exists ../v1.0.0
 exec git -C ../v1.0.0 rev-parse --abbrev-ref HEAD
 stdout '^HEAD$'
 
-## Add with --detach and commit SHA (using HEAD)
+## Success: --detach with commit SHA
 
 # Use HEAD as the commit reference - it resolves to current commit SHA
 exec grove add --detach --name detached-sha HEAD
@@ -134,12 +137,12 @@ exists ../detached-sha
 exec git -C ../detached-sha rev-parse --abbrev-ref HEAD
 stdout '^HEAD$'
 
-## Error: --detach with non-existent ref
+## Error: --detach with nonexistent ref
 
 ! exec grove add --detach nonexistent-ref-12345
 stderr 'does not exist'
 
-## Add with --name uses custom directory name
+## Success: --name uses custom directory name
 
 exec grove add --name custom-dir-name feature/custom-name-test
 stdout 'Created worktree at .*/custom-dir-name'
@@ -149,8 +152,7 @@ exists ../custom-dir-name
 exec git -C ../custom-dir-name rev-parse --abbrev-ref HEAD
 stdout '^feature/custom-name-test$'
 
-## Add with --name containing path separators creates nested directories
-# Note: --name is used literally, allowing nested directories if desired
+## Success: --name with path separators creates nested directories
 
 exec grove add --name 'nested/dir' feature/slash-name-test
 stdout 'Created worktree at .*/nested/dir'
@@ -159,19 +161,19 @@ exists ../nested/dir
 exec git -C ../nested/dir rev-parse --abbrev-ref HEAD
 stdout '^feature/slash-name-test$'
 
-## Add with empty --name falls back to default naming
+## Success: Empty --name falls back to default naming
 
 exec grove add --name '' feature/empty-name-test
 stdout 'Created worktree at .*/feature-empty-name-test'
 ! stderr .
 exists ../feature-empty-name-test
 
-## Error: --base with branch that already has worktree
+## Error: --base with branch that has worktree
 
 ! exec grove add --base main existing-branch
 stderr 'worktree already exists'
 
-## Add from workspace root works
+## Success: From workspace root
 
 cd $WORK/workspace
 exec grove add feature/from-root
@@ -179,7 +181,7 @@ stdout 'Created worktree at .*/feature-from-root'
 ! stderr .
 exists feature-from-root
 
-## Output shows preserved files when copying from source worktree
+## Success: Preserved files shown in output
 
 cd $WORK/workspace/main
 # Create .gitignore with .env pattern (required for preservation)
@@ -194,14 +196,13 @@ stdout 'preserved'
 exists ../feature-preserve-test/.env
 
 ## Error: --base with existing branch (no worktree)
-# Create a branch that exists but has no worktree
 
 cd $WORK/workspace/main
 exec git branch no-worktree-branch
 ! exec grove add --base main no-worktree-branch
 stderr 'cannot be used with existing branch'
 
-## Add existing remote branch creates worktree
+## Success: Existing remote branch creates worktree
 
 # Create a branch on the remote
 exec git -C $WORK/testrepo checkout -b remote-only-branch
@@ -217,7 +218,7 @@ exists ../remote-only-branch
 exec git -C ../remote-only-branch rev-parse --abbrev-ref HEAD
 stdout '^remote-only-branch$'
 
-## Auto-lock: branch matches default pattern (main)
+## Auto-lock: Feature branch not locked
 
 # Create .grove.toml with auto-lock for main
 exec sh -c 'echo "[auto-lock]" > $WORK/workspace/main/.grove.toml'
@@ -227,7 +228,7 @@ exec grove add feature/autolock-test
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 ! stdout 'locked.*feature-autolock-test'
 
-## Auto-lock: branch matches custom pattern (release/*)
+## Auto-lock: Release branch locked by pattern
 
 exec grove add release/v1.0
 stdout 'Created worktree at .*/release-v1.0'
@@ -235,7 +236,7 @@ stdout 'Created worktree at .*/release-v1.0'
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 stdout 'locked'
 
-## Hooks: configured and succeed → listed in output
+## Hooks: Success shown in output
 
 cd $WORK/workspace/main
 # Configure a simple hook that creates a marker file
@@ -248,7 +249,7 @@ stdout 'touch .hook-ran'
 # Verify hook actually ran
 exists ../feature-hook-success/.hook-ran
 
-## Hooks: multiple hooks all succeed
+## Hooks: Multiple hooks all succeed
 
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"touch .hook1\", \"touch .hook2\"]" >> .grove.toml'
@@ -258,7 +259,7 @@ stdout 'ran 2 hooks'
 exists ../feature-multi-hook/.hook1
 exists ../feature-multi-hook/.hook2
 
-## Hooks: first hook fails → warning shown, worktree still created
+## Hooks: Failure warning shown
 
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"exit 1\"]" >> .grove.toml'
@@ -267,7 +268,7 @@ stdout 'Created worktree at .*/feature-hook-fail'
 stdout 'Hook failed.*exit 1.*exit code 1'
 exists ../feature-hook-fail
 
-## Hooks: multiple hooks, first fails → stops at first failure
+## Hooks: Stops at first failure
 
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"exit 42\", \"touch .should-not-exist\"]" >> .grove.toml'
@@ -277,7 +278,7 @@ stdout 'Hook failed.*exit 42.*exit code 42'
 exists ../feature-hook-stop-early
 ! exists ../feature-hook-stop-early/.should-not-exist
 
-## Hooks: no hooks configured → no hook output
+## Hooks: No output when none configured
 
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = []" >> .grove.toml'
@@ -286,7 +287,7 @@ stdout 'Created worktree at .*/feature-no-hooks'
 ! stdout 'ran.*hook'
 ! stderr 'Hook'
 
-## Hooks: invalid TOML config → warning, hooks disabled
+## Hooks: Invalid TOML shows warning
 
 exec sh -c 'echo "this is not valid toml [[[" > .grove.toml'
 exec grove add feature/invalid-toml

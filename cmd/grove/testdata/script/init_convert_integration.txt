@@ -1,6 +1,7 @@
-## Success paths
+# grove init convert integration tests
+# Tests repository conversion to grove workspace
 
-# Test basic init convert success
+## Success: Basic conversion
 mkdir convert-basic
 cd convert-basic
 exec git init
@@ -16,7 +17,7 @@ exists .git
 exists main/test-file.txt
 cd ..
 
-# Test basic init convert with realistic directory structure
+## Success: Realistic directory structure
 mkdir convert-realistic
 cd convert-realistic
 exec git init
@@ -44,7 +45,7 @@ exec sh -c 'ls -a | wc -l'
 stdout '^5$'
 cd ..
 
-# Test init convert with --branches flag
+## Success: --branches flag creates worktrees
 mkdir convert-branches
 cd convert-branches
 exec git init
@@ -73,7 +74,7 @@ exists develop/test-file.txt
 exists feat-user-auth/test-file.txt
 cd ..
 
-# Test init convert preserves git-ignored files in worktrees
+## Success: Preserves git-ignored files
 mkdir convert-preserve
 cd convert-preserve
 exec git init
@@ -108,7 +109,7 @@ exists develop/.env
 exists develop/.env.local
 cd ..
 
-# Test init convert with custom preserve patterns from config
+## Success: Custom preserve patterns from config
 mkdir convert-custom-patterns
 cd convert-custom-patterns
 exec git init
@@ -146,7 +147,7 @@ exists develop/api.secret
 exists develop/custom.config
 cd ..
 
-# Test init convert fails with mixed tracked and untracked files
+## Error: Mixed tracked and untracked files
 mkdir convert-mixed-files
 cd convert-mixed-files
 exec git init
@@ -163,7 +164,7 @@ exec sh -c 'echo "{}" > node_modules/package/package.json'
 stderr '^✗ cannot convert: repository has uncommitted changes'
 cd ..
 
-# Test init convert file integrity check
+## Success: File integrity check
 mkdir convert-integrity
 cd convert-integrity
 exec git init
@@ -189,9 +190,7 @@ exists main/deep/nested/structure/file4.txt
 ! exists deep
 cd ..
 
-## Complex merge/conflict scenarios
-
-# Test init convert with ongoing merge fails
+## Error: Ongoing merge fails
 mkdir convert-merge
 cd convert-merge
 exec git init
@@ -211,7 +210,7 @@ exec git commit -m 'other'
 stderr '^✗ cannot convert: repository has unresolved conflicts'
 cd ..
 
-# Test init convert fails when unresolved conflicts are present
+## Error: Unresolved conflicts
 mkdir convert-conflicts
 cd convert-conflicts
 exec git init
@@ -233,7 +232,7 @@ exec git reset --hard HEAD
 stderr '^✗ cannot convert: repository has unresolved conflicts'
 cd ..
 
-# Test init convert with remote-only branch
+## Success: Remote-only branch
 mkdir convert-remote-branch
 cd convert-remote-branch
 exec git init
@@ -264,9 +263,7 @@ exists main/test-file.txt
 exists feature-branch
 cd ..
 
-## Rollback scenarios
-
-# Test rollback when worktree creation is blocked by existing directory
+## Rollback: Worktree blocked by existing directory
 mkdir convert-rollback-test
 cd convert-rollback-test
 exec git init

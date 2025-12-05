@@ -1,6 +1,9 @@
-## Help and basic functionality
+# grove init new validation tests
+# Tests init new argument parsing and pre-condition validation
 
-# Test init new command help
+## Help output
+
+# --help shows usage
 exec grove init new --help
 stdout 'Create a new grove workspace'
 stdout 'Usage:'
@@ -9,20 +12,20 @@ stdout '[directory]'
 
 ## Argument validation
 
-# Test init new fails with too many arguments
+# Too many arguments
 ! exec grove init new dir1 dir2
 stderr '^✗ accepts at most 1 arg'
 stderr 'received 2'
 
 ## Pre-condition validation
 
-# Test init new fails when directory is not empty
+# Directory not empty
 mkdir new-fails-not-empty
 cp existing.txt new-fails-not-empty/existing.txt
 ! exec grove init new new-fails-not-empty
 stderr '^✗ directory.*new-fails-not-empty.*not empty'
 
-# Test init new fails inside existing grove workspace
+# Inside existing grove workspace
 mkdir new-fails-inside-grove
 exec grove init new new-fails-inside-grove
 ! stderr .
@@ -31,7 +34,7 @@ cd new-fails-inside-grove
 stderr '^✗ cannot initialize grove inside existing grove workspace'
 cd ..
 
-# Test init new with directory fails when directory is inside existing grove workspace
+# Nested inside existing grove workspace
 mkdir new-fails-nested-grove
 exec grove init new new-fails-nested-grove
 ! stderr .

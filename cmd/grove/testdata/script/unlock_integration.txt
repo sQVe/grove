@@ -1,4 +1,7 @@
-# Create grove workspace via clone
+# grove unlock integration tests
+# Tests worktree unlocking with real git state
+
+# Setup: Create workspace via clone
 mkdir testrepo
 exec git init testrepo
 cd testrepo
@@ -24,20 +27,19 @@ exec grove add feature
 exec grove lock feature --reason 'Testing'
 ! stderr .
 
-## Verify locked (precondition for unlock test)
+## Verify: Locked (precondition)
 
 exec grove list --verbose
 stdout 'locked'
 ! stderr .
 
-## Unlock worktree
+## Success: Unlock worktree
 
 exec grove unlock feature
 stdout 'Unlocked worktree'
 ! stderr .
 
-## Verify unlocked
-# Use --json for reliable machine-readable check
+## Verify: Unlocked
 
 cd ../feature
 exec grove status --json
@@ -45,17 +47,17 @@ stdout '"locked": false'
 ! stderr .
 cd ../main
 
-## Error: already unlocked
+## Error: Already unlocked
 
 ! exec grove unlock feature
 stderr '^✗ worktree is not locked'
 
-## Error: worktree not found
+## Error: Worktree not found
 
 ! exec grove unlock nonexistent
 stderr '^✗ worktree not found: nonexistent'
 
-## Error: not in workspace
+## Error: Not in workspace
 
 cd /tmp
 ! exec grove unlock feature

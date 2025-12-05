@@ -1,4 +1,7 @@
-# Create grove workspace via clone
+# grove lock integration tests
+# Tests worktree locking with real git state
+
+# Setup: Create workspace via clone
 mkdir testrepo
 exec git init testrepo
 cd testrepo
@@ -23,24 +26,24 @@ exec grove add feature
 ! stderr .
 exists ../feature
 
-## Lock worktree without reason
+## Success: Lock worktree without reason
 
 exec grove lock feature
 stdout 'Locked worktree'
 ! stderr .
 
-## Error: already locked
+## Error: Already locked
 
 ! exec grove lock feature
 stderr '^✗ worktree is already locked'
 
-## List shows locked status
+## Verify: List shows locked status
 
 exec grove list --verbose --plain
 stdout '\[locked\]'
 ! stderr .
 
-## Status shows locked
+## Verify: Status shows locked
 
 cd ../feature
 exec grove status --verbose --plain
@@ -48,7 +51,7 @@ stdout '\[locked\]'
 ! stderr .
 cd ../main
 
-## Lock with reason
+## Success: Lock with reason
 
 exec grove unlock feature
 ! stderr .
@@ -56,13 +59,13 @@ exec grove lock feature --reason 'Do not delete'
 stdout 'Locked worktree'
 ! stderr .
 
-## List shows lock reason
+## Verify: List shows lock reason
 
 exec grove list --verbose --plain
 stdout 'Do not delete'
 ! stderr .
 
-## Status shows lock reason
+## Verify: Status shows lock reason
 
 cd ../feature
 exec grove status --verbose --plain
@@ -70,7 +73,7 @@ stdout 'Do not delete'
 ! stderr .
 cd ../main
 
-## Lock reason in JSON output
+## Verify: JSON output shows lock reason
 
 exec grove list --json
 # Verify feature worktree has lock status and reason
@@ -79,16 +82,101 @@ stdout '"locked": true'
 stdout '"lock_reason": "Do not delete"'
 ! stderr .
 
-## Error: worktree not found
+## Error: Worktree not found
 
 ! exec grove lock nonexistent
 stderr '^✗ worktree not found: nonexistent'
 
-## Error: not in workspace
+## Error: Not in workspace
 
 cd /tmp
 ! exec grove lock feature
 stderr '^✗ not in a grove workspace'
+cd $WORK/workspace/main
+
+## Success: Unlock output
+
+exec grove unlock feature
+stdout 'Unlocked worktree'
+! stderr .
+
+## Error: Unlock when not locked
+
+! exec grove unlock feature
+stderr '^✗ worktree is not locked'
+
+## Error: Unlock nonexistent worktree
+
+! exec grove unlock nonexistent
+stderr '^✗ worktree not found: nonexistent'
+
+## Success: Branch name with slashes
+
+exec grove add topic/slash-test
+exec grove lock topic/slash-test
+stdout 'Locked worktree'
+exists ../topic-slash-test
+exec grove unlock topic/slash-test
+stdout 'Unlocked worktree'
+exec grove remove topic-slash-test
+
+## Success: From workspace root
+
+cd $WORK/workspace
+exec grove add from-root-test
+exec grove lock from-root-test
+stdout 'Locked worktree'
+exec grove unlock from-root-test
+stdout 'Unlocked worktree'
+exec grove remove from-root-test
+cd main
+
+## Success: From worktree subdirectory
+
+exec grove add subdir-test
+mkdir ../subdir-test/deep/nested
+cd ../subdir-test/deep/nested
+exec grove lock subdir-test
+stdout 'Locked worktree'
+exec grove unlock subdir-test
+stdout 'Unlocked worktree'
+cd $WORK/workspace/main
+exec grove remove subdir-test
+
+## Integration: Remove blocked by lock
+
+exec grove add remove-lock-test
+exec grove lock remove-lock-test
+! exec grove remove remove-lock-test
+stderr 'worktree is locked'
+exec grove unlock remove-lock-test
+exec grove remove remove-lock-test
+! exists ../remove-lock-test
+
+## Integration: Remove --force auto-unlocks
+
+exec grove add remove-force-test
+exec grove lock remove-force-test
+exec grove remove --force remove-force-test
+stdout 'Deleted worktree'
+! exists ../remove-force-test
+
+## Integration: Move blocked by lock
+
+exec grove add move-lock-test
+exec grove lock move-lock-test
+! exec grove move move-lock-test move-renamed
+stderr 'worktree is locked'
+exec grove unlock move-lock-test
+exec grove remove move-lock-test
+
+## Edge case: Empty reason
+
+exec grove add empty-reason-test
+exec grove lock empty-reason-test --reason ''
+stdout 'Locked worktree'
+exec grove unlock empty-reason-test
+exec grove remove empty-reason-test
 
 -- README.md --
 # Test
