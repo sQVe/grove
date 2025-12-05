@@ -1,0 +1,140 @@
+# grove exec integration tests
+# Tests command execution across worktrees
+
+# Setup workspace with multiple worktrees
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace --branches main
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Create additional worktrees for testing
+exec grove add feature
+exec grove add bugfix
+
+## Help output
+
+exec grove exec --help
+stdout 'Run a command in one or more worktrees'
+stdout '\-\-all'
+stdout '\-\-fail-fast'
+! stderr .
+
+## Argument validation
+
+# No command → error
+! exec grove exec --all --
+stderr 'no command specified'
+
+# No target → error
+! exec grove exec -- echo hello
+stderr 'must specify --all or at least one worktree'
+
+# --all with specific worktrees → error
+! exec grove exec --all main -- echo hello
+stderr 'cannot use --all with specific worktrees'
+
+# Invalid worktree → error
+! exec grove exec nonexistent -- echo hello
+stderr 'worktree not found: nonexistent'
+
+## Basic execution
+
+# Execute in all worktrees
+exec grove exec --all -- echo "hello from worktree"
+stdout 'hello from worktree'
+! stderr .
+
+# Execute in specific worktrees
+exec grove exec main feature -- echo "specific"
+stdout 'specific'
+! stderr .
+
+## Output formatting
+
+# Headers shown for each worktree
+exec grove exec --all -- echo "test"
+# Should show branch names as headers
+stdout 'bugfix'
+stdout 'feature'
+stdout 'main'
+! stderr .
+
+## Exit codes and failure handling
+
+# Successful command → success message
+exec grove exec --all -- true
+stdout 'Executed'
+! stderr .
+
+# Failed command → continues by default, shows failure count
+! exec grove exec --all -- false
+stderr 'failed'
+
+# --fail-fast stops on first failure
+! exec grove exec --all --fail-fast -- false
+stderr 'failed'
+
+## Locked worktrees are executed (locks don't block exec)
+
+exec grove lock feature --reason 'Testing'
+exec grove exec feature -- echo "locked but executed"
+stdout 'locked but executed'
+! stderr .
+exec grove unlock feature
+
+## Command with arguments
+
+exec grove exec main -- echo "arg1" "arg2" "arg3"
+# Output includes quotes from echo
+stdout 'arg1'
+stdout 'arg2'
+stdout 'arg3'
+! stderr .
+
+## Command in worktree directory
+
+# Verify command runs in worktree directory (pwd should show worktree path)
+exec grove exec main -- pwd
+stdout 'workspace/main'
+! stderr .
+
+exec grove exec feature -- pwd
+stdout 'workspace/feature'
+! stderr .
+
+## Complex commands with shell
+
+exec grove exec main -- sh -c 'echo "shell command"'
+stdout 'shell command'
+! stderr .
+
+## Partial success/failure
+
+# Create a file in main only, then test command that succeeds only there
+exec sh -c 'echo "exists" > only-in-main.txt'
+# cat will fail in feature/bugfix (file doesn't exist) but succeed in main
+! exec grove exec --all -- cat only-in-main.txt
+# Should show partial failure
+stdout 'exists'
+rm only-in-main.txt
+
+## Workspace detection error
+
+cd /tmp
+! exec grove exec --all -- echo hello
+stderr 'not in a grove workspace'
+
+-- README.md --
+# Test

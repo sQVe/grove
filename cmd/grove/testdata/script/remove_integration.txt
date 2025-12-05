@@ -1,0 +1,389 @@
+# grove remove integration tests
+# Tests worktree removal with real git state
+
+# Setup workspace with multiple worktrees
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature-branch
+exec git checkout main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Create worktrees for testing
+exec grove add feature-branch
+exec grove add new-feature
+
+## No arguments → error
+
+! exec grove remove
+stderr 'accepts 1 arg'
+
+## Match by directory name (exact) → removes worktree
+
+exec grove add to-remove-by-dir
+exists ../to-remove-by-dir
+exec grove remove to-remove-by-dir
+stdout 'Deleted worktree'
+! exists ../to-remove-by-dir
+
+## Match by branch name (fallback) → removes worktree
+
+exec grove add feature/slash-test
+exists ../feature-slash-test
+exec grove remove feature/slash-test
+stdout 'Deleted worktree'
+! exists ../feature-slash-test
+
+## Directory name takes precedence over branch name
+
+# Create worktree 'ambiguous' on branch 'other-branch'
+exec grove add --name ambiguous other-branch
+exists ../ambiguous
+# Now there's a directory 'ambiguous' with branch 'other-branch'
+# Also a worktree 'feature-branch' exists from earlier setup
+# If we remove 'ambiguous', it should match directory name first, not search branches
+exec grove remove ambiguous
+stdout 'Deleted worktree'
+! exists ../ambiguous
+# Verify feature-branch still exists (wasn't confused by name matching)
+exists ../feature-branch
+
+## Worktree not found → error
+
+! exec grove remove nonexistent-worktree
+stderr 'worktree not found'
+
+## Detached HEAD worktree → removes normally
+
+exec git tag v1.0.0
+exec grove add --detach v1.0.0
+exists ../v1.0.0
+exec grove remove v1.0.0
+stdout 'Deleted worktree'
+! exists ../v1.0.0
+
+## CWD is subdirectory of target → error
+
+exec grove add subdir-test
+mkdir ../subdir-test/deep/nested
+cd ../subdir-test/deep/nested
+! exec grove remove subdir-test
+stderr 'cannot.*current worktree'
+cd $WORK/workspace/main
+
+## CWD is workspace root → succeeds
+
+cd $WORK/workspace
+exec grove remove subdir-test
+stdout 'Deleted worktree'
+! exists subdir-test
+cd main
+
+## Modified tracked files → error
+
+exec grove add dirty-modified
+exec sh -c 'echo "modified" >> ../dirty-modified/README.md'
+! exec grove remove dirty-modified
+stderr 'uncommitted changes'
+# Clean up
+exec git -C ../dirty-modified checkout README.md
+exec grove remove dirty-modified
+
+## Staged but uncommitted → error
+
+exec grove add dirty-staged
+exec sh -c 'echo "staged" > ../dirty-staged/newfile.txt'
+exec git -C ../dirty-staged add newfile.txt
+! exec grove remove dirty-staged
+stderr 'uncommitted changes'
+# Clean up with force
+exec grove remove --force dirty-staged
+
+## Locked worktree (with reason) → error
+
+exec grove add locked-with-reason
+exec git -C $WORK/workspace/.bare worktree lock ../locked-with-reason --reason 'Do not delete - important work'
+! exec grove remove locked-with-reason
+stderr 'worktree is locked'
+# Note: Lock reason is stored but not currently shown in error message
+# Clean up
+exec grove remove --force locked-with-reason
+
+## Dirty AND locked → dirty error shown first
+
+exec grove add dirty-and-locked
+exec sh -c 'echo "dirty" > ../dirty-and-locked/untracked.txt'
+exec git -C $WORK/workspace/.bare worktree lock ../dirty-and-locked
+! exec grove remove dirty-and-locked
+stderr 'uncommitted changes'
+! stderr 'locked'
+# Clean up
+exec grove remove --force dirty-and-locked
+
+## --force with dirty AND locked → succeeds
+
+exec grove add force-both
+exec sh -c 'echo "dirty" > ../force-both/untracked.txt'
+exec git -C $WORK/workspace/.bare worktree lock ../force-both
+exec grove remove --force force-both
+stdout 'Deleted worktree'
+! exists ../force-both
+
+## -f shorthand works
+
+exec grove add shorthand-test
+exec sh -c 'echo "dirty" > ../shorthand-test/untracked.txt'
+exec grove remove -f shorthand-test
+stdout 'Deleted worktree'
+! exists ../shorthand-test
+
+## --branch with unmerged commits (without force) → worktree removed, branch fails
+
+exec grove add branch-unmerged
+cd ../branch-unmerged
+exec sh -c 'echo "new content" > newfile.txt'
+exec git add newfile.txt
+exec git commit -m 'unmerged commit'
+cd ../main
+# Branch has commits not merged to main, so git branch -d fails
+! exec grove remove --branch branch-unmerged
+stderr 'not fully merged'
+# Worktree was removed, but branch deletion failed
+! exists ../branch-unmerged
+# Branch still exists because deletion failed
+exec git branch --list branch-unmerged
+stdout 'branch-unmerged'
+# Clean up the dangling branch
+exec git branch -D branch-unmerged
+
+## --branch with merged commits → both deleted
+
+exec grove add branch-merged
+# No new commits - branch is at same point as main, so it's "merged"
+exec grove remove --branch branch-merged
+stdout 'Deleted worktree and branch'
+! exists ../branch-merged
+
+## --force --branch unmerged → both deleted (uses git branch -D)
+
+exec grove add unmerged-force
+cd ../unmerged-force
+exec sh -c 'echo "unmerged work" > work.txt'
+exec git add work.txt
+exec git commit -m 'unmerged commit'
+cd ../main
+exec grove remove --force --branch unmerged-force
+stdout 'Deleted worktree and branch'
+! exists ../unmerged-force
+# Verify branch is actually deleted
+exec git branch --list unmerged-force
+! stdout 'unmerged-force'
+
+## Output without --branch → "Deleted worktree <name>"
+
+exec grove add output-test
+exec grove remove output-test
+stdout 'Deleted worktree.*output-test'
+! stdout 'branch'
+
+## Output with --branch → "Deleted worktree and branch <name>"
+
+exec grove add output-branch-test
+exec grove remove --branch output-branch-test
+stdout 'Deleted worktree and branch.*output-branch-test'
+
+## Phantom worktree (dir manually deleted) → shows warning, not found error
+
+exec grove add phantom-test
+rm -r ../phantom-test
+# Grove skips corrupted worktrees and then can't find it
+! exec grove remove phantom-test
+stdout 'may be corrupted'
+stderr 'worktree not found'
+# Clean up phantom via git prune
+exec git -C $WORK/workspace/.bare worktree prune
+
+## Multiple worktrees with similar names → exact match only
+
+exec grove add task
+exec grove add task-extra
+exec grove add task-more
+# Remove 'task' should only remove 'task', not 'task-extra' or 'task-more'
+exec grove remove task
+! exists ../task
+exists ../task-extra
+exists ../task-more
+# Clean up
+exec grove remove task-extra
+exec grove remove task-more
+
+## Remove then recreate → succeeds
+
+exec grove add recreate-test
+exec grove remove recreate-test
+! exists ../recreate-test
+exec grove add recreate-test
+exists ../recreate-test
+exec grove remove recreate-test
+
+## Ongoing merge in source worktree - removal should detect dirty state
+
+exec grove add merge-test
+cd ../merge-test
+exec git checkout -b merge-source
+exec sh -c 'echo "source" > conflict.txt'
+exec git add conflict.txt
+exec git commit -m 'source commit'
+exec git checkout -b merge-target main
+exec sh -c 'echo "target" > conflict.txt'
+exec git add conflict.txt
+exec git commit -m 'target commit'
+! exec git merge merge-source
+exec git status
+stdout 'Unmerged'
+cd ../main
+! exec grove remove merge-test
+stderr 'uncommitted changes'
+# Clean up
+exec git -C ../merge-test merge --abort
+exec grove remove --force merge-test
+
+## Shell completion: no suggestions for second argument
+
+exec grove add completion-test
+# First argument gets completions
+exec grove __complete remove ''
+stdout 'completion-test'
+# After first argument, no suggestions
+exec grove __complete remove completion-test ''
+! stdout 'completion-test'
+! stdout 'main'
+exec grove remove completion-test
+
+## Worktree path with spaces → handled correctly
+
+exec grove add --name 'my worktree' spaces-branch
+exists '../my worktree'
+exec grove remove 'my worktree'
+stdout 'Deleted worktree'
+! exists '../my worktree'
+
+## Worktree created outside grove → still removable
+
+# Create worktree using git directly (bypass grove) with -b to create branch
+exec git -C $WORK/workspace/.bare worktree add -b outside-grove-branch ../outside-grove HEAD
+exists ../outside-grove
+# Grove should still be able to remove it
+exec grove remove outside-grove
+stdout 'Deleted worktree'
+! exists ../outside-grove
+
+## --branch with unpushed commits → warns about unpushed, branch delete fails without force
+
+# Set up a "remote" to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+# Create and push a branch
+exec grove add unpushed-test
+cd ../unpushed-test
+exec git push -u upstream unpushed-test
+# Add local commits that aren't pushed
+exec sh -c 'echo "local only" > local-change.txt'
+exec git add local-change.txt
+exec git commit -m 'unpushed local commit'
+cd ../main
+# Remove with --branch warns about unpushed but fails branch delete (not merged to main)
+! exec grove remove --branch unpushed-test
+stdout 'unpushed'
+stderr 'not fully merged'
+# Worktree was removed
+! exists ../unpushed-test
+# Branch still exists
+exec git branch --list unpushed-test
+stdout 'unpushed-test'
+# With --force, both are deleted
+exec grove add unpushed-test
+cd ../unpushed-test
+exec sh -c 'echo "more local" > another.txt'
+exec git add another.txt
+exec git commit -m 'another unpushed'
+cd ../main
+exec grove remove --force --branch unpushed-test
+stdout 'unpushed'
+stdout 'Deleted worktree and branch'
+! exists ../unpushed-test
+
+## --branch with upstream gone → no warning, deletes
+
+# Create and push a branch
+exec grove add upstream-gone-test
+cd ../upstream-gone-test
+exec git push -u upstream upstream-gone-test
+cd ../main
+# Delete the branch on the remote
+exec git -C $WORK/remote-repo branch -D upstream-gone-test
+# Fetch to update remote tracking (will mark as gone)
+exec git fetch upstream --prune
+# Remove should work without error (upstream is gone)
+exec grove remove --branch upstream-gone-test
+stdout 'Deleted worktree and branch'
+! exists ../upstream-gone-test
+
+## Submodule handling → git blocks removal (git limitation)
+
+# Create a submodule repo
+cd $WORK
+mkdir submod-repo
+exec git init submod-repo
+cd submod-repo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec sh -c 'echo "submodule content" > submod-file.txt'
+exec git add submod-file.txt
+exec git commit -m 'submodule initial'
+# Add submodule to main worktree (need to allow file protocol)
+cd $WORK/workspace/main
+exec git config --global protocol.file.allow always
+exec git submodule add file://$WORK/submod-repo sub
+exec git commit -m 'add submodule'
+# Create worktree that will have the submodule
+exec grove add submod-worktree
+# Initialize submodule in new worktree
+exec git -C ../submod-worktree submodule update --init
+exists ../submod-worktree/sub/submod-file.txt
+# Git blocks removal of worktrees with submodules (this is a git limitation)
+! exec grove remove submod-worktree
+stderr 'submodules cannot be moved or removed'
+exists ../submod-worktree
+# Note: Workaround is to manually delete with rm -rf and then git worktree prune
+# Grove cannot work around this git limitation
+rm -r ../submod-worktree
+exec git -C $WORK/workspace/.bare worktree prune
+# Clean up global config
+exec git config --global --unset protocol.file.allow
+
+## Empty/whitespace argument → error
+
+! exec grove remove ''
+stderr 'worktree not found'
+
+! exec grove remove '   '
+stderr 'worktree not found'
+
+-- README.md --
+# Test

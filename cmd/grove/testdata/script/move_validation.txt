@@ -1,0 +1,43 @@
+# grove move validation tests
+# Tests argument parsing and workspace detection
+
+## Help and basic functionality
+
+# Test move command help
+exec grove move --help
+stdout 'Rename a branch and its worktree directory'
+stdout 'Usage:'
+stdout '<worktree>'
+stdout '<new-branch>'
+! stderr .
+
+## Argument validation
+
+# No arguments → error
+! exec grove move
+stderr 'accepts 2 arg'
+
+# One argument → error
+! exec grove move single-arg
+stderr 'accepts 2 arg'
+
+# Three+ arguments → error
+! exec grove move one two three
+stderr 'accepts 2 arg'
+
+## Workspace validation
+
+# Not in workspace → error
+mkdir not-a-workspace
+cd not-a-workspace
+! exec grove move old new
+stderr 'not in a grove workspace'
+cd ..
+
+# Regular git repo → error
+mkdir git-repo
+cd git-repo
+exec git init
+! exec grove move old new
+stderr 'not in a grove workspace'
+cd ..

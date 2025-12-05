@@ -1,0 +1,62 @@
+# grove lock/unlock validation tests
+# Tests argument parsing and help output
+
+## Lock help
+
+exec grove lock --help
+stdout 'Lock a worktree'
+stdout '<worktree>'
+stdout '--reason'
+! stderr .
+
+## Unlock help
+
+exec grove unlock --help
+stdout 'Unlock a worktree'
+stdout '<worktree>'
+! stderr .
+
+## Lock argument validation
+
+# No arguments → error
+! exec grove lock
+stderr 'accepts 1 arg'
+
+# Two+ arguments → error
+! exec grove lock one two
+stderr 'accepts 1 arg'
+
+## Unlock argument validation
+
+# No arguments → error
+! exec grove unlock
+stderr 'accepts 1 arg'
+
+# Two+ arguments → error
+! exec grove unlock one two
+stderr 'accepts 1 arg'
+
+## Workspace validation
+
+# Lock not in workspace
+mkdir not-a-workspace
+cd not-a-workspace
+! exec grove lock feature
+stderr 'not in a grove workspace'
+
+# Unlock not in workspace
+! exec grove unlock feature
+stderr 'not in a grove workspace'
+cd ..
+
+# Lock in regular git repo
+mkdir git-repo
+cd git-repo
+exec git init
+! exec grove lock feature
+stderr 'not in a grove workspace'
+
+# Unlock in regular git repo
+! exec grove unlock feature
+stderr 'not in a grove workspace'
+cd ..
