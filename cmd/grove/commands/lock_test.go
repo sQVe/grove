@@ -23,8 +23,12 @@ func TestNewLockCmd(t *testing.T) {
 	if cmd.Short == "" {
 		t.Error("expected Short description")
 	}
-	if cmd.Flags().Lookup("reason") == nil {
-		t.Error("expected --reason flag")
+	reasonFlag := cmd.Flags().Lookup("reason")
+	if reasonFlag == nil {
+		t.Fatal("expected --reason flag")
+	}
+	if reasonFlag.Shorthand != "" {
+		t.Errorf("expected reason to have no shorthand (git convention), got %q", reasonFlag.Shorthand)
 	}
 }
 

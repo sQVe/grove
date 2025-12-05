@@ -42,7 +42,7 @@ Examples:
 
 	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status checks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
-	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show paths and upstream names")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status: dirty,ahead,behind,gone,locked (comma-separated)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 

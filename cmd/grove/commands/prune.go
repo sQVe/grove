@@ -75,7 +75,7 @@ Examples:
 	}
 
 	cmd.Flags().BoolVar(&commit, "commit", false, "Remove worktrees (dry-run without this flag)")
-	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty, locked, or unpushed")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty, locked, or unpushed")
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
 	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")

@@ -46,7 +46,7 @@ Examples:
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the worktree after creating it")
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
-	cmd.Flags().BoolVar(&detach, "detach", false, "Create worktree in detached HEAD state")
+	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)

@@ -58,7 +58,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show all diagnostic sections")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show all diagnostic sections")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for status")
 

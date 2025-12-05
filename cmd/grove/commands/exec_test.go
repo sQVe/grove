@@ -22,8 +22,12 @@ func TestNewExecCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	if cmd.Flags().Lookup("all") == nil {
-		t.Error("expected --all flag")
+	allFlag := cmd.Flags().Lookup("all")
+	if allFlag == nil {
+		t.Fatal("expected --all flag")
+	}
+	if allFlag.Shorthand != "a" {
+		t.Errorf("expected all shorthand 'a', got %q", allFlag.Shorthand)
 	}
 	if cmd.Flags().Lookup("fail-fast") == nil {
 		t.Error("expected --fail-fast flag")

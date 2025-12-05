@@ -50,7 +50,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&all, "all", false, "Execute in all worktrees")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "Execute in all worktrees")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "Stop on first failure")
 	cmd.Flags().BoolP("help", "h", false, "Help for exec")
 

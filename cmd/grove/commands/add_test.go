@@ -28,7 +28,7 @@ func TestNewAddCmd(t *testing.T) {
 	}{
 		{"switch", "s"},
 		{"base", ""},
-		{"detach", ""},
+		{"detach", "d"},
 		{"name", ""},
 	}
 
@@ -79,6 +79,9 @@ func TestNewAddCmd_HasDetachFlag(t *testing.T) {
 	flag := cmd.Flags().Lookup("detach")
 	if flag == nil {
 		t.Fatal("expected --detach flag to exist")
+	}
+	if flag.Shorthand != "d" {
+		t.Errorf("expected shorthand 'd', got %q", flag.Shorthand)
 	}
 	if flag.DefValue != "false" {
 		t.Errorf("expected default value 'false', got %q", flag.DefValue)

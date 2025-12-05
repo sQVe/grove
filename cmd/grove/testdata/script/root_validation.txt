@@ -33,3 +33,7 @@ stderr '^✗ unknown flag: --invalid'
 exec grove --debug --help
 stdout 'Available Commands'
 ! stderr .
+
+# Test --debug has no shorthand (matches git worktree convention)
+! exec grove -d --help
+stderr 'unknown shorthand flag'

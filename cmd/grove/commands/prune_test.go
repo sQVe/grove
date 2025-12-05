@@ -21,8 +21,12 @@ func TestNewPruneCmd(t *testing.T) {
 	if cmd.Flags().Lookup("commit") == nil {
 		t.Error("expected --commit flag")
 	}
-	if cmd.Flags().Lookup("force") == nil {
-		t.Error("expected --force flag")
+	forceFlag := cmd.Flags().Lookup("force")
+	if forceFlag == nil {
+		t.Fatal("expected --force flag")
+	}
+	if forceFlag.Shorthand != "f" {
+		t.Errorf("expected force shorthand 'f', got %q", forceFlag.Shorthand)
 	}
 	if cmd.Flags().Lookup("stale") == nil {
 		t.Error("expected --stale flag")
