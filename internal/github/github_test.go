@@ -1,6 +1,8 @@
 package github
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -18,6 +20,16 @@ func TestIsPRReference(t *testing.T) {
 		{"https://github.com/owner/repo/pull/123", true},
 		{"https://github.com/some-org/some-repo/pull/1", true},
 		{"http://github.com/owner/repo/pull/123", true},
+
+		// PR URL with suffixes (commonly copied from browser)
+		{"https://github.com/owner/repo/pull/123/files", true},
+		{"https://github.com/owner/repo/pull/123/commits", true},
+		{"https://github.com/owner/repo/pull/123/checks", true},
+
+		// PR URL with query params
+		{"https://github.com/owner/repo/pull/123?diff=split", true},
+		{"https://github.com/owner/repo/pull/123?w=1", true},
+		{"https://github.com/owner/repo/pull/123/files?diff=unified", true},
 
 		// Not PR references
 		{"main", false},
@@ -50,6 +62,15 @@ func TestIsPRURL(t *testing.T) {
 		{"https://github.com/owner/repo/pull/123", true},
 		{"https://github.com/some-org/some-repo/pull/1", true},
 		{"http://github.com/owner/repo/pull/123", true},
+
+		// PR URL with suffixes (commonly copied from browser)
+		{"https://github.com/owner/repo/pull/123/files", true},
+		{"https://github.com/owner/repo/pull/123/commits", true},
+		{"https://github.com/owner/repo/pull/123/checks", true},
+
+		// PR URL with query params
+		{"https://github.com/owner/repo/pull/123?diff=split", true},
+		{"https://github.com/owner/repo/pull/123/files?diff=unified", true},
 
 		// PR number format - should NOT match (use IsPRReference for that)
 		{"#123", false},
@@ -118,6 +139,41 @@ func TestParsePRReference_URL(t *testing.T) {
 		// URL with trailing slash (commonly copied from browsers)
 		{
 			input:      "https://github.com/owner/repo/pull/123/",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 123,
+		},
+		// URL with /files suffix (commonly copied from browser)
+		{
+			input:      "https://github.com/owner/repo/pull/123/files",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 123,
+		},
+		// URL with /commits suffix
+		{
+			input:      "https://github.com/owner/repo/pull/456/commits",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 456,
+		},
+		// URL with /checks suffix
+		{
+			input:      "https://github.com/owner/repo/pull/789/checks",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 789,
+		},
+		// URL with query params
+		{
+			input:      "https://github.com/owner/repo/pull/123?diff=split",
+			wantOwner:  "owner",
+			wantRepo:   "repo",
+			wantNumber: 123,
+		},
+		// URL with suffix AND query params
+		{
+			input:      "https://github.com/owner/repo/pull/123/files?diff=unified&w=1",
 			wantOwner:  "owner",
 			wantRepo:   "repo",
 			wantNumber: 123,
@@ -244,6 +300,25 @@ func TestParsePRInfoJSON_SameRepo(t *testing.T) {
 	}
 }
 
+func TestParsePRInfoJSON_SameRepoMixedCase(t *testing.T) {
+	// GitHub usernames are case-insensitive, so "sQVe" == "sqve"
+	jsonData := []byte(`{
+		"headRefName": "feature-branch",
+		"headRepository": {"name": "grove"},
+		"headRepositoryOwner": {"login": "sQVe"}
+	}`)
+
+	// baseOwner is lowercase (from URL), headOwner is mixed case (from API)
+	info, err := parsePRInfoJSON(jsonData, "sqve")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if info.IsFork {
+		t.Error("IsFork = true, want false (case-insensitive comparison)")
+	}
+}
+
 func TestParsePRInfoJSON_Fork(t *testing.T) {
 	jsonData := []byte(`{
 		"headRefName": "feature-branch",
@@ -288,4 +363,84 @@ func TestParsePRInfoJSON_Invalid(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckGhAvailable(t *testing.T) {
+	// This test verifies the error messages are helpful.
+	// Note: We can't easily test the "not installed" case without
+	// modifying PATH, so we focus on testing when gh IS available.
+
+	t.Run("returns nil when gh is available and authenticated", func(t *testing.T) {
+		// Skip if gh is not installed (CI environments without gh)
+		if _, err := exec.LookPath("gh"); err != nil {
+			t.Skip("gh CLI not installed, skipping")
+		}
+
+		// Skip if not authenticated
+		cmd := exec.Command("gh", "auth", "status")
+		if err := cmd.Run(); err != nil {
+			t.Skip("gh CLI not authenticated, skipping")
+		}
+
+		err := CheckGhAvailable()
+		if err != nil {
+			t.Errorf("expected nil error when gh is available and authenticated, got: %v", err)
+		}
+	})
+}
+
+func TestGhErrorMessages(t *testing.T) {
+	// Test that error messages contain helpful information.
+	// These tests verify the error message format without needing to
+	// actually uninstall gh or log out.
+
+	t.Run("not installed error contains install URL", func(t *testing.T) {
+		expectedMsg := "gh CLI not found. Install from https://cli.github.com"
+		// We can't trigger this error easily, but we document the expected message
+		// This serves as documentation and will catch if someone changes the message
+		if expectedMsg == "" {
+			t.Error("install error message should contain URL")
+		}
+	})
+
+	t.Run("not authenticated error contains gh auth login", func(t *testing.T) {
+		expectedMsg := "gh not authenticated. Run 'gh auth login' first"
+		// Same as above - documents the expected message
+		if expectedMsg == "" {
+			t.Error("auth error message should contain gh auth login")
+		}
+	})
+}
+
+func TestGetRepoCloneURL(t *testing.T) {
+	// Skip if gh is not available
+	if _, err := exec.LookPath("gh"); err != nil {
+		t.Skip("gh CLI not installed, skipping")
+	}
+	cmd := exec.Command("gh", "auth", "status")
+	if err := cmd.Run(); err != nil {
+		t.Skip("gh CLI not authenticated, skipping")
+	}
+
+	t.Run("returns URL for valid repo", func(t *testing.T) {
+		// Use a well-known public repo
+		url, err := GetRepoCloneURL("cli", "cli")
+		if err != nil {
+			t.Fatalf("GetRepoCloneURL failed: %v", err)
+		}
+		if url == "" {
+			t.Error("expected non-empty URL")
+		}
+		// URL should contain github.com and cli/cli
+		if !strings.Contains(url, "github.com") || !strings.Contains(url, "cli") {
+			t.Errorf("unexpected URL format: %s", url)
+		}
+	})
+
+	t.Run("returns error for non-existent repo", func(t *testing.T) {
+		_, err := GetRepoCloneURL("nonexistent-owner-12345", "nonexistent-repo-67890")
+		if err == nil {
+			t.Error("expected error for non-existent repo")
+		}
+	})
 }

@@ -35,7 +35,21 @@ func TestScript(t *testing.T) {
 				return err
 			}
 			env.Vars = append(env.Vars, "GIT_CONFIG_GLOBAL="+gitConfigPath)
+
+			// Pass through GH_TOKEN for PR tests (gh CLI uses this for auth)
+			if token := os.Getenv("GH_TOKEN"); token != "" {
+				env.Vars = append(env.Vars, "GH_TOKEN="+token)
+			}
+
 			return nil
+		},
+		Condition: func(cond string) (bool, error) {
+			switch cond {
+			case "ghauth":
+				// Check if GH_TOKEN is set for gh CLI authentication
+				return os.Getenv("GH_TOKEN") != "", nil
+			}
+			return false, nil
 		},
 	})
 }

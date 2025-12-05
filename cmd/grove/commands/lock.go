@@ -34,7 +34,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVarP(&reason, "reason", "r", "", "Reason for locking")
+	cmd.Flags().StringVar(&reason, "reason", "", "Reason for locking")
 	cmd.Flags().BoolP("help", "h", false, "Help for lock")
 
 	return cmd

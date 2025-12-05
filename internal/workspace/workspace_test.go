@@ -73,6 +73,7 @@ func TestSanitizeBranchName(t *testing.T) {
 		branch   string
 		expected string
 	}{
+		// Standard slash replacement
 		{"feature/add-button", "feature-add-button"},
 		{"feat/user-auth", "feat-user-auth"},
 		{"bug/fix-123", "bug-fix-123"},
@@ -82,8 +83,22 @@ func TestSanitizeBranchName(t *testing.T) {
 		{"multiple//slashes///here", "multiple--slashes---here"},
 		{"trailing/slash/", "trailing-slash-"},
 		{"/leading/slash", "-leading-slash"},
+
+		// Special characters (<>|"?*:)
 		{"branch<name>with|chars", "branch-name-with-chars"},
 		{`branch"with"quotes`, "branch-with-quotes"},
+		{"branch?with?questions", "branch-with-questions"},
+		{"branch*with*wildcards", "branch-with-wildcards"},
+		{"branch:with:colons", "branch-with-colons"},
+		{"all<>|\"?*:special", "all-------special"},
+
+		// Backslash (Windows path separator)
+		{`feature\auth`, "feature-auth"},
+		{`path\to\branch`, "path-to-branch"},
+
+		// Combined edge cases
+		{"feature/auth<v2>", "feature-auth-v2-"},
+		{`release\v1.0.0:final`, "release-v1.0.0-final"},
 	}
 
 	for _, tt := range tests {

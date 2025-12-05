@@ -16,8 +16,12 @@ func TestNewCloneCmd(t *testing.T) {
 	if cmd.Flags().Lookup("branches") == nil {
 		t.Error("expected --branches flag")
 	}
-	if cmd.Flags().Lookup("verbose") == nil {
-		t.Error("expected --verbose flag")
+	verboseFlag := cmd.Flags().Lookup("verbose")
+	if verboseFlag == nil {
+		t.Fatal("expected --verbose flag")
+	}
+	if verboseFlag.Shorthand != "v" {
+		t.Errorf("expected verbose shorthand 'v', got %q", verboseFlag.Shorthand)
 	}
 	if cmd.Flags().Lookup("shallow") == nil {
 		t.Error("expected --shallow flag")

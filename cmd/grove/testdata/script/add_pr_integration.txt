@@ -1,0 +1,81 @@
+# PR operations integration tests
+# These tests require:
+# - gh CLI installed and authenticated
+# - Network access to GitHub
+# - Uses PR #7 (integration-test-pr-branch) from sqve/grove repo
+#
+# To run: GH_TOKEN=<your-token> mage test:integration
+# This test is skipped if GH_TOKEN is not set.
+
+# Skip if gh is not available
+[!exec:gh] skip
+
+# Skip if GH_TOKEN not set (custom condition defined in script_test.go)
+[!ghauth] skip
+
+# Create workspace by cloning from GitHub
+mkdir workspace
+exec grove clone https://github.com/sqve/grove workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+
+## PR number creates worktree (using test PR #7)
+# Note: PR worktrees are named pr-<number> to avoid conflicts with branch worktrees
+
+exec grove add '#7'
+stdout 'Created worktree for PR #7'
+stdout 'pr-7'
+exists ../pr-7
+# Verify worktree is on correct branch
+exec git -C ../pr-7 rev-parse --abbrev-ref HEAD
+stdout '^integration-test-pr-branch$'
+
+## PR URL creates worktree (using same test PR)
+
+exec grove remove pr-7
+exec grove add 'https://github.com/sqve/grove/pull/7/files'
+stdout 'Created worktree for PR #7'
+exists ../pr-7
+
+## PR doesn't exist → error
+
+! exec grove add '#99999'
+stderr 'not found'
+
+## PR branch already has worktree → error
+
+! exec grove add '#7'
+stderr 'worktree already exists'
+
+## PR with --switch outputs only path
+
+exec grove remove pr-7
+exec grove add --switch '#7'
+stdout '^.*/pr-7$'
+! stdout 'Created worktree'
+exists ../pr-7
+
+## PR number without GitHub origin → error
+
+# Create a workspace with non-GitHub origin
+cd $WORK
+mkdir local-repo
+exec git init local-repo
+cd local-repo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec sh -c 'echo "test" > README.md'
+exec git add .
+exec git commit -m 'initial'
+cd $WORK
+mkdir no-gh-workspace
+exec grove clone file://$WORK/local-repo no-gh-workspace
+cd no-gh-workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+# PR number requires GitHub origin
+! exec grove add '#123'
+stderr 'requires workspace context'
+

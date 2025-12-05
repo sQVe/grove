@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
@@ -28,7 +29,7 @@ func TestNewAddCmd(t *testing.T) {
 	}{
 		{"switch", "s"},
 		{"base", ""},
-		{"detach", ""},
+		{"detach", "d"},
 		{"name", ""},
 	}
 
@@ -79,6 +80,9 @@ func TestNewAddCmd_HasDetachFlag(t *testing.T) {
 	flag := cmd.Flags().Lookup("detach")
 	if flag == nil {
 		t.Fatal("expected --detach flag to exist")
+	}
+	if flag.Shorthand != "d" {
+		t.Errorf("expected shorthand 'd', got %q", flag.Shorthand)
 	}
 	if flag.DefValue != "false" {
 		t.Errorf("expected default value 'false', got %q", flag.DefValue)
@@ -134,28 +138,28 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 	t.Run("base flag cannot be used with PR number", func(t *testing.T) {
 		err := runAdd("#123", false, "main", "", false)
-		if err == nil || err.Error() != "--base cannot be used with PR references" {
+		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR number", func(t *testing.T) {
 		err := runAdd("#123", false, "", "", true)
-		if err == nil || err.Error() != "--detach cannot be used with PR references" {
+		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
 		err := runAdd("https://github.com/owner/repo/pull/456", false, "main", "", false)
-		if err == nil || err.Error() != "--base cannot be used with PR references" {
+		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
 		err := runAdd("https://github.com/owner/repo/pull/456", false, "", "", true)
-		if err == nil || err.Error() != "--detach cannot be used with PR references" {
+		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
@@ -166,6 +170,55 @@ func TestRunAdd_DetachBaseValidation(t *testing.T) {
 		err := runAdd("v1.0.0", false, "main", "", true)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
+		}
+	})
+}
+
+func TestRunAdd_InputValidation(t *testing.T) {
+	// Save and restore cwd - we need to be outside a workspace
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("whitespace-only branch name", func(t *testing.T) {
+		// Whitespace is trimmed, resulting in empty string
+		// This should eventually fail (either validation or workspace detection)
+		err := runAdd("   ", false, "", "", false)
+		if err == nil {
+			t.Error("expected error for whitespace-only branch name")
+		}
+	})
+
+	t.Run("leading and trailing whitespace is trimmed", func(t *testing.T) {
+		// The trimming happens, then workspace detection runs
+		// We're not in a workspace, so we'll get that error
+		// But this verifies the trim doesn't crash
+		err := runAdd("  feature-test  ", false, "", "", false)
+		if !errors.Is(err, workspace.ErrNotInWorkspace) {
+			t.Errorf("expected ErrNotInWorkspace after trimming, got %v", err)
+		}
+	})
+
+	t.Run("PR URL with /files suffix works", func(t *testing.T) {
+		// PR URLs with /files suffix should be detected as PR references
+		// Flag validation happens before workspace detection
+		err := runAdd("https://github.com/owner/repo/pull/123/files", false, "main", "", false)
+		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
+			t.Errorf("expected base/PR error for URL with /files suffix, got %v", err)
+		}
+	})
+
+	t.Run("PR URL with query params works", func(t *testing.T) {
+		err := runAdd("https://github.com/owner/repo/pull/123?diff=split", false, "", "", true)
+		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
+			t.Errorf("expected detach/PR error for URL with query params, got %v", err)
 		}
 	})
 }

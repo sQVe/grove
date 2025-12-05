@@ -23,8 +23,12 @@ func TestNewRemoveCmd(t *testing.T) {
 	if cmd.Short == "" {
 		t.Error("expected Short description")
 	}
-	if cmd.Flags().Lookup("force") == nil {
-		t.Error("expected --force flag")
+	forceFlag := cmd.Flags().Lookup("force")
+	if forceFlag == nil {
+		t.Fatal("expected --force flag")
+	}
+	if forceFlag.Shorthand != "f" {
+		t.Errorf("expected force shorthand 'f', got %q", forceFlag.Shorthand)
 	}
 	if cmd.Flags().Lookup("branch") == nil {
 		t.Error("expected --branch flag")

@@ -17,8 +17,12 @@ func TestNewStatusCmd(t *testing.T) {
 	}
 
 	// Check flags exist
-	if cmd.Flags().Lookup("verbose") == nil {
-		t.Error("expected --verbose flag")
+	verboseFlag := cmd.Flags().Lookup("verbose")
+	if verboseFlag == nil {
+		t.Fatal("expected --verbose flag")
+	}
+	if verboseFlag.Shorthand != "v" {
+		t.Errorf("expected verbose shorthand 'v', got %q", verboseFlag.Shorthand)
 	}
 	if cmd.Flags().Lookup("json") == nil {
 		t.Error("expected --json flag")

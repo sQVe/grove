@@ -35,7 +35,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Remove even if dirty or locked")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty or locked")
 	cmd.Flags().BoolVar(&deleteBranch, "branch", false, "Also delete the branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for remove")
 

@@ -20,7 +20,8 @@ type PRRef struct {
 
 var (
 	prNumberRegex = regexp.MustCompile(`^#(\d+)$`)
-	prURLRegex    = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)/?$`)
+	// Matches PR URLs with optional suffixes (/files, /commits, etc) and query params
+	prURLRegex = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/[^?]*)?(?:\?.*)?$`)
 )
 
 // IsPRReference returns true if the input looks like a PR reference (#N or URL).
@@ -135,8 +136,9 @@ func parsePRInfoJSON(data []byte, baseOwner string) (*PRInfo, error) {
 		HeadRepo:  resp.HeadRepository.Name,
 	}
 
-	// Determine if this is a fork PR by comparing head owner to base owner
-	info.IsFork = info.HeadOwner != baseOwner
+	// Determine if this is a fork PR by comparing head owner to base owner.
+	// GitHub usernames are case-insensitive, so use case-insensitive comparison.
+	info.IsFork = !strings.EqualFold(info.HeadOwner, baseOwner)
 
 	return info, nil
 }

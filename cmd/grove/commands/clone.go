@@ -82,7 +82,7 @@ Examples:
 		},
 	}
 	cloneCmd.Flags().StringVar(&branches, "branches", "", "Comma-separated list of branches to create worktrees for")
-	cloneCmd.Flags().BoolVar(&verbose, "verbose", false, "Show git output")
+	cloneCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show git output")
 	cloneCmd.Flags().BoolVar(&shallow, "shallow", false, "Create a shallow clone (depth=1)")
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 

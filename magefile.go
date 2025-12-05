@@ -33,7 +33,17 @@ func (Test) Unit() error {
 
 func (Test) Integration() error {
 	fmt.Println("Running integration tests...")
-	return sh.RunV("gotestsum", "--", "-tags=integration", "-timeout=300s", "./cmd/grove/...")
+
+	// Auto-detect GH_TOKEN from gh CLI if not already set
+	env := map[string]string{}
+	if os.Getenv("GH_TOKEN") == "" {
+		if token, err := sh.Output("gh", "auth", "token"); err == nil && token != "" {
+			env["GH_TOKEN"] = token
+			fmt.Println("→ Using gh CLI authentication for PR tests")
+		}
+	}
+
+	return sh.RunWithV(env, "gotestsum", "--", "-tags=integration", "-timeout=300s", "./cmd/grove/...")
 }
 
 // Coverage runs unit tests with coverage reporting and optional CI validation.

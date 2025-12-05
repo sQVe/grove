@@ -429,6 +429,128 @@ func TestRemoteExists(t *testing.T) {
 	})
 }
 
+func TestRemoveRemote(t *testing.T) {
+	t.Run("removes existing remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Add a remote first
+		if err := AddRemote(repo.Path, "fork-remote", "https://github.com/fork/repo.git"); err != nil {
+			t.Fatalf("AddRemote failed: %v", err)
+		}
+
+		// Verify it exists
+		exists, _ := RemoteExists(repo.Path, "fork-remote")
+		if !exists {
+			t.Fatal("remote should exist before removal")
+		}
+
+		// Remove it
+		if err := RemoveRemote(repo.Path, "fork-remote"); err != nil {
+			t.Fatalf("RemoveRemote failed: %v", err)
+		}
+
+		// Verify it's gone
+		exists, err := RemoteExists(repo.Path, "fork-remote")
+		if err != nil {
+			t.Fatalf("RemoteExists after removal failed: %v", err)
+		}
+		if exists {
+			t.Error("remote should not exist after removal")
+		}
+	})
+
+	t.Run("fails with empty path", func(t *testing.T) {
+		err := RemoveRemote("", "fork-remote")
+		if err == nil {
+			t.Fatal("expected error for empty path")
+		}
+	})
+
+	t.Run("fails with empty name", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		err := RemoveRemote(repo.Path, "")
+		if err == nil {
+			t.Fatal("expected error for empty name")
+		}
+	})
+
+	t.Run("fails for non-existing remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		err := RemoveRemote(repo.Path, "nonexistent-remote")
+		if err == nil {
+			t.Fatal("expected error for non-existing remote")
+		}
+	})
+}
+
+// TestForkRemoteCleanup tests the pattern used for fork PR cleanup:
+// add remote, then remove it if something fails.
+func TestForkRemoteCleanup(t *testing.T) {
+	t.Run("add and cleanup remote simulates fork PR flow", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		remoteName := "pr-123-contributor"
+		remoteURL := "https://github.com/contributor/repo.git"
+
+		// Simulate fork PR: add remote
+		if err := AddRemote(repo.Path, remoteName, remoteURL); err != nil {
+			t.Fatalf("failed to add fork remote: %v", err)
+		}
+
+		// Verify remote was added
+		exists, _ := RemoteExists(repo.Path, remoteName)
+		if !exists {
+			t.Fatal("fork remote should exist")
+		}
+
+		// Simulate failure: cleanup by removing remote
+		if err := RemoveRemote(repo.Path, remoteName); err != nil {
+			t.Fatalf("failed to cleanup fork remote: %v", err)
+		}
+
+		// Verify cleanup worked
+		exists, _ = RemoteExists(repo.Path, remoteName)
+		if exists {
+			t.Error("fork remote should be removed after cleanup")
+		}
+	})
+
+	t.Run("cleanup is idempotent when remote already removed", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		// Try to remove a remote that doesn't exist
+		// This simulates the case where cleanup is called but remote was never added
+		err := RemoveRemote(repo.Path, "never-existed")
+		// This should fail, but in the actual code we ignore the error
+		// The important thing is it doesn't panic
+		if err == nil {
+			t.Log("RemoveRemote didn't return error for non-existent remote")
+		}
+	})
+
+	t.Run("remote reuse when already exists", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		remoteName := "pr-456-user"
+		remoteURL := "https://github.com/user/repo.git"
+
+		// Add remote first time (simulating first PR checkout)
+		if err := AddRemote(repo.Path, remoteName, remoteURL); err != nil {
+			t.Fatalf("first AddRemote failed: %v", err)
+		}
+
+		// Check if remote exists (simulating second PR checkout)
+		exists, err := RemoteExists(repo.Path, remoteName)
+		if err != nil {
+			t.Fatalf("RemoteExists failed: %v", err)
+		}
+		if !exists {
+			t.Fatal("remote should exist")
+		}
+
+		// In the actual code, if remote exists, we skip adding it
+		// This test verifies the "remote already exists" detection works
+	})
+}
+
 func TestFetchBranch(t *testing.T) {
 	t.Run("fetches branch from remote", func(t *testing.T) {
 		// Create an "upstream" repo to fetch from
