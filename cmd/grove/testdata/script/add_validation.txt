@@ -1,0 +1,47 @@
+# grove add validation tests
+# Tests add command argument parsing and flag validation
+
+## Help output
+
+exec grove add --help
+stdout 'Create a worktree from a branch'
+stdout 'Usage:'
+stdout '<branch|#PR|PR-URL|ref>'
+stdout '--base'
+stdout '--detach'
+stdout '--name'
+stdout '--switch'
+! stderr .
+
+## Argument validation
+
+# No arguments
+! exec grove add
+stderr '^✗ accepts 1 arg'
+stderr 'received 0'
+
+# Too many arguments
+! exec grove add branch extra
+stderr '^✗ accepts 1 arg'
+stderr 'received 2'
+
+## Flag conflicts
+
+# --base with PR reference
+! exec grove add --base main '#123'
+stderr '^✗ --base cannot be used with PR references'
+
+# --detach with PR reference
+! exec grove add --detach '#123'
+stderr '^✗ --detach cannot be used with PR references'
+
+# --detach and --base together
+! exec grove add --detach --base main v1.0.0
+stderr '^✗ --detach and --base cannot be used together'
+
+## Workspace validation
+
+# Not in workspace
+cd /tmp
+! exec grove add feature
+stderr 'not in a grove workspace'

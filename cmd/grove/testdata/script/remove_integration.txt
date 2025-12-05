@@ -25,11 +25,6 @@ exec git config user.email "test@example.com"
 exec grove add feature-branch
 exec grove add new-feature
 
-## No arguments → error
-
-! exec grove remove
-stderr 'accepts 1 arg'
-
 ## Match by directory name (exact) → removes worktree
 
 exec grove add to-remove-by-dir

@@ -69,28 +69,6 @@ stdout '^.*/feature-short-flag$'
 ! stderr .
 exists ../feature-short-flag
 
-## Error: Not in workspace
-
-cd /tmp
-! exec grove add feature
-stderr 'not in a grove workspace'
-
-## Error: --base with PR references
-
-cd $WORK/workspace/main
-! exec grove add --base main '#123'
-stderr 'cannot be used with PR references'
-
-## Error: --detach with PR references
-
-! exec grove add --detach '#123'
-stderr 'cannot be used with PR references'
-
-## Error: --detach and --base together
-
-! exec grove add --detach --base main v1.0.0
-stderr 'cannot be used together'
-
 ## Success: --base creates branch from specified base
 
 cd $WORK/workspace/main

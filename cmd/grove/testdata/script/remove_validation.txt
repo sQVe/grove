@@ -1,0 +1,31 @@
+# grove remove validation tests
+# Tests remove command argument parsing and pre-condition validation
+
+## Help output
+
+exec grove remove --help
+stdout 'Remove a worktree'
+stdout 'Usage:'
+stdout '<worktree>'
+stdout '--branch'
+stdout '--force'
+! stderr .
+
+## Argument validation
+
+# No arguments
+! exec grove remove
+stderr '^✗ accepts 1 arg'
+stderr 'received 0'
+
+# Too many arguments
+! exec grove remove one two
+stderr '^✗ accepts 1 arg'
+stderr 'received 2'
+
+## Workspace validation
+
+# Not in workspace
+cd /tmp
+! exec grove remove feature
+stderr 'not in a grove workspace'
