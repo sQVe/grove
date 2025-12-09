@@ -47,5 +47,37 @@ stdout 'Git Issues'
 stdout '✗ Stale worktree entry'
 stdout 'orphan-branch'
 
+# Clean up orphan entry for remaining tests
+exec rm -rf ../.bare/worktrees/orphan-branch
+
+## Detect invalid TOML syntax
+
+exec sh -c 'echo "this is not valid toml [[[" > ../.grove.toml'
+! exec grove doctor
+stdout 'Configuration'
+stdout '✗ Invalid .grove.toml'
+
+# Clean up for next test
+exec rm ../.grove.toml
+
+## Detect non-executable hook command
+
+exec sh -c 'echo "[hooks]" > ../.grove.toml'
+exec sh -c 'echo "add = [\"nonexistent-command-xyz\"]" >> ../.grove.toml'
+exec grove doctor
+stdout 'Configuration'
+stdout '⚠ Hook command not found'
+stdout 'nonexistent-command-xyz'
+
+# Clean up for next test
+exec rm ../.grove.toml
+
+## Detect stale lock file
+
+exec touch ../.grove-convert.lock
+exec grove doctor
+stdout 'Configuration'
+stdout '⚠ Stale lock file'
+
 -- README.md --
 # Test fixture

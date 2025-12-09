@@ -3,9 +3,11 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
@@ -100,7 +102,8 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	// Phase 2: Git detection
 	detectGitIssues(bareDir, result)
 
-	// TODO: Phase 3 - Config validation
+	// Phase 3: Config validation
+	detectConfigIssues(bareDir, result)
 
 	// Handle fix mode (Phase 4)
 	if fix {
@@ -416,5 +419,115 @@ func getIssueSymbol(severity Severity) string {
 		return "→"
 	default:
 		return "•"
+	}
+}
+
+// Phase 3: Config validation
+
+func detectConfigIssues(bareDir string, result *DoctorResult) {
+	workspaceRoot := filepath.Dir(bareDir)
+
+	// Check .grove.toml syntax
+	detectInvalidToml(workspaceRoot, result)
+
+	// Check hook commands
+	detectInvalidHooks(workspaceRoot, result)
+
+	// Check stale lock files
+	detectStaleLockFiles(workspaceRoot, result)
+}
+
+func detectInvalidToml(workspaceRoot string, result *DoctorResult) {
+	tomlPath := filepath.Join(workspaceRoot, ".grove.toml")
+
+	// Check if file exists
+	if _, err := os.Stat(tomlPath); os.IsNotExist(err) {
+		return
+	}
+
+	// Try to parse the TOML file
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // Path derived from validated workspace
+	if err != nil {
+		logger.Debug("Failed to read .grove.toml: %v", err)
+
+		return
+	}
+
+	// Attempt to decode - we don't care about the result, just whether it parses
+	var dummy interface{}
+	if _, err := toml.Decode(string(content), &dummy); err != nil {
+		result.Issues = append(result.Issues, Issue{
+			Category:    CategoryConfig,
+			Severity:    SeverityError,
+			Message:     "Invalid .grove.toml",
+			Path:        ".grove.toml",
+			Details:     []string{err.Error()},
+			AutoFixable: false,
+		})
+	}
+}
+
+func detectInvalidHooks(workspaceRoot string, result *DoctorResult) {
+	tomlPath := filepath.Join(workspaceRoot, ".grove.toml")
+
+	// Check if file exists
+	if _, err := os.Stat(tomlPath); os.IsNotExist(err) {
+		return
+	}
+
+	// Parse config to get hooks
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // Path derived from validated workspace
+	if err != nil {
+		return
+	}
+
+	var cfg struct {
+		Hooks struct {
+			Add []string `toml:"add"`
+		} `toml:"hooks"`
+	}
+
+	if _, err := toml.Decode(string(content), &cfg); err != nil {
+		// Invalid TOML - already reported by detectInvalidToml
+		return
+	}
+
+	// Check each hook command
+	for _, cmd := range cfg.Hooks.Add {
+		// Extract the executable (first word)
+		parts := strings.Fields(cmd)
+		if len(parts) == 0 {
+			continue
+		}
+
+		executable := parts[0]
+
+		// Check if executable exists in PATH
+		if _, err := exec.LookPath(executable); err != nil {
+			result.Issues = append(result.Issues, Issue{
+				Category:    CategoryConfig,
+				Severity:    SeverityWarning,
+				Message:     "Hook command not found",
+				Path:        executable,
+				Details:     []string{"Ensure " + executable + " is in PATH"},
+				AutoFixable: false,
+			})
+		}
+	}
+}
+
+func detectStaleLockFiles(workspaceRoot string, result *DoctorResult) {
+	lockPath := filepath.Join(workspaceRoot, ".grove-convert.lock")
+
+	if _, err := os.Stat(lockPath); err == nil {
+		result.Issues = append(result.Issues, Issue{
+			Category:    CategoryConfig,
+			Severity:    SeverityWarning,
+			Message:     "Stale lock file",
+			Path:        ".grove-convert.lock",
+			Details:     []string{"May block grove operations"},
+			FixHint:     "rm " + lockPath,
+			AutoFixable: true,
+		})
 	}
 }
