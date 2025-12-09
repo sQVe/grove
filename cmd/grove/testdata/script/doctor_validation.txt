@@ -1,0 +1,26 @@
+# grove doctor validation tests
+# Tests doctor command argument parsing and validation
+
+## Help output
+
+exec grove doctor --help
+stdout 'Diagnose workspace'
+stdout 'Usage:'
+stdout 'grove doctor'
+stdout '\-\-fix'
+stdout '\-\-json'
+stdout '\-\-perf'
+! stderr .
+
+## Argument validation
+
+# No unknown subcommands
+! exec grove doctor extra-arg
+stderr 'unknown command "extra-arg"'
+
+## Workspace validation
+
+# Not in workspace
+cd /tmp
+! exec grove doctor
+stderr 'not in a grove workspace'

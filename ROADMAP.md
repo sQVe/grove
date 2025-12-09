@@ -359,32 +359,51 @@
 
 ### `doctor`
 
-| Command        | Features                                         | Status |
-| -------------- | ------------------------------------------------ | :----: |
-| `doctor`       | Check git safe.directory entries                 |  [ ]   |
-| `doctor`       | Detect broken .git file pointers                 |  [ ]   |
-| `doctor`       | Detect duplicate branch checkouts                |  [ ]   |
-| `doctor`       | Detect detached HEAD worktrees                   |  [ ]   |
-| `doctor`       | Detect stale worktree entries in .bare/worktrees |  [ ]   |
-| `doctor`       | Find missing upstream tracking                   |  [ ]   |
-| `doctor`       | Find branches tracking non-existent remotes      |  [ ]   |
-| `doctor`       | Identify worktrees pointing at gone upstreams    |  [ ]   |
-| `doctor`       | Validate .grove.toml syntax and patterns         |  [ ]   |
-| `doctor`       | Validate hooks.add commands are executable       |  [ ]   |
-| `doctor`       | Run `git worktree repair` to fix broken links    |  [ ]   |
-| `doctor --fix` | Automatically fix safe issues                    |  [ ]   |
+| Command         | Features                                         | Status |
+| --------------- | ------------------------------------------------ | :----: |
+| `doctor`        | Detect broken .git file pointers                 |  [ ]   |
+| `doctor`        | Detect duplicate branch checkouts                |  [ ]   |
+| `doctor`        | Detect stale worktree entries in .bare/worktrees |  [ ]   |
+| `doctor`        | Validate .grove.toml syntax and patterns         |  [ ]   |
+| `doctor`        | Validate hooks.add commands are executable       |  [ ]   |
+| `doctor`        | Detect stale lock files (.grove-convert.lock)    |  [ ]   |
+| `doctor`        | Run `git worktree repair` to fix broken links    |  [ ]   |
+| `doctor`        | Group output by category (git, config)           |  [ ]   |
+| `doctor`        | Show inline fix command for each issue           |  [ ]   |
+| `doctor`        | Exit codes: 0=clean, 1=errors, 2=warnings        |  [ ]   |
+| `doctor --fix`  | Automatically fix safe issues                    |  [ ]   |
+| `doctor --json` | Machine-readable output for tooling              |  [ ]   |
+| `doctor --perf` | Disk space analysis per worktree                 |  [ ]   |
 
 **Notes:**
 
 - Diagnoses common worktree setup problems
-- Output categorized by severity: errors (must fix), warnings (should fix), info (awareness)
-- `--fix` only auto-fixes reversible issues (repair links, prune stale entries)
+- Output grouped by category with inline fix commands
+- `--fix` only auto-fixes reversible issues (repair links, prune stale entries, fix .git pointers)
 - `--fix` never auto-deletes branches or worktrees
+- `--fix` never modifies hooks or config values
+- Default behavior should be fast (<1s)
+
+**Output format:**
+
+```
+Git Issues (2 errors)
+  ✗ Broken .git pointer in feature-auth/
+  ✗ Stale worktree entry: old-feature
+  → Run: grove doctor --fix
+
+Configuration (1 warning)
+  ⚠ Hook command not found: 'npm install'
+    ↳ Ensure npm is in PATH
+
+Summary: 2 errors, 1 warning (2 auto-fixable)
+```
 
 **Failure conditions:**
 
 - [ ] Broken .git pointer is an error (worktree unusable)
 - [ ] Duplicate branch checkout is an error (causes git state corruption)
 - [ ] Invalid config syntax is an error (blocks grove operations)
-- [ ] Detached HEAD is a warning (incomplete setup)
-- [ ] Missing upstream is info (may be intentional)
+- [ ] Non-executable hook is a warning (hooks will fail)
+- [ ] Stale lock files is a warning (may block operations)
+- [ ] Detached HEAD is info only (often intentional with --detach)
