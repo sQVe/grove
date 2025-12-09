@@ -1,0 +1,51 @@
+# grove doctor integration tests
+# Tests workspace issue detection with real git state
+
+# Setup: Create workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Clean workspace reports no issues
+
+exec grove doctor
+stdout '✓ No issues found'
+! stderr .
+
+## Detect broken .git pointer (missing file)
+
+exec rm .git
+! exec grove doctor
+stdout 'Git Issues'
+stdout '✗ Broken .git pointer'
+stdout 'main'
+
+## Detect stale worktree entry
+
+# Restore .git first
+exec sh -c 'echo "gitdir: ../.bare/worktrees/main" > .git'
+
+# Create orphaned worktree entry
+mkdir ../.bare/worktrees/orphan-branch
+exec sh -c 'echo "/nonexistent/path" > ../.bare/worktrees/orphan-branch/gitdir'
+
+! exec grove doctor
+stdout 'Git Issues'
+stdout '✗ Stale worktree entry'
+stdout 'orphan-branch'
+
+-- README.md --
+# Test fixture
