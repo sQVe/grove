@@ -165,9 +165,9 @@ func cloneWithProgress(url, bareDir string, verbose, shallow bool) error {
 	return nil
 }
 
-// createWorktreesFromBranches creates worktrees for the specified branches, skipping skipBranch if set.
+// CreateWorktreesFromBranches creates worktrees for the specified branches, skipping skipBranch if set.
 // Returns absolute paths of created worktrees so callers can clean them up on failure.
-func createWorktreesFromBranches(bareDir, branches string, verbose bool, skipBranch string) ([]string, error) {
+func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBranch string) ([]string, error) {
 	filteredBranches := parseBranches(branches, skipBranch)
 
 	if len(filteredBranches) == 0 {
@@ -238,8 +238,14 @@ func Initialize(path string) error {
 	return nil
 }
 
-// CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
-func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error {
+// CloneFunc is a function that performs the actual git clone operation.
+// It receives the target bare directory path and should clone the repository there.
+type CloneFunc func(bareDir string) error
+
+// CloneAndInitializeWithCloner creates a grove workspace using a custom clone function.
+// This allows different clone mechanisms (direct git, gh CLI, etc.) while sharing
+// all the workspace setup logic.
+func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose bool) error {
 	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
@@ -261,9 +267,9 @@ func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error
 		}
 	}
 
-	if err := cloneWithProgress(url, bareDir, verbose, shallow); err != nil {
+	if err := cloneFn(bareDir); err != nil {
 		cleanup(nil)
-		return fmt.Errorf("failed to clone repository: %w", err)
+		return err
 	}
 
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
@@ -281,13 +287,25 @@ func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error
 		branchesToCreate = defaultBranch
 	}
 
-	createdWorktrees, err := createWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
+	createdWorktrees, err := CreateWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
 	if err != nil {
 		cleanup(createdWorktrees)
 		return err
 	}
 
 	return nil
+}
+
+// CloneAndInitialize clones a repository and creates a grove workspace in the specified directory
+func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error {
+	cloneFn := func(bareDir string) error {
+		if err := cloneWithProgress(url, bareDir, verbose, shallow); err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
+		return nil
+	}
+
+	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose)
 }
 
 // validateRepoForConversion performs all pre-conversion validation checks

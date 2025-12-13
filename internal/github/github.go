@@ -79,6 +79,22 @@ var (
 	httpsURLRegex = regexp.MustCompile(`^https://github\.com/([^/]+)/(.+?)(?:\.git)?$`)
 )
 
+// IsGitHubURL returns true if the URL is a GitHub repository URL (not a PR URL).
+func IsGitHubURL(url string) bool {
+	if IsPRURL(url) {
+		return false
+	}
+
+	if sshURLRegex.MatchString(url) {
+		return true
+	}
+
+	// Normalize http to https for matching
+	normalized := strings.Replace(url, "http://", "https://", 1)
+
+	return httpsURLRegex.MatchString(normalized)
+}
+
 // ParseRepoURL extracts owner/repo from a git remote URL.
 func ParseRepoURL(url string) (*RepoRef, error) {
 	url = strings.TrimSpace(url)

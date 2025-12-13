@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/github"
 )
 
 func TestNewCloneCmd(t *testing.T) {
@@ -106,4 +107,38 @@ func TestNewCloneCmd_ValidArgsFunction(t *testing.T) {
 			t.Errorf("expected ShellCompDirectiveFilterDirs, got %v", directive)
 		}
 	})
+}
+
+func TestGitHubURLClassification(t *testing.T) {
+	tests := []struct {
+		name           string
+		url            string
+		expectGitHub   bool
+		expectPR       bool
+		expectFallback bool
+	}{
+		{"GitHub HTTPS URL", "https://github.com/owner/repo", true, false, false},
+		{"GitHub SSH URL", "git@github.com:owner/repo.git", true, false, false},
+		{"PR URL", "https://github.com/owner/repo/pull/123", false, true, false},
+		{"GitLab URL", "https://gitlab.com/owner/repo", false, false, true},
+		{"Self-hosted URL", "https://git.company.com/owner/repo", false, false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isPR := github.IsPRURL(tt.url)
+			isGitHub := github.IsGitHubURL(tt.url)
+			isFallback := !isPR && !isGitHub
+
+			if isPR != tt.expectPR {
+				t.Errorf("IsPRURL(%q) = %v, want %v", tt.url, isPR, tt.expectPR)
+			}
+			if isGitHub != tt.expectGitHub {
+				t.Errorf("IsGitHubURL(%q) = %v, want %v", tt.url, isGitHub, tt.expectGitHub)
+			}
+			if isFallback != tt.expectFallback {
+				t.Errorf("fallback for %q = %v, want %v", tt.url, isFallback, tt.expectFallback)
+			}
+		})
+	}
 }

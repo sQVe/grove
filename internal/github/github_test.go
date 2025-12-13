@@ -6,6 +6,41 @@ import (
 	"testing"
 )
 
+func TestIsGitHubURL(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		// GitHub HTTPS URLs - should match
+		{"https://github.com/owner/repo", true},
+		{"https://github.com/owner/repo.git", true},
+		{"http://github.com/owner/repo", true},
+
+		// GitHub SSH URLs - should match
+		{"git@github.com:owner/repo.git", true},
+		{"git@github.com:owner/repo", true},
+
+		// Not GitHub URLs - should NOT match
+		{"https://gitlab.com/owner/repo", false},
+		{"https://bitbucket.org/owner/repo", false},
+		{"git@gitlab.com:owner/repo.git", false},
+		{"", false},
+		{"not-a-url", false},
+
+		// PR URLs should NOT match (handled separately)
+		{"https://github.com/owner/repo/pull/123", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := IsGitHubURL(tt.input)
+			if result != tt.expected {
+				t.Errorf("IsGitHubURL(%q) = %v, want %v", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestIsPRReference(t *testing.T) {
 	tests := []struct {
 		input    string

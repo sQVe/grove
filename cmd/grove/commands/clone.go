@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -72,7 +73,21 @@ Examples:
 				return runCloneFromPR(urlOrPR, targetDir, verbose)
 			}
 
-			// Regular clone
+			// Check if this is a GitHub URL and gh is available - use gh for protocol preference
+			if github.IsGitHubURL(urlOrPR) {
+				if err := github.CheckGhAvailable(); err == nil {
+					ref, err := github.ParseRepoURL(urlOrPR)
+					if err != nil {
+						return err
+					}
+
+					return runCloneFromGitHub(ref.Owner, ref.Repo, targetDir, branches, verbose, shallow)
+				}
+
+				logger.Debug("gh CLI not available, using direct clone (may not respect protocol preference)")
+			}
+
+			// Regular clone (non-GitHub URLs or GitHub without gh)
 			if err := workspace.CloneAndInitialize(urlOrPR, targetDir, branches, verbose, shallow); err != nil {
 				return err
 			}
@@ -222,5 +237,50 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 
 	logger.Success("Cloned repository to %s", styles.Render(&styles.Path, workspaceDir))
 	logger.ListSubItem("fetched PR #%d", ref.Number)
+	return nil
+}
+
+func runCloneFromGitHub(owner, repo, targetDir, branches string, verbose, shallow bool) error {
+	repoSpec := fmt.Sprintf("%s/%s", owner, repo)
+
+	cloneFn := func(bareDir string) error {
+		return cloneWithGh(repoSpec, bareDir, verbose, shallow)
+	}
+
+	if err := workspace.CloneAndInitializeWithCloner(cloneFn, targetDir, branches, verbose); err != nil {
+		return err
+	}
+
+	logger.Success("Cloned repository to %s", styles.Render(&styles.Path, targetDir))
+	return nil
+}
+
+// cloneWithGh clones a repository using the gh CLI, which respects the user's protocol preference.
+func cloneWithGh(repoSpec, bareDir string, verbose, shallow bool) error {
+	logger.Info("Cloning %s...", repoSpec)
+
+	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
+	if shallow {
+		args = append(args, "--depth", "1")
+	}
+
+	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
+	var stderr bytes.Buffer
+	if verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	} else {
+		cmd.Stderr = &stderr
+	}
+
+	if err := cmd.Run(); err != nil {
+		errStr := strings.TrimSpace(stderr.String())
+		if errStr != "" {
+			return fmt.Errorf("clone failed: %s", errStr)
+		}
+
+		return fmt.Errorf("clone failed: %w", err)
+	}
+
 	return nil
 }
