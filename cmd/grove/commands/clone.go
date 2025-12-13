@@ -101,6 +101,10 @@ Examples:
 	cloneCmd.Flags().BoolVar(&shallow, "shallow", false, "Create a shallow clone (depth=1)")
 	cloneCmd.Flags().BoolP("help", "h", false, "Help for clone")
 
+	_ = cloneCmd.RegisterFlagCompletionFunc("branches", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cloneCmd
 }
 
