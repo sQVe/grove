@@ -102,5 +102,14 @@ exists .git
 exec grove doctor
 stdout '✓ No issues found'
 
+## JSON output format
+
+exec sh -c 'echo "invalid toml [[[" > ../.grove.toml'
+! exec grove doctor --json
+stdout '"category": "config"'
+stdout '"severity": "error"'
+stdout '"message": "Invalid .grove.toml"'
+stdout '"errors": 1'
+
 -- README.md --
 # Test fixture

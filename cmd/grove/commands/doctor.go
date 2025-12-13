@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -119,8 +120,7 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 
 	// Output results
 	if jsonOutput {
-		// TODO: Implement JSON output (Phase 5)
-		_ = jsonOutput // Use parameter to satisfy linter until Phase 5
+		return outputJSONResult(result)
 	}
 
 	if perf {
@@ -606,4 +606,105 @@ func fixBrokenGitPointer(bareDir, workspaceRoot string, issue *Issue) error {
 	content := fmt.Sprintf("gitdir: %s\n", relPath)
 
 	return os.WriteFile(gitFile, []byte(content), fs.FileGit) //nolint:gosec // Git files need 0644 permissions
+}
+
+// Phase 5: JSON output
+
+type jsonIssue struct {
+	Category    string   `json:"category"`
+	Severity    string   `json:"severity"`
+	Message     string   `json:"message"`
+	Path        string   `json:"path,omitempty"`
+	Details     []string `json:"details,omitempty"`
+	FixHint     string   `json:"fixHint,omitempty"`
+	AutoFixable bool     `json:"autoFixable"`
+	Fixed       bool     `json:"fixed"`
+}
+
+type jsonSummary struct {
+	Errors      int `json:"errors"`
+	Warnings    int `json:"warnings"`
+	AutoFixable int `json:"autoFixable"`
+}
+
+type jsonResult struct {
+	Issues  []jsonIssue `json:"issues"`
+	Summary jsonSummary `json:"summary"`
+}
+
+func outputJSONResult(result *DoctorResult) error {
+	// Count issues by severity
+	for _, issue := range result.Issues {
+		switch issue.Severity {
+		case SeverityError:
+			result.Errors++
+		case SeverityWarning:
+			result.Warnings++
+		}
+
+		if issue.AutoFixable {
+			result.AutoFixable++
+		}
+	}
+
+	// Convert to JSON-friendly structure
+	jsonRes := jsonResult{
+		Issues: make([]jsonIssue, 0, len(result.Issues)),
+		Summary: jsonSummary{
+			Errors:      result.Errors,
+			Warnings:    result.Warnings,
+			AutoFixable: result.AutoFixable,
+		},
+	}
+
+	for _, issue := range result.Issues {
+		jsonRes.Issues = append(jsonRes.Issues, jsonIssue{
+			Category:    categoryToString(issue.Category),
+			Severity:    severityToString(issue.Severity),
+			Message:     issue.Message,
+			Path:        issue.Path,
+			Details:     issue.Details,
+			FixHint:     issue.FixHint,
+			AutoFixable: issue.AutoFixable,
+			Fixed:       issue.Fixed,
+		})
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+
+	if err := encoder.Encode(jsonRes); err != nil {
+		return err
+	}
+
+	// Return error to set exit code 1 if there are errors
+	if result.Errors > 0 {
+		return fmt.Errorf("found %d errors", result.Errors)
+	}
+
+	return nil
+}
+
+func categoryToString(c Category) string {
+	switch c {
+	case CategoryGit:
+		return "git"
+	case CategoryConfig:
+		return "config"
+	default:
+		return "unknown"
+	}
+}
+
+func severityToString(s Severity) string {
+	switch s {
+	case SeverityInfo:
+		return "info"
+	case SeverityWarning:
+		return "warning"
+	case SeverityError:
+		return "error"
+	default:
+		return "unknown"
+	}
 }
