@@ -124,8 +124,9 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	}
 
 	if perf {
-		// TODO: Implement disk space analysis (Phase 6)
-		_ = perf // Use parameter to satisfy linter until Phase 6
+		if err := outputPerfAnalysis(bareDir); err != nil {
+			return err
+		}
 	}
 
 	// Output human-readable format
@@ -706,5 +707,78 @@ func severityToString(s Severity) string {
 		return "error"
 	default:
 		return "unknown"
+	}
+}
+
+// Phase 6: Performance analysis
+
+func outputPerfAnalysis(bareDir string) error {
+	workspaceRoot := filepath.Dir(bareDir)
+
+	fmt.Println("Disk Usage")
+	fmt.Println()
+
+	// Get worktrees
+	worktrees, err := git.ListWorktrees(bareDir)
+	if err != nil {
+		return fmt.Errorf("failed to list worktrees: %w", err)
+	}
+
+	// Calculate size for each worktree
+	for _, worktreePath := range worktrees {
+		size, err := calculateDirSize(worktreePath)
+		if err != nil {
+			logger.Debug("Failed to calculate size for %s: %v", worktreePath, err)
+
+			continue
+		}
+
+		relPath, _ := filepath.Rel(workspaceRoot, worktreePath)
+		fmt.Printf("  %s  %s\n", formatSize(size), relPath)
+	}
+
+	// Calculate .bare size
+	bareSize, err := calculateDirSize(bareDir)
+	if err == nil {
+		fmt.Printf("  %s  .bare (shared)\n", formatSize(bareSize))
+	}
+
+	return nil
+}
+
+func calculateDirSize(path string) (int64, error) {
+	var size int64
+
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			size += info.Size()
+		}
+
+		return nil
+	})
+
+	return size, err
+}
+
+func formatSize(bytes int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%6.1f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%6.1f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%6.1f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%6d B ", bytes)
 	}
 }

@@ -111,5 +111,14 @@ stdout '"severity": "error"'
 stdout '"message": "Invalid .grove.toml"'
 stdout '"errors": 1'
 
+# Clean up for next test
+exec rm ../.grove.toml
+
+## Performance analysis with --perf
+
+exec grove doctor --perf
+stdout 'Disk Usage'
+stdout 'main'
+
 -- README.md --
 # Test fixture
