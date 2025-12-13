@@ -79,5 +79,28 @@ exec grove doctor
 stdout 'Configuration'
 stdout '⚠ Stale lock file'
 
+## Fix stale lock file with --fix
+
+exec grove doctor --fix
+stdout 'Fixed: Stale lock file'
+! exists ../.grove-convert.lock
+
+## Fix stale worktree entry with --fix
+
+mkdir ../.bare/worktrees/orphan-fix-test
+exec sh -c 'echo "/nonexistent/path" > ../.bare/worktrees/orphan-fix-test/gitdir'
+exec grove doctor --fix
+stdout 'Fixed: Stale worktree entry'
+! exists ../.bare/worktrees/orphan-fix-test
+
+## Fix broken .git pointer with --fix
+
+exec rm .git
+exec grove doctor --fix
+stdout 'Fixed: Broken .git pointer'
+exists .git
+exec grove doctor
+stdout '✓ No issues found'
+
 -- README.md --
 # Test fixture

@@ -10,6 +10,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -41,6 +42,7 @@ type Issue struct {
 	Details     []string
 	FixHint     string
 	AutoFixable bool
+	Fixed       bool
 }
 
 // DoctorResult contains all issues found and summary counts
@@ -107,8 +109,12 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 
 	// Handle fix mode (Phase 4)
 	if fix {
-		// TODO: Implement auto-fix logic
-		_ = fix // Use parameter to satisfy linter until Phase 4
+		fixIssues(bareDir, result)
+
+		// Re-run detection after fixes to get current state
+		result = &DoctorResult{}
+		detectGitIssues(bareDir, result)
+		detectConfigIssues(bareDir, result)
 	}
 
 	// Output results
@@ -254,8 +260,11 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		}
 
 		// Check if the worktree directory exists
-		worktreePath := strings.TrimSpace(string(content))
-		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		// Note: gitdir file contains path to .git FILE (e.g., /path/worktree/.git)
+		// We need to check the parent directory (the actual worktree)
+		gitFilePath := strings.TrimSpace(string(content))
+		worktreeDir := filepath.Dir(gitFilePath)
+		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,
@@ -530,4 +539,71 @@ func detectStaleLockFiles(workspaceRoot string, result *DoctorResult) {
 			AutoFixable: true,
 		})
 	}
+}
+
+// Phase 4: Fix capability
+
+func fixIssues(bareDir string, result *DoctorResult) {
+	workspaceRoot := filepath.Dir(bareDir)
+
+	for i := range result.Issues {
+		issue := &result.Issues[i]
+		if !issue.AutoFixable {
+			continue
+		}
+
+		var err error
+
+		switch issue.Message {
+		case "Stale lock file":
+			err = fixStaleLockFile(workspaceRoot, issue)
+		case "Stale worktree entry":
+			err = fixStaleWorktreeEntry(bareDir, issue)
+		case "Broken .git pointer":
+			err = fixBrokenGitPointer(bareDir, workspaceRoot, issue)
+		}
+
+		if err != nil {
+			logger.Warning("Failed to fix %s: %v", issue.Message, err)
+		} else {
+			issue.Fixed = true
+			fmt.Printf("Fixed: %s (%s)\n", issue.Message, issue.Path)
+		}
+	}
+}
+
+func fixStaleLockFile(workspaceRoot string, issue *Issue) error {
+	lockPath := filepath.Join(workspaceRoot, issue.Path)
+
+	return os.Remove(lockPath)
+}
+
+func fixStaleWorktreeEntry(bareDir string, issue *Issue) error {
+	worktreeDir := filepath.Join(bareDir, "worktrees", issue.Path)
+
+	return os.RemoveAll(worktreeDir)
+}
+
+func fixBrokenGitPointer(bareDir, workspaceRoot string, issue *Issue) error {
+	worktreePath := filepath.Join(workspaceRoot, issue.Path)
+	gitFile := filepath.Join(worktreePath, ".git")
+
+	// Find the gitdir for this worktree
+	worktreeName := filepath.Base(issue.Path)
+	gitdirPath := filepath.Join(bareDir, "worktrees", worktreeName)
+
+	// Verify the gitdir exists in .bare/worktrees
+	if _, err := os.Stat(gitdirPath); os.IsNotExist(err) {
+		return fmt.Errorf("cannot fix: gitdir not found at %s", gitdirPath)
+	}
+
+	// Calculate relative path from worktree to gitdir
+	relPath, err := filepath.Rel(worktreePath, gitdirPath)
+	if err != nil {
+		return fmt.Errorf("cannot compute relative path: %w", err)
+	}
+
+	content := fmt.Sprintf("gitdir: %s\n", relPath)
+
+	return os.WriteFile(gitFile, []byte(content), fs.FileGit) //nolint:gosec // Git files need 0644 permissions
 }
