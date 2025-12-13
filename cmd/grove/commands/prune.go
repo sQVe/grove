@@ -80,6 +80,10 @@ Examples:
 	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
+	_ = cmd.RegisterFlagCompletionFunc("stale", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"7d", "14d", "30d", "2w", "1m"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 

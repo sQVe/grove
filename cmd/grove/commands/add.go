@@ -50,6 +50,9 @@ Examples:
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
+	_ = cmd.RegisterFlagCompletionFunc("name", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
 
 	return cmd
 }

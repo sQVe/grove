@@ -37,6 +37,10 @@ Examples:
 	cmd.Flags().StringVar(&reason, "reason", "", "Reason for locking")
 	cmd.Flags().BoolP("help", "h", false, "Help for lock")
 
+	_ = cmd.RegisterFlagCompletionFunc("reason", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 

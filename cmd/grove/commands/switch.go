@@ -89,6 +89,10 @@ Add to shell config:
 
 	cmd.Flags().StringVar(&shellType, "shell", "", "Shell type (bash, zsh, fish, sh, powershell)")
 
+	_ = cmd.RegisterFlagCompletionFunc("shell", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"bash", "zsh", "fish", "sh", "powershell"}, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
 
