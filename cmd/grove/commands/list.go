@@ -263,12 +263,12 @@ func completeFilterValues(cmd *cobra.Command, args []string, toComplete string) 
 
 	selected := make(map[string]bool)
 	for _, p := range parts[:len(parts)-1] {
-		selected[strings.TrimSpace(p)] = true
+		selected[strings.ToLower(strings.TrimSpace(p))] = true
 	}
 
 	var completions []string
 	for _, f := range validFilters {
-		if !selected[f] && strings.HasPrefix(f, lastPart) {
+		if !selected[f] && strings.HasPrefix(f, strings.ToLower(lastPart)) {
 			completions = append(completions, prefix+f)
 		}
 	}
