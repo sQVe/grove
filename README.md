@@ -3,6 +3,9 @@
 [![GitHub release](https://img.shields.io/github/v/release/sQVe/grove?style=flat-square)](https://github.com/sQVe/grove/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
+> [!WARNING]
+> Grove is under active development. APIs may change.
+
 **Grove** is a fast, intuitive Git worktree management tool that makes worktrees as simple as switching branches.
 
 ## ❓ Why
