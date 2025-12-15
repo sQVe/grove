@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: '1.24'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          # Automatic - no setup required
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # TODO: Create SSH key, add public key to AUR account, store private key as secret
+          # 1. ssh-keygen -t ed25519 -C "aur" -f aur_key
+          # 2. Add public key at: https://aur.archlinux.org/account → SSH Public Key
+          # 3. Register package: https://aur.archlinux.org/pkgsubmit.php (name: grove-bin)
+          # Docs: https://goreleaser.com/customization/aur/
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+          # TODO: Create repo sQVe/homebrew-grove, then create PAT with 'repo' scope
+          # 1. gh repo create sQVe/homebrew-grove --public
+          # 2. Create PAT: https://github.com/settings/tokens → Generate new token (classic) → repo scope
+          # Docs: https://goreleaser.com/customization/homebrew/
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+          # TODO: Create npm account and automation token
+          # 1. Create account: https://www.npmjs.com/signup
+          # 2. Create token: https://www.npmjs.com/settings/~/tokens → Generate New Token → Automation
+          # Docs: https://goreleaser.com/customization/npm/
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

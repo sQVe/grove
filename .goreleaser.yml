@@ -1,0 +1,89 @@
+version: 2
+
+project_name: grove
+
+builds:
+  - main: ./cmd/grove
+    binary: grove
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sqve/grove/internal/version.Version={{.Version}}
+      - -X github.com/sqve/grove/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/sqve/grove/internal/version.Date={{.Date}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+
+brews:
+  - repository:
+      owner: sQVe
+      name: homebrew-grove
+    homepage: https://github.com/sQVe/grove
+    description: Git worktree management made simple
+    license: MIT
+    install: |
+      bin.install "grove"
+
+aurs:
+  - name: grove-bin
+    homepage: https://github.com/sQVe/grove
+    description: Git worktree management made simple
+    maintainers:
+      - 'sQVe <oskargrunning@gmail.com>'
+    license: MIT
+    private_key: '{{ .Env.AUR_SSH_PRIVATE_KEY }}'
+    git_url: ssh://aur@aur.archlinux.org/grove-bin.git
+    package: |
+      install -Dm755 grove "${pkgdir}/usr/bin/grove"
+
+npms:
+  - name: '@sqve/grove'
+    description: Git worktree management made simple
+    homepage: https://github.com/sQVe/grove
+    keywords:
+      - cli
+      - git
+      - worktree
+    license: MIT
+    author: sQVe
+    repository: https://github.com/sQVe/grove
+    access: public
+
+nfpms:
+  - package_name: grove
+    file_name_template: '{{ .ConventionalFileName }}'
+    homepage: https://github.com/sQVe/grove
+    maintainer: sQVe <oskargrunning@gmail.com>
+    description: Git worktree management made simple
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+
+release:
+  github:
+    owner: sQVe
+    name: grove
