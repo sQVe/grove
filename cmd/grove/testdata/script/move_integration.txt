@@ -221,9 +221,9 @@ exec grove remove rapid-c
 
 ## Same Branch Name Validation
 
-# Target already has new branch name → error
+# Source and destination are the same → error
 ! exec grove move feature-branch feature-branch
-stderr 'already has branch'
+stderr 'source and destination are the same'
 
 ## Verify Git State After Move
 

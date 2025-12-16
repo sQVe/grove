@@ -36,6 +36,10 @@ func runMove(target, newBranch string) error {
 	target = strings.TrimSpace(target)
 	newBranch = strings.TrimSpace(newBranch)
 
+	if target == newBranch {
+		return fmt.Errorf("source and destination are the same: %s", target)
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
