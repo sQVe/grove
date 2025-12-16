@@ -36,6 +36,8 @@ jobs:
       - run: |
           git config --global user.email "ci@grove.dev"
           git config --global user.name "Grove CI"
+          git config --global init.defaultBranch main
+          git config --global commit.gpgsign false
       - run: go install gotest.tools/gotestsum@v1.12.0
       - run: go install github.com/magefile/mage@v1.15.0
       - run: mage test:coverage
@@ -55,6 +57,8 @@ jobs:
       - run: |
           git config --global user.email "ci@grove.dev"
           git config --global user.name "Grove CI"
+          git config --global init.defaultBranch main
+          git config --global commit.gpgsign false
       - run: mage test:integration
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
