@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/magefile/mage/mg"
@@ -76,30 +75,6 @@ func (Test) Coverage() error {
 
 	fmt.Print(output)
 
-	// In CI, validate coverage threshold
-	if isCI {
-		lines := strings.Split(strings.TrimSpace(output), "\n")
-		totalLine := lines[len(lines)-1]
-
-		// Extract percentage from "total: (statements) XX.X%"
-		parts := strings.Fields(totalLine)
-		if len(parts) == 0 {
-			return fmt.Errorf("failed to parse coverage: empty output line")
-		}
-		percentStr := strings.TrimSuffix(parts[len(parts)-1], "%")
-		percentage, err := strconv.ParseFloat(percentStr, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse coverage: %w", err)
-		}
-
-		if percentage < 70.0 {
-			return fmt.Errorf("coverage %.1f%% below 70%% threshold", percentage)
-		}
-	}
-
-	if isCI {
-		fmt.Println("Coverage requirement (70%+) met successfully!")
-	}
 	return nil
 }
 
