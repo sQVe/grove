@@ -18,6 +18,11 @@ formatters:
       extra-rules: true
 
 linters:
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - goconst
   enable:
     # Essential Go checks
     - errcheck # Check for unchecked errors

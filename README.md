@@ -27,13 +27,29 @@ have your `.env` files.
 
 ## 📦 Installation
 
-Build from source (package managers coming soon):
+### Quick install (Linux/macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sQVe/grove/main/install.sh | sh
+```
+
+### Go install
+
+```bash
+go install github.com/sQVe/grove/cmd/grove@latest
+```
+
+### From source
 
 ```bash
 git clone https://github.com/sQVe/grove && cd grove
 go build -o grove ./cmd/grove
-sudo mv grove /usr/local/bin/ # or add to PATH
+sudo mv grove /usr/local/bin/
 ```
+
+### Package managers
+
+Download `.deb` or `.rpm` packages from [GitHub Releases](https://github.com/sQVe/grove/releases/latest).
 
 ## 🔧 Setup
 

@@ -7,6 +7,7 @@ import (
 	"github.com/sqve/grove/cmd/grove/commands"
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/version"
 )
 
 func main() {
@@ -17,6 +18,7 @@ func main() {
 		Use:           "grove",
 		Short:         "Grove - Git worktree management made simple",
 		Long:          `Manage Git worktrees as easily as switching branches.`,
+		Version:       version.Full(),
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -39,6 +41,8 @@ func main() {
 			}
 		},
 	}
+
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
 	rootCmd.PersistentFlags().Bool("plain", false, "Disable colors and symbols")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
