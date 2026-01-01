@@ -25,6 +25,10 @@ have your `.env` files.
 - **PR checkout** — `grove add #123` creates a worktree for any PR
 - **Post-create hooks** — Run `npm install` automatically after creating worktrees
 
+<p align="center">
+  <video src=".github/demo.mp4" width="800" autoplay loop muted playsinline></video>
+</p>
+
 ## 📦 Installation
 
 ### Quick install (Linux/macOS)
