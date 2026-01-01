@@ -18,6 +18,22 @@ var (
 	Worktree = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
 )
 
+// PrettyPath replaces $HOME with ~ for cleaner output (no styling).
+func PrettyPath(path string) string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if len(path) >= len(home) && path[:len(home)] == home {
+			path = "~" + path[len(home):]
+		}
+	}
+
+	return path
+}
+
+// RenderPath renders a path with styling, replacing $HOME with ~ for cleaner output.
+func RenderPath(path string) string {
+	return Render(&Path, PrettyPath(path))
+}
+
 func Render(style *lipgloss.Style, text string) string {
 	if config.IsPlain() {
 		return text

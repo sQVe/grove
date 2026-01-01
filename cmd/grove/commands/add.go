@@ -12,6 +12,7 @@ import (
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/hooks"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -181,9 +182,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
-		fmt.Println(worktreePath) // Path for shell wrapper to cd into
+		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
 	} else {
-		logger.Success("Created worktree at %s", worktreePath)
+		logger.Success("Created worktree at %s", styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
 		logHookResult(hookResult)
 	}
@@ -219,7 +220,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	if switchTo {
 		fmt.Println(worktreePath)
 	} else {
-		logger.Success("Created detached worktree at %s", worktreePath)
+		logger.Success("Created detached worktree at %s", styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
 		logHookResult(hookResult)
 	}
@@ -350,7 +351,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	if switchTo {
 		fmt.Println(worktreePath)
 	} else {
-		logger.Success("Created worktree for PR #%d at %s", ref.Number, worktreePath)
+		logger.Success("Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
 		logHookResult(hookResult)
 	}

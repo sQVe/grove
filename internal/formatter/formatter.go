@@ -185,7 +185,7 @@ func VerboseSubItems(info *git.WorktreeInfo) []string {
 	prefix := SubItemPrefix()
 	var items []string
 
-	items = append(items, fmt.Sprintf("    %s path: %s", prefix, styles.Render(&styles.Path, info.Path)))
+	items = append(items, fmt.Sprintf("    %s path: %s", prefix, styles.RenderPath(info.Path)))
 
 	if info.Upstream != "" {
 		items = append(items, fmt.Sprintf("    %s upstream: %s", prefix, info.Upstream))

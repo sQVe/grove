@@ -92,7 +92,7 @@ Examples:
 				return err
 			}
 
-			logger.Success("Cloned repository to %s", styles.Render(&styles.Path, targetDir))
+			logger.Success("Cloned repository to %s", styles.RenderPath(targetDir))
 			return nil
 		},
 	}
@@ -239,7 +239,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 		}
 	}
 
-	logger.Success("Cloned repository to %s", styles.Render(&styles.Path, workspaceDir))
+	logger.Success("Cloned repository to %s", styles.RenderPath(workspaceDir))
 	logger.ListSubItem("fetched PR #%d", ref.Number)
 	return nil
 }
@@ -255,7 +255,7 @@ func runCloneFromGitHub(owner, repo, targetDir, branches string, verbose, shallo
 		return err
 	}
 
-	logger.Success("Cloned repository to %s", styles.Render(&styles.Path, targetDir))
+	logger.Success("Cloned repository to %s", styles.RenderPath(targetDir))
 	return nil
 }
 

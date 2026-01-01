@@ -87,7 +87,7 @@ Examples:
 				return err
 			}
 
-			logger.Success("Initialized grove workspace in: %s", styles.Render(&styles.Path, targetDir))
+			logger.Success("Initialized grove workspace in: %s", styles.RenderPath(targetDir))
 			return nil
 		},
 	}
@@ -119,7 +119,7 @@ Examples:
 			if err != nil {
 				absPath = targetDir
 			}
-			logger.Success("Converted repository to grove workspace in: %s", styles.Render(&styles.Path, absPath))
+			logger.Success("Converted repository to grove workspace in: %s", styles.RenderPath(absPath))
 			return nil
 		},
 	}
