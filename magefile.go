@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/magefile/mage/mg"
@@ -14,15 +15,56 @@ import (
 )
 
 type (
-	Build mg.Namespace
-	Deps  mg.Namespace
-	Test  mg.Namespace
+	Build  mg.Namespace
+	Change mg.Namespace
+	Deps   mg.Namespace
+	Test   mg.Namespace
 )
 
 var Aliases = map[string]interface{}{
-	"build": Build.Dev,
-	"deps":  Deps.Check,
-	"test":  Test.Unit,
+	"build":  Build.Dev,
+	"change": Change.New,
+	"deps":   Deps.Check,
+	"test":   Test.Unit,
+}
+
+// New creates a new change fragment interactively.
+func (Change) New() error {
+	mg.Deps(ensureChangie)
+	fmt.Println("Creating change entry...")
+
+	return sh.RunV("changie", "new")
+}
+
+// Preview shows unreleased changes and the next version.
+func (Change) Preview() error {
+	mg.Deps(ensureChangie)
+	fmt.Println("Unreleased changes:")
+
+	entries, err := filepath.Glob(".changes/unreleased/*.yaml")
+	if err != nil {
+		return err
+	}
+
+	if len(entries) == 0 {
+		fmt.Println("  (none)")
+
+		return nil
+	}
+
+	for _, entry := range entries {
+		fmt.Printf("  • %s\n", filepath.Base(entry))
+	}
+
+	fmt.Println()
+	output, err := sh.Output("changie", "next", "auto")
+	if err != nil {
+		return fmt.Errorf("failed to compute next version: %w", err)
+	}
+
+	fmt.Printf("Next version: %s\n", output)
+
+	return nil
 }
 
 func (Test) Unit() error {
@@ -325,5 +367,38 @@ func (Deps) Update() error {
 // Audit scans for security vulnerabilities in dependencies.
 func (Deps) Audit() error {
 	fmt.Println("Scanning for security vulnerabilities...")
+
 	return sh.RunV("go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "./...")
+}
+
+// Tools installs all development tools.
+func (Deps) Tools() error {
+	fmt.Println("Installing development tools...")
+
+	tools := []string{
+		"github.com/magefile/mage@v1.15.0",
+		"gotest.tools/gotestsum@v1.12.0",
+		"github.com/miniscruff/changie@latest",
+	}
+
+	for _, tool := range tools {
+		fmt.Printf("  Installing %s...\n", tool)
+		if err := sh.RunV("go", "install", tool); err != nil {
+			return fmt.Errorf("failed to install %s: %w", tool, err)
+		}
+	}
+
+	fmt.Println("✓ All tools installed")
+
+	return nil
+}
+
+func ensureChangie() error {
+	if _, err := sh.Output("which", "changie"); err != nil {
+		fmt.Println("Installing changie...")
+
+		return sh.RunV("go", "install", "github.com/miniscruff/changie@latest")
+	}
+
+	return nil
 }

@@ -63,6 +63,70 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  require-changeset:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changeset requirement
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          # Skip for dependency updates (Dependabot/Renovate)
+          if echo "$PR_LABELS" | grep -q '"dependencies"'; then
+            echo "Skipping changeset check for dependency update"
+            exit 0
+          fi
+
+          # Get changed files
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          # Check if any code files changed (excluding tests)
+          CODE_CHANGED="false"
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+
+            # Skip non-code files
+            case "$file" in
+              *.md|docs/*|.github/*|.changes/*) continue ;;
+              *_test.go) continue ;;
+            esac
+
+            # Check for actual code changes
+            case "$file" in
+              cmd/*.go|internal/*.go|go.mod|go.sum|magefile.go)
+                CODE_CHANGED="true"
+                echo "Code change: $file"
+                ;;
+            esac
+          done <<< "$CHANGED"
+
+          if [ "$CODE_CHANGED" = "false" ]; then
+            echo "No code changes requiring a changeset"
+            exit 0
+          fi
+
+          # Check for changeset file
+          CHANGESET=$(git diff --name-only --diff-filter=A "$BASE_SHA" "$HEAD_SHA" | grep '^\.changes/unreleased/.*\.yaml$' || true)
+
+          if [ -z "$CHANGESET" ]; then
+            echo "::error::This PR changes code but is missing a changeset."
+            echo ""
+            echo "Add a changeset by running:"
+            echo "  changie new"
+            echo ""
+            echo "Or with mage:"
+            echo "  mage change"
+            exit 1
+          fi
+
+          echo "Found changeset: $CHANGESET"
+
   build:
     runs-on: ubuntu-latest
     needs: [lint, test-unit]
