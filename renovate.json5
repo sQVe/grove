@@ -1,0 +1,98 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+
+  // Schedule and limits
+  "schedule": ["before 9am on monday"],
+  "timezone": "Europe/Stockholm",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+
+  // Branch and commit style
+  "branchPrefix": "deps/",
+  "commitMessagePrefix": "deps:",
+
+  // Auto-merge via PR (ensures CI runs first)
+  "automergeType": "pr",
+  "platformAutomerge": true,
+
+  // Safety settings
+  "minimumReleaseAge": "3 days",
+  "ignoreUnstable": true,
+
+  // Visibility
+  "dependencyDashboard": true,
+  "labels": ["dependencies"],
+
+  // Vulnerability alerts - immediate, no delay
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": "0 days",
+    "automerge": true
+  },
+
+  // Post-upgrade: keep go.mod clean
+  "postUpgradeTasks": {
+    "commands": ["go mod tidy"],
+    "fileFilters": ["go.mod", "go.sum"],
+    "executionMode": "branch"
+  },
+
+  "packageRules": [
+    // GitHub Actions - pin digests (security), group, auto-merge patches
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "pinDigests": true,
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "minor"]
+    },
+
+    // Go patches - auto-merge after 3-day delay
+    {
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "go-patches",
+      "automerge": true
+    },
+
+    // Go minor - manual review
+    {
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "go-minor",
+      "automerge": false
+    },
+
+    // Go version in go.mod - manual review, individual PR
+    {
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["golang"],
+      "automerge": false,
+      "groupName": null
+    },
+
+    // npm - prettier used by mage format
+    {
+      "matchManagers": ["npm"],
+      "groupName": "npm-dev",
+      "automerge": true
+    },
+
+    // pre-commit hooks
+    {
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit",
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "minor"]
+    },
+
+    // Keep golangci-lint versions in sync (pre-commit + CI action)
+    {
+      "matchPackagePatterns": ["golangci.*lint"],
+      "groupName": "golangci-lint"
+    }
+  ]
+}
