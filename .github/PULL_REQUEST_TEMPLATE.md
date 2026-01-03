@@ -1,3 +1,12 @@
+<!--
+Thanks for contributing to Grove!
+
+Before submitting:
+- Link related issues with "Fixes #123" or "Related to #123"
+- Keep changes focused on a single concern
+- Add tests for new functionality
+-->
+
 [Brief description of what this PR accomplishes]
 
 #### Changes
