@@ -38,3 +38,6 @@ node_modules/
 .claude.backup-*/
 .claude/tdd-guard/
 .spec-workflow/session.json
+
+# Changie
+.changes/.changie.yaml.bak

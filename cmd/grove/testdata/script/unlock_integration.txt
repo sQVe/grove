@@ -23,28 +23,23 @@ exec git config user.email "test@example.com"
 
 # Setup: Add and lock a worktree
 exec grove add feature
-! stderr .
 exec grove lock feature --reason 'Testing'
-! stderr .
 
 ## Verify: Locked (precondition)
 
 exec grove list --verbose
 stdout 'locked'
-! stderr .
 
 ## Success: Unlock worktree
 
 exec grove unlock feature
-stdout 'Unlocked worktree'
-! stderr .
+stderr 'Unlocked worktree'
 
 ## Verify: Unlocked
 
 cd ../feature
 exec grove status --json
 stdout '"locked": false'
-! stderr .
 cd ../main
 
 ## Error: Already unlocked

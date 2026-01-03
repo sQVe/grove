@@ -1,0 +1,23 @@
+name: Prepare release
+
+on:
+  push:
+    branches: [main]
+    paths: ['.changes/unreleased/*.yaml']
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - uses: labd/changie-release-action@v0.6.0
+        with:
+          github-token: ${{ secrets.RELEASE_TOKEN }}

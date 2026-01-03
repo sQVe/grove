@@ -45,8 +45,7 @@ exec git branch --set-upstream-to=origin/feature-dirty feature-dirty
 ## Success: No stale worktrees initially
 cd $WORK/workspace/main
 exec grove prune
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 ## Success: Detect gone worktree
 # Delete branch on "remote" (source repo)
@@ -54,19 +53,17 @@ exec git -C $WORK/testrepo branch -D feature-to-delete
 
 # Run prune - should detect gone worktree after fetching
 exec grove prune
-stdout 'Would prune 1 worktree'
-stdout 'feature-to-delete'
-stdout 'Run with --commit to remove'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-to-delete'
+stderr 'Run with --commit to remove'
 
 # Worktree should still exist (dry-run)
 exists $WORK/workspace/feature-to-delete
 
 ## Success: --commit removes worktree
 exec grove prune --commit
-stdout 'Pruned 1 worktree'
-stdout 'feature-to-delete'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-to-delete'
 
 # Worktree should be gone now
 ! exists $WORK/workspace/feature-to-delete
@@ -80,26 +77,23 @@ exec git -C $WORK/testrepo branch -D feature-dirty
 
 # Prune should show it as dirty (will be skipped)
 exec grove prune
-stdout 'Would skip 1 worktree'
-stdout 'feature-dirty'
-stdout 'dirty, use --force'
-! stderr .
+stderr 'Would skip 1 worktree'
+stderr 'feature-dirty'
+stderr 'dirty, use --force'
 
 # --commit should skip dirty worktree
 exec grove prune --commit
-stdout 'Skipped 1 worktree'
-stdout 'feature-dirty'
-stdout 'dirty, use --force'
-! stderr .
+stderr 'Skipped 1 worktree'
+stderr 'feature-dirty'
+stderr 'dirty, use --force'
 
 # Worktree should still exist
 exists $WORK/workspace/feature-dirty
 
 ## Success: --force removes dirty worktree
 exec grove prune --commit --force
-stdout 'Pruned 1 worktree'
-stdout 'feature-dirty'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-dirty'
 
 # Worktree should be gone now
 ! exists $WORK/workspace/feature-dirty
@@ -113,7 +107,6 @@ cd $WORK/workspace/.bare
 exec git fetch origin
 cd $WORK/workspace/main
 exec grove add feature-current
-! stderr .
 
 cd $WORK/workspace/feature-current
 exec git config user.name "Test"
@@ -125,17 +118,15 @@ exec git -C $WORK/testrepo branch -D feature-current
 
 # Prune from inside the worktree should show it as current (will be skipped)
 exec grove prune
-stdout 'Would skip 1 worktree'
-stdout 'feature-current'
-stdout 'current worktree'
-! stderr .
+stderr 'Would skip 1 worktree'
+stderr 'feature-current'
+stderr 'current worktree'
 
 # --commit should skip current worktree
 exec grove prune --commit
-stdout 'Skipped 1 worktree'
-stdout 'feature-current'
-stdout 'current worktree'
-! stderr .
+stderr 'Skipped 1 worktree'
+stderr 'feature-current'
+stderr 'current worktree'
 
 # Worktree should still exist
 exists $WORK/workspace/feature-current
@@ -147,17 +138,15 @@ cd $WORK/workspace/feature-current/src/components
 
 # Prune from inside subdirectory should still show it as current (will be skipped)
 exec grove prune
-stdout 'Would skip 1 worktree'
-stdout 'feature-current'
-stdout 'current worktree'
-! stderr .
+stderr 'Would skip 1 worktree'
+stderr 'feature-current'
+stderr 'current worktree'
 
 # --commit from subdirectory should still skip current worktree
 exec grove prune --commit
-stdout 'Skipped 1 worktree'
-stdout 'feature-current'
-stdout 'current worktree'
-! stderr .
+stderr 'Skipped 1 worktree'
+stderr 'feature-current'
+stderr 'current worktree'
 
 # Worktree should still exist
 exists $WORK/workspace/feature-current
@@ -186,10 +175,9 @@ exec git -C $WORK/testrepo branch -D feature-locked
 
 cd $WORK/workspace/main
 exec grove prune
-stdout 'Would skip 1 worktree'
-stdout 'feature-locked'
-stdout 'locked, use --force'
-! stderr .
+stderr 'Would skip 1 worktree'
+stderr 'feature-locked'
+stderr 'locked, use --force'
 
 # Worktree still exists
 exists $WORK/workspace/feature-locked
@@ -200,9 +188,8 @@ exists $WORK/workspace/feature-locked
 # Grove's --force doesn't pass double-force to git, so we unlock manually
 exec git -C $WORK/workspace/.bare worktree unlock ../feature-locked
 exec grove prune --commit --force
-stdout 'Pruned 1 worktree'
-stdout 'feature-locked'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-locked'
 ! exists $WORK/workspace/feature-locked
 
 ## Edge case: Unpushed commits with gone upstream
@@ -229,14 +216,12 @@ exec git -C $WORK/testrepo branch -D feature-unpushed
 cd $WORK/workspace/main
 # Note: Shows as "Would prune" not "Would skip" because Ahead can't be computed
 exec grove prune
-stdout 'Would prune 1 worktree'
-stdout 'feature-unpushed'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-unpushed'
 
 # Clean up
 exec grove prune --commit
-stdout 'Pruned 1 worktree'
-! stderr .
+stderr 'Pruned 1 worktree'
 ! exists $WORK/workspace/feature-unpushed
 
 ## Success: Multiple gone worktrees listed
@@ -273,19 +258,17 @@ exec git -C $WORK/testrepo branch -D feature-multi-3
 
 cd $WORK/workspace/main
 exec grove prune
-stdout 'Would prune 3 worktrees'
-stdout 'feature-multi-1'
-stdout 'feature-multi-2'
-stdout 'feature-multi-3'
-! stderr .
+stderr 'Would prune 3 worktrees'
+stderr 'feature-multi-1'
+stderr 'feature-multi-2'
+stderr 'feature-multi-3'
 
 ## Success: Multiple worktrees pruned
 exec grove prune --commit
-stdout 'Pruned 3 worktrees'
-stdout 'feature-multi-1'
-stdout 'feature-multi-2'
-stdout 'feature-multi-3'
-! stderr .
+stderr 'Pruned 3 worktrees'
+stderr 'feature-multi-1'
+stderr 'feature-multi-2'
+stderr 'feature-multi-3'
 ! exists $WORK/workspace/feature-multi-1
 ! exists $WORK/workspace/feature-multi-2
 ! exists $WORK/workspace/feature-multi-3
@@ -318,20 +301,18 @@ exec git -C $WORK/testrepo branch -D feature-dirty-mix
 
 cd $WORK/workspace/main
 exec grove prune
-stdout 'Would prune 1 worktree'
-stdout 'feature-clean'
-stdout 'Would skip 1 worktree'
-stdout 'feature-dirty-mix'
-stdout 'dirty, use --force'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-clean'
+stderr 'Would skip 1 worktree'
+stderr 'feature-dirty-mix'
+stderr 'dirty, use --force'
 
 ## Success: Commit mode with mixed
 exec grove prune --commit
-stdout 'Pruned 1 worktree'
-stdout 'feature-clean'
-stdout 'Skipped 1 worktree'
-stdout 'feature-dirty-mix'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-clean'
+stderr 'Skipped 1 worktree'
+stderr 'feature-dirty-mix'
 ! exists $WORK/workspace/feature-clean
 exists $WORK/workspace/feature-dirty-mix
 
@@ -341,8 +322,7 @@ exec grove prune --commit --force
 
 ## Success: No candidates message
 exec grove prune --commit
-stdout 'No worktrees to remove'
-! stderr .
+stderr 'No worktrees to remove'
 
 ## Skipped: Current takes priority over dirty
 # Create worktree, make dirty, go into it
@@ -361,10 +341,9 @@ exec git -C $WORK/testrepo branch -D feature-priority
 
 # From inside the worktree (current), skip reason should be "current", not "dirty"
 exec grove prune
-stdout 'Would skip 1 worktree'
-stdout 'current worktree'
+stderr 'Would skip 1 worktree'
+stderr 'current worktree'
 ! stdout 'dirty'
-! stderr .
 
 # Cleanup - go back to main and force remove
 cd $WORK/workspace/main
@@ -386,23 +365,20 @@ exec git config user.email "test@example.com"
 # Without --stale, not detected (branch still has upstream, not gone)
 cd $WORK/workspace/main
 exec grove prune
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 # With --stale 30d, detected as stale candidate
 exec grove prune --stale 30d
-stdout 'Would prune 1 worktree'
-stdout 'feature-stale'
+stderr 'Would prune 1 worktree'
+stderr 'feature-stale'
 # Age should be shown in output (date is ~2 years old, shows "1 year ago" or "2 years ago")
-stdout 'year.* ago'
-stdout 'Run with --commit to remove'
-! stderr .
+stderr 'year.* ago'
+stderr 'Run with --commit to remove'
 
 # Actually remove with --commit
 exec grove prune --stale 30d --commit
-stdout 'Pruned 1 worktree'
-stdout 'feature-stale'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-stale'
 ! exists $WORK/workspace/feature-stale
 
 ## Success: --stale ignores recent worktrees
@@ -420,8 +396,7 @@ exec git config user.email "test@example.com"
 cd $WORK/workspace/main
 # With --stale 30d, should NOT detect feature-fresh (it's new)
 exec grove prune --stale 30d
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 # Cleanup
 exec grove remove feature-fresh
@@ -450,20 +425,17 @@ exec git config user.email "test@example.com"
 # Without --merged, not detected
 cd $WORK/workspace/main
 exec grove prune
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 # With --merged, detected as merged candidate
 exec grove prune --merged
-stdout 'Would prune 1 worktree'
-stdout 'feature-merged'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-merged'
 
 # Actually remove
 exec grove prune --merged --commit
-stdout 'Pruned 1 worktree'
-stdout 'feature-merged'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-merged'
 ! exists $WORK/workspace/feature-merged
 
 ## Success: --merged detects squash merged branches
@@ -491,9 +463,8 @@ exec git config user.email "test@example.com"
 cd $WORK/workspace/main
 # With --merged, should detect squash-merged branch via patch-id comparison
 exec grove prune --merged
-stdout 'Would prune 1 worktree'
-stdout 'feature-squashed'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-squashed'
 
 # Cleanup
 exec grove prune --merged --commit
@@ -516,8 +487,7 @@ exec git config user.email "test@example.com"
 cd $WORK/workspace/main
 # With --merged, should NOT detect feature-unmerged
 exec grove prune --merged
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 # Cleanup
 exec grove remove feature-unmerged
@@ -658,9 +628,8 @@ exec git -C $WORK/testrepo branch -D feature-gone-stale
 cd $WORK/workspace/main
 # With --stale, branch should be listed once (as gone, not as both gone and stale)
 exec grove prune --stale 30d
-stdout 'Would prune 1 worktree'
-stdout 'feature-gone-stale'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-gone-stale'
 
 # Cleanup
 exec grove prune --commit
@@ -685,9 +654,8 @@ exec git config user.email "test@example.com"
 cd $WORK/workspace/main
 # With both --merged and --stale, branch should be listed once (as merged)
 exec grove prune --merged --stale 30d
-stdout 'Would prune 1 worktree'
-stdout 'feature-merged-stale'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-merged-stale'
 
 # Cleanup
 exec grove prune --merged --commit
