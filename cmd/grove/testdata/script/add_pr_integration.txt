@@ -24,7 +24,7 @@ exec git config commit.gpgsign false
 ## PR number creates worktree (using test PR #7)
 # Note: PR worktrees are named pr-<number> to avoid conflicts with branch worktrees
 
-exec grove add '#7'
+exec grove add --pr 7
 stdout 'Created worktree for PR #7'
 stdout 'pr-7'
 exists ../pr-7
@@ -41,18 +41,18 @@ exists ../pr-7
 
 ## PR doesn't exist → error
 
-! exec grove add '#99999'
+! exec grove add --pr 99999
 stderr 'not found'
 
 ## PR branch already has worktree → error
 
-! exec grove add '#7'
+! exec grove add --pr 7
 stderr 'worktree already exists'
 
 ## PR with --switch outputs only path
 
 exec grove remove pr-7
-exec grove add --switch '#7'
+exec grove add --switch --pr 7
 stdout '^.*/pr-7$'
 ! stdout 'Created worktree'
 exists ../pr-7
@@ -76,6 +76,6 @@ cd no-gh-workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
 # PR number requires GitHub origin
-! exec grove add '#123'
+! exec grove add --pr 123
 stderr 'requires workspace context'
 

@@ -22,7 +22,7 @@ have your `.env` files.
 - **Best-practice setup** — Uses the `.bare` repo structure automatically
 - **Switch like branches** — `grove switch main` just works
 - **File preservation** — `.env`, `.envrc` copied to new worktrees
-- **PR checkout** — `grove add #123` creates a worktree for any PR
+- **PR checkout** — `grove add --pr 123` creates a worktree for any PR
 - **Post-create hooks** — Run `npm install` automatically after creating worktrees
 
 
@@ -190,7 +190,7 @@ grove init convert --branches develop,staging
 </details>
 
 <details>
-<summary><code>grove add &lt;branch|#PR|ref&gt;</code></summary>
+<summary><code>grove add [branch|PR-URL|ref]</code></summary>
 
 Add a worktree for a branch, pull request, or ref.
 
@@ -200,6 +200,7 @@ Add a worktree for a branch, pull request, or ref.
 - `--base <branch>` — Create new branch from base instead of HEAD
 - `--name <name>` — Custom directory name
 - `-d, --detach` — Detached HEAD state
+- `--pr <number>` — Create worktree for a pull request
 
 **Examples:**
 
@@ -207,8 +208,8 @@ Add a worktree for a branch, pull request, or ref.
 grove add feat/auth
 grove add feat/auth --switch
 grove add --base main feat/auth
-grove add                 #123                    # PR by number
-grove add --detach v1.0.0 # Tag in detached HEAD
+grove add --pr 123            # PR by number
+grove add --detach v1.0.0     # Tag in detached HEAD
 ```
 
 </details>
