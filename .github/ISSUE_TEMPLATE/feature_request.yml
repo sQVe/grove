@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a new feature or improvement
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve? What workflow are you trying to accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should this work?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Use cases, examples, or other details
