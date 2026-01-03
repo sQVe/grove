@@ -25,8 +25,8 @@ exec git config commit.gpgsign false
 # Note: PR worktrees are named pr-<number> to avoid conflicts with branch worktrees
 
 exec grove add --pr 7
-stdout 'Created worktree for PR #7'
-stdout 'pr-7'
+stderr 'Created worktree for PR #7'
+stderr 'pr-7'
 exists ../pr-7
 # Verify worktree is on correct branch
 exec git -C ../pr-7 rev-parse --abbrev-ref HEAD
@@ -36,7 +36,7 @@ stdout '^integration-test-pr-branch$'
 
 exec grove remove pr-7
 exec grove add 'https://github.com/sqve/grove/pull/7/files'
-stdout 'Created worktree for PR #7'
+stderr 'Created worktree for PR #7'
 exists ../pr-7
 
 ## PR doesn't exist → error
@@ -54,7 +54,7 @@ stderr 'worktree already exists'
 exec grove remove pr-7
 exec grove add --switch --pr 7
 stdout '^.*/pr-7$'
-! stdout 'Created worktree'
+! stderr 'Created worktree'
 exists ../pr-7
 
 ## PR number without GitHub origin → error

@@ -28,7 +28,7 @@ stderr '^✗ directory.*new-fails-not-empty.*not empty'
 # Inside existing grove workspace
 mkdir new-fails-inside-grove
 exec grove init new new-fails-inside-grove
-! stderr .
+stderr 'Initialized grove workspace'
 cd new-fails-inside-grove
 ! exec grove init new
 stderr '^✗ cannot initialize grove inside existing grove workspace'
@@ -37,7 +37,7 @@ cd ..
 # Nested inside existing grove workspace
 mkdir new-fails-nested-grove
 exec grove init new new-fails-nested-grove
-! stderr .
+stderr 'Initialized grove workspace'
 ! exec grove init new new-fails-nested-grove/nested
 stderr '^✗ cannot initialize grove inside existing grove workspace'
 

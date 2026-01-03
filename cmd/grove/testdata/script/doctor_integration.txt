@@ -23,7 +23,6 @@ exec git config user.email "test@example.com"
 
 exec grove doctor
 stdout '✓ No issues found'
-! stderr .
 
 ## Detect broken .git pointer (missing file)
 

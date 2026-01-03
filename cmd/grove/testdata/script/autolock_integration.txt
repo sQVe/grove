@@ -19,7 +19,6 @@ cd ..
 
 mkdir workspace
 exec grove clone file://$WORK/testrepo workspace
-! stderr .
 cd workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
@@ -29,17 +28,14 @@ exec grove list --json
 stdout '"name": "main"'
 stdout '"locked": true'
 stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'
-! stderr .
 
 ## Success: Add non-default branch is not auto-locked
 
 exec grove add feature
-! stderr .
 cd ../feature
 exec grove status --json
 # Feature should not be locked (explicit false check)
 stdout '"locked": false'
-! stderr .
 
 ## Verify: Main stays locked after adding feature
 
@@ -50,7 +46,6 @@ stdout '"name": "main"'
 stdout '"locked": true'
 # Feature should be unlocked
 stdout '"name": "feature"'
-! stderr .
 
 ## Verify: List shows correct lock status
 
@@ -59,18 +54,15 @@ stdout 'main.*\[locked\]'
 stdout 'feature'
 # Feature line should NOT have [locked]
 ! stdout 'feature.*\[locked\]'
-! stderr .
 
 ## Success: Auto-locked worktree can be unlocked
 
 exec grove unlock main
-stdout 'Unlocked worktree'
-! stderr .
+stderr 'Unlocked worktree'
 
 # Verify main is now unlocked
 exec grove status --json
 stdout '"locked": false'
-! stderr .
 
 -- README.md --
 # Test

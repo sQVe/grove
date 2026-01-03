@@ -21,8 +21,7 @@ cd ..
 # Clone creates worktrees for specified branches
 mkdir clone-with-branches
 exec grove clone file://$WORK/testrepo clone-with-branches --branches main,develop
-stdout 'Cloned repository to.*clone-with-branches'
-! stderr .
+stderr 'Cloned repository to.*clone-with-branches'
 exists clone-with-branches/.bare
 exists clone-with-branches/.git
 exists clone-with-branches/main
@@ -35,13 +34,12 @@ exists clone-with-branches/develop/README.md
 # Default mode shows worktree creation
 mkdir clone-quiet-output
 exec grove clone file://$WORK/testrepo clone-quiet-output --branches main,develop
-stdout 'Repository cloned'
-stdout 'Creating worktrees'
+stderr 'Repository cloned'
+stderr 'Creating worktrees'
 # Worktrees created in order specified in --branches flag
-stdout '✓ main'
-stdout '✓ develop'
-stdout 'Cloned repository to.*clone-quiet-output'
-! stderr .
+stderr '✓ main'
+stderr '✓ develop'
+stderr 'Cloned repository to.*clone-quiet-output'
 # Quiet mode suppresses git progress output
 ! stdout 'Enumerating objects'
 ! stdout 'Counting objects'
@@ -51,18 +49,17 @@ stdout 'Cloned repository to.*clone-quiet-output'
 # Branch name sanitization in output
 mkdir clone-sanitize-branches
 exec grove clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
-stdout 'Creating worktrees'
-stdout '✓ feat-user-auth'
-stdout 'Cloned repository to.*clone-sanitize-branches'
-! stderr .
+stderr 'Creating worktrees'
+stderr '✓ feat-user-auth'
+stderr 'Cloned repository to.*clone-sanitize-branches'
 exists clone-sanitize-branches/feat-user-auth
 
 ## Output: Verbose mode shows git output
 mkdir clone-verbose-output
 exec grove clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
-stdout 'Creating worktrees'
-stdout '✓ main'
-stdout 'Cloned repository to.*clone-verbose-output'
+stderr 'Creating worktrees'
+stderr '✓ main'
+stderr 'Cloned repository to.*clone-verbose-output'
 # Verbose mode shows git clone/worktree progress on stderr
 stderr 'Cloning into bare repository'
 stderr 'Preparing worktree'
@@ -114,21 +111,18 @@ mkdir clone-whitespace-branches
 exec grove clone file://$WORK/testrepo clone-whitespace-branches --branches ' main , develop '
 exists clone-whitespace-branches/main
 exists clone-whitespace-branches/develop
-! stderr .
 
 ## Edge case: --branches with empty segments filtered
 mkdir clone-empty-segments
 exec grove clone file://$WORK/testrepo clone-empty-segments --branches 'main,,develop'
 exists clone-empty-segments/main
 exists clone-empty-segments/develop
-! stderr .
 
 ## Edge case: --branches with leading/trailing commas
 mkdir clone-commas
 exec grove clone file://$WORK/testrepo clone-commas --branches ',main,develop,'
 exists clone-commas/main
 exists clone-commas/develop
-! stderr .
 
 ## Success: Multiple slashes sanitized to dashes
 mkdir clone-multi-slash
@@ -138,8 +132,7 @@ exec git checkout main
 cd ..
 exec grove clone file://$WORK/testrepo clone-multi-slash --branches release/v1/patch
 exists clone-multi-slash/release-v1-patch
-stdout 'release-v1-patch'
-! stderr .
+stderr 'release-v1-patch'
 
 ## Error: Duplicate branches
 mkdir clone-duplicate-branches

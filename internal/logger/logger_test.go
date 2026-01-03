@@ -55,15 +55,15 @@ func TestDebugLogging(t *testing.T) {
 
 func TestPlainOutput(t *testing.T) {
 	t.Run("plain mode without emoji or colors", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(true, false) // plain=true, debug=false
 		Success("test message")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -78,16 +78,16 @@ func TestPlainOutput(t *testing.T) {
 	})
 
 	t.Run("colored mode with emoji and colors", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Success("test message with colors")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -104,15 +104,15 @@ func TestPlainOutput(t *testing.T) {
 
 func TestInfo(t *testing.T) {
 	t.Run("plain mode outputs message without symbols", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(true, false) // plain=true, debug=false
 		Info("info message")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -127,16 +127,16 @@ func TestInfo(t *testing.T) {
 	})
 
 	t.Run("colored mode outputs with symbol and colors", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Info("info message")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -153,15 +153,15 @@ func TestInfo(t *testing.T) {
 
 func TestWarning(t *testing.T) {
 	t.Run("plain mode outputs message without symbols", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(true, false) // plain=true, debug=false
 		Warning("warning message")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -176,16 +176,16 @@ func TestWarning(t *testing.T) {
 	})
 
 	t.Run("colored mode outputs with symbol and colors", func(t *testing.T) {
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, _ := os.Pipe()
-		os.Stdout = w
+		os.Stderr = w
 
 		Init(false, false) // plain=false, debug=false
 		t.Setenv("GROVE_TEST_COLORS", "true")
 		Warning("warning message")
 
 		_ = w.Close()
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, r)
@@ -196,78 +196,6 @@ func TestWarning(t *testing.T) {
 		}
 		if !strings.Contains(output, "\033[") {
 			t.Error("Warning output should contain ANSI escape codes")
-		}
-	})
-}
-
-func TestWorktreeListItem(t *testing.T) {
-	t.Run("formats current worktree with bullet in plain mode", func(t *testing.T) {
-		Init(true, false) // plain=true, debug=false
-
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		WorktreeListItem("main", true, "[clean]", "=", 10, "")
-
-		_ = w.Close()
-		os.Stdout = oldStdout
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		output := buf.String()
-
-		if !strings.Contains(output, "* main") {
-			t.Errorf("expected '* main' in output, got: %s", output)
-		}
-		if !strings.Contains(output, "[clean]") {
-			t.Errorf("expected '[clean]' in output, got: %s", output)
-		}
-	})
-
-	t.Run("formats non-current worktree without bullet in plain mode", func(t *testing.T) {
-		Init(true, false) // plain=true, debug=false
-
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		WorktreeListItem("feature", false, "[dirty]", "↑2", 10, "")
-
-		_ = w.Close()
-		os.Stdout = oldStdout
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		output := buf.String()
-
-		if strings.Contains(output, "*") {
-			t.Errorf("non-current worktree should not have '*', got: %s", output)
-		}
-		if !strings.Contains(output, "feature") {
-			t.Errorf("expected 'feature' in output, got: %s", output)
-		}
-	})
-
-	t.Run("formats current worktree with unicode bullet in colored mode", func(t *testing.T) {
-		Init(false, false) // plain=false, debug=false
-		t.Setenv("GROVE_TEST_COLORS", "true")
-
-		oldStdout := os.Stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		WorktreeListItem("main", true, "[clean]", "=", 10, "")
-
-		_ = w.Close()
-		os.Stdout = oldStdout
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		output := buf.String()
-
-		if !strings.Contains(output, "●") {
-			t.Errorf("expected '●' bullet in colored output, got: %s", output)
 		}
 	})
 }

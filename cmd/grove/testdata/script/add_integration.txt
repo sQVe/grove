@@ -24,8 +24,7 @@ exec git config user.email "test@example.com"
 ## Success: Add existing branch
 
 exec grove add existing-branch
-stdout 'Created worktree at .*/existing-branch'
-! stderr .
+stderr 'Created worktree at .*/existing-branch'
 exists ../existing-branch
 # Verify worktree is on correct branch
 exec git -C ../existing-branch rev-parse --abbrev-ref HEAD
@@ -34,8 +33,7 @@ stdout '^existing-branch$'
 ## Success: Add new branch
 
 exec grove add feature/new-thing
-stdout 'Created worktree at .*/feature-new-thing'
-! stderr .
+stderr 'Created worktree at .*/feature-new-thing'
 exists ../feature-new-thing
 # Verify worktree is on correct branch
 exec git -C ../feature-new-thing rev-parse --abbrev-ref HEAD
@@ -57,24 +55,21 @@ stderr 'directory already exists:.*test-dir'
 cd $WORK/workspace/main
 exec grove add --switch feature/switch-test
 stdout '^.*/feature-switch-test$'
-! stdout 'Created worktree'
-! stderr .
+! stderr 'Created worktree'
 exists ../feature-switch-test
 
 ## Success: -s shorthand outputs path only
 
 exec grove add -s feature/short-flag
 stdout '^.*/feature-short-flag$'
-! stdout 'Created worktree'
-! stderr .
+! stderr 'Created worktree'
 exists ../feature-short-flag
 
 ## Success: --base creates branch from specified base
 
 cd $WORK/workspace/main
 exec grove add --base existing-branch feature/from-existing
-stdout 'Created worktree at .*/feature-from-existing'
-! stderr .
+stderr 'Created worktree at .*/feature-from-existing'
 exists ../feature-from-existing
 # Verify new branch was created
 exec git -C ../feature-from-existing rev-parse --abbrev-ref HEAD
@@ -98,8 +93,7 @@ cd $WORK/workspace/.bare
 exec git fetch --tags
 cd $WORK/workspace/main
 exec grove add --detach v1.0.0
-stdout 'Created detached worktree at .*/v1.0.0'
-! stderr .
+stderr 'Created detached worktree at .*/v1.0.0'
 exists ../v1.0.0
 # Verify worktree is in detached HEAD state
 exec git -C ../v1.0.0 rev-parse --abbrev-ref HEAD
@@ -109,8 +103,7 @@ stdout '^HEAD$'
 
 # Use HEAD as the commit reference - it resolves to current commit SHA
 exec grove add --detach --name detached-sha HEAD
-stdout 'Created detached worktree at .*/detached-sha'
-! stderr .
+stderr 'Created detached worktree at .*/detached-sha'
 exists ../detached-sha
 exec git -C ../detached-sha rev-parse --abbrev-ref HEAD
 stdout '^HEAD$'
@@ -123,8 +116,7 @@ stderr 'does not exist'
 ## Success: --name uses custom directory name
 
 exec grove add --name custom-dir-name feature/custom-name-test
-stdout 'Created worktree at .*/custom-dir-name'
-! stderr .
+stderr 'Created worktree at .*/custom-dir-name'
 exists ../custom-dir-name
 # Verify branch name is still the original
 exec git -C ../custom-dir-name rev-parse --abbrev-ref HEAD
@@ -133,8 +125,7 @@ stdout '^feature/custom-name-test$'
 ## Success: --name with path separators creates nested directories
 
 exec grove add --name 'nested/dir' feature/slash-name-test
-stdout 'Created worktree at .*/nested/dir'
-! stderr .
+stderr 'Created worktree at .*/nested/dir'
 exists ../nested/dir
 exec git -C ../nested/dir rev-parse --abbrev-ref HEAD
 stdout '^feature/slash-name-test$'
@@ -142,8 +133,7 @@ stdout '^feature/slash-name-test$'
 ## Success: Empty --name falls back to default naming
 
 exec grove add --name '' feature/empty-name-test
-stdout 'Created worktree at .*/feature-empty-name-test'
-! stderr .
+stderr 'Created worktree at .*/feature-empty-name-test'
 exists ../feature-empty-name-test
 
 ## Error: --base with branch that has worktree
@@ -155,8 +145,7 @@ stderr 'worktree already exists'
 
 cd $WORK/workspace
 exec grove add feature/from-root
-stdout 'Created worktree at .*/feature-from-root'
-! stderr .
+stderr 'Created worktree at .*/feature-from-root'
 exists feature-from-root
 
 ## Success: Preserved files shown in output
@@ -169,8 +158,8 @@ exec git commit -m 'add gitignore'
 # Create .env file to be preserved
 exec sh -c 'echo "SECRET=value" > .env'
 exec grove add feature/preserve-test
-stdout 'Created worktree at .*/feature-preserve-test'
-stdout 'preserved'
+stderr 'Created worktree at .*/feature-preserve-test'
+stderr 'preserved'
 exists ../feature-preserve-test/.env
 
 ## Error: --base with existing branch (no worktree)
@@ -190,7 +179,7 @@ cd $WORK/workspace/.bare
 exec git fetch origin
 cd $WORK/workspace/main
 exec grove add remote-only-branch
-stdout 'Created worktree at .*/remote-only-branch'
+stderr 'Created worktree at .*/remote-only-branch'
 exists ../remote-only-branch
 # Verify branch was created
 exec git -C ../remote-only-branch rev-parse --abbrev-ref HEAD
@@ -209,7 +198,7 @@ exec git -C $WORK/workspace/.bare worktree list --porcelain
 ## Auto-lock: Release branch locked by pattern
 
 exec grove add release/v1.0
-stdout 'Created worktree at .*/release-v1.0'
+stderr 'Created worktree at .*/release-v1.0'
 # release branch SHOULD be locked
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 stdout 'locked'
@@ -221,9 +210,9 @@ cd $WORK/workspace/main
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"touch .hook-ran\"]" >> .grove.toml'
 exec grove add feature/hook-success
-stdout 'Created worktree at .*/feature-hook-success'
-stdout 'ran 1 hook'
-stdout 'touch .hook-ran'
+stderr 'Created worktree at .*/feature-hook-success'
+stderr 'ran 1 hook'
+stderr 'touch .hook-ran'
 # Verify hook actually ran
 exists ../feature-hook-success/.hook-ran
 
@@ -232,8 +221,8 @@ exists ../feature-hook-success/.hook-ran
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"touch .hook1\", \"touch .hook2\"]" >> .grove.toml'
 exec grove add feature/multi-hook
-stdout 'Created worktree at .*/feature-multi-hook'
-stdout 'ran 2 hooks'
+stderr 'Created worktree at .*/feature-multi-hook'
+stderr 'ran 2 hooks'
 exists ../feature-multi-hook/.hook1
 exists ../feature-multi-hook/.hook2
 
@@ -242,8 +231,8 @@ exists ../feature-multi-hook/.hook2
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"exit 1\"]" >> .grove.toml'
 exec grove add feature/hook-fail
-stdout 'Created worktree at .*/feature-hook-fail'
-stdout 'Hook failed.*exit 1.*exit code 1'
+stderr 'Created worktree at .*/feature-hook-fail'
+stderr 'Hook failed.*exit 1.*exit code 1'
 exists ../feature-hook-fail
 
 ## Hooks: Stops at first failure
@@ -251,8 +240,8 @@ exists ../feature-hook-fail
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"exit 42\", \"touch .should-not-exist\"]" >> .grove.toml'
 exec grove add feature/hook-stop-early
-stdout 'Created worktree at .*/feature-hook-stop-early'
-stdout 'Hook failed.*exit 42.*exit code 42'
+stderr 'Created worktree at .*/feature-hook-stop-early'
+stderr 'Hook failed.*exit 42.*exit code 42'
 exists ../feature-hook-stop-early
 ! exists ../feature-hook-stop-early/.should-not-exist
 
@@ -261,16 +250,16 @@ exists ../feature-hook-stop-early
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = []" >> .grove.toml'
 exec grove add feature/no-hooks
-stdout 'Created worktree at .*/feature-no-hooks'
-! stdout 'ran.*hook'
+stderr 'Created worktree at .*/feature-no-hooks'
+! stderr 'ran.*hook'
 ! stderr 'Hook'
 
 ## Hooks: Invalid TOML shows warning
 
 exec sh -c 'echo "this is not valid toml [[[" > .grove.toml'
 exec grove add feature/invalid-toml
-stdout 'Created worktree at .*/feature-invalid-toml'
-stdout 'hooks disabled'
+stderr 'Created worktree at .*/feature-invalid-toml'
+stderr 'hooks disabled'
 exists ../feature-invalid-toml
 
 # Restore valid config for any subsequent tests
@@ -283,7 +272,7 @@ exec sh -c 'echo "[auto-lock]" > .grove.toml'
 exec sh -c 'echo "patterns = [\"*\"]" >> .grove.toml'
 # Create detached worktree from tag
 exec grove add --detach v1.0.0 --name detached-lock-test
-stdout 'Created detached worktree at .*/detached-lock-test'
+stderr 'Created detached worktree at .*/detached-lock-test'
 # Detached worktrees should NOT be locked (no branch name to match)
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 ! stdout 'worktree.*detached-lock-test.*locked'
@@ -295,7 +284,7 @@ exec sh -c 'echo "" > .grove.toml'
 
 # Create a branch name that's very long (but under typical 255 limit)
 exec grove add feature/this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
-stdout 'Created worktree at'
+stderr 'Created worktree at'
 exists ../feature-this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
 
 ## Merge in progress in source worktree - should not affect add
@@ -318,7 +307,7 @@ exec git status
 stdout 'Unmerged paths'
 # grove add should still work from this worktree
 exec grove add feature/during-merge
-stdout 'Created worktree at .*/feature-during-merge'
+stderr 'Created worktree at .*/feature-during-merge'
 exists ../feature-during-merge
 # Clean up merge state
 exec git merge --abort
@@ -348,7 +337,7 @@ exec git status
 stdout 'rebase in progress'
 # grove add should still work
 exec grove add feature/during-rebase
-stdout 'Created worktree at .*/feature-during-rebase'
+stderr 'Created worktree at .*/feature-during-rebase'
 exists ../feature-during-rebase
 # Clean up rebase state
 exec git rebase --abort
@@ -359,7 +348,7 @@ exec git checkout main
 cd $WORK/workspace/main
 # Create first branch with slash
 exec grove add feature/collision-test
-stdout 'Created worktree at .*/feature-collision-test'
+stderr 'Created worktree at .*/feature-collision-test'
 exists ../feature-collision-test
 # Try to create branch that sanitizes to same directory name
 # feature\collision-test on Windows or just testing the error
@@ -383,9 +372,9 @@ exec git config --get-all grove.preserve
 stdout '.env-gitconfig'
 # Create worktree - should preserve via git config pattern
 exec grove add feature/git-config-preserve
-stdout 'Created worktree at .*/feature-git-config-preserve'
-stdout 'preserved'
-stdout '.env-gitconfig'
+stderr 'Created worktree at .*/feature-git-config-preserve'
+stderr 'preserved'
+stderr '.env-gitconfig'
 exists ../feature-git-config-preserve/.env-gitconfig
 # Clean up git config
 exec git config --unset grove.preserve
@@ -400,7 +389,7 @@ cd empty-workspace
 # Grove init new creates just bare repo, no worktrees yet
 # Adding a worktree in empty repo creates orphan branch
 exec grove add feature/test
-stdout 'Created worktree at .*/feature-test'
+stderr 'Created worktree at .*/feature-test'
 exists feature-test
 exists feature-test/.git
 
@@ -410,7 +399,7 @@ cd $WORK/workspace/main
 # Verify no lock file exists before operation
 ! exists ../.grove-worktree.lock
 exec grove add feature/lock-test-success
-stdout 'Created worktree at'
+stderr 'Created worktree at'
 exists ../feature-lock-test-success
 # Verify lock file was cleaned up after successful operation
 ! exists ../.grove-worktree.lock
@@ -442,7 +431,7 @@ exec grove remove feature-skip-test
 # Re-add - the existing file should be skipped
 exec sh -c 'echo "SKIP_TEST=modified" > .env-skip-test'
 exec grove add feature/skip-test-2
-stdout 'Created worktree at'
+stderr 'Created worktree at'
 # Note: skipped files are only shown when there are preserved files AND skipped files
 # This verifies the preservation mechanism works
 

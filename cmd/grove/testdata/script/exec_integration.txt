@@ -29,7 +29,6 @@ exec grove exec --help
 stdout 'Run a command in one or more worktrees'
 stdout '\-\-all'
 stdout '\-\-fail-fast'
-! stderr .
 
 ## Argument validation
 
@@ -54,29 +53,25 @@ stderr 'worktree not found: nonexistent'
 # Execute in all worktrees
 exec grove exec --all -- echo "hello from worktree"
 stdout 'hello from worktree'
-! stderr .
 
 # Execute in specific worktrees
 exec grove exec main feature -- echo "specific"
 stdout 'specific'
-! stderr .
 
 ## Output formatting
 
 # Headers shown for each worktree
 exec grove exec --all -- echo "test"
 # Should show branch names as headers
-stdout 'bugfix'
-stdout 'feature'
-stdout 'main'
-! stderr .
+stderr 'bugfix'
+stderr 'feature'
+stderr 'main'
 
 ## Exit codes and failure handling
 
 # Successful command → success message
 exec grove exec --all -- true
-stdout 'Executed'
-! stderr .
+stderr 'Executed'
 
 # Failed command → continues by default, shows failure count
 ! exec grove exec --all -- false
@@ -91,7 +86,6 @@ stderr 'failed'
 exec grove lock feature --reason 'Testing'
 exec grove exec feature -- echo "locked but executed"
 stdout 'locked but executed'
-! stderr .
 exec grove unlock feature
 
 ## Command with arguments
@@ -101,24 +95,20 @@ exec grove exec main -- echo "arg1" "arg2" "arg3"
 stdout 'arg1'
 stdout 'arg2'
 stdout 'arg3'
-! stderr .
 
 ## Command in worktree directory
 
 # Verify command runs in worktree directory (pwd should show worktree path)
 exec grove exec main -- pwd
 stdout 'workspace/main'
-! stderr .
 
 exec grove exec feature -- pwd
 stdout 'workspace/feature'
-! stderr .
 
 ## Complex commands with shell
 
 exec grove exec main -- sh -c 'echo "shell command"'
 stdout 'shell command'
-! stderr .
 
 ## Partial success/failure
 

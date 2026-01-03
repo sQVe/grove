@@ -32,7 +32,7 @@ exec grove add develop
 exec grove add to-move-dir
 exists ../to-move-dir
 exec grove move to-move-dir renamed-branch
-stdout 'Renamed to-move-dir to renamed-branch'
+stderr 'Renamed to-move-dir to renamed-branch'
 ! exists ../to-move-dir
 exists ../renamed-branch
 
@@ -40,7 +40,7 @@ exists ../renamed-branch
 exec grove add feature/slash-lookup
 exists ../feature-slash-lookup
 exec grove move feature/slash-lookup feature/renamed
-stdout 'Renamed feature/slash-lookup to feature/renamed'
+stderr 'Renamed feature/slash-lookup to feature/renamed'
 ! exists ../feature-slash-lookup
 exists ../feature-renamed
 
@@ -48,7 +48,7 @@ exists ../feature-renamed
 exec grove add --name dir-precedence some-branch-name
 exists ../dir-precedence
 exec grove move dir-precedence new-dir-precedence
-stdout 'Renamed dir-precedence to new-dir-precedence'
+stderr 'Renamed dir-precedence to new-dir-precedence'
 ! exists ../dir-precedence
 exists ../new-dir-precedence
 
@@ -75,13 +75,13 @@ cd $WORK/workspace/main
 
 # CWD is different worktree → allowed
 exec grove move subdir-cwd-test moved-from-main
-stdout 'Renamed subdir-cwd-test to moved-from-main'
+stderr 'Renamed subdir-cwd-test to moved-from-main'
 exists ../moved-from-main
 
 # CWD is workspace root → allowed
 cd $WORK/workspace
 exec grove move cwd-test moved-from-root
-stdout 'Renamed cwd-test to moved-from-root'
+stderr 'Renamed cwd-test to moved-from-root'
 exists moved-from-root
 cd main
 
@@ -135,7 +135,7 @@ exec grove remove -f dirty-untracked
 # Clean worktree → allowed
 exec grove add clean-test
 exec grove move clean-test clean-renamed
-stdout 'Renamed clean-test to clean-renamed'
+stderr 'Renamed clean-test to clean-renamed'
 exec grove remove clean-renamed
 
 ## Locked Worktree Check
@@ -151,7 +151,7 @@ exec grove remove locked-test
 # Unlocked worktree → allowed
 exec grove add unlocked-test
 exec grove move unlocked-test unlocked-renamed
-stdout 'Renamed unlocked-test to unlocked-renamed'
+stderr 'Renamed unlocked-test to unlocked-renamed'
 exec grove remove unlocked-renamed
 
 ## Directory Validation
@@ -177,8 +177,8 @@ exec grove remove sanitized-collision
 # Branch with slashes → sanitized to dashes
 exec grove add slash-sanitize
 exec grove move slash-sanitize new/with/slashes
-stdout 'Renamed slash-sanitize to new/with/slashes'
-stdout 'dir: new-with-slashes'
+stderr 'Renamed slash-sanitize to new/with/slashes'
+stderr 'dir: new-with-slashes'
 ! exists ../slash-sanitize
 exists ../new-with-slashes
 exec grove remove new-with-slashes
@@ -186,7 +186,7 @@ exec grove remove new-with-slashes
 # Multiple slashes → each replaced
 exec grove add multi-slash
 exec grove move multi-slash release/v1/patch/fix
-stdout 'dir: release-v1-patch-fix'
+stderr 'dir: release-v1-patch-fix'
 exists ../release-v1-patch-fix
 exec grove remove release-v1-patch-fix
 
@@ -195,15 +195,15 @@ exec grove remove release-v1-patch-fix
 # Branch != directory name → shows "(dir: Z)"
 exec grove add output-test
 exec grove move output-test feat/output/test
-stdout 'Renamed output-test to'
-stdout 'dir: feat-output-test'
+stderr 'Renamed output-test to'
+stderr 'dir: feat-output-test'
 exec grove remove feat-output-test
 
 # Branch == directory name → no dir suffix
 exec grove add simple-output
 exec grove move simple-output simple-renamed
-stdout 'Renamed simple-output to simple-renamed'
-! stdout 'dir:'
+stderr 'Renamed simple-output to simple-renamed'
+! stderr 'dir:'
 exec grove remove simple-renamed
 
 ## Rapid Consecutive Moves
@@ -211,10 +211,10 @@ exec grove remove simple-renamed
 # A→B, B→C both succeed
 exec grove add rapid-a
 exec grove move rapid-a rapid-b
-stdout 'Renamed rapid-a to rapid-b'
+stderr 'Renamed rapid-a to rapid-b'
 exists ../rapid-b
 exec grove move rapid-b rapid-c
-stdout 'Renamed rapid-b to rapid-c'
+stderr 'Renamed rapid-b to rapid-c'
 exists ../rapid-c
 ! exists ../rapid-b
 exec grove remove rapid-c
