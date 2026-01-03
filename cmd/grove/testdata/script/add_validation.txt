@@ -6,33 +6,46 @@
 exec grove add --help
 stdout 'Create a worktree from a branch'
 stdout 'Usage:'
-stdout '<branch|#PR|PR-URL|ref>'
+stdout '\[branch|PR-URL|ref\]'
 stdout '--base'
 stdout '--detach'
 stdout '--name'
 stdout '--switch'
+stdout '--pr'
 ! stderr .
 
 ## Argument validation
 
-# No arguments
+# No arguments and no --pr flag
 ! exec grove add
-stderr '^✗ accepts 1 arg'
-stderr 'received 0'
+stderr '^✗ requires branch, PR URL, or --pr flag'
 
 # Too many arguments
 ! exec grove add branch extra
-stderr '^✗ accepts 1 arg'
+stderr '^✗ accepts at most 1 arg'
 stderr 'received 2'
+
+# Old #N syntax gives helpful error
+! exec grove add '#123'
+stderr 'syntax no longer supported'
+stderr 'grove add --pr 123'
+
+# --pr cannot be combined with positional argument
+! exec grove add --pr 123 feature
+stderr '^✗ --pr flag cannot be combined with positional argument'
+
+# Negative --pr gives clear error
+! exec grove add --pr -5
+stderr '^✗ --pr must be a positive number'
 
 ## Flag conflicts
 
-# --base with PR reference
-! exec grove add --base main '#123'
+# --base with --pr
+! exec grove add --base main --pr 123
 stderr '^✗ --base cannot be used with PR references'
 
-# --detach with PR reference
-! exec grove add --detach '#123'
+# --detach with --pr
+! exec grove add --detach --pr 123
 stderr '^✗ --detach cannot be used with PR references'
 
 # --detach and --base together

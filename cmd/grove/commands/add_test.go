@@ -15,7 +15,7 @@ func TestNewAddCmd(t *testing.T) {
 	cmd := NewAddCmd()
 
 	// Verify command structure
-	if cmd.Use != "add <branch|#PR|PR-URL|ref>" {
+	if cmd.Use != "add [branch|PR-URL|ref]" {
 		t.Errorf("unexpected Use: %q", cmd.Use)
 	}
 	if cmd.Short == "" {
@@ -31,6 +31,7 @@ func TestNewAddCmd(t *testing.T) {
 		{"base", ""},
 		{"detach", "d"},
 		{"name", ""},
+		{"pr", ""},
 	}
 
 	for _, f := range flags {
@@ -118,7 +119,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd("feature-test", false, "", "", false)
+	err = runAdd([]string{"feature-test"}, false, "", "", false, 0)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -136,29 +137,50 @@ func TestRunAdd_PRValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("base flag cannot be used with PR number", func(t *testing.T) {
-		err := runAdd("#123", false, "main", "", false)
+	t.Run("base flag cannot be used with --pr", func(t *testing.T) {
+		err := runAdd(nil, false, "main", "", false, 123)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
-	t.Run("detach flag cannot be used with PR number", func(t *testing.T) {
-		err := runAdd("#123", false, "", "", true)
+	t.Run("detach flag cannot be used with --pr", func(t *testing.T) {
+		err := runAdd(nil, false, "", "", true, 123)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
+	t.Run("negative --pr gives clear error", func(t *testing.T) {
+		err := runAdd(nil, false, "", "", false, -5)
+		if err == nil || !strings.Contains(err.Error(), "--pr must be a positive number") {
+			t.Errorf("expected positive number error, got %v", err)
+		}
+	})
+
+	t.Run("--pr cannot be combined with positional argument", func(t *testing.T) {
+		err := runAdd([]string{"feature"}, false, "", "", false, 123)
+		if err == nil || !strings.Contains(err.Error(), "--pr flag cannot be combined with positional argument") {
+			t.Errorf("expected --pr/positional conflict error, got %v", err)
+		}
+	})
+
+	t.Run("old #N syntax gives helpful error", func(t *testing.T) {
+		err := runAdd([]string{"#123"}, false, "", "", false, 0)
+		if err == nil || !strings.Contains(err.Error(), "syntax no longer supported") {
+			t.Errorf("expected helpful migration error, got %v", err)
+		}
+	})
+
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd("https://github.com/owner/repo/pull/456", false, "main", "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "main", "", false, 0)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd("https://github.com/owner/repo/pull/456", false, "", "", true)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "", "", true, 0)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
@@ -167,7 +189,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 func TestRunAdd_DetachBaseValidation(t *testing.T) {
 	t.Run("detach and base cannot be used together", func(t *testing.T) {
-		err := runAdd("v1.0.0", false, "main", "", true)
+		err := runAdd([]string{"v1.0.0"}, false, "main", "", true, 0)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
 		}
@@ -189,10 +211,17 @@ func TestRunAdd_InputValidation(t *testing.T) {
 
 	t.Run("whitespace-only branch name", func(t *testing.T) {
 		// Whitespace is trimmed, resulting in empty string
-		// This should eventually fail (either validation or workspace detection)
-		err := runAdd("   ", false, "", "", false)
-		if err == nil {
-			t.Error("expected error for whitespace-only branch name")
+		// This should fail with "requires branch" error
+		err := runAdd([]string{"   "}, false, "", "", false, 0)
+		if err == nil || !strings.Contains(err.Error(), "requires branch") {
+			t.Errorf("expected 'requires branch' error for whitespace-only branch name, got %v", err)
+		}
+	})
+
+	t.Run("no args and no --pr flag", func(t *testing.T) {
+		err := runAdd(nil, false, "", "", false, 0)
+		if err == nil || !strings.Contains(err.Error(), "requires branch") {
+			t.Errorf("expected 'requires branch' error, got %v", err)
 		}
 	})
 
@@ -200,7 +229,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 		// The trimming happens, then workspace detection runs
 		// We're not in a workspace, so we'll get that error
 		// But this verifies the trim doesn't crash
-		err := runAdd("  feature-test  ", false, "", "", false)
+		err := runAdd([]string{"  feature-test  "}, false, "", "", false, 0)
 		if !errors.Is(err, workspace.ErrNotInWorkspace) {
 			t.Errorf("expected ErrNotInWorkspace after trimming, got %v", err)
 		}
@@ -209,14 +238,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("PR URL with /files suffix works", func(t *testing.T) {
 		// PR URLs with /files suffix should be detected as PR references
 		// Flag validation happens before workspace detection
-		err := runAdd("https://github.com/owner/repo/pull/123/files", false, "main", "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, "main", "", false, 0)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error for URL with /files suffix, got %v", err)
 		}
 	})
 
 	t.Run("PR URL with query params works", func(t *testing.T) {
-		err := runAdd("https://github.com/owner/repo/pull/123?diff=split", false, "", "", true)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, "", "", true, 0)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error for URL with query params, got %v", err)
 		}

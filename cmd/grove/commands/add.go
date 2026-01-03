@@ -20,9 +20,10 @@ func NewAddCmd() *cobra.Command {
 	var baseBranch string
 	var name string
 	var detach bool
+	var prNumber int
 
 	cmd := &cobra.Command{
-		Use:   "add <branch|#PR|PR-URL|ref>",
+		Use:   "add [branch|PR-URL|ref]",
 		Short: "Add a new worktree",
 		Long: `Create a worktree from a branch, pull request, or ref.
 
@@ -35,12 +36,12 @@ Examples:
   grove add -s feat/auth           # Add and switch to worktree
   grove add --base main feat/auth  # New branch from main
   grove add --detach v1.0.0        # Detached HEAD at tag
-  grove add #123                   # Creates ./pr-123 worktree`,
-		Args:              cobra.ExactArgs(1),
+  grove add --pr 123               # Creates ./pr-123 worktree`,
+		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args[0], switchTo, baseBranch, name, detach)
+			return runAdd(args, switchTo, baseBranch, name, detach, prNumber)
 		},
 	}
 
@@ -48,27 +49,63 @@ Examples:
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
+	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
 	_ = cmd.RegisterFlagCompletionFunc("name", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})
+	_ = cmd.RegisterFlagCompletionFunc("pr", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	})
 
 	return cmd
 }
 
-func runAdd(branchOrPR string, switchTo bool, baseBranch, name string, detach bool) error {
-	branchOrPR = strings.TrimSpace(branchOrPR)
+func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int) error {
 	name = strings.TrimSpace(name)
+
+	// Validate --pr value if provided
+	if prNumber < 0 {
+		return fmt.Errorf("--pr must be a positive number")
+	}
+
+	// Determine if --pr flag is used
+	prFlag := prNumber > 0
+
+	// Get positional argument if provided
+	var branchOrPR string
+	if len(args) > 0 {
+		branchOrPR = strings.TrimSpace(args[0])
+	}
+
+	// Validate: must provide either --pr or positional arg
+	if !prFlag && branchOrPR == "" {
+		return fmt.Errorf("requires branch, PR URL, or --pr flag")
+	}
+
+	// Validate: --pr cannot be combined with positional argument
+	if prFlag && branchOrPR != "" {
+		return fmt.Errorf("--pr flag cannot be combined with positional argument")
+	}
+
+	// Helpful error for old #N syntax
+	if strings.HasPrefix(branchOrPR, "#") {
+		return fmt.Errorf("'%s' syntax no longer supported, use: grove add --pr %s",
+			branchOrPR, strings.TrimPrefix(branchOrPR, "#"))
+	}
 
 	// Validate flag combinations early (before filesystem operations)
 	if detach && baseBranch != "" {
 		return fmt.Errorf("--detach and --base cannot be used together")
 	}
 
-	isPR := github.IsPRReference(branchOrPR)
-	if isPR {
+	// Check if positional arg is a PR URL
+	isPRURL := branchOrPR != "" && github.IsPRURL(branchOrPR)
+
+	// Validate PR-specific flag conflicts
+	if prFlag || isPRURL {
 		if baseBranch != "" {
 			return fmt.Errorf("--base cannot be used with PR references")
 		}
@@ -102,8 +139,14 @@ func runAdd(branchOrPR string, switchTo bool, baseBranch, name string, detach bo
 
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
 
-	// Handle PR reference
-	if isPR {
+	// Handle PR via --pr flag
+	if prFlag {
+		prRef := fmt.Sprintf("#%d", prNumber)
+		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
+	}
+
+	// Handle PR via URL
+	if isPRURL {
 		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
 	}
 
