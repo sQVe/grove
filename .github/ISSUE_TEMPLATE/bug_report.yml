@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a bug or unexpected behavior
+labels: ['bug']
+body:
+  - type: input
+    id: command
+    attributes:
+      label: Command run
+      description: The exact command that caused the issue
+      placeholder: grove add feature-branch
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Grove version
+      description: Output of `grove --version`
+      placeholder: grove version 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Describe the expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: worktree-list
+    attributes:
+      label: Git worktree list output
+      description: Output of `git worktree list` (if relevant)
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: OS, shell, git version, or other relevant details
