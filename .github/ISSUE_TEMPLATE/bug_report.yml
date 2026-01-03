@@ -1,27 +1,31 @@
-name: Bug report
+name: Bug Report
 description: Report a bug or unexpected behavior
-labels: ['bug']
+title: 'bug: '
+labels: [bug]
 body:
-  - type: input
-    id: command
+  - type: markdown
     attributes:
-      label: Command run
+      value: |
+        Thanks for reporting! Before submitting, please search [existing issues](https://github.com/sQVe/grove/issues).
+        For usage questions, use [Discussions](https://github.com/sQVe/grove/discussions).
+
+  - type: input
+    attributes:
+      label: Command
       description: The exact command that caused the issue
       placeholder: grove add feature-branch
     validations:
       required: true
 
   - type: input
-    id: version
     attributes:
-      label: Grove version
+      label: Version
       description: Output of `grove --version`
       placeholder: grove version 1.0.0
     validations:
       required: true
 
   - type: textarea
-    id: what-happened
     attributes:
       label: What happened
       description: Describe the actual behavior
@@ -29,22 +33,29 @@ body:
       required: true
 
   - type: textarea
-    id: expected
     attributes:
-      label: What you expected
-      description: Describe the expected behavior
+      label: Expected behavior
+      description: What you expected to happen
     validations:
       required: true
 
   - type: textarea
-    id: worktree-list
     attributes:
-      label: Git worktree list output
+      label: Worktree list
       description: Output of `git worktree list` (if relevant)
       render: shell
 
   - type: textarea
-    id: context
     attributes:
-      label: Additional context
+      label: Environment
       description: OS, shell, git version, or other relevant details
+      placeholder: |
+        - OS: macOS 14.0
+        - Shell: zsh
+        - Git: 2.42.0
+
+  - type: checkboxes
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to submit a pull request for this issue
