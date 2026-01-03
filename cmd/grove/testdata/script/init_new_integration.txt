@@ -4,9 +4,8 @@
 ## Success: Basic workspace creation
 mkdir new-basic-workspace
 exec grove init new new-basic-workspace
-stdout 'Initialized grove workspace'
-stdout 'new-basic-workspace'
-! stderr .
+stderr 'Initialized grove workspace'
+stderr 'new-basic-workspace'
 # Verify workspace structure:
 #   .bare/ must be a directory (bare git repository)
 #   .git must be a file (gitfile pointing to .bare)
@@ -18,9 +17,8 @@ exec test -f new-basic-workspace/.git
 ## Success: Nested directory path
 mkdir new-nested-parent
 exec grove init new new-nested-parent/myproject
-stdout 'Initialized grove workspace'
-stdout 'new-nested-parent/myproject'
-! stderr .
+stderr 'Initialized grove workspace'
+stderr 'new-nested-parent/myproject'
 exists new-nested-parent/myproject/.bare
 exists new-nested-parent/myproject/.git
 # Verify structure constraints (directory vs file)

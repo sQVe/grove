@@ -9,7 +9,6 @@ stdout 'Clone a repository into a grove workspace'
 stdout 'Usage:'
 stdout '<url|PR-URL>'
 stdout '--branches'
-! stderr .
 
 ## Argument validation
 
@@ -28,17 +27,17 @@ stderr 'received 3'
 # Invalid URL
 mkdir clone-invalid-url
 ! exec grove clone not-a-url clone-invalid-url
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 
 # Nonexistent remote
 ! exec grove clone file:///nonexistent/repo.git nonexistent
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 
 # Current directory with bad URL
 mkdir clone-current
 cd clone-current
 ! exec grove clone file:///nonexistent/repo.git
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 cd ..
 
 ## Directory validation
@@ -105,18 +104,18 @@ stderr '^✗ no branches specified'
 # Single branch (network error expected)
 mkdir clone-single-branch
 ! exec grove clone file:///test/repo.git clone-single-branch --branches "main"
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 
 # Multiple branches (network error expected)
 mkdir clone-multi-branch
 ! exec grove clone file:///test/repo.git clone-multi-branch --branches "main,develop,feat/test"
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 
 # --branches with current directory
 mkdir clone-branches-current
 cd clone-branches-current
 ! exec grove clone file:///test/repo.git --branches "main"
-stderr '^✗ failed to clone repository'
+stderr 'failed to clone repository'
 cd ..
 
 -- existing.txt --
