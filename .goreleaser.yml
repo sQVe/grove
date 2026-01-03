@@ -27,14 +27,9 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Changelog is provided by changie via --release-notes flag
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^ci:'
+  disable: true
 
 nfpms:
   - package_name: grove
