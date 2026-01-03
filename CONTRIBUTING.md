@@ -7,10 +7,10 @@ Thanks for contributing! Grove makes Git worktrees simple, and we want contribut
 | Step        | Command                                               |
 | ----------- | ----------------------------------------------------- |
 | **Clone**   | `git clone https://github.com/sQVe/grove && cd grove` |
-| **Install** | `go mod download`                                     |
+| **Install** | `go mod download && mage deps:tools`                  |
 | **Verify**  | `mage test:unit && mage lint && mage build:dev`       |
 
-**Prerequisites:** Go 1.24+, Git 2.5+, golangci-lint, gotestsum, Mage
+**Prerequisites:** Go 1.24+, Git 2.5+, golangci-lint
 
 ## Tech Stack
 
@@ -55,6 +55,47 @@ project/
 - All worktrees share Git objects — no duplication
 
 **Detection:** Grove finds workspaces by traversing parent directories for `.bare` or `.git` files containing `gitdir: .bare`.
+
+## Changelog
+
+Grove uses [changie](https://changie.dev) for changelog management. PRs that change code must include a changeset file.
+
+### Adding a change
+
+```bash
+mage change           # Interactive prompt
+changie new           # Or directly
+```
+
+### When required
+
+| Change type             | Changeset required? |
+| ----------------------- | ------------------- |
+| New feature             | Yes                 |
+| Bug fix                 | Yes                 |
+| Breaking change         | Yes                 |
+| Performance improvement | Yes                 |
+| Documentation only      | No                  |
+| CI/workflow changes     | No                  |
+| Test-only changes       | No                  |
+| Dependency updates      | No (labeled PRs)    |
+
+### Changeset types
+
+| Type       | Use when                         | Version bump |
+| ---------- | -------------------------------- | ------------ |
+| Added      | New feature                      | Minor        |
+| Changed    | Modification to existing feature | Minor        |
+| Deprecated | Feature marked for removal       | Minor        |
+| Removed    | Feature removed                  | Minor        |
+| Fixed      | Bug fix                          | Patch        |
+| Security   | Security fix                     | Patch        |
+
+### Preview changes
+
+```bash
+mage change:preview   # Show unreleased changes and next version
+```
 
 ## Testing Strategy
 
