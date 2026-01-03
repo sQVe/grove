@@ -30,9 +30,10 @@ const (
 type pruneType string
 
 const (
-	pruneGone   pruneType = "gone"
-	pruneStale  pruneType = "stale"
-	pruneMerged pruneType = "merged"
+	pruneGone     pruneType = "gone"
+	pruneDetached pruneType = "detached"
+	pruneStale    pruneType = "stale"
+	pruneMerged   pruneType = "merged"
 )
 
 // pruneCandidate represents a worktree that could be pruned
@@ -49,6 +50,7 @@ func NewPruneCmd() *cobra.Command {
 	var force bool
 	var stale string
 	var merged bool
+	var detached bool
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -60,6 +62,7 @@ Examples:
   grove prune --commit        # Actually remove worktrees
   grove prune --stale 30d     # Include inactive worktrees
   grove prune --merged        # Include merged branches
+  grove prune --detached      # Include detached worktrees
   grove prune --force         # Remove even if dirty or locked`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -70,7 +73,7 @@ Examples:
 			if cmd.Flags().Changed("stale") && stale == "" {
 				stale = config.GetStaleThreshold()
 			}
-			return runPrune(commit, force, stale, merged)
+			return runPrune(commit, force, stale, merged, detached)
 		},
 	}
 
@@ -78,6 +81,7 @@ Examples:
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty, locked, or unpushed")
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
 	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
+	cmd.Flags().BoolVar(&detached, "detached", false, "Include detached worktrees")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	_ = cmd.RegisterFlagCompletionFunc("stale", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -87,7 +91,7 @@ Examples:
 	return cmd
 }
 
-func runPrune(commit, force bool, stale string, merged bool) error {
+func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	// Parse stale threshold if provided
 	var staleCutoff int64
 	if stale != "" {
@@ -143,6 +147,17 @@ func runPrune(commit, force bool, stale string, merged bool) error {
 				pruneType: pruneGone,
 			})
 			continue // Don't double-count as stale or merged
+		}
+
+		// Check for detached (only if --detached flag was passed)
+		if detached && info.Detached {
+			reason := determineSkipReason(info, cwd, force)
+			candidates = append(candidates, pruneCandidate{
+				info:      info,
+				reason:    reason,
+				pruneType: pruneDetached,
+			})
+			continue
 		}
 
 		// Check for merged (only if --merged flag was passed)
@@ -212,14 +227,16 @@ func displayDryRun(candidates []pruneCandidate) error {
 
 	for _, candidate := range candidates {
 		label := candidate.info.Branch
-		if candidate.pruneType == pruneStale && candidate.staleAge != "" {
+		if candidate.pruneType == pruneDetached {
+			label = filepath.Base(candidate.info.Path)
+		} else if candidate.pruneType == pruneStale && candidate.staleAge != "" {
 			label = fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.staleAge)
 		}
 
 		if candidate.reason == skipNone {
 			toPrune = append(toPrune, label)
 		} else {
-			toSkip = append(toSkip, fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.reason))
+			toSkip = append(toSkip, fmt.Sprintf("%s (%s)", label, candidate.reason))
 		}
 	}
 
@@ -270,18 +287,23 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 	var failed []string
 
 	for _, candidate := range candidates {
+		label := candidate.info.Branch
+		if candidate.pruneType == pruneDetached {
+			label = filepath.Base(candidate.info.Path)
+		}
+
 		if candidate.reason != skipNone {
-			skipped = append(skipped, fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.reason))
+			skipped = append(skipped, fmt.Sprintf("%s (%s)", label, candidate.reason))
 			continue
 		}
 
 		// Actually remove the worktree
 		if err := git.RemoveWorktree(bareDir, candidate.info.Path, force); err != nil {
-			failed = append(failed, fmt.Sprintf("%s: %v", candidate.info.Branch, err))
+			failed = append(failed, fmt.Sprintf("%s: %v", label, err))
 			continue
 		}
 
-		pruned = append(pruned, candidate.info.Branch)
+		pruned = append(pruned, label)
 	}
 
 	// Display results

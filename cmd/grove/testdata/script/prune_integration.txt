@@ -522,6 +522,123 @@ stdout 'No worktrees to prune'
 # Cleanup
 exec grove remove feature-unmerged
 
+## Success: --detached detects detached worktrees
+# Create a branch and worktree, then detach HEAD
+exec git -C $WORK/testrepo checkout -b feature-detached
+exec sh -c 'echo "detached content" > $WORK/testrepo/detached-feature.txt'
+exec git -C $WORK/testrepo add detached-feature.txt
+exec git -C $WORK/testrepo commit -m 'detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+
+exec grove add feature-detached
+cd $WORK/workspace/feature-detached
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Detach HEAD by checking out the commit directly
+exec git checkout HEAD~0
+
+cd $WORK/workspace/main
+# Without --detached, not detected
+exec grove prune
+stdout 'No worktrees to prune'
+! stderr .
+
+# With --detached, detected as detached candidate
+exec grove prune --detached
+stdout 'Would prune 1 worktree'
+# Should show directory name, not "(detached)"
+stdout 'feature-detached'
+! stdout '\(detached\)'
+stdout 'Run with --commit to remove'
+! stderr .
+
+# Actually remove with --commit
+exec grove prune --detached --commit
+stdout 'Pruned 1 worktree'
+stdout 'feature-detached'
+! stderr .
+! exists $WORK/workspace/feature-detached
+
+## Skipped: Dirty detached worktree
+# Create another detached worktree and make it dirty
+exec git -C $WORK/testrepo checkout -b feature-detached-dirty
+exec sh -c 'echo "dirty detached" > $WORK/testrepo/dirty-detached.txt'
+exec git -C $WORK/testrepo add dirty-detached.txt
+exec git -C $WORK/testrepo commit -m 'dirty detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+
+exec grove add feature-detached-dirty
+cd $WORK/workspace/feature-detached-dirty
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Detach HEAD
+exec git checkout HEAD~0
+# Make dirty
+exec sh -c 'echo "dirty" > dirty-file.txt'
+
+cd $WORK/workspace/main
+# With --detached, should show as skipped (dirty)
+exec grove prune --detached
+stdout 'Would skip 1 worktree'
+stdout 'feature-detached-dirty'
+stdout 'dirty, use --force'
+! stderr .
+
+# --commit should skip dirty detached worktree
+exec grove prune --detached --commit
+stdout 'Skipped 1 worktree'
+stdout 'feature-detached-dirty'
+stdout 'dirty, use --force'
+! stderr .
+
+# Worktree should still exist
+exists $WORK/workspace/feature-detached-dirty
+
+# --force should remove dirty detached worktree
+exec grove prune --detached --commit --force
+stdout 'Pruned 1 worktree'
+stdout 'feature-detached-dirty'
+! stderr .
+! exists $WORK/workspace/feature-detached-dirty
+
+## Priority: Gone takes priority over detached
+# Create a branch, make worktree, detach, then delete remote branch
+exec git -C $WORK/testrepo checkout -b feature-gone-detached
+exec sh -c 'echo "gone detached" > $WORK/testrepo/gone-detached.txt'
+exec git -C $WORK/testrepo add gone-detached.txt
+exec git -C $WORK/testrepo commit -m 'gone detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+
+exec grove add feature-gone-detached
+cd $WORK/workspace/feature-gone-detached
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/feature-gone-detached feature-gone-detached
+
+# Detach HEAD
+exec git checkout HEAD~0
+
+# Delete branch on remote
+exec git -C $WORK/testrepo branch -D feature-gone-detached
+
+cd $WORK/workspace/main
+# Without --detached, should still be detected as gone (detached doesn't prevent gone check)
+# Actually, detached worktrees have NoUpstream=true, so Gone check doesn't apply
+# With --detached, should be detected
+exec grove prune --detached
+stdout 'Would prune 1 worktree'
+stdout 'feature-gone-detached'
+! stderr .
+
+# Cleanup
+exec grove prune --detached --commit
+! exists $WORK/workspace/feature-gone-detached
+
 ## Priority: Gone takes priority over stale
 # Create old branch and then delete from remote
 exec git -C $WORK/testrepo checkout -b feature-gone-stale
