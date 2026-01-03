@@ -34,6 +34,9 @@ func TestNewPruneCmd(t *testing.T) {
 	if cmd.Flags().Lookup("merged") == nil {
 		t.Error("expected --merged flag")
 	}
+	if cmd.Flags().Lookup("detached") == nil {
+		t.Error("expected --detached flag")
+	}
 }
 
 func TestRunPrune(t *testing.T) {
@@ -45,7 +48,7 @@ func TestRunPrune(t *testing.T) {
 		tmpDir := t.TempDir()
 		_ = os.Chdir(tmpDir)
 
-		err := runPrune(false, false, "", false)
+		err := runPrune(false, false, "", false, false)
 		if err == nil {
 			t.Error("expected error for non-workspace directory")
 		}
