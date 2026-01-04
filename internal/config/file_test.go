@@ -368,49 +368,6 @@ patterns = [".toml-pattern"]
 		}
 	})
 
-	t.Run("GetMergedNerdFonts respects git config", func(t *testing.T) {
-		tmpDir, cleanup := setupGitRepoForFileTests(t)
-		defer cleanup()
-
-		_ = exec.Command("git", "config", "grove.nerdFonts", "false").Run() //nolint:gosec
-
-		nerdFonts := GetMergedNerdFonts(tmpDir)
-
-		if nerdFonts != false {
-			t.Error("Expected git config to set nerdFonts=false")
-		}
-	})
-
-	t.Run("GetMergedStaleThreshold uses git config", func(t *testing.T) {
-		tmpDir, cleanup := setupGitRepoForFileTests(t)
-		defer cleanup()
-
-		_ = exec.Command("git", "config", "grove.staleThreshold", "60d").Run() //nolint:gosec
-
-		threshold := GetMergedStaleThreshold(tmpDir)
-
-		if threshold != "60d" {
-			t.Errorf("Expected 60d, got %s", threshold)
-		}
-	})
-
-	t.Run("GetMergedAutoLockPatterns uses TOML first", func(t *testing.T) {
-		tmpDir, cleanup := setupGitRepoForFileTests(t)
-		defer cleanup()
-
-		tomlContent := `[autolock]
-patterns = ["release/*"]
-`
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
-		_ = exec.Command("git", "config", "grove.autoLock", "main").Run()                  //nolint:gosec
-
-		patterns := GetMergedAutoLockPatterns(tmpDir)
-
-		if len(patterns) != 1 || patterns[0] != "release/*" {
-			t.Errorf("Expected TOML patterns, got %v", patterns)
-		}
-	})
-
 	t.Run("GetMergedPreserveExcludePatterns uses TOML first", func(t *testing.T) {
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
@@ -436,71 +393,6 @@ exclude = ["vendor", ".cache"]
 
 		if len(patterns) != len(DefaultConfig.PreserveExcludePatterns) {
 			t.Errorf("Expected default patterns, got %v", patterns)
-		}
-	})
-}
-
-func TestSnapshot(t *testing.T) {
-	t.Run("SaveSnapshot captures current state", func(t *testing.T) {
-		Global.Plain = true
-		Global.Debug = true
-		Global.NerdFonts = false
-		Global.StaleThreshold = "7d"
-
-		snap := SaveSnapshot()
-
-		if snap.Plain != true {
-			t.Error("Expected Plain=true in snapshot")
-		}
-		if snap.Debug != true {
-			t.Error("Expected Debug=true in snapshot")
-		}
-		if snap.NerdFonts != false {
-			t.Error("Expected NerdFonts=false in snapshot")
-		}
-		if snap.StaleThreshold != "7d" {
-			t.Errorf("Expected StaleThreshold=7d, got %s", snap.StaleThreshold)
-		}
-	})
-
-	t.Run("RestoreSnapshot restores state", func(t *testing.T) {
-		// Set up initial state
-		Global.Plain = false
-		Global.Debug = false
-		Global.PreservePatterns = []string{"original"}
-
-		// Save it
-		snap := SaveSnapshot()
-
-		// Modify global state
-		Global.Plain = true
-		Global.Debug = true
-		Global.PreservePatterns = []string{"modified"}
-
-		// Restore
-		RestoreSnapshot(&snap)
-
-		if Global.Plain != false {
-			t.Error("Expected Plain to be restored to false")
-		}
-		if Global.Debug != false {
-			t.Error("Expected Debug to be restored to false")
-		}
-		if len(Global.PreservePatterns) != 1 || Global.PreservePatterns[0] != "original" {
-			t.Errorf("Expected PreservePatterns to be restored, got %v", Global.PreservePatterns)
-		}
-	})
-
-	t.Run("snapshot is independent copy", func(t *testing.T) {
-		Global.PreservePatterns = []string{"a", "b"}
-		snap := SaveSnapshot()
-
-		// Modify global
-		Global.PreservePatterns = append(Global.PreservePatterns, "c")
-
-		// Snapshot should still have original
-		if len(snap.PreservePatterns) != 2 {
-			t.Errorf("Expected snapshot to be independent, got %d patterns", len(snap.PreservePatterns))
 		}
 	})
 }

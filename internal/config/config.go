@@ -106,28 +106,6 @@ func SetDebug(v bool) {
 	Global.Debug = v
 }
 
-// GetPreservePatterns returns the configured preserve patterns or defaults.
-// Returns a copy to prevent callers from mutating the original slices.
-func GetPreservePatterns() []string {
-	globalMu.RLock()
-	defer globalMu.RUnlock()
-	if len(Global.PreservePatterns) > 0 {
-		return append([]string{}, Global.PreservePatterns...)
-	}
-	return append([]string{}, DefaultConfig.PreservePatterns...)
-}
-
-// GetPreserveExcludePatterns returns the configured preserve exclude patterns or defaults.
-// Returns a copy to prevent callers from mutating the original slices.
-func GetPreserveExcludePatterns() []string {
-	globalMu.RLock()
-	defer globalMu.RUnlock()
-	if len(Global.PreserveExcludePatterns) > 0 {
-		return append([]string{}, Global.PreserveExcludePatterns...)
-	}
-	return append([]string{}, DefaultConfig.PreserveExcludePatterns...)
-}
-
 // GetStaleThreshold returns the configured stale threshold or default
 func GetStaleThreshold() string {
 	globalMu.RLock()
@@ -309,47 +287,4 @@ func isValidStaleThreshold(s string) bool {
 	}
 	num, err := strconv.Atoi(s[:len(s)-1])
 	return err == nil && num > 0
-}
-
-// Snapshot captures the current Global config state.
-// Used for testing to save/restore config.
-type Snapshot struct {
-	Plain                   bool
-	Debug                   bool
-	NerdFonts               bool
-	PreservePatterns        []string
-	PreserveExcludePatterns []string
-	StaleThreshold          string
-	AutoLockPatterns        []string
-	Timeout                 time.Duration
-}
-
-// SaveSnapshot returns a copy of the current Global config.
-func SaveSnapshot() Snapshot {
-	globalMu.RLock()
-	defer globalMu.RUnlock()
-	return Snapshot{
-		Plain:                   Global.Plain,
-		Debug:                   Global.Debug,
-		NerdFonts:               Global.NerdFonts,
-		PreservePatterns:        append([]string{}, Global.PreservePatterns...),
-		PreserveExcludePatterns: append([]string{}, Global.PreserveExcludePatterns...),
-		StaleThreshold:          Global.StaleThreshold,
-		AutoLockPatterns:        append([]string{}, Global.AutoLockPatterns...),
-		Timeout:                 Global.Timeout,
-	}
-}
-
-// RestoreSnapshot restores Global config from a snapshot.
-func RestoreSnapshot(s *Snapshot) {
-	globalMu.Lock()
-	defer globalMu.Unlock()
-	Global.Plain = s.Plain
-	Global.Debug = s.Debug
-	Global.NerdFonts = s.NerdFonts
-	Global.PreservePatterns = append([]string{}, s.PreservePatterns...)
-	Global.PreserveExcludePatterns = append([]string{}, s.PreserveExcludePatterns...)
-	Global.StaleThreshold = s.StaleThreshold
-	Global.AutoLockPatterns = append([]string{}, s.AutoLockPatterns...)
-	Global.Timeout = s.Timeout
 }

@@ -41,53 +41,6 @@ func TestIsGitHubURL(t *testing.T) {
 	}
 }
 
-func TestIsPRReference(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected bool
-	}{
-		// PR number format
-		{"#123", true},
-		{"#1", true},
-		{"#999999", true},
-
-		// PR URL format
-		{"https://github.com/owner/repo/pull/123", true},
-		{"https://github.com/some-org/some-repo/pull/1", true},
-		{"http://github.com/owner/repo/pull/123", true},
-
-		// PR URL with suffixes (commonly copied from browser)
-		{"https://github.com/owner/repo/pull/123/files", true},
-		{"https://github.com/owner/repo/pull/123/commits", true},
-		{"https://github.com/owner/repo/pull/123/checks", true},
-
-		// PR URL with query params
-		{"https://github.com/owner/repo/pull/123?diff=split", true},
-		{"https://github.com/owner/repo/pull/123?w=1", true},
-		{"https://github.com/owner/repo/pull/123/files?diff=unified", true},
-
-		// Not PR references
-		{"main", false},
-		{"feature/auth", false},
-		{"123", false},
-		{"#", false},
-		{"#abc", false},
-		{"https://github.com/owner/repo", false},
-		{"https://github.com/owner/repo/issues/123", false},
-		{"https://gitlab.com/owner/repo/pull/123", false},
-		{"", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := IsPRReference(tt.input)
-			if result != tt.expected {
-				t.Errorf("IsPRReference(%q) = %v, want %v", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestIsPRURL(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -107,7 +60,7 @@ func TestIsPRURL(t *testing.T) {
 		{"https://github.com/owner/repo/pull/123?diff=split", true},
 		{"https://github.com/owner/repo/pull/123/files?diff=unified", true},
 
-		// PR number format - should NOT match (use IsPRReference for that)
+		// PR number format - should NOT match (use ParsePRReference for that)
 		{"#123", false},
 		{"#1", false},
 

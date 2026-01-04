@@ -79,19 +79,6 @@ func getMergedBool(worktreeDir, gitKey string, tomlExtract func(FileConfig) *boo
 	return defaultValue
 }
 
-// getMergedString implements: git config > TOML > default
-func getMergedString(worktreeDir, gitKey string, tomlExtract func(FileConfig) string, defaultValue string) string {
-	if value := getGitConfigInDir(gitKey, worktreeDir); value != "" {
-		return value
-	}
-	if cfg, ok := loadConfigWithWarning(worktreeDir); ok {
-		if v := tomlExtract(cfg); v != "" {
-			return v
-		}
-	}
-	return defaultValue
-}
-
 // getMergedPatterns implements: TOML > git config > default
 func getMergedPatterns(worktreeDir, gitKey string, tomlExtract func(FileConfig) []string, defaultValue []string) []string {
 	if cfg, ok := loadConfigWithWarning(worktreeDir); ok {
@@ -119,13 +106,6 @@ func GetMergedPreserveExcludePatterns(worktreeDir string) []string {
 		DefaultConfig.PreserveExcludePatterns)
 }
 
-// GetMergedAutoLockPatterns: TOML > git config > defaults
-func GetMergedAutoLockPatterns(worktreeDir string) []string {
-	return getMergedPatterns(worktreeDir, "grove.autoLock",
-		func(cfg FileConfig) []string { return cfg.Autolock.Patterns },
-		DefaultConfig.AutoLockPatterns)
-}
-
 // GetMergedPlain: git config > TOML > default
 func GetMergedPlain(worktreeDir string) bool {
 	return getMergedBool(worktreeDir, "grove.plain",
@@ -138,20 +118,6 @@ func GetMergedDebug(worktreeDir string) bool {
 	return getMergedBool(worktreeDir, "grove.debug",
 		func(cfg FileConfig) *bool { return cfg.Debug },
 		DefaultConfig.Debug)
-}
-
-// GetMergedNerdFonts: git config > TOML > default
-func GetMergedNerdFonts(worktreeDir string) bool {
-	return getMergedBool(worktreeDir, "grove.nerdFonts",
-		func(cfg FileConfig) *bool { return cfg.NerdFonts },
-		DefaultConfig.NerdFonts)
-}
-
-// GetMergedStaleThreshold: git config > TOML > default
-func GetMergedStaleThreshold(worktreeDir string) string {
-	return getMergedString(worktreeDir, "grove.staleThreshold",
-		func(cfg FileConfig) string { return cfg.StaleThreshold },
-		DefaultConfig.StaleThreshold)
 }
 
 // WriteToFile uses atomic write (temp file + rename) to prevent corruption.

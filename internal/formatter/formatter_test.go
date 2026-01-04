@@ -197,29 +197,6 @@ func TestSubItemPrefix(t *testing.T) {
 	})
 }
 
-func TestBranchName(t *testing.T) {
-	t.Run("returns styled branch name", func(t *testing.T) {
-		config.Global.Plain = false
-		t.Setenv("GROVE_TEST_COLORS", "true")
-
-		got := BranchName("main")
-
-		if !strings.Contains(got, "main") {
-			t.Errorf("BranchName(main) = %q, want to contain main", got)
-		}
-	})
-
-	t.Run("plain mode returns plain text", func(t *testing.T) {
-		config.Global.Plain = true
-
-		got := BranchName("feature")
-
-		if got != "feature" {
-			t.Errorf("BranchName(feature) = %q, want feature", got)
-		}
-	})
-}
-
 func TestWorktreeRow(t *testing.T) {
 	tests := []struct {
 		name      string

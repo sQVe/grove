@@ -114,31 +114,6 @@ func SetConfig(key, value string, global bool) error {
 	return nil
 }
 
-// AddConfig adds a value to a multi-value config key
-func AddConfig(key, value string, global bool) error {
-	logger.Debug("Adding git config: %s=%s (global=%v)", key, value, global)
-
-	args := []string{"config", "--add"}
-	if global {
-		args = append(args, "--global")
-	}
-	args = append(args, key, value)
-
-	cmd, cancel := GitCommand("git", args...)
-	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
-}
-
 // UnsetConfig removes a config key and all its values
 func UnsetConfig(key string, global bool) error {
 	logger.Debug("Unsetting git config: %s (global=%v)", key, global)

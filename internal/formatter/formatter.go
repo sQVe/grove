@@ -116,11 +116,6 @@ func SubItemPrefix() string {
 	return "↳"
 }
 
-// BranchName returns the styled branch name
-func BranchName(name string) string {
-	return styles.Render(&styles.Worktree, name)
-}
-
 // WorktreeRow formats a single worktree row for list/status output
 // Format: marker name [branch] indicators
 func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, namePadWidth, branchPadWidth int) string {

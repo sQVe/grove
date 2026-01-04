@@ -29,7 +29,6 @@ const (
 var (
 	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve}
 	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts}
-	multiValueKeys    = []string{configKeyPreserve}
 )
 
 // isValidConfigKey validates that key is in grove.* namespace
@@ -48,13 +47,6 @@ func isValidBooleanValue(value string) bool {
 	lower := strings.ToLower(value)
 	validValues := []string{"true", "false", "yes", "no", "on", "off", "1", "0"}
 	return slices.Contains(validValues, lower)
-}
-
-// isMultiValueKey returns true if the key supports multiple values
-func isMultiValueKey(key string) bool {
-	return slices.ContainsFunc(multiValueKeys, func(k string) bool {
-		return strings.EqualFold(key, k)
-	})
 }
 
 // getConfigCompletions returns completion suggestions for config keys

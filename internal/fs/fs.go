@@ -69,15 +69,6 @@ func PathExists(path string) bool {
 	return err == nil
 }
 
-// IsRegularFile checks if path exists and is a regular file
-func IsRegularFile(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-	return info.Mode().IsRegular()
-}
-
 // CreateDirectory creates a directory with the given permissions, including parent directories
 func CreateDirectory(path string, perm os.FileMode) error {
 	return os.MkdirAll(path, perm)
