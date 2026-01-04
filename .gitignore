@@ -41,3 +41,6 @@ node_modules/
 
 # Changie
 .changes/.changie.yaml.bak
+
+# Release
+release_notes.md
