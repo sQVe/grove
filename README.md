@@ -105,7 +105,7 @@ grove completion powershell | Invoke-Expression
 ## 🚀 Quick Start
 
 ```bash
-# Clone a repo
+# Clone a repository
 grove clone https://github.com/owner/repo
 cd repo
 
