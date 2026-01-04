@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -97,11 +98,21 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch current labels via API (event payload labels are stale on re-runs)
+          PR_LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+
           # Skip for dependency updates (Dependabot/Renovate)
-          if echo "$PR_LABELS" | grep -q '"dependencies"'; then
+          if echo "$PR_LABELS" | grep -q '^dependencies$'; then
             echo "Skipping changeset check for dependency update"
+            exit 0
+          fi
+
+          # Skip when explicitly labeled (internal refactors, etc.)
+          if echo "$PR_LABELS" | grep -q '^skip-changelog$'; then
+            echo "Skipping changeset check (skip-changelog label)"
             exit 0
           fi
 
