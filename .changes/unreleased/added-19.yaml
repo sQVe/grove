@@ -1,0 +1,4 @@
+kind: Added
+body: Add `--detached` flag to `grove prune` for detecting and removing worktrees with detached HEAD state
+custom:
+  Issue: 19
