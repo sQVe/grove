@@ -3,6 +3,8 @@
 [![GitHub release](https://img.shields.io/github/v/release/sQVe/grove?style=flat-square)](https://github.com/sQVe/grove/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
+_A fast, intuitive CLI that makes Git worktrees as simple as switching branches._
+
 **Without Grove:**
 
 ```bash
