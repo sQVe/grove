@@ -24,19 +24,8 @@ var (
 	prURLRegex = regexp.MustCompile(`^https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)(?:/[^?]*)?(?:\?.*)?$`)
 )
 
-// IsPRReference returns true if the input looks like a PR reference (#N or URL).
-func IsPRReference(s string) bool {
-	if prNumberRegex.MatchString(s) {
-		return true
-	}
-	if prURLRegex.MatchString(s) {
-		return true
-	}
-	return false
-}
-
 // IsPRURL returns true if the input is a full GitHub PR URL.
-// Unlike IsPRReference, this does not match #N format.
+// Does not match #N format (use ParsePRReference for that).
 func IsPRURL(s string) bool {
 	return prURLRegex.MatchString(s)
 }

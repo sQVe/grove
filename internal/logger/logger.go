@@ -90,16 +90,6 @@ func Dimmed(format string, args ...any) {
 	}
 }
 
-// ListItem prints a list item to stderr (used for worktree creation output, etc.)
-func ListItem(format string, args ...any) {
-	message := fmt.Sprintf(format, args...)
-	if isPlain() {
-		fmt.Fprintf(os.Stderr, "  - %s\n", message)
-	} else {
-		fmt.Fprintf(os.Stderr, "  %s %s\n", styles.Render(&styles.Success, "✓"), message)
-	}
-}
-
 // ListItemWithNote prints a list item with an optional note in parentheses to stderr
 func ListItemWithNote(main, note string) {
 	if isPlain() {

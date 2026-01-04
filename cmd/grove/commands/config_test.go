@@ -139,43 +139,6 @@ func TestValidateBooleanValue(t *testing.T) {
 	}
 }
 
-func TestIsMultiValueKey(t *testing.T) {
-	tests := []struct {
-		name       string
-		key        string
-		multiValue bool
-	}{
-		{
-			name:       "grove.preserve is multi-value",
-			key:        "grove.preserve",
-			multiValue: true,
-		},
-		{
-			name:       "grove.plain is single-value",
-			key:        "grove.plain",
-			multiValue: false,
-		},
-		{
-			name:       "grove.debug is single-value",
-			key:        "grove.debug",
-			multiValue: false,
-		},
-		{
-			name:       "case insensitive multi-value",
-			key:        "Grove.Preserve",
-			multiValue: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isMultiValueKey(tt.key); got != tt.multiValue {
-				t.Errorf("isMultiValueKey(%q) = %v, want %v", tt.key, got, tt.multiValue)
-			}
-		})
-	}
-}
-
 func TestGetConfigCompletions(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -69,16 +69,17 @@ changie new           # Or directly
 
 ### When required
 
-| Change type             | Changeset required? |
-| ----------------------- | ------------------- |
-| New feature             | Yes                 |
-| Bug fix                 | Yes                 |
-| Breaking change         | Yes                 |
-| Performance improvement | Yes                 |
-| Documentation only      | No                  |
-| CI/workflow changes     | No                  |
-| Test-only changes       | No                  |
-| Dependency updates      | No (labeled PRs)    |
+| Change type             | Changeset required?         |
+| ----------------------- | --------------------------- |
+| New feature             | Yes                         |
+| Bug fix                 | Yes                         |
+| Breaking change         | Yes                         |
+| Performance improvement | Yes                         |
+| Documentation only      | No                          |
+| CI/workflow changes     | No                          |
+| Test-only changes       | No                          |
+| Dependency updates      | No (`dependencies` label)   |
+| Internal refactors      | No (`skip-changelog` label) |
 
 ### Changeset types
 

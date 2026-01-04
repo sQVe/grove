@@ -33,66 +33,6 @@ func TestListBranches(t *testing.T) {
 	}
 }
 
-func TestListLocalBranches(t *testing.T) {
-	t.Run("returns single branch for new repo", func(t *testing.T) {
-		repo := testgit.NewTestRepo(t)
-
-		branches, err := ListLocalBranches(repo.Path)
-		if err != nil {
-			t.Fatalf("ListLocalBranches failed: %v", err)
-		}
-
-		if len(branches) != 1 {
-			t.Errorf("expected 1 branch, got %d: %v", len(branches), branches)
-		}
-		if branches[0] != "main" {
-			t.Errorf("expected 'main', got '%s'", branches[0])
-		}
-	})
-
-	t.Run("returns multiple branches", func(t *testing.T) {
-		repo := testgit.NewTestRepo(t)
-
-		cmd := exec.Command("git", "checkout", "-b", "feature")
-		cmd.Dir = repo.Path
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to create feature branch: %v", err)
-		}
-
-		cmd = exec.Command("git", "checkout", "-b", "develop")
-		cmd.Dir = repo.Path
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to create develop branch: %v", err)
-		}
-
-		branches, err := ListLocalBranches(repo.Path)
-		if err != nil {
-			t.Fatalf("ListLocalBranches failed: %v", err)
-		}
-
-		if len(branches) != 3 {
-			t.Errorf("expected 3 branches, got %d: %v", len(branches), branches)
-		}
-
-		expectedBranches := []string{"develop", "feature", "main"}
-		for i, expected := range expectedBranches {
-			if i >= len(branches) || branches[i] != expected {
-				t.Errorf("expected branches %v, got %v", expectedBranches, branches)
-				break
-			}
-		}
-	})
-
-	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		_, err := ListLocalBranches(tempDir)
-		if err == nil {
-			t.Fatal("ListLocalBranches should fail for non-git directory")
-		}
-	})
-}
-
 func TestGetCurrentBranch(t *testing.T) {
 	t.Run("returns branch name from HEAD file", func(t *testing.T) {
 		tempDir := t.TempDir()

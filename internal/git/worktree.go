@@ -399,17 +399,6 @@ func UnlockWorktree(bareDir, worktreePath string) error {
 	return runGitCommand(cmd, true)
 }
 
-// FindWorktreeByBranch finds a worktree by branch name from a list of worktree infos.
-// Returns nil if no worktree exists for the given branch.
-func FindWorktreeByBranch(infos []*WorktreeInfo, branch string) *WorktreeInfo {
-	for _, info := range infos {
-		if info.Branch == branch {
-			return info
-		}
-	}
-	return nil
-}
-
 // FindWorktree finds a worktree by name (directory) or branch.
 // Matches by worktree directory basename first, then by branch name.
 func FindWorktree(infos []*WorktreeInfo, target string) *WorktreeInfo {

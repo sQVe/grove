@@ -48,32 +48,6 @@ func ListBranches(bareRepo string) ([]string, error) {
 	return branches, scanner.Err()
 }
 
-// ListLocalBranches returns a list of all local branches in a repository
-func ListLocalBranches(path string) ([]string, error) {
-	if path == "" {
-		return nil, errors.New("repository path cannot be empty")
-	}
-	cmd, cancel := GitCommand("git", "branch", "--format=%(refname:short)")
-	defer cancel()
-	cmd.Dir = path
-
-	out, err := executeWithOutputBuffer(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	var branches []string
-	scanner := bufio.NewScanner(out)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			branches = append(branches, line)
-		}
-	}
-
-	return branches, scanner.Err()
-}
-
 // BranchExists checks if a branch exists locally or on any remote
 func BranchExists(repoPath, branchName string) (bool, error) {
 	if repoPath == "" || branchName == "" {

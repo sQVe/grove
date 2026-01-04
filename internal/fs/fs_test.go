@@ -128,37 +128,6 @@ func TestPathExists(t *testing.T) {
 	})
 }
 
-func TestIsRegularFile(t *testing.T) {
-	t.Run("returns true for regular file", func(t *testing.T) {
-		tempDir := t.TempDir()
-		testFile := filepath.Join(tempDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		if !IsRegularFile(testFile) {
-			t.Error("IsRegularFile should return true for regular file")
-		}
-	})
-
-	t.Run("returns false for directory", func(t *testing.T) {
-		tempDir := t.TempDir()
-
-		if IsRegularFile(tempDir) {
-			t.Error("IsRegularFile should return false for directory")
-		}
-	})
-
-	t.Run("returns false for non-existent path", func(t *testing.T) {
-		tempDir := t.TempDir()
-		nonExistent := filepath.Join(tempDir, "nonexistent")
-
-		if IsRegularFile(nonExistent) {
-			t.Error("IsRegularFile should return false for non-existent path")
-		}
-	})
-}
-
 func TestCreateDirectory(t *testing.T) {
 	t.Run("creates directory with correct permissions", func(t *testing.T) {
 		tempDir := t.TempDir()
