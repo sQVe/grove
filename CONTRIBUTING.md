@@ -7,8 +7,8 @@ Thanks for contributing! Grove makes Git worktrees simple, and we want contribut
 | Step        | Command                                               |
 | ----------- | ----------------------------------------------------- |
 | **Clone**   | `git clone https://github.com/sQVe/grove && cd grove` |
-| **Install** | `go mod download && mage deps:tools`                  |
-| **Verify**  | `mage test:unit && mage lint && mage build:dev`       |
+| **Install** | `go mod download && make deps-tools`                  |
+| **Verify**  | `make test-unit && make lint && make build-dev`       |
 
 **Prerequisites:** Go 1.24+, Git 2.5+, golangci-lint
 
@@ -24,7 +24,7 @@ Thanks for contributing! Grove makes Git worktrees simple, and we want contribut
 
 **Development:**
 
-- **magefile/mage** — Build automation
+- **make** — Build automation
 - **golangci-lint** — Linting with gofumpt and goimports
 - **gotestsum** — Test runner with better output
 
@@ -63,7 +63,7 @@ Grove uses [changie](https://changie.dev) for changelog management. PRs that cha
 ### Adding a change
 
 ```bash
-mage change           # Interactive prompt
+make change           # Interactive prompt
 changie new           # Or directly
 ```
 
@@ -94,7 +94,7 @@ changie new           # Or directly
 ### Preview changes
 
 ```bash
-mage change:preview   # Show unreleased changes and next version
+make change-preview   # Show unreleased changes and next version
 ```
 
 ## Testing Strategy

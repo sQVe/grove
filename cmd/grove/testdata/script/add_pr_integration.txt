@@ -4,7 +4,7 @@
 # - Network access to GitHub
 # - Uses PR #7 (integration-test-pr-branch) from sqve/grove repo
 #
-# To run: GH_TOKEN=<your-token> mage test:integration
+# To run: GH_TOKEN=<your-token> make test-integration
 # This test is skipped if GH_TOKEN is not set.
 
 # Skip if gh is not available
