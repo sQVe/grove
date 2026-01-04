@@ -512,23 +512,20 @@ exec git checkout HEAD~0
 cd $WORK/workspace/main
 # Without --detached, not detected
 exec grove prune
-stdout 'No worktrees to prune'
-! stderr .
+stderr 'No worktrees to prune'
 
 # With --detached, detected as detached candidate
 exec grove prune --detached
-stdout 'Would prune 1 worktree'
+stderr 'Would prune 1 worktree'
 # Should show directory name, not "(detached)"
-stdout 'feature-detached'
-! stdout '\(detached\)'
-stdout 'Run with --commit to remove'
-! stderr .
+stderr 'feature-detached'
+! stderr '\(detached\)'
+stderr 'Run with --commit to remove'
 
 # Actually remove with --commit
 exec grove prune --detached --commit
-stdout 'Pruned 1 worktree'
-stdout 'feature-detached'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-detached'
 ! exists $WORK/workspace/feature-detached
 
 ## Skipped: Dirty detached worktree
@@ -553,29 +550,26 @@ exec sh -c 'echo "dirty" > dirty-file.txt'
 cd $WORK/workspace/main
 # With --detached, should show as skipped (dirty)
 exec grove prune --detached
-stdout 'Would skip 1 worktree'
-stdout 'feature-detached-dirty'
-stdout 'dirty, use --force'
-! stderr .
+stderr 'Would skip 1 worktree'
+stderr 'feature-detached-dirty'
+stderr 'dirty, use --force'
 
 # --commit should skip dirty detached worktree
 exec grove prune --detached --commit
-stdout 'Skipped 1 worktree'
-stdout 'feature-detached-dirty'
-stdout 'dirty, use --force'
-! stderr .
+stderr 'Skipped 1 worktree'
+stderr 'feature-detached-dirty'
+stderr 'dirty, use --force'
 
 # Worktree should still exist
 exists $WORK/workspace/feature-detached-dirty
 
 # --force should remove dirty detached worktree
 exec grove prune --detached --commit --force
-stdout 'Pruned 1 worktree'
-stdout 'feature-detached-dirty'
-! stderr .
+stderr 'Pruned 1 worktree'
+stderr 'feature-detached-dirty'
 ! exists $WORK/workspace/feature-detached-dirty
 
-## Priority: Gone takes priority over detached
+## Detached worktree with deleted remote branch
 # Create a branch, make worktree, detach, then delete remote branch
 exec git -C $WORK/testrepo checkout -b feature-gone-detached
 exec sh -c 'echo "gone detached" > $WORK/testrepo/gone-detached.txt'
@@ -597,13 +591,11 @@ exec git checkout HEAD~0
 exec git -C $WORK/testrepo branch -D feature-gone-detached
 
 cd $WORK/workspace/main
-# Without --detached, should still be detected as gone (detached doesn't prevent gone check)
-# Actually, detached worktrees have NoUpstream=true, so Gone check doesn't apply
-# With --detached, should be detected
+# Detached worktrees have NoUpstream=true, so Gone check doesn't apply
+# With --detached, detected as detached candidate
 exec grove prune --detached
-stdout 'Would prune 1 worktree'
-stdout 'feature-gone-detached'
-! stderr .
+stderr 'Would prune 1 worktree'
+stderr 'feature-gone-detached'
 
 # Cleanup
 exec grove prune --detached --commit

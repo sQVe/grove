@@ -146,7 +146,7 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 				reason:    reason,
 				pruneType: pruneGone,
 			})
-			continue // Don't double-count as stale or merged
+			continue // Don't double-count as detached, stale, or merged
 		}
 
 		// Check for detached (only if --detached flag was passed)
@@ -157,7 +157,7 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 				reason:    reason,
 				pruneType: pruneDetached,
 			})
-			continue
+			continue // Don't double-count as merged or stale
 		}
 
 		// Check for merged (only if --merged flag was passed)
