@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: '1.24.5'
+  GO_VERSION: '1.24.6'
 
 jobs:
   changes:
@@ -29,6 +29,7 @@ jobs:
               - 'go.sum'
               - '.golangci.yml'
               - '.github/workflows/ci.yml'
+              - 'Makefile'
 
   lint:
     needs: changes
@@ -60,8 +61,7 @@ jobs:
           git config --global init.defaultBranch main
           git config --global commit.gpgsign false
       - run: go install gotest.tools/gotestsum@v1.12.0
-      - run: go install github.com/magefile/mage@v1.15.0
-      - run: mage test:coverage
+      - run: make test-coverage
         env:
           CI: 'true'
 
@@ -76,13 +76,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - run: go install gotest.tools/gotestsum@v1.12.0
-      - run: go install github.com/magefile/mage@v1.15.0
       - run: |
           git config --global user.email "ci@grove.dev"
           git config --global user.name "Grove CI"
           git config --global init.defaultBranch main
           git config --global commit.gpgsign false
-      - run: mage test:integration
+      - run: make test-integration
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,7 +121,7 @@ jobs:
 
             # Check for actual code changes
             case "$file" in
-              cmd/*.go|internal/*.go|go.mod|go.sum|magefile.go)
+              cmd/*.go|internal/*.go|go.mod|go.sum|Makefile)
                 CODE_CHANGED="true"
                 echo "Code change: $file"
                 ;;
@@ -141,10 +140,7 @@ jobs:
             echo "::error::This PR changes code but is missing a changeset."
             echo ""
             echo "Add a changeset by running:"
-            echo "  changie new"
-            echo ""
-            echo "Or with mage:"
-            echo "  mage change"
+            echo "  make change"
             exit 1
           fi
 
@@ -160,6 +156,5 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - run: go install github.com/magefile/mage@v1.15.0
-      - run: mage build:dev
+      - run: make build-dev
       - run: ./bin/grove --version

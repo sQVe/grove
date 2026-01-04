@@ -13,11 +13,11 @@ Grove is a Git worktree management tool that makes worktrees as simple as switch
 
 ```bash
 # Fast development loop
-mage test  # Unit tests (~10s)
-mage lint  # Auto-fix formatting
-mage build # Build binaries
+make test  # Unit tests (~10s)
+make lint  # Auto-fix formatting
+make build # Build binaries
 
 # Before commits
-mage test:unit && mage test:integration
-mage ci # Full pipeline
+make test-unit && make test-integration
+make ci # Full pipeline
 ```
