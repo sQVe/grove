@@ -3,33 +3,43 @@
 [![GitHub release](https://img.shields.io/github/v/release/sQVe/grove?style=flat-square)](https://github.com/sQVe/grove/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 
-> [!WARNING]
-> Grove is under active development. APIs may change.
+**Without Grove:**
 
-**Grove** is a fast, intuitive Git worktree management tool that makes worktrees as simple as switching branches.
+```bash
+git clone --bare git@github.com:org/repo.git .bare
+echo "gitdir: ./.bare" > .git
+git worktree add main
+cd main
+cp ../other-worktree/.env .  # Don't forget this
+npm install                  # Or this
+# Later: cd ../feat-auth to switch
+```
 
-## ❓ Why
+**With Grove:**
 
-Git worktrees let you work on multiple branches simultaneously in separate directories.
-No stashing. No "wrong branch" mistakes. Your work stays exactly where you left it.
-
-**The problem:** `git worktree` is powerful but clunky. Setting up the recommended
-`.bare` structure is manual. Switching means `cd`-ing to paths. New worktrees don't
-have your `.env` files.
-
-**Grove fixes this:**
-
-- **Best-practice setup** — Uses the `.bare` repo structure automatically
-- **Switch like branches** — `grove switch main` just works
-- **File preservation** — `.env`, `.envrc` copied to new worktrees
-- **PR checkout** — `grove add --pr 123` creates a worktree for any PR
-- **Post-create hooks** — Run `npm install` automatically after creating worktrees
-
-
+```bash
+grove clone git@github.com:org/repo
+grove add feat/auth --switch  # .env copied, hooks run automatically
+grove switch main             # Just like git checkout, but each branch keeps its own directory
+```
 
 https://github.com/user-attachments/assets/27f3c1f4-ff58-471e-87a3-8fd0c32ad474
 
+> [!NOTE]
+> Grove is under active development. Core functionality is stable, but APIs may change between major versions.
 
+---
+
+<details>
+<summary><strong>New to worktrees?</strong></summary>
+
+<br>
+
+Git worktrees let you work on multiple branches simultaneously in separate directories. No stashing. No "wrong branch" mistakes. Your work stays exactly where you left it.
+
+The catch: `git worktree` is clunky. Grove makes it feel like `git checkout` — but each branch gets its own persistent directory.
+
+</details>
 
 ## 📦 Installation
 
@@ -59,19 +69,9 @@ Download `.deb` or `.rpm` packages from [GitHub Releases](https://github.com/sQV
 
 ## 🔧 Setup
 
-### Shell Integration
+### Shell Integration (Required)
 
-Enables `grove switch` to change your shell's directory — making worktree switching as seamless as `cd`.
-
-```bash
-# Without shell integration
-cd $(grove switch main)
-
-# With shell integration
-grove switch main
-```
-
-Add to your shell config:
+Without this, `grove switch` only prints a path — you'd have to `cd` manually. Add to your shell config:
 
 ```bash
 # bash (~/.bashrc) or zsh (~/.zshrc)
@@ -105,16 +105,15 @@ grove completion powershell | Invoke-Expression
 ## 🚀 Quick Start
 
 ```bash
-# Clone a repository into a Grove workspace
+# Clone a repo
 grove clone https://github.com/owner/repo
+cd repo
 
-# See all worktrees with status
-grove list
-
-# Create a new worktree and switch to it
+# Start a feature
 grove add feat/auth --switch
 
-# Work on your feature...
+# Check your worktrees
+grove list
 
 # Switch back to main
 grove switch main
@@ -125,25 +124,10 @@ grove remove feat/auth --branch
 
 ## 📗 Commands
 
-| Command  | Description                                    |
-| -------- | ---------------------------------------------- |
-| `clone`  | Clone repository into Grove workspace          |
-| `init`   | Initialize workspace (new or convert existing) |
-| `add`    | Add worktree for branch, PR, or ref            |
-| `switch` | Switch to a worktree                           |
-| `list`   | List worktrees with status                     |
-| `status` | Show current worktree status                   |
-| `remove` | Remove a worktree                              |
-| `move`   | Rename branch and its worktree                 |
-| `lock`   | Lock worktree to prevent removal               |
-| `unlock` | Unlock a worktree                              |
-| `prune`  | Remove stale worktrees                         |
-| `exec`   | Run command across worktrees                   |
-| `config` | Manage configuration                           |
-| `doctor` | Diagnose workspace issues                      |
-
 <details>
 <summary><code>grove clone &lt;url&gt; [directory]</code></summary>
+
+<br>
 
 Clone a repository into a Grove workspace.
 
@@ -166,6 +150,8 @@ grove clone https://github.com/owner/repo/pull/123 # Clone and checkout PR
 
 <details>
 <summary><code>grove init new [directory]</code> / <code>grove init convert</code></summary>
+
+<br>
 
 Initialize a Grove workspace.
 
@@ -192,6 +178,8 @@ grove init convert --branches develop,staging
 <details>
 <summary><code>grove add [branch|PR-URL|ref]</code></summary>
 
+<br>
+
 Add a worktree for a branch, pull request, or ref.
 
 **Flags:**
@@ -217,6 +205,8 @@ grove add --detach v1.0.0     # Tag in detached HEAD
 <details>
 <summary><code>grove switch &lt;worktree&gt;</code></summary>
 
+<br>
+
 Switch to a worktree by directory or branch name.
 
 Requires shell integration (see Setup section).
@@ -233,6 +223,8 @@ grove switch feat/auth
 
 <details>
 <summary><code>grove list</code></summary>
+
+<br>
 
 List all worktrees with status.
 
@@ -258,6 +250,8 @@ grove list --json
 <details>
 <summary><code>grove status</code></summary>
 
+<br>
+
 Show current worktree status.
 
 **Flags:**
@@ -276,6 +270,8 @@ grove status --verbose
 
 <details>
 <summary><code>grove remove &lt;worktree&gt;</code></summary>
+
+<br>
 
 Remove a worktree.
 
@@ -297,6 +293,8 @@ grove remove --force wip
 <details>
 <summary><code>grove move &lt;worktree&gt; &lt;new-branch&gt;</code></summary>
 
+<br>
+
 Rename a branch and its worktree.
 
 **Examples:**
@@ -309,6 +307,8 @@ grove move feat/old feat/new
 
 <details>
 <summary><code>grove lock &lt;worktree&gt;</code></summary>
+
+<br>
 
 Lock a worktree to prevent removal.
 
@@ -328,6 +328,8 @@ grove lock release --reason "Production release"
 <details>
 <summary><code>grove unlock &lt;worktree&gt;</code></summary>
 
+<br>
+
 Unlock a worktree.
 
 **Examples:**
@@ -340,6 +342,8 @@ grove unlock feat-auth
 
 <details>
 <summary><code>grove prune</code></summary>
+
+<br>
 
 Remove worktrees with deleted upstream branches. Dry-run by default.
 
@@ -364,6 +368,8 @@ grove prune --merged --commit
 <details>
 <summary><code>grove exec [worktrees...] -- &lt;command&gt;</code></summary>
 
+<br>
+
 Execute a command in worktrees.
 
 **Flags:**
@@ -384,6 +390,8 @@ grove exec --all -- bash -c "npm install && npm test"
 
 <details>
 <summary><code>grove config &lt;subcommand&gt;</code></summary>
+
+<br>
 
 Manage configuration.
 
@@ -414,6 +422,8 @@ grove config init
 
 <details>
 <summary><code>grove doctor</code></summary>
+
+<br>
 
 Diagnose workspace issues.
 
@@ -451,6 +461,8 @@ Run `grove config init` to create a `.grove.toml` template.
 
 <details>
 <summary>Default configuration</summary>
+
+<br>
 
 ```toml
 # Grove - Git worktree management
