@@ -1,0 +1,4 @@
+kind: Fixed
+body: Output logger messages to stderr instead of stdout, fixing --switch flag functionality
+custom:
+  Issue: 14

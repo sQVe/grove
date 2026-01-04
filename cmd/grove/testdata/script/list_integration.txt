@@ -376,7 +376,7 @@ exec grove add phantom-test
 rm -r ../phantom-test
 # Grove skips corrupted worktrees and warns
 exec grove list --plain
-stdout 'may be corrupted'
+stderr 'may be corrupted'
 stdout 'main'
 # Clean up phantom via git prune
 exec git -C $WORK/workspace/.bare worktree prune

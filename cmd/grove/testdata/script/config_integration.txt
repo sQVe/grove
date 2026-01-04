@@ -22,26 +22,20 @@ exec git config user.email "test@example.com"
 ## Success: Global set/get operations
 
 exec grove config set --global grove.plain true
-! stderr .
 exec grove config get --global grove.plain
 stdout '^true$'
-! stderr .
 
 exec grove config set --global grove.debug false
-! stderr .
 exec grove config get --global grove.debug
 stdout '^false$'
-! stderr .
 
 # list shows grove.* settings
 exec grove config list --global
 stdout 'grove.plain=true'
 stdout 'grove.debug=false'
-! stderr .
 
 # unset removes config
 exec grove config unset --global grove.debug
-! stderr .
 ! exec grove config get --global grove.debug
 stderr 'config key not found'
 
@@ -51,17 +45,11 @@ stderr 'config key not found'
 
 # boolean values accepted (various formats)
 exec grove config set --global grove.plain true
-! stderr .
 exec grove config set --global grove.debug false
-! stderr .
 exec grove config set --global grove.plain yes
-! stderr .
 exec grove config set --global grove.debug no
-! stderr .
 exec grove config set --global grove.plain 1
-! stderr .
 exec grove config set --global grove.debug 0
-! stderr .
 
 ## Error: Invalid boolean value
 ! exec grove config set --global grove.plain maybe
@@ -77,13 +65,10 @@ stderr 'accepts 2 arg'
 
 # unset non-existent key succeeds silently
 exec grove config unset --global grove.nonexistent
-! stderr .
 
 # Clean up and verify removal
 exec grove config unset --global grove.plain
-! stderr .
 exec grove config unset --global grove.debug
-! stderr .
 
 # Verify cleanup actually removed values
 ! exec grove config get --global grove.plain
@@ -95,49 +80,39 @@ stderr 'config key not found'
 
 # config init creates .grove.toml template
 exec grove config init
-stdout 'Created .grove.toml'
-! stderr .
+stderr 'Created .grove.toml'
 exists .grove.toml
 
 # config init without --force shows info when file exists
 exec grove config init
-stdout 'already exists'
-! stderr .
+stderr 'already exists'
 
 # config init --force overwrites existing
 exec grove config init --force
-stdout 'Created .grove.toml'
-! stderr .
+stderr 'Created .grove.toml'
 
 # config list --shared shows .grove.toml contents
 exec grove config list --shared
 # Template has preserve.patterns
 stdout 'preserve.patterns'
-! stderr .
 
 # config set --shared updates .grove.toml
 exec grove config set --shared grove.plain true
-! stderr .
 exec grove config get --shared grove.plain
 stdout '^true$'
-! stderr .
 
 # config set --shared with debug (use true to ensure it shows in list)
 exec grove config set --shared grove.debug true
-! stderr .
 exec grove config get --shared grove.debug
 stdout '^true$'
-! stderr .
 
 # config list --shared shows settings (TOML uses plain key names)
 exec grove config list --shared
 stdout 'plain=true'
 stdout 'debug=true'
-! stderr .
 
 # config unset --shared removes from .grove.toml
 exec grove config unset --shared grove.debug
-! stderr .
 # Verify debug is no longer in list output (get may return default)
 exec grove config list --shared
 ! stdout 'debug='
@@ -145,12 +120,10 @@ exec grove config list --shared
 # config get without scope flag shows effective (merged) value
 exec grove config get grove.plain
 stdout '^true$'
-! stderr .
 
 # config list without scope flag shows merged config
 exec grove config list
 stdout 'grove.plain'
-! stderr .
 
 # --shared and --global conflict error
 ! exec grove config list --shared --global
