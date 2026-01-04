@@ -33,14 +33,17 @@
     "automerge": true
   },
 
-  // Post-upgrade: keep go.mod clean
-  "postUpgradeTasks": {
-    "commands": ["go mod tidy"],
-    "fileFilters": ["go.mod", "go.sum"],
-    "executionMode": "branch"
-  },
-
   "packageRules": [
+    // Post-upgrade: keep go.mod clean (scoped to Go only)
+    {
+      "matchManagers": ["gomod"],
+      "postUpgradeTasks": {
+        "commands": ["go mod tidy"],
+        "fileFilters": ["go.mod", "go.sum"],
+        "executionMode": "branch"
+      }
+    },
+
     // GitHub Actions - pin digests (security), group, auto-merge patches
     {
       "matchManagers": ["github-actions"],
