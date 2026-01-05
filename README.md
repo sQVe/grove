@@ -54,7 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/sQVe/grove/main/install.sh | sh
 ### Go install
 
 ```bash
-go install github.com/sQVe/grove/cmd/grove@latest
+go install github.com/sqve/grove/cmd/grove@latest
 ```
 
 ### From source
