@@ -57,6 +57,8 @@ func NewPruneCmd() *cobra.Command {
 		Short: "Remove worktrees with deleted upstream branches",
 		Long: `Remove worktrees with deleted upstream branches (marked "gone").
 
+For gone branches, local branches are also deleted after removing the worktree.
+
 Examples:
   grove prune                 # Dry-run: show what would be removed
   grove prune --commit        # Actually remove worktrees
@@ -285,6 +287,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 	var pruned []string
 	var skipped []string
 	var failed []string
+	var deletedBranches int
 
 	for _, candidate := range candidates {
 		label := candidate.info.Branch
@@ -304,6 +307,19 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 		}
 
 		pruned = append(pruned, label)
+
+		// Delete local branch for gone worktrees (not detached)
+		if candidate.pruneType == pruneGone && !candidate.info.Detached {
+			if err := git.DeleteBranch(bareDir, candidate.info.Branch, false); err != nil {
+				if strings.Contains(err.Error(), "not fully merged") {
+					logger.Warning("Branch %s has unmerged commits, not deleted", candidate.info.Branch)
+				} else {
+					logger.Warning("Could not delete branch %s: %v", candidate.info.Branch, err)
+				}
+			} else {
+				deletedBranches++
+			}
+		}
 	}
 
 	// Display results
@@ -315,6 +331,13 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 		}
 		for _, item := range pruned {
 			logger.Dimmed("    %s", item)
+		}
+		if deletedBranches > 0 {
+			if deletedBranches == 1 {
+				logger.Dimmed("    ↳ deleted 1 local branch")
+			} else {
+				logger.Dimmed("    ↳ deleted %d local branches", deletedBranches)
+			}
 		}
 	}
 

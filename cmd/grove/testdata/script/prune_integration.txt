@@ -60,13 +60,17 @@ stderr 'Run with --commit to remove'
 # Worktree should still exist (dry-run)
 exists $WORK/workspace/feature-to-delete
 
-## Success: --commit removes worktree
+## Success: --commit removes worktree and deletes local branch
 exec grove prune --commit
 stderr 'Pruned 1 worktree'
 stderr 'feature-to-delete'
+stderr 'deleted 1 local branch'
 
 # Worktree should be gone now
 ! exists $WORK/workspace/feature-to-delete
+
+# Local branch should also be deleted
+! exec git -C $WORK/workspace/.bare rev-parse --verify feature-to-delete
 
 ## Skipped: Dirty worktree
 # Make feature-dirty worktree dirty
@@ -219,10 +223,16 @@ exec grove prune
 stderr 'Would prune 1 worktree'
 stderr 'feature-unpushed'
 
-# Clean up
+# Clean up - branch has unmerged commits so deletion will warn
 exec grove prune --commit
 stderr 'Pruned 1 worktree'
+stderr 'has unmerged commits, not deleted'
 ! exists $WORK/workspace/feature-unpushed
+# Branch should still exist (not deleted due to unmerged commits)
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-unpushed
+
+# Clean up the branch manually for subsequent tests
+exec git -C $WORK/workspace/.bare branch -D feature-unpushed
 
 ## Success: Multiple gone worktrees listed
 # Create multiple branches for multi-prune test
@@ -263,15 +273,20 @@ stderr 'feature-multi-1'
 stderr 'feature-multi-2'
 stderr 'feature-multi-3'
 
-## Success: Multiple worktrees pruned
+## Success: Multiple worktrees pruned with branches deleted
 exec grove prune --commit
 stderr 'Pruned 3 worktrees'
 stderr 'feature-multi-1'
 stderr 'feature-multi-2'
 stderr 'feature-multi-3'
+stderr 'deleted 3 local branches'
 ! exists $WORK/workspace/feature-multi-1
 ! exists $WORK/workspace/feature-multi-2
 ! exists $WORK/workspace/feature-multi-3
+# Local branches should also be deleted
+! exec git -C $WORK/workspace/.bare rev-parse --verify feature-multi-1
+! exec git -C $WORK/workspace/.bare rev-parse --verify feature-multi-2
+! exec git -C $WORK/workspace/.bare rev-parse --verify feature-multi-3
 
 ## Success: Mixed output (prunable + skipped)
 # Create two branches - one clean, one dirty
@@ -375,11 +390,18 @@ stderr 'feature-stale'
 stderr 'year.* ago'
 stderr 'Run with --commit to remove'
 
-# Actually remove with --commit
+# Actually remove with --commit (no branch deletion for stale - only gone branches)
 exec grove prune --stale 30d --commit
 stderr 'Pruned 1 worktree'
 stderr 'feature-stale'
+# Should NOT delete branch for --stale (only for gone)
+! stderr 'deleted.*local branch'
 ! exists $WORK/workspace/feature-stale
+# Branch should still exist
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-stale
+
+# Clean up branch for subsequent tests
+exec git -C $WORK/workspace/.bare branch -D feature-stale
 
 ## Success: --stale ignores recent worktrees
 # Create fresh branch (commit is recent)
@@ -432,11 +454,18 @@ exec grove prune --merged
 stderr 'Would prune 1 worktree'
 stderr 'feature-merged'
 
-# Actually remove
+# Actually remove (no branch deletion for merged - only gone branches)
 exec grove prune --merged --commit
 stderr 'Pruned 1 worktree'
 stderr 'feature-merged'
+# Should NOT delete branch for --merged (only for gone)
+! stderr 'deleted.*local branch'
 ! exists $WORK/workspace/feature-merged
+# Branch should still exist
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-merged
+
+# Clean up branch for subsequent tests
+exec git -C $WORK/workspace/.bare branch -D feature-merged
 
 ## Success: --merged detects squash merged branches
 # Create feature branch with commit
@@ -522,11 +551,18 @@ stderr 'feature-detached'
 ! stderr '\(detached\)'
 stderr 'Run with --commit to remove'
 
-# Actually remove with --commit
+# Actually remove with --commit (no branch deletion for detached)
 exec grove prune --detached --commit
 stderr 'Pruned 1 worktree'
 stderr 'feature-detached'
+# Should NOT show "deleted local branch" for detached worktrees
+! stderr 'deleted.*local branch'
 ! exists $WORK/workspace/feature-detached
+# Branch should still exist (we only pruned the detached worktree, not the branch)
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-detached
+
+# Clean up the branch for subsequent tests
+exec git -C $WORK/workspace/.bare branch -D feature-detached
 
 ## Skipped: Dirty detached worktree
 # Create another detached worktree and make it dirty
