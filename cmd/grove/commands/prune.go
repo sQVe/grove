@@ -121,12 +121,12 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 		logger.Warning("Failed to fetch: %v", err)
 	}
 
-	// Get default branch for merged check
-	var defaultBranch string
-	if merged {
-		defaultBranch, err = git.GetDefaultBranch(bareDir)
-		if err != nil {
-			logger.Warning("Could not determine default branch: %v", err)
+	// Get default branch - needed for --merged check AND gone branch deletion
+	defaultBranch, defaultBranchErr := git.GetDefaultBranch(bareDir)
+	if defaultBranchErr != nil {
+		logger.Debug("Could not determine default branch: %v", defaultBranchErr)
+		if merged {
+			logger.Warning("Could not determine default branch, skipping --merged check")
 			merged = false // Disable merged check if we can't determine default branch
 		}
 	}
@@ -190,7 +190,7 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 
 	// Output results
 	if commit {
-		return executePrune(bareDir, candidates, force)
+		return executePrune(bareDir, candidates, force, defaultBranch)
 	}
 	return displayDryRun(candidates)
 }
@@ -277,7 +277,7 @@ func displayDryRun(candidates []pruneCandidate) error {
 	return nil
 }
 
-func executePrune(bareDir string, candidates []pruneCandidate, force bool) error {
+func executePrune(bareDir string, candidates []pruneCandidate, force bool, defaultBranch string) error {
 	if len(candidates) == 0 {
 		logger.Info("No worktrees to remove.")
 		return nil
@@ -288,6 +288,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 	var skipped []string
 	var failed []string
 	var deletedBranches int
+	var keptBranches []string
 
 	for _, candidate := range candidates {
 		label := candidate.info.Branch
@@ -310,11 +311,25 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 
 		// Delete local branch for gone worktrees (not detached)
 		if candidate.pruneType == pruneGone && !candidate.info.Detached {
-			if err := git.DeleteBranch(bareDir, candidate.info.Branch, false); err != nil {
+			forceDelete := false
+
+			// Check if merged into default branch before deleting
+			// (upstream is gone, so git -d can't verify merge status)
+			if defaultBranch != "" {
+				merged, mergeErr := git.IsBranchMerged(bareDir, candidate.info.Branch, defaultBranch)
+				if mergeErr != nil {
+					logger.Debug("Could not verify merge status for %s: %v", candidate.info.Branch, mergeErr)
+				} else if merged {
+					logger.Debug("Branch %s is squash-merged into %s, using force delete", candidate.info.Branch, defaultBranch)
+					forceDelete = true
+				}
+			}
+
+			if err := git.DeleteBranch(bareDir, candidate.info.Branch, forceDelete); err != nil {
 				if strings.Contains(err.Error(), "not fully merged") {
-					logger.Warning("Branch %s has unmerged commits, not deleted", candidate.info.Branch)
+					keptBranches = append(keptBranches, fmt.Sprintf("%s (unmerged commits)", candidate.info.Branch))
 				} else {
-					logger.Warning("Could not delete branch %s: %v", candidate.info.Branch, err)
+					keptBranches = append(keptBranches, fmt.Sprintf("%s (%v)", candidate.info.Branch, err))
 				}
 			} else {
 				deletedBranches++
@@ -337,6 +352,16 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool) error
 				logger.Dimmed("    ↳ deleted 1 local branch")
 			} else {
 				logger.Dimmed("    ↳ deleted %d local branches", deletedBranches)
+			}
+		}
+		if len(keptBranches) > 0 {
+			if len(keptBranches) == 1 {
+				logger.Dimmed("    ↳ kept 1 local branch: %s", keptBranches[0])
+			} else {
+				logger.Dimmed("    ↳ kept %d local branches:", len(keptBranches))
+				for _, branch := range keptBranches {
+					logger.Dimmed("        %s", branch)
+				}
 			}
 		}
 	}
