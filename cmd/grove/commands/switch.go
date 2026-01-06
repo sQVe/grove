@@ -194,7 +194,7 @@ func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	var completions []string
 	for _, info := range infos {
 		// Exclude current worktree (check if cwd is at root or inside this worktree)
-		inWorktree := cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(os.PathSeparator))
+		inWorktree := cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator))
 		if !inWorktree {
 			// Suggest worktree name (directory basename)
 			completions = append(completions, filepath.Base(info.Path))
