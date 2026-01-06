@@ -45,7 +45,7 @@ cd ../main
 ## Error: Already unlocked
 
 ! exec grove unlock feature
-stderr '^✗ worktree is not locked'
+stderr 'worktree is not locked'
 
 ## Error: Worktree not found
 

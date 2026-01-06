@@ -4,37 +4,29 @@
 ## Lock help
 
 exec grove lock --help
-stdout 'Lock a worktree'
-stdout '<worktree>'
+stdout 'Lock one or more worktrees'
+stdout '<worktree>...'
 stdout '--reason'
 ! stderr .
 
 ## Unlock help
 
 exec grove unlock --help
-stdout 'Unlock a worktree'
-stdout '<worktree>'
+stdout 'Unlock one or more worktrees'
+stdout '<worktree>...'
 ! stderr .
 
 ## Lock argument validation
 
 # No arguments → error
 ! exec grove lock
-stderr 'accepts 1 arg'
-
-# Two+ arguments → error
-! exec grove lock one two
-stderr 'accepts 1 arg'
+stderr 'at least 1 arg'
 
 ## Unlock argument validation
 
 # No arguments → error
 ! exec grove unlock
-stderr 'accepts 1 arg'
-
-# Two+ arguments → error
-! exec grove unlock one two
-stderr 'accepts 1 arg'
+stderr 'at least 1 arg'
 
 ## Workspace validation
 

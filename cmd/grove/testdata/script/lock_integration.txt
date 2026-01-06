@@ -33,7 +33,7 @@ stderr 'Locked worktree'
 ## Error: Already locked
 
 ! exec grove lock feature
-stderr '^✗ worktree is already locked'
+stderr 'already locked'
 
 ## Verify: List shows locked status
 
@@ -93,7 +93,7 @@ stderr 'Unlocked worktree'
 ## Error: Unlock when not locked
 
 ! exec grove unlock feature
-stderr '^✗ worktree is not locked'
+stderr 'worktree is not locked'
 
 ## Error: Unlock nonexistent worktree
 

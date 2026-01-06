@@ -17,20 +17,21 @@ func NewLockCmd() *cobra.Command {
 	var reason string
 
 	cmd := &cobra.Command{
-		Use:   "lock <worktree>",
-		Short: "Lock a worktree to prevent removal",
-		Long: `Lock a worktree to prevent removal.
+		Use:   "lock <worktree>...",
+		Short: "Lock worktrees to prevent removal",
+		Long: `Lock one or more worktrees to prevent removal.
 
 Locked worktrees resist prune and remove. Use unlock to clear.
-Accepts worktree name (directory) or branch name.
+Accepts worktree names (directories) or branch names.
 
 Examples:
-  grove lock feat-auth                 # Lock worktree
-  grove lock feat-auth --reason "WIP"  # Lock with reason`,
-		Args:              cobra.ExactArgs(1),
+  grove lock feat-auth                      # Lock worktree
+  grove lock feat-auth --reason "WIP"       # Lock with reason
+  grove lock feat-auth bugfix-123           # Lock multiple`,
+		Args:              cobra.MinimumNArgs(1),
 		ValidArgsFunction: completeLockArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLock(args[0], reason)
+			return runLock(args, reason)
 		},
 	}
 
@@ -44,9 +45,7 @@ Examples:
 	return cmd
 }
 
-func runLock(target, reason string) error {
-	target = strings.TrimSpace(target)
-
+func runLock(targets []string, reason string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -62,40 +61,63 @@ func runLock(target, reason string) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktree(infos, target)
-	if worktreeInfo == nil {
-		return fmt.Errorf("worktree not found: %s", target)
-	}
-
-	// Check if already locked
-	if git.IsWorktreeLocked(worktreeInfo.Path) {
-		existingReason := git.GetWorktreeLockReason(worktreeInfo.Path)
-		if existingReason != "" {
-			return fmt.Errorf("worktree is already locked: %q", existingReason)
+	// Validate all targets exist before processing
+	var toLock []*git.WorktreeInfo
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		info := git.FindWorktree(infos, target)
+		if info == nil {
+			return fmt.Errorf("worktree not found: %s", target)
 		}
-		return fmt.Errorf("worktree is already locked")
+		toLock = append(toLock, info)
 	}
 
-	// Lock the worktree
-	if err := git.LockWorktree(bareDir, worktreeInfo.Path, reason); err != nil {
-		return fmt.Errorf("failed to lock worktree: %w", err)
+	// Deduplicate by path
+	seen := make(map[string]bool)
+	var unique []*git.WorktreeInfo
+	for _, info := range toLock {
+		if seen[info.Path] {
+			continue
+		}
+		seen[info.Path] = true
+		unique = append(unique, info)
 	}
 
-	if reason != "" {
-		logger.Success("Locked worktree %s (%s)", target, reason)
-	} else {
-		logger.Success("Locked worktree %s", target)
+	// Process each target, accumulate failures
+	var failed []string
+	for _, info := range unique {
+		if git.IsWorktreeLocked(info.Path) {
+			existingReason := git.GetWorktreeLockReason(info.Path)
+			if existingReason != "" {
+				logger.Error("%s: already locked (%q)", info.Branch, existingReason)
+			} else {
+				logger.Error("%s: already locked", info.Branch)
+			}
+			failed = append(failed, info.Branch)
+			continue
+		}
+
+		if err := git.LockWorktree(bareDir, info.Path, reason); err != nil {
+			logger.Error("%s: %v", info.Branch, err)
+			failed = append(failed, info.Branch)
+			continue
+		}
+
+		if reason != "" {
+			logger.Success("Locked worktree %s (%s)", info.Branch, reason)
+		} else {
+			logger.Success("Locked worktree %s", info.Branch)
+		}
+	}
+
+	if len(failed) > 0 {
+		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))
 	}
 
 	return nil
 }
 
 func completeLockArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Only complete first argument
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
@@ -111,11 +133,24 @@ func completeLockArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 		return nil, cobra.ShellCompDirectiveError
 	}
 
+	// Build set of already-typed arguments
+	alreadyUsed := make(map[string]bool)
+	for _, arg := range args {
+		alreadyUsed[arg] = true
+	}
+
 	var completions []string
 	for _, info := range infos {
+		name := filepath.Base(info.Path)
+
+		// Skip already-used (check both path basename and branch name)
+		if alreadyUsed[name] || alreadyUsed[info.Branch] {
+			continue
+		}
+
 		// Only include non-locked worktrees
 		if !info.Locked {
-			completions = append(completions, filepath.Base(info.Path))
+			completions = append(completions, name)
 		}
 	}
 
