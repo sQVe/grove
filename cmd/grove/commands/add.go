@@ -138,6 +138,12 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	}()
 
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
+	if sourceWorktree == "" {
+		sourceWorktree = findFallbackSourceWorktree(bareDir)
+		if sourceWorktree != "" {
+			logger.Debug("Using %s as source for file preservation", sourceWorktree)
+		}
+	}
 
 	// Handle PR via --pr flag
 	if prFlag {
@@ -427,6 +433,31 @@ func findSourceWorktree(cwd, workspaceRoot string) string {
 		dir = filepath.Dir(dir)
 	}
 
+	return ""
+}
+
+// findFallbackSourceWorktree returns a worktree to use as source for file
+// preservation when the user isn't inside a worktree. Priority: configured
+// default branch → main → master.
+func findFallbackSourceWorktree(bareDir string) string {
+	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	if err != nil || len(infos) == 0 {
+		return ""
+	}
+
+	candidates := []string{}
+	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil {
+		candidates = append(candidates, defaultBranch)
+	}
+	candidates = append(candidates, "main", "master")
+
+	for _, branch := range candidates {
+		for _, info := range infos {
+			if info.Branch == branch {
+				return info.Path
+			}
+		}
+	}
 	return ""
 }
 

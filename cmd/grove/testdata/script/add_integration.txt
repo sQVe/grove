@@ -148,6 +148,22 @@ exec grove add feature/from-root
 stderr 'Created worktree at .*/feature-from-root'
 exists feature-from-root
 
+## Success: Preserved files from main worktree when running from workspace root
+
+cd $WORK/workspace/main
+# Create .gitignore with .env.local pattern (matches default preserve patterns)
+exec sh -c 'echo ".env.local" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'add env.local to gitignore'
+# Create .env.local file in main worktree
+exec sh -c 'echo "ROOT_TEST=value" > .env.local'
+# Run grove add from WORKSPACE ROOT (not inside main worktree)
+cd $WORK/workspace
+exec grove add feature/from-root-preserve
+stderr 'Created worktree at .*/feature-from-root-preserve'
+# Verify file was preserved from main worktree
+exists feature-from-root-preserve/.env.local
+
 ## Success: Preserved files shown in output
 
 cd $WORK/workspace/main
