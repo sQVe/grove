@@ -3,6 +3,7 @@ package commands
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -311,6 +312,251 @@ func TestFindSourceWorktree(t *testing.T) {
 		}
 
 		result := findSourceWorktree(otherDir, workspaceRoot)
+		if result != "" {
+			t.Errorf("expected empty string, got %q", result)
+		}
+	})
+}
+
+func TestFindFallbackSourceWorktree(t *testing.T) {
+	t.Run("returns worktree for default branch", func(t *testing.T) {
+		// Create bare repo with develop as default
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "--bare", "-b", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create initial content via a temp clone
+		cloneDir := filepath.Join(tempDir, "clone")
+		cmd = exec.Command("git", "clone", bareDir, cloneDir) //nolint:gosec
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Configure git and create initial commit
+		for _, cfg := range [][]string{{"user.email", "test@test.com"}, {"user.name", "Test"}} {
+			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd.Dir = cloneDir
+			_ = cmd.Run()
+		}
+
+		if err := os.WriteFile(filepath.Join(cloneDir, "test.txt"), []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "init")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Create worktree for develop branch
+		developDir := filepath.Join(tempDir, "develop")
+		cmd = exec.Command("git", "worktree", "add", developDir, "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		result := findFallbackSourceWorktree(bareDir)
+		if result != developDir {
+			t.Errorf("expected %q, got %q", developDir, result)
+		}
+	})
+
+	t.Run("falls back to main when no default worktree", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "--bare", "-b", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create initial content
+		cloneDir := filepath.Join(tempDir, "clone")
+		cmd = exec.Command("git", "clone", bareDir, cloneDir) //nolint:gosec
+		_ = cmd.Run()
+
+		for _, cfg := range [][]string{{"user.email", "test@test.com"}, {"user.name", "Test"}} {
+			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd.Dir = cloneDir
+			_ = cmd.Run()
+		}
+
+		if err := os.WriteFile(filepath.Join(cloneDir, "test.txt"), []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "init")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Create main branch from develop
+		cmd = exec.Command("git", "branch", "main", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "main")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Only create worktree for main (not develop which is the default)
+		mainDir := filepath.Join(tempDir, "main")
+		cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd.Dir = bareDir
+		_ = cmd.Run()
+
+		result := findFallbackSourceWorktree(bareDir)
+		if result != mainDir {
+			t.Errorf("expected %q, got %q", mainDir, result)
+		}
+	})
+
+	t.Run("falls back to master when no main", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "--bare", "-b", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		cloneDir := filepath.Join(tempDir, "clone")
+		cmd = exec.Command("git", "clone", bareDir, cloneDir) //nolint:gosec
+		_ = cmd.Run()
+
+		for _, cfg := range [][]string{{"user.email", "test@test.com"}, {"user.name", "Test"}} {
+			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd.Dir = cloneDir
+			_ = cmd.Run()
+		}
+
+		if err := os.WriteFile(filepath.Join(cloneDir, "test.txt"), []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "init")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Create master branch
+		cmd = exec.Command("git", "branch", "master", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "master")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Only create worktree for master
+		masterDir := filepath.Join(tempDir, "master")
+		cmd = exec.Command("git", "worktree", "add", masterDir, "master") //nolint:gosec
+		cmd.Dir = bareDir
+		_ = cmd.Run()
+
+		result := findFallbackSourceWorktree(bareDir)
+		if result != masterDir {
+			t.Errorf("expected %q, got %q", masterDir, result)
+		}
+	})
+
+	t.Run("returns empty when no worktrees exist", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "--bare", "-b", "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		result := findFallbackSourceWorktree(bareDir)
+		if result != "" {
+			t.Errorf("expected empty string, got %q", result)
+		}
+	})
+
+	t.Run("returns empty when no matching branch worktree", func(t *testing.T) {
+		tempDir := t.TempDir()
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		cmd := exec.Command("git", "init", "--bare", "-b", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		cloneDir := filepath.Join(tempDir, "clone")
+		cmd = exec.Command("git", "clone", bareDir, cloneDir) //nolint:gosec
+		_ = cmd.Run()
+
+		for _, cfg := range [][]string{{"user.email", "test@test.com"}, {"user.name", "Test"}} {
+			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd.Dir = cloneDir
+			_ = cmd.Run()
+		}
+
+		if err := os.WriteFile(filepath.Join(cloneDir, "test.txt"), []byte("test"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		cmd = exec.Command("git", "add", ".")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "commit", "-m", "init")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Create feature branch
+		cmd = exec.Command("git", "branch", "feature-x", "develop")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+		cmd = exec.Command("git", "push", "origin", "feature-x")
+		cmd.Dir = cloneDir
+		_ = cmd.Run()
+
+		// Only create worktree for feature-x (not develop/main/master)
+		featureDir := filepath.Join(tempDir, "feature-x")
+		cmd = exec.Command("git", "worktree", "add", featureDir, "feature-x") //nolint:gosec
+		cmd.Dir = bareDir
+		_ = cmd.Run()
+
+		result := findFallbackSourceWorktree(bareDir)
 		if result != "" {
 			t.Errorf("expected empty string, got %q", result)
 		}
