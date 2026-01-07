@@ -446,7 +446,7 @@ func findFallbackSourceWorktree(bareDir string) string {
 	}
 
 	candidates := []string{}
-	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil {
+	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil && defaultBranch != "" {
 		candidates = append(candidates, defaultBranch)
 	}
 	candidates = append(candidates, "main", "master")
