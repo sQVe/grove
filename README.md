@@ -69,6 +69,15 @@ sudo mv grove /usr/local/bin/
 
 Download `.deb` or `.rpm` packages from [GitHub Releases](https://github.com/sQVe/grove/releases/latest).
 
+### Optional: GitHub CLI
+
+Grove works without additional dependencies, but installing the [GitHub CLI](https://cli.github.com/) (`gh`) enables enhanced features:
+
+- **PR worktrees**: Create worktrees from pull requests with `grove add --pr 123` or `grove clone https://github.com/owner/repo/pull/123`
+- **Squash-merge detection**: `grove prune` accurately detects branches merged via GitHub's squash-and-merge, even with multiple commits. Without `gh`, only single-commit squash merges are detected via git.
+
+See [GitHub CLI installation](https://github.com/cli/cli#installation) for setup instructions.
+
 ## 🔧 Setup
 
 ### Shell Integration (Required)

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -283,6 +284,14 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		return nil
 	}
 
+	// Fetch merged PR branches from GitHub (for multi-commit squash detection)
+	var mergedViaPR map[string]bool
+	if mergedPRs, err := github.GetMergedPRBranches(bareDir); err != nil {
+		logger.Debug("GitHub PR check unavailable: %v", err)
+	} else {
+		mergedViaPR = mergedPRs
+	}
+
 	// Process all candidates
 	var pruned []string
 	var skipped []string
@@ -323,6 +332,12 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 					logger.Debug("Branch %s is squash-merged into %s, using force delete", candidate.info.Branch, defaultBranch)
 					forceDelete = true
 				}
+			}
+
+			// Fallback: check GitHub PR merge (for multi-commit squash merges)
+			if !forceDelete && mergedViaPR[candidate.info.Branch] {
+				logger.Debug("Branch %s detected as merged via GitHub PR", candidate.info.Branch)
+				forceDelete = true
 			}
 
 			if err := git.DeleteBranch(bareDir, candidate.info.Branch, forceDelete); err != nil {
