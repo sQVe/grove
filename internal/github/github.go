@@ -194,6 +194,52 @@ func CheckGhAvailable() error {
 	return nil
 }
 
+// parseMergedPRBranchesJSON parses the JSON output from `gh pr list --state merged`.
+func parseMergedPRBranchesJSON(data []byte) (map[string]bool, error) {
+	var prs []struct {
+		HeadRefName string `json:"headRefName"`
+	}
+	if err := json.Unmarshal(data, &prs); err != nil {
+		return nil, fmt.Errorf("failed to parse gh output: %w", err)
+	}
+
+	branches := make(map[string]bool, len(prs))
+	for _, pr := range prs {
+		if pr.HeadRefName != "" {
+			branches[pr.HeadRefName] = true
+		}
+	}
+	return branches, nil
+}
+
+// GetMergedPRBranches returns a set of branch names that have merged PRs.
+// Single API call, filter locally. Returns nil if gh unavailable or on error.
+func GetMergedPRBranches(repoPath string) (map[string]bool, error) {
+	if err := CheckGhAvailable(); err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command("gh", "pr", "list", //nolint:gosec // Args are static
+		"--state", "merged",
+		"--json", "headRefName",
+		"--limit", "200")
+	cmd.Dir = repoPath
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		stderrStr := strings.TrimSpace(stderr.String())
+		if stderrStr != "" {
+			return nil, fmt.Errorf("gh pr list failed: %s", stderrStr)
+		}
+		return nil, fmt.Errorf("gh pr list failed: %w", err)
+	}
+
+	return parseMergedPRBranchesJSON(stdout.Bytes())
+}
+
 // GetRepoCloneURL returns the clone URL for a repository, respecting user's protocol preference.
 // Uses gh CLI to get the URL with the user's configured protocol (SSH or HTTPS).
 func GetRepoCloneURL(owner, repo string) (string, error) {

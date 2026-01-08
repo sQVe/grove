@@ -223,10 +223,11 @@ exec grove prune
 stderr 'Would prune 1 worktree'
 stderr 'feature-unpushed'
 
-# Clean up - branch has unmerged commits so deletion will warn
+# Clean up - branch has unmerged commits so it's kept
 exec grove prune --commit
 stderr 'Pruned 1 worktree'
-stderr 'has unmerged commits, not deleted'
+stderr 'kept 1 local branch'
+stderr 'unmerged commits'
 ! exists $WORK/workspace/feature-unpushed
 # Branch should still exist (not deleted due to unmerged commits)
 exec git -C $WORK/workspace/.bare rev-parse --verify feature-unpushed
@@ -688,6 +689,47 @@ stderr 'feature-merged-stale'
 # Cleanup
 exec grove prune --merged --commit
 ! exists $WORK/workspace/feature-merged-stale
+
+## Success: Gone branch squash-merged via PR gets deleted without warning
+# This tests the scenario where:
+# 1. Feature branch has unique commits
+# 2. PR was squash-merged into main (new commit, not ancestor)
+# 3. Remote branch deleted after merge
+# Bug: git branch -d fails because it checks against gone upstream, not default branch
+
+# Create feature branch with a commit
+exec git -C $WORK/testrepo checkout -b feature-pr-squashed
+exec sh -c 'echo "squash content" > $WORK/testrepo/squash-pr.txt'
+exec git -C $WORK/testrepo add squash-pr.txt
+exec git -C $WORK/testrepo commit -m 'feature commit'
+
+# Squash merge into main (simulating GitHub squash-and-merge)
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/testrepo merge --squash feature-pr-squashed
+exec git -C $WORK/testrepo commit -m 'squashed feature'
+exec git -C $WORK/workspace/.bare fetch origin
+
+# Update main worktree to include the squash-merged commit
+exec git -C $WORK/workspace/main pull
+
+# Create worktree for the feature branch
+exec grove add feature-pr-squashed
+cd $WORK/workspace/feature-pr-squashed
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git branch --set-upstream-to=origin/feature-pr-squashed feature-pr-squashed
+
+# Delete remote branch (simulating PR merge + auto-delete)
+exec git -C $WORK/testrepo branch -D feature-pr-squashed
+
+cd $WORK/workspace/main
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'deleted 1 local branch'
+! stderr 'unmerged commits'
+! exists $WORK/workspace/feature-pr-squashed
+# Local branch should be deleted (was squash-merged into default)
+! exec git -C $WORK/workspace/.bare rev-parse --verify feature-pr-squashed
 
 ## Error: Not in workspace
 cd /tmp

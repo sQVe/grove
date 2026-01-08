@@ -21,6 +21,7 @@ func NewAddCmd() *cobra.Command {
 	var name string
 	var detach bool
 	var prNumber int
+	var reset bool
 
 	cmd := &cobra.Command{
 		Use:   "add [branch|PR-URL|ref]",
@@ -41,7 +42,7 @@ Examples:
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, baseBranch, name, detach, prNumber)
+			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset)
 		},
 	}
 
@@ -50,6 +51,7 @@ Examples:
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
+	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -63,7 +65,7 @@ Examples:
 	return cmd
 }
 
-func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int) error {
+func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool) error {
 	name = strings.TrimSpace(name)
 
 	// Validate --pr value if provided
@@ -114,6 +116,11 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 		}
 	}
 
+	// --reset only makes sense with PR checkout
+	if reset && !prFlag && !isPRURL {
+		return fmt.Errorf("--reset can only be used with PR references")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -138,16 +145,22 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	}()
 
 	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
+	if sourceWorktree == "" {
+		sourceWorktree = findFallbackSourceWorktree(bareDir)
+		if sourceWorktree != "" {
+			logger.Debug("Using %s as source for file preservation", sourceWorktree)
+		}
+	}
 
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
+		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset)
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
+		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset)
 	}
 
 	// Detached worktree
@@ -270,7 +283,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	return nil
 }
 
-func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -374,6 +387,37 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 			return fmt.Errorf("failed to fetch branch: %w", err)
 		}
 
+		// Resolve FETCH_HEAD to a commit hash immediately to avoid race conditions.
+		// Another fetch could overwrite FETCH_HEAD between our fetch and comparison.
+		fetchedHash, err := git.RevParse(bareDir, "FETCH_HEAD")
+		if err != nil {
+			return fmt.Errorf("failed to resolve fetched commit: %w", err)
+		}
+
+		// Check for diverged local branch before creating worktree.
+		// If local branch exists and has commits not on remote, fail unless --reset is used.
+		localExists, err := git.LocalBranchExists(bareDir, branch)
+		if err != nil {
+			return fmt.Errorf("failed to check local branch: %w", err)
+		}
+
+		if localExists {
+			ahead, _, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
+			if err != nil {
+				return fmt.Errorf("failed to compare branches: %w", err)
+			}
+
+			if ahead > 0 {
+				if !reset {
+					return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
+				}
+				logger.Info("Resetting %s to match remote (discarding %d local commits)...", branch, ahead)
+				if err := git.UpdateBranchRef(bareDir, branch, fetchedHash); err != nil {
+					return fmt.Errorf("failed to reset branch: %w", err)
+				}
+			}
+		}
+
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
 		}
@@ -427,6 +471,31 @@ func findSourceWorktree(cwd, workspaceRoot string) string {
 		dir = filepath.Dir(dir)
 	}
 
+	return ""
+}
+
+// findFallbackSourceWorktree returns a worktree to use as source for file
+// preservation when the user isn't inside a worktree. Priority: configured
+// default branch → main → master.
+func findFallbackSourceWorktree(bareDir string) string {
+	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	if err != nil || len(infos) == 0 {
+		return ""
+	}
+
+	candidates := []string{}
+	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil && defaultBranch != "" {
+		candidates = append(candidates, defaultBranch)
+	}
+	candidates = append(candidates, "main", "master")
+
+	for _, branch := range candidates {
+		for _, info := range infos {
+			if info.Branch == branch {
+				return info.Path
+			}
+		}
+	}
 	return ""
 }
 

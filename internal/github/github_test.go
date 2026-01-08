@@ -400,6 +400,88 @@ func TestGhErrorMessages(t *testing.T) {
 	})
 }
 
+func TestParseMergedPRBranchesJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected map[string]bool
+		wantErr  bool
+	}{
+		{
+			name:     "multiple merged PRs",
+			json:     `[{"headRefName":"feat/auth"},{"headRefName":"fix/bug"},{"headRefName":"chore/deps"}]`,
+			expected: map[string]bool{"feat/auth": true, "fix/bug": true, "chore/deps": true},
+		},
+		{
+			name:     "single merged PR",
+			json:     `[{"headRefName":"main-feature"}]`,
+			expected: map[string]bool{"main-feature": true},
+		},
+		{
+			name:     "empty result",
+			json:     `[]`,
+			expected: map[string]bool{},
+		},
+		{
+			name:    "invalid json",
+			json:    `not json`,
+			wantErr: true,
+		},
+		{
+			name:    "malformed json",
+			json:    `[{"headRefName":}]`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseMergedPRBranchesJSON([]byte(tt.json))
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(result) != len(tt.expected) {
+				t.Errorf("got %d branches, want %d", len(result), len(tt.expected))
+			}
+			for branch := range tt.expected {
+				if !result[branch] {
+					t.Errorf("missing expected branch: %s", branch)
+				}
+			}
+		})
+	}
+}
+
+func TestGetMergedPRBranches(t *testing.T) {
+	// Skip if gh is not available
+	if _, err := exec.LookPath("gh"); err != nil {
+		t.Skip("gh CLI not installed, skipping")
+	}
+	cmd := exec.Command("gh", "auth", "status")
+	if err := cmd.Run(); err != nil {
+		t.Skip("gh CLI not authenticated, skipping")
+	}
+
+	t.Run("returns branches for repo with merged PRs", func(t *testing.T) {
+		// This test runs against the actual Grove repo
+		// which should have merged PRs
+		branches, err := GetMergedPRBranches(".")
+		if err != nil {
+			t.Fatalf("GetMergedPRBranches failed: %v", err)
+		}
+		// We just verify it returns a map (may be empty for fresh repos)
+		if branches == nil {
+			t.Error("expected non-nil map")
+		}
+	})
+}
+
 func TestGetRepoCloneURL(t *testing.T) {
 	// Skip if gh is not available
 	if _, err := exec.LookPath("gh"); err != nil {

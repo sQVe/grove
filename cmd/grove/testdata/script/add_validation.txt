@@ -12,6 +12,7 @@ stdout '--detach'
 stdout '--name'
 stdout '--switch'
 stdout '--pr'
+stdout '--reset'
 ! stderr .
 
 ## Argument validation
@@ -51,6 +52,15 @@ stderr '^✗ --detach cannot be used with PR references'
 # --detach and --base together
 ! exec grove add --detach --base main v1.0.0
 stderr '^✗ --detach and --base cannot be used together'
+
+# --reset without --pr
+! exec grove add --reset feature
+stderr '^✗ --reset can only be used with PR references'
+
+# --reset with --pr is valid (but will fail without workspace - that's ok)
+! exec grove add --reset --pr 123
+! stderr '--reset can only be used'
+stderr 'not in a grove workspace'
 
 ## Workspace validation
 
