@@ -20,13 +20,13 @@ stdout '<worktree>...'
 
 # No arguments → error
 ! exec grove lock
-stderr 'at least 1 arg'
+stderr 'requires at least one worktree'
 
 ## Unlock argument validation
 
 # No arguments → error
 ! exec grove unlock
-stderr 'at least 1 arg'
+stderr 'requires at least one worktree'
 
 ## Workspace validation
 

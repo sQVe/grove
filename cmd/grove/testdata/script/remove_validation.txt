@@ -15,7 +15,7 @@ stdout '--force'
 
 # No arguments
 ! exec grove remove
-stderr 'at least 1 arg'
+stderr 'requires at least one worktree'
 
 ## Workspace validation
 
