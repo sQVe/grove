@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -281,12 +282,16 @@ func LocalBranchExists(repoPath, branch string) (bool, error) {
 	defer cancel()
 	cmd.Dir = repoPath
 
-	err := cmd.Run()
-	if err == nil {
-		return true, nil
+	if err := cmd.Run(); err != nil {
+		// Exit code 1 means ref not found - this is expected, not an error
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, err
 	}
-	// Exit code 1 means ref not found, which is not an error for our purposes
-	return false, nil
+
+	return true, nil
 }
 
 // CompareBranchRefs returns how localRef compares to remoteRef.
