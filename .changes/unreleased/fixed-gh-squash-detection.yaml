@@ -1,2 +1,0 @@
-kind: Fixed
-body: Detect multi-commit squash merges via GitHub CLI when pruning

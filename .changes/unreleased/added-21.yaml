@@ -1,4 +1,0 @@
-kind: Added
-body: Add multi-worktree support to remove, lock, and unlock commands
-custom:
-  Issue: 21

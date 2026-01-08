@@ -1,2 +1,0 @@
-kind: Fixed
-body: Detect diverged PR branches and add --reset flag to sync with remote

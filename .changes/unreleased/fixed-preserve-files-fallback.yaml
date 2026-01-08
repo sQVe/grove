@@ -1,2 +1,0 @@
-kind: Fixed
-body: Preserve files when running `grove add` from workspace root by falling back to default branch worktree

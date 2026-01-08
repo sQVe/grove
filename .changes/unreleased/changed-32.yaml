@@ -1,4 +1,0 @@
-kind: Changed
-body: Migrate build system from Mage to Make for simpler, faster builds
-custom:
-  Issue: 32
