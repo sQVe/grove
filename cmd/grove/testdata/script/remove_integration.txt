@@ -118,14 +118,14 @@ exec grove remove --force locked-with-reason
 
 ## Dirty AND locked → dirty error shown first
 
-exec grove add dirty-and-locked
-exec sh -c 'echo "dirty" > ../dirty-and-locked/untracked.txt'
-exec git -C $WORK/workspace/.bare worktree lock ../dirty-and-locked
-! exec grove remove dirty-and-locked
+exec grove add dirty-plus-locked
+exec sh -c 'echo "dirty" > ../dirty-plus-locked/untracked.txt'
+exec git -C $WORK/workspace/.bare worktree lock ../dirty-plus-locked
+! exec grove remove dirty-plus-locked
 stderr 'uncommitted changes'
-! stderr 'locked'
+! stderr 'is locked'
 # Clean up
-exec grove remove --force dirty-and-locked
+exec grove remove --force dirty-plus-locked
 
 ## --force with dirty AND locked → succeeds
 
@@ -255,17 +255,20 @@ stderr 'uncommitted changes'
 exec git -C ../merge-test merge --abort
 exec grove remove --force merge-test
 
-## Shell completion: no suggestions for second argument
+## Shell completion: excludes already-typed worktrees
 
 exec grove add completion-test
+exec grove add completion-extra
 # First argument gets completions
 exec grove __complete remove ''
 stdout 'completion-test'
-# After first argument, no suggestions
+stdout 'completion-extra'
+# After first argument, excludes already-typed and current worktree
 exec grove __complete remove completion-test ''
 ! stdout 'completion-test'
 ! stdout 'main'
-exec grove remove completion-test
+stdout 'completion-extra'
+exec grove remove completion-test completion-extra
 
 ## Worktree path with spaces → handled correctly
 

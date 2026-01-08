@@ -18,20 +18,21 @@ func NewRemoveCmd() *cobra.Command {
 	var deleteBranch bool
 
 	cmd := &cobra.Command{
-		Use:   "remove <worktree>",
-		Short: "Remove a worktree",
-		Long: `Remove a worktree, optionally deleting its branch.
+		Use:   "remove <worktree>...",
+		Short: "Remove worktrees",
+		Long: `Remove one or more worktrees, optionally deleting their branches.
 
-Accepts worktree name (directory) or branch name.
+Accepts worktree names (directories) or branch names.
 
 Examples:
-  grove remove feat-auth        # Remove worktree
-  grove remove --branch feat    # Remove worktree and branch
-  grove remove --force wip      # Force remove if dirty or locked`,
-		Args:              cobra.ExactArgs(1),
+  grove remove feat-auth            # Remove worktree
+  grove remove --branch feat        # Remove worktree and branch
+  grove remove --force wip          # Force remove if dirty or locked
+  grove remove feat-auth bugfix-123 # Remove multiple worktrees`,
+		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeRemoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(args[0], force, deleteBranch)
+			return runRemove(args, force, deleteBranch)
 		},
 	}
 
@@ -42,8 +43,10 @@ Examples:
 	return cmd
 }
 
-func runRemove(target string, force, deleteBranch bool) error {
-	target = strings.TrimSpace(target)
+func runRemove(targets []string, force, deleteBranch bool) error {
+	if len(targets) == 0 {
+		return fmt.Errorf("requires at least one worktree")
+	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -60,75 +63,103 @@ func runRemove(target string, force, deleteBranch bool) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	worktreeInfo := git.FindWorktree(infos, target)
-	if worktreeInfo == nil {
-		return fmt.Errorf("worktree not found: %s", target)
+	// Validate all targets exist before processing
+	var toRemove []*git.WorktreeInfo
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		info := git.FindWorktree(infos, target)
+		if info == nil {
+			return fmt.Errorf("worktree not found: %s", target)
+		}
+		toRemove = append(toRemove, info)
 	}
 
-	// Check if user is inside the worktree being deleted
-	if cwd == worktreeInfo.Path || strings.HasPrefix(cwd, worktreeInfo.Path+string(filepath.Separator)) {
-		return fmt.Errorf("cannot delete current worktree; switch to a different worktree first")
+	// Deduplicate by path
+	seen := make(map[string]bool)
+	var unique []*git.WorktreeInfo
+	for _, info := range toRemove {
+		if seen[info.Path] {
+			continue
+		}
+		seen[info.Path] = true
+		unique = append(unique, info)
 	}
 
-	// Check worktree state unless --force
-	if !force {
-		// Check dirty state
-		hasChanges, _, err := git.CheckGitChanges(worktreeInfo.Path)
-		if err != nil {
-			return fmt.Errorf("failed to check worktree status: %w", err)
-		}
-		if hasChanges {
-			return fmt.Errorf("worktree has uncommitted changes; use --force to remove anyway")
+	// Process each target, accumulate failures
+	var failed []string
+	for _, info := range unique {
+		// Check if user is inside the worktree being deleted
+		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+			logger.Error("%s: cannot delete current worktree", info.Branch)
+			failed = append(failed, info.Branch)
+			continue
 		}
 
-		// Check locked state
-		if git.IsWorktreeLocked(worktreeInfo.Path) {
-			return fmt.Errorf("worktree is locked; use --force to remove anyway")
+		// Check worktree state unless --force
+		if !force {
+			hasChanges, _, err := git.CheckGitChanges(info.Path)
+			if err != nil {
+				logger.Error("%s: failed to check worktree status: %v", info.Branch, err)
+				failed = append(failed, info.Branch)
+				continue
+			}
+			if hasChanges {
+				logger.Error("%s: worktree has uncommitted changes; use --force to remove anyway", info.Branch)
+				failed = append(failed, info.Branch)
+				continue
+			}
+
+			if git.IsWorktreeLocked(info.Path) {
+				logger.Error("%s: worktree is locked; use --force to remove anyway", info.Branch)
+				failed = append(failed, info.Branch)
+				continue
+			}
+		} else if git.IsWorktreeLocked(info.Path) {
+			// Unlock worktree first if locked (git requires double force otherwise)
+			if err := git.UnlockWorktree(bareDir, info.Path); err != nil {
+				logger.Debug("Failed to unlock worktree: %v", err)
+			}
 		}
-	} else if git.IsWorktreeLocked(worktreeInfo.Path) {
-		// Unlock worktree first if locked (git requires double force otherwise)
-		if err := git.UnlockWorktree(bareDir, worktreeInfo.Path); err != nil {
-			logger.Debug("Failed to unlock worktree: %v", err)
+
+		// Get sync status BEFORE removing worktree if we need to warn about unpushed commits
+		var aheadCount int
+		if deleteBranch {
+			syncStatus := git.GetSyncStatus(info.Path)
+			aheadCount = syncStatus.Ahead
+		}
+
+		// Remove the worktree
+		if err := git.RemoveWorktree(bareDir, info.Path, force); err != nil {
+			logger.Error("%s: failed to remove worktree: %v", info.Branch, err)
+			failed = append(failed, info.Branch)
+			continue
+		}
+
+		// Optionally delete the branch
+		if deleteBranch {
+			if aheadCount > 0 {
+				logger.Warning("%s: branch has %d unpushed commit(s)", info.Branch, aheadCount)
+			}
+
+			if err := git.DeleteBranch(bareDir, info.Branch, force); err != nil {
+				logger.Error("%s: worktree removed but failed to delete branch: %v", info.Branch, err)
+				failed = append(failed, info.Branch)
+				continue
+			}
+			logger.Success("Deleted worktree and branch %s", info.Branch)
+		} else {
+			logger.Success("Deleted worktree %s", info.Branch)
 		}
 	}
 
-	// Get sync status BEFORE removing worktree if we need to warn about unpushed commits
-	// (fast mode doesn't fetch Ahead count, so we must check explicitly)
-	var aheadCount int
-	if deleteBranch {
-		syncStatus := git.GetSyncStatus(worktreeInfo.Path)
-		aheadCount = syncStatus.Ahead
-	}
-
-	// Remove the worktree
-	if err := git.RemoveWorktree(bareDir, worktreeInfo.Path, force); err != nil {
-		return fmt.Errorf("failed to remove worktree: %w", err)
-	}
-
-	// Optionally delete the branch
-	if deleteBranch {
-		// Warn about unpushed commits
-		if aheadCount > 0 {
-			logger.Warning("Branch has %d unpushed commit(s)", aheadCount)
-		}
-
-		if err := git.DeleteBranch(bareDir, worktreeInfo.Branch, force); err != nil {
-			return fmt.Errorf("worktree removed but failed to delete branch: %w", err)
-		}
-		logger.Success("Deleted worktree and branch %s", target)
-	} else {
-		logger.Success("Deleted worktree %s", target)
+	if len(failed) > 0 {
+		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))
 	}
 
 	return nil
 }
 
 func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Only complete first argument
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
@@ -144,11 +175,24 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveError
 	}
 
+	// Build set of already-typed arguments
+	alreadyUsed := make(map[string]bool)
+	for _, arg := range args {
+		alreadyUsed[arg] = true
+	}
+
 	var completions []string
 	for _, info := range infos {
+		name := filepath.Base(info.Path)
+
+		// Skip already-used (check both path basename and branch name)
+		if alreadyUsed[name] || alreadyUsed[info.Branch] {
+			continue
+		}
+
 		// Exclude current worktree
-		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(os.PathSeparator)) {
-			completions = append(completions, filepath.Base(info.Path))
+		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+			completions = append(completions, name)
 		}
 	}
 

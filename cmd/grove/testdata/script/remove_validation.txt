@@ -4,9 +4,9 @@
 ## Help output
 
 exec grove remove --help
-stdout 'Remove a worktree'
+stdout 'Remove one or more worktrees'
 stdout 'Usage:'
-stdout '<worktree>'
+stdout '<worktree>...'
 stdout '--branch'
 stdout '--force'
 ! stderr .
@@ -15,13 +15,7 @@ stdout '--force'
 
 # No arguments
 ! exec grove remove
-stderr '^✗ accepts 1 arg'
-stderr 'received 0'
-
-# Too many arguments
-! exec grove remove one two
-stderr '^✗ accepts 1 arg'
-stderr 'received 2'
+stderr 'requires at least one worktree'
 
 ## Workspace validation
 
