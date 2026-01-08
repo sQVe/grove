@@ -1,4 +1,0 @@
-kind: Added
-body: Delete local branches when pruning worktrees with gone upstreams
-custom:
-  Issue: 20

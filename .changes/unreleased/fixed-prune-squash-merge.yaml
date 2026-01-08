@@ -1,2 +1,0 @@
-kind: Fixed
-body: Handle squash-merged branches when pruning gone worktrees
