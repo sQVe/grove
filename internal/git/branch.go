@@ -270,6 +270,104 @@ func SetUpstreamBranch(worktreePath, upstream string) error {
 	return runGitCommand(cmd, true)
 }
 
+// LocalBranchExists checks if a local branch (not remote-tracking) exists in the repository.
+func LocalBranchExists(repoPath, branch string) (bool, error) {
+	if repoPath == "" || branch == "" {
+		return false, errors.New("repository path and branch name cannot be empty")
+	}
+
+	logger.Debug("Executing: git show-ref --verify --quiet refs/heads/%s in %s", branch, repoPath)
+	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	err := cmd.Run()
+	if err == nil {
+		return true, nil
+	}
+	// Exit code 1 means ref not found, which is not an error for our purposes
+	return false, nil
+}
+
+// CompareBranchRefs returns how localRef compares to remoteRef.
+// Returns (ahead, behind) where:
+//   - ahead = commits in localRef not in remoteRef
+//   - behind = commits in remoteRef not in localRef
+func CompareBranchRefs(repoPath, localRef, remoteRef string) (ahead, behind int, err error) {
+	if repoPath == "" || localRef == "" || remoteRef == "" {
+		return 0, 0, errors.New("repository path and ref names cannot be empty")
+	}
+
+	refRange := localRef + "..." + remoteRef
+	logger.Debug("Executing: git rev-list --left-right --count %s in %s", refRange, repoPath)
+	cmd, cancel := GitCommand("git", "rev-list", "--left-right", "--count", refRange) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	output, err := executeWithOutput(cmd)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to compare refs: %w", err)
+	}
+
+	// Output format: "ahead\tbehind" (e.g., "3\t5")
+	_, err = fmt.Sscanf(output, "%d\t%d", &ahead, &behind)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to parse rev-list output %q: %w", output, err)
+	}
+
+	return ahead, behind, nil
+}
+
+// RevParse resolves a git reference to its full commit hash.
+// This is equivalent to `git rev-parse <ref>`.
+func RevParse(repoPath, ref string) (string, error) {
+	if repoPath == "" {
+		return "", errors.New("repository path cannot be empty")
+	}
+	if ref == "" {
+		return "", errors.New("ref cannot be empty")
+	}
+
+	logger.Debug("Executing: git rev-parse %s in %s", ref, repoPath)
+	cmd, cancel := GitCommand("git", "rev-parse", ref) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	hash, err := executeWithOutput(cmd)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve ref %q: %w", ref, err)
+	}
+
+	return hash, nil
+}
+
+// UpdateBranchRef updates a local branch to point to a target ref.
+// This is equivalent to `git update-ref refs/heads/<branch> <target>`.
+func UpdateBranchRef(repoPath, branch, targetRef string) error {
+	if repoPath == "" || branch == "" || targetRef == "" {
+		return errors.New("repository path, branch name, and target ref cannot be empty")
+	}
+
+	// First resolve the target ref to a commit hash
+	logger.Debug("Executing: git rev-parse %s in %s", targetRef, repoPath)
+	resolveCmd, cancelResolve := GitCommand("git", "rev-parse", targetRef) // nolint:gosec
+	resolveCmd.Dir = repoPath
+	targetHash, err := executeWithOutput(resolveCmd)
+	cancelResolve()
+	if err != nil {
+		return fmt.Errorf("failed to resolve target ref %q: %w", targetRef, err)
+	}
+
+	// Now update the branch ref
+	refPath := "refs/heads/" + branch
+	logger.Debug("Executing: git update-ref %s %s in %s", refPath, targetHash, repoPath)
+	cmd, cancel := GitCommand("git", "update-ref", refPath, targetHash) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}
+
 // IsBranchMerged checks if a branch has been merged into the target branch.
 // It detects both regular merges (via ancestry) and squash merges (via patch-id comparison).
 func IsBranchMerged(repoPath, branch, targetBranch string) (bool, error) {

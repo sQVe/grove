@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -638,6 +639,373 @@ func TestIsBranchMerged(t *testing.T) {
 		}
 		if !merged {
 			t.Error("expected squash-merged branch to be detected as merged")
+		}
+	})
+}
+
+func TestLocalBranchExists(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns true for existing local branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		exists, err := LocalBranchExists(repo.Path, "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !exists {
+			t.Error("expected main branch to exist")
+		}
+	})
+
+	t.Run("returns false for non-existent branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		exists, err := LocalBranchExists(repo.Path, "nonexistent")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if exists {
+			t.Error("expected nonexistent branch to not exist")
+		}
+	})
+
+	t.Run("returns false for remote-only branch", func(t *testing.T) {
+		t.Parallel()
+		// Create origin repo with a branch
+		origin := testgit.NewTestRepo(t)
+		origin.CreateBranch("remote-only")
+
+		// Clone it
+		cloneDir := filepath.Join(origin.Dir, "clone")
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to clone: %v", err)
+		}
+
+		// remote-only exists as origin/remote-only but not as local branch
+		exists, err := LocalBranchExists(cloneDir, "remote-only")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if exists {
+			t.Error("expected remote-only to not exist as local branch")
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		_, err := LocalBranchExists("", "main")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for empty branch name", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, err := LocalBranchExists(repo.Path, "")
+		if err == nil {
+			t.Error("expected error for empty branch name")
+		}
+	})
+}
+
+func TestCompareBranchRefs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns 0,0 for identical refs", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+
+		ahead, behind, err := CompareBranchRefs(repo.Path, "feature", "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ahead != 0 || behind != 0 {
+			t.Errorf("expected 0,0 for identical refs, got %d,%d", ahead, behind)
+		}
+	})
+
+	t.Run("returns ahead count when local has extra commits", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "content")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+
+		ahead, behind, err := CompareBranchRefs(repo.Path, "feature", "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ahead != 1 {
+			t.Errorf("expected ahead=1, got %d", ahead)
+		}
+		if behind != 0 {
+			t.Errorf("expected behind=0, got %d", behind)
+		}
+	})
+
+	t.Run("returns behind count when remote has extra commits", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		repo.CreateBranch("feature")
+		// Add commit to main (feature stays behind)
+		repo.WriteFile("main.txt", "content")
+		repo.Add("main.txt")
+		repo.Commit("main commit")
+
+		ahead, behind, err := CompareBranchRefs(repo.Path, "feature", "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ahead != 0 {
+			t.Errorf("expected ahead=0, got %d", ahead)
+		}
+		if behind != 1 {
+			t.Errorf("expected behind=1, got %d", behind)
+		}
+	})
+
+	t.Run("returns both counts for diverged branches", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		repo.CreateBranch("feature")
+
+		// Add commit to main
+		repo.WriteFile("main.txt", "content")
+		repo.Add("main.txt")
+		repo.Commit("main commit")
+
+		// Add commit to feature
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "content")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+
+		ahead, behind, err := CompareBranchRefs(repo.Path, "feature", "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ahead != 1 {
+			t.Errorf("expected ahead=1, got %d", ahead)
+		}
+		if behind != 1 {
+			t.Errorf("expected behind=1, got %d", behind)
+		}
+	})
+
+	t.Run("returns error for non-existent ref", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		_, _, err := CompareBranchRefs(repo.Path, "nonexistent", "main")
+		if err == nil {
+			t.Error("expected error for non-existent ref")
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := CompareBranchRefs("", "feature", "main")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for empty localRef", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, _, err := CompareBranchRefs(repo.Path, "", "main")
+		if err == nil {
+			t.Error("expected error for empty localRef")
+		}
+	})
+
+	t.Run("returns error for empty remoteRef", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, _, err := CompareBranchRefs(repo.Path, "main", "")
+		if err == nil {
+			t.Error("expected error for empty remoteRef")
+		}
+	})
+}
+
+func TestUpdateBranchRef(t *testing.T) {
+	t.Parallel()
+
+	t.Run("updates branch to point to target ref", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// Create feature branch, then add commit to main
+		repo.CreateBranch("feature")
+		repo.WriteFile("new.txt", "content")
+		repo.Add("new.txt")
+		repo.Commit("new commit on main")
+
+		// Get main's commit hash
+		cmd := exec.Command("git", "rev-parse", "main")
+		cmd.Dir = repo.Path
+		mainHash, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed to get main hash: %v", err)
+		}
+
+		// Get feature's commit hash (should be different)
+		cmd = exec.Command("git", "rev-parse", "feature")
+		cmd.Dir = repo.Path
+		featureHashBefore, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed to get feature hash: %v", err)
+		}
+
+		if bytes.Equal(mainHash, featureHashBefore) {
+			t.Fatal("test setup error: main and feature should differ")
+		}
+
+		// Update feature to point to main
+		if err := UpdateBranchRef(repo.Path, "feature", "main"); err != nil {
+			t.Fatalf("UpdateBranchRef failed: %v", err)
+		}
+
+		// Verify feature now points to same commit as main
+		cmd = exec.Command("git", "rev-parse", "feature")
+		cmd.Dir = repo.Path
+		featureHashAfter, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed to get feature hash after update: %v", err)
+		}
+
+		if !bytes.Equal(featureHashAfter, mainHash) {
+			t.Errorf("expected feature to point to main's commit\nmain:    %s\nfeature: %s",
+				strings.TrimSpace(string(mainHash)),
+				strings.TrimSpace(string(featureHashAfter)))
+		}
+	})
+
+	t.Run("creates branch if it does not exist", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		// git update-ref creates the ref if it doesn't exist
+		err := UpdateBranchRef(repo.Path, "newbranch", "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify branch was created
+		exists, err := LocalBranchExists(repo.Path, "newbranch")
+		if err != nil {
+			t.Fatalf("failed to check branch: %v", err)
+		}
+		if !exists {
+			t.Error("expected newbranch to be created")
+		}
+	})
+
+	t.Run("returns error for non-existent target", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		err := UpdateBranchRef(repo.Path, "main", "nonexistent")
+		if err == nil {
+			t.Error("expected error for non-existent target")
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		err := UpdateBranchRef("", "feature", "main")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for empty branch name", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		err := UpdateBranchRef(repo.Path, "", "main")
+		if err == nil {
+			t.Error("expected error for empty branch name")
+		}
+	})
+
+	t.Run("returns error for empty target ref", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		err := UpdateBranchRef(repo.Path, "feature", "")
+		if err == nil {
+			t.Error("expected error for empty target ref")
+		}
+	})
+}
+
+func TestRevParse(t *testing.T) {
+	t.Parallel()
+
+	t.Run("resolves branch to commit hash", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		hash, err := RevParse(repo.Path, "main")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Hash should be 40 hex characters
+		if len(hash) != 40 {
+			t.Errorf("expected 40-char hash, got %d chars: %s", len(hash), hash)
+		}
+	})
+
+	t.Run("resolves HEAD", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		hash, err := RevParse(repo.Path, "HEAD")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(hash) != 40 {
+			t.Errorf("expected 40-char hash, got %d chars: %s", len(hash), hash)
+		}
+	})
+
+	t.Run("returns error for non-existent ref", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+
+		_, err := RevParse(repo.Path, "nonexistent")
+		if err == nil {
+			t.Error("expected error for non-existent ref")
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		_, err := RevParse("", "main")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for empty ref", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, err := RevParse(repo.Path, "")
+		if err == nil {
+			t.Error("expected error for empty ref")
 		}
 	})
 }
