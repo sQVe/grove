@@ -29,7 +29,7 @@ Examples:
   grove remove --branch feat        # Remove worktree and branch
   grove remove --force wip          # Force remove if dirty or locked
   grove remove feat-auth bugfix-123 # Remove multiple worktrees`,
-		Args:              cobra.MinimumNArgs(1),
+		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeRemoveArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRemove(args, force, deleteBranch)
@@ -44,6 +44,10 @@ Examples:
 }
 
 func runRemove(targets []string, force, deleteBranch bool) error {
+	if len(targets) == 0 {
+		return fmt.Errorf("requires at least one worktree")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)

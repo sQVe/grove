@@ -24,7 +24,7 @@ Accepts worktree names (directories) or branch names.
 Examples:
   grove unlock feat-auth
   grove unlock feat-auth bugfix-123`,
-		Args:              cobra.MinimumNArgs(1),
+		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeUnlockArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUnlock(args)
@@ -37,6 +37,10 @@ Examples:
 }
 
 func runUnlock(targets []string) error {
+	if len(targets) == 0 {
+		return fmt.Errorf("requires at least one worktree")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)

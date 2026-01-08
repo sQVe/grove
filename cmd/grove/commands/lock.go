@@ -28,7 +28,7 @@ Examples:
   grove lock feat-auth                      # Lock worktree
   grove lock feat-auth --reason "WIP"       # Lock with reason
   grove lock feat-auth bugfix-123           # Lock multiple`,
-		Args:              cobra.MinimumNArgs(1),
+		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeLockArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLock(args, reason)
@@ -46,6 +46,10 @@ Examples:
 }
 
 func runLock(targets []string, reason string) error {
+	if len(targets) == 0 {
+		return fmt.Errorf("requires at least one worktree")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
