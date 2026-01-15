@@ -18,7 +18,7 @@ exec test -f new-basic-workspace/.git
 mkdir new-nested-parent
 exec grove init new new-nested-parent/myproject
 stderr 'Initialized grove workspace'
-stderr 'new-nested-parent/myproject'
+stderr 'new-nested-parent[/\\\\]myproject'
 exists new-nested-parent/myproject/.bare
 exists new-nested-parent/myproject/.git
 # Verify structure constraints (directory vs file)

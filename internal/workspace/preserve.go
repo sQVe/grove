@@ -78,12 +78,14 @@ func FindIgnoredFilesInWorktree(worktreeDir string) ([]string, error) {
 }
 
 // isExcludedPath checks if a file path contains any of the excluded path segments.
+// Git always returns paths with forward slashes, even on Windows.
 func isExcludedPath(filePath string, excludePatterns []string) bool {
 	if len(excludePatterns) == 0 {
 		return false
 	}
 
-	parts := strings.Split(filePath, string(filepath.Separator))
+	// Git returns paths with forward slashes on all platforms
+	parts := strings.Split(filePath, "/")
 	for _, part := range parts {
 		for _, exclude := range excludePatterns {
 			if part == exclude {

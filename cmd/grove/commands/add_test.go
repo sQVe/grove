@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -329,7 +330,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 	// Helper to create a bare repo with initial content
 	setupBareRepo := func(t *testing.T, defaultBranch string) (tempDir, bareDir string) {
 		t.Helper()
-		tempDir = t.TempDir()
+		tempDir = testutil.TempDir(t)
 		bareDir = filepath.Join(tempDir, ".bare")
 
 		// Create a regular repo first, then clone it as bare

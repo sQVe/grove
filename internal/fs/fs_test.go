@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -308,12 +309,15 @@ func TestCopyFile(t *testing.T) {
 			t.Error("copied file content should match original")
 		}
 
-		info, err := os.Stat(dstFile)
-		if err != nil {
-			t.Fatalf("failed to stat destination file: %v", err)
-		}
-		if info.Mode() != FileGit {
-			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		// Skip permission check on Windows as it doesn't support Unix file permissions
+		if runtime.GOOS != "windows" {
+			info, err := os.Stat(dstFile)
+			if err != nil {
+				t.Fatalf("failed to stat destination file: %v", err)
+			}
+			if info.Mode() != FileGit {
+				t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+			}
 		}
 	})
 
@@ -325,6 +329,95 @@ func TestCopyFile(t *testing.T) {
 		err := CopyFile(srcFile, dstFile, FileGit)
 		if err == nil {
 			t.Error("CopyFile should fail for non-existent source")
+		}
+	})
+}
+
+func TestPathsEqual(t *testing.T) {
+	t.Run("returns true for identical paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		if !PathsEqual(tempDir, tempDir) {
+			t.Error("PathsEqual should return true for identical paths")
+		}
+	})
+
+	t.Run("returns true for paths with different trailing separators", func(t *testing.T) {
+		tempDir := t.TempDir()
+		withSep := tempDir + string(filepath.Separator)
+		// filepath.Clean removes trailing separators
+		if !PathsEqual(tempDir, filepath.Clean(withSep)) {
+			t.Error("PathsEqual should return true for cleaned paths")
+		}
+	})
+
+	t.Run("returns false for different paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		otherDir := filepath.Join(tempDir, "other")
+		if err := CreateDirectory(otherDir, DirGit); err != nil {
+			t.Fatalf("failed to create test directory: %v", err)
+		}
+		if PathsEqual(tempDir, otherDir) {
+			t.Error("PathsEqual should return false for different paths")
+		}
+	})
+
+	t.Run("handles non-existent paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		nonExistent := filepath.Join(tempDir, "nonexistent")
+		if PathsEqual(tempDir, nonExistent) {
+			t.Error("PathsEqual should return false for different paths even if one doesn't exist")
+		}
+	})
+}
+
+func TestPathHasPrefix(t *testing.T) {
+	t.Run("returns true when path is inside prefix directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		subDir := filepath.Join(tempDir, "sub", "dir")
+		if err := CreateDirectory(subDir, DirGit); err != nil {
+			t.Fatalf("failed to create test directory: %v", err)
+		}
+		if !PathHasPrefix(subDir, tempDir) {
+			t.Error("PathHasPrefix should return true when path is inside prefix")
+		}
+	})
+
+	t.Run("returns false when path equals prefix", func(t *testing.T) {
+		tempDir := t.TempDir()
+		if PathHasPrefix(tempDir, tempDir) {
+			t.Error("PathHasPrefix should return false when path equals prefix (not a child)")
+		}
+	})
+
+	t.Run("returns false when path is not inside prefix", func(t *testing.T) {
+		tempDir := t.TempDir()
+		otherDir := filepath.Join(tempDir, "other")
+		subDir := filepath.Join(tempDir, "sub")
+		if err := CreateDirectory(otherDir, DirGit); err != nil {
+			t.Fatalf("failed to create other directory: %v", err)
+		}
+		if err := CreateDirectory(subDir, DirGit); err != nil {
+			t.Fatalf("failed to create sub directory: %v", err)
+		}
+		if PathHasPrefix(otherDir, subDir) {
+			t.Error("PathHasPrefix should return false when path is not inside prefix")
+		}
+	})
+
+	t.Run("handles prefix that is a substring but not a directory prefix", func(t *testing.T) {
+		tempDir := t.TempDir()
+		// Create /tmp/xxx/foobar and /tmp/xxx/foo
+		fooDir := filepath.Join(tempDir, "foo")
+		foobarDir := filepath.Join(tempDir, "foobar")
+		if err := CreateDirectory(fooDir, DirGit); err != nil {
+			t.Fatalf("failed to create foo directory: %v", err)
+		}
+		if err := CreateDirectory(foobarDir, DirGit); err != nil {
+			t.Fatalf("failed to create foobar directory: %v", err)
+		}
+		// foobar should NOT have prefix foo (even though "foobar" string starts with "foo")
+		if PathHasPrefix(foobarDir, fooDir) {
+			t.Error("PathHasPrefix should return false when prefix is a string prefix but not a directory prefix")
 		}
 	})
 }
@@ -347,12 +440,15 @@ func TestWriteFileAtomic(t *testing.T) {
 			t.Error("atomic file content should match written data")
 		}
 
-		info, err := os.Stat(testFile)
-		if err != nil {
-			t.Fatalf("failed to stat atomic file: %v", err)
-		}
-		if info.Mode() != FileGit {
-			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		// Skip permission check on Windows as it doesn't support Unix file permissions
+		if runtime.GOOS != "windows" {
+			info, err := os.Stat(testFile)
+			if err != nil {
+				t.Fatalf("failed to stat atomic file: %v", err)
+			}
+			if info.Mode() != FileGit {
+				t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+			}
 		}
 	})
 }

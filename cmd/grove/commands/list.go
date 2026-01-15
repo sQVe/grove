@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/formatter"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -74,7 +75,7 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 	// Determine current worktree path (also works from subdirectories)
 	currentPath := ""
 	for _, info := range infos {
-		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
 			currentPath = info.Path
 			break
 		}
@@ -109,7 +110,7 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 		entry := worktreeJSON{
 			Name:       filepath.Base(info.Path),
 			Path:       info.Path,
-			Current:    info.Path == currentPath,
+			Current:    fs.PathsEqual(info.Path, currentPath),
 			Detached:   info.Detached,
 			Upstream:   info.Upstream,
 			Dirty:      info.Dirty,
@@ -134,8 +135,8 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool) error {
 	// Sort: current worktree first, then alphabetically by worktree name
 	sort.SliceStable(infos, func(i, j int) bool {
-		iCurrent := infos[i].Path == currentPath
-		jCurrent := infos[j].Path == currentPath
+		iCurrent := fs.PathsEqual(infos[i].Path, currentPath)
+		jCurrent := fs.PathsEqual(infos[j].Path, currentPath)
 		if iCurrent != jCurrent {
 			return iCurrent // Current worktree comes first
 		}
@@ -162,7 +163,7 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 	}
 
 	for _, info := range infos {
-		isCurrent := info.Path == currentPath
+		isCurrent := fs.PathsEqual(info.Path, currentPath)
 
 		// In fast mode, we don't have sync status - create a copy with zeroed sync info
 		displayInfo := info

@@ -175,6 +175,8 @@ func ListWorktrees(repoPath string) ([]string, error) {
 		}
 
 		worktreePath := strings.TrimPrefix(line, "worktree ")
+		// Normalize path separators (git on Windows uses forward slashes)
+		worktreePath = filepath.FromSlash(worktreePath)
 
 		absWorktreePath, err := filepath.Abs(worktreePath)
 		if err != nil {
@@ -182,11 +184,12 @@ func ListWorktrees(repoPath string) ([]string, error) {
 		}
 
 		// Skip the main worktree (same as repo path)
-		if absWorktreePath == absRepoPath {
+		// Use fs.PathsEqual for cross-platform comparison (case-insensitive on Windows)
+		if fs.PathsEqual(absWorktreePath, absRepoPath) {
 			continue
 		}
 
-		worktrees = append(worktrees, worktreePath)
+		worktrees = append(worktrees, absWorktreePath)
 	}
 
 	return worktrees, scanner.Err()

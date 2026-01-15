@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 const testEnvFile = ".env"
@@ -553,7 +554,7 @@ func TestFindBareDir(t *testing.T) {
 
 func TestResolveConfigDir(t *testing.T) {
 	t.Run("returns worktree root when inside worktree", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
 		// Create bare repo
@@ -600,7 +601,7 @@ func TestResolveConfigDir(t *testing.T) {
 	})
 
 	t.Run("returns default branch worktree from workspace root", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
 		// Create bare repo with HEAD pointing to main
@@ -655,7 +656,7 @@ func TestResolveConfigDir(t *testing.T) {
 	})
 
 	t.Run("returns first worktree when default branch missing", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
 		// Create bare repo

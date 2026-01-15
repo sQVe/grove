@@ -25,13 +25,13 @@ exec git config user.email "test@example.com"
 ## Match by directory name (first priority) → returns path
 
 exec grove switch main
-stdout '/workspace/main$'
+stdout '[/\\\\]workspace[/\\\\]main$'
 ! stderr .
 
 ## Match by branch name (fallback) → returns path
 
 exec grove switch feature/auth
-stdout '/workspace/feature-auth$'
+stdout '[/\\\\]workspace[/\\\\]feature-auth$'
 ! stderr .
 
 ## Directory name takes precedence over branch name
@@ -40,20 +40,20 @@ stdout '/workspace/feature-auth$'
 exec grove add --name ambiguous other-branch
 # 'ambiguous' is a directory, not a branch - should match directory name
 exec grove switch ambiguous
-stdout '/workspace/ambiguous$'
+stdout '[/\\\\]workspace[/\\\\]ambiguous$'
 ! stderr .
 exec grove remove ambiguous
 
 ## Branch with slashes → matches by branch name
 
 exec grove switch feature/auth
-stdout '/workspace/feature-auth$'
+stdout '[/\\\\]workspace[/\\\\]feature-auth$'
 ! stderr .
 
 ## Leading/trailing whitespace → trimmed, matches worktree
 
 exec grove switch '  main  '
-stdout '/workspace/main$'
+stdout '[/\\\\]workspace[/\\\\]main$'
 ! stderr .
 
 ## Empty string after trimming → error
@@ -78,7 +78,7 @@ stderr 'worktree not found: DEVELOP'
 
 cd $WORK/workspace/main
 exec grove switch main
-stdout '/workspace/main$'
+stdout '[/\\\\]workspace[/\\\\]main$'
 ! stderr .
 
 ## Detached HEAD worktree → matches by directory name
@@ -86,21 +86,21 @@ stdout '/workspace/main$'
 exec git tag v1.0.0
 exec grove add --detach v1.0.0
 exec grove switch v1.0.0
-stdout '/workspace/v1.0.0$'
+stdout '[/\\\\]workspace[/\\\\]v1.0.0$'
 ! stderr .
 
 ## CWD is workspace root → works
 
 cd $WORK/workspace
 exec grove switch main
-stdout '/workspace/main$'
+stdout '[/\\\\]workspace[/\\\\]main$'
 ! stderr .
 
 ## CWD inside worktree → works
 
 cd $WORK/workspace/main
 exec grove switch develop
-stdout '/workspace/develop$'
+stdout '[/\\\\]workspace[/\\\\]develop$'
 ! stderr .
 
 ## CWD in worktree subdirectory → finds workspace
@@ -108,7 +108,7 @@ stdout '/workspace/develop$'
 mkdir -p $WORK/workspace/main/src/pkg
 cd $WORK/workspace/main/src/pkg
 exec grove switch develop
-stdout '/workspace/develop$'
+stdout '[/\\\\]workspace[/\\\\]develop$'
 ! stderr .
 cd $WORK/workspace/main
 
@@ -124,7 +124,7 @@ exec grove remove 'my worktree'
 
 exec git -C $WORK/workspace/.bare worktree lock ../feature-auth --reason 'Testing lock'
 exec grove switch feature-auth
-stdout '/workspace/feature-auth$'
+stdout '[/\\\\]workspace[/\\\\]feature-auth$'
 ! stderr .
 exec git -C $WORK/workspace/.bare worktree unlock ../feature-auth
 
@@ -132,7 +132,7 @@ exec git -C $WORK/workspace/.bare worktree unlock ../feature-auth
 
 exec sh -c 'echo "modified" >> ../develop/README.md'
 exec grove switch develop
-stdout '/workspace/develop$'
+stdout '[/\\\\]workspace[/\\\\]develop$'
 ! stderr .
 # Clean up
 exec git -C ../develop checkout README.md
@@ -154,7 +154,7 @@ stdout 'Unmerged'
 cd $WORK/workspace/main
 # Switch to worktree with merge conflict should still work
 exec grove switch develop
-stdout '/workspace/develop$'
+stdout '[/\\\\]workspace[/\\\\]develop$'
 ! stderr .
 # Clean up
 exec git -C ../develop merge --abort
@@ -184,7 +184,8 @@ exec grove __complete switch main ''
 
 ## Not in workspace → error
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove switch main
 stderr 'not in a grove workspace'
 

@@ -59,7 +59,7 @@ stdout '"path":'
 
 exec grove list --verbose
 stdout 'main'
-stdout 'workspace/main'
+stdout 'workspace[/\\\\]main'
 ! stderr .
 
 exec grove list -v
@@ -418,7 +418,8 @@ stdout 'dirty'
 
 ## Not in workspace → error
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove list
 stderr 'not in a grove workspace'
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
@@ -198,7 +199,7 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 
 func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipReason {
 	// Current worktree is always protected (also from subdirectories)
-	if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+	if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
 		return skipCurrent
 	}
 

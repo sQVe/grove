@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 // TestRepo provides a test git repository with proper configuration
@@ -21,7 +22,7 @@ type TestRepo struct {
 func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 	t.Helper()
 
-	dir := t.TempDir()
+	dir := testutil.TempDir(t)
 	repoPath := filepath.Join(dir, "repo")
 
 	if err := os.MkdirAll(repoPath, fs.DirGit); err != nil {

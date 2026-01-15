@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -89,7 +90,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	var failed []string
 	for _, info := range unique {
 		// Check if user is inside the worktree being deleted
-		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
 			logger.Error("%s: cannot delete current worktree", info.Branch)
 			failed = append(failed, info.Branch)
 			continue
@@ -190,8 +191,8 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 			continue
 		}
 
-		// Exclude current worktree
-		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		// Exclude current worktree (use fs.PathsEqual for cross-platform comparison)
+		if !fs.PathsEqual(cwd, info.Path) && !fs.PathHasPrefix(cwd, info.Path) {
 			completions = append(completions, name)
 		}
 	}

@@ -21,6 +21,7 @@ stderr 'unknown command "extra-arg"'
 ## Workspace validation
 
 # Not in workspace
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove doctor
 stderr 'not in a grove workspace'

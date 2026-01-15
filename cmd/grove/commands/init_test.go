@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -116,6 +117,12 @@ func TestResolveTargetDirectory(t *testing.T) {
 		t.Fatalf("failed to get absolute path: %v", err)
 	}
 
+	// Use platform-appropriate absolute path for testing
+	absolutePath := "/absolute/path"
+	if runtime.GOOS == "windows" {
+		absolutePath = `C:\absolute\path`
+	}
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -146,9 +153,9 @@ func TestResolveTargetDirectory(t *testing.T) {
 		},
 		{
 			name:     "absolute path returns as-is",
-			args:     []string{"/absolute/path"},
+			args:     []string{absolutePath},
 			argIndex: 0,
-			want:     "/absolute/path",
+			want:     absolutePath,
 			wantErr:  false,
 		},
 	}

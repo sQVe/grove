@@ -53,7 +53,7 @@ stderr 'worktree already exists'
 
 exec grove remove pr-7
 exec grove add --switch --pr 7
-stdout '^.*/pr-7$'
+stdout '^.*[/\\\\]pr-7$'
 ! stderr 'Created worktree'
 exists ../pr-7
 

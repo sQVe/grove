@@ -138,7 +138,8 @@ stderr 'requires editing .grove.toml directly'
 
 ## Error: Config init not in workspace
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove config init
 stderr 'not in a grove workspace'
 

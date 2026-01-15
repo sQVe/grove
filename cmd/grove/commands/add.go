@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/hooks"
@@ -455,7 +456,7 @@ func getRepoFromOrigin(bareDir string) (*github.RepoRef, error) {
 }
 
 func findSourceWorktree(cwd, workspaceRoot string) string {
-	if cwd == workspaceRoot {
+	if fs.PathsEqual(cwd, workspaceRoot) {
 		return ""
 	}
 
@@ -464,7 +465,7 @@ func findSourceWorktree(cwd, workspaceRoot string) string {
 	}
 
 	dir := cwd
-	for dir != workspaceRoot && dir != "/" {
+	for !fs.PathsEqual(dir, workspaceRoot) && filepath.Dir(dir) != dir {
 		if git.IsWorktree(dir) {
 			return dir
 		}

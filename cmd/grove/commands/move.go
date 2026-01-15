@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -68,7 +69,7 @@ func runMove(target, newBranch string) error {
 	}
 
 	// Check if user is inside the worktree being renamed
-	if cwd == worktreeInfo.Path || strings.HasPrefix(cwd, worktreeInfo.Path+string(filepath.Separator)) {
+	if fs.PathsEqual(cwd, worktreeInfo.Path) || fs.PathHasPrefix(cwd, worktreeInfo.Path) {
 		return fmt.Errorf("cannot rename current worktree; switch to a different worktree first")
 	}
 
@@ -216,7 +217,7 @@ func completeMoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	var completions []string
 	for _, info := range infos {
 		// Exclude current worktree
-		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		if !fs.PathsEqual(cwd, info.Path) && !fs.PathHasPrefix(cwd, info.Path) {
 			completions = append(completions, filepath.Base(info.Path))
 		}
 	}
