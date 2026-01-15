@@ -1,3 +1,8 @@
+## [v1.2.1](https://github.com/sQVe/grove/releases/tag/v1.2.1) - 2026-01-15
+
+### Fixed
+- Normalize path separators for Windows compatibility
+
 ## [v1.2.0](https://github.com/sQVe/grove/releases/tag/v1.2.0) - 2026-01-08
 
 ### Added
