@@ -125,7 +125,7 @@ change-preview:
 deps-tools:
 	@echo "Installing development tools..."
 	@echo "  Installing gotestsum..."
-	@go install gotest.tools/gotestsum@v1.12.0
+	@go install gotest.tools/gotestsum@v1.13.0
 	@echo "  Installing changie..."
 	@go install github.com/miniscruff/changie@v1.24.0
 	@echo "✓ All tools installed"
