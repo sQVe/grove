@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -184,7 +185,6 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 
 	var completions []string
-	cleanCwd := filepath.Clean(cwd)
 	for _, info := range infos {
 		name := filepath.Base(info.Path)
 
@@ -193,9 +193,8 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 			continue
 		}
 
-		// Exclude current worktree
-		cleanPath := filepath.Clean(info.Path)
-		if cleanCwd != cleanPath && !strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
+		// Exclude current worktree (use fs.PathsEqual for cross-platform comparison)
+		if !fs.PathsEqual(cwd, info.Path) && !fs.PathHasPrefix(cwd, info.Path) {
 			completions = append(completions, name)
 		}
 	}

@@ -59,7 +59,7 @@ stdout '"path":'
 
 exec grove list --verbose
 stdout 'main'
-stdout 'workspace/main'
+stdout 'workspace[/\\\\]main'
 ! stderr .
 
 exec grove list -v

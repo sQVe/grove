@@ -184,8 +184,8 @@ func ListWorktrees(repoPath string) ([]string, error) {
 		}
 
 		// Skip the main worktree (same as repo path)
-		// Use filepath.Clean for consistent comparison across platforms
-		if filepath.Clean(absWorktreePath) == filepath.Clean(absRepoPath) {
+		// Use fs.PathsEqual for cross-platform comparison (case-insensitive on Windows)
+		if fs.PathsEqual(absWorktreePath, absRepoPath) {
 			continue
 		}
 

@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
 
@@ -176,4 +179,29 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+// PathsEqual compares two cleaned paths for equality.
+// On Windows, comparison is case-insensitive since the filesystem is case-insensitive.
+// On Unix, comparison is case-sensitive.
+func PathsEqual(path1, path2 string) bool {
+	clean1 := filepath.Clean(path1)
+	clean2 := filepath.Clean(path2)
+
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(clean1, clean2)
+	}
+	return clean1 == clean2
+}
+
+// PathHasPrefix checks if path starts with prefix, accounting for path separators.
+// On Windows, comparison is case-insensitive.
+func PathHasPrefix(path, prefix string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanPrefix := filepath.Clean(prefix) + string(filepath.Separator)
+
+	if runtime.GOOS == "windows" {
+		return strings.HasPrefix(strings.ToLower(cleanPath), strings.ToLower(cleanPrefix))
+	}
+	return strings.HasPrefix(cleanPath, cleanPrefix)
 }
