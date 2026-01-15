@@ -181,12 +181,26 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	return nil
 }
 
+// canonicalizePath returns the canonical form of a path.
+// On Windows, this resolves short paths (8.3 format) to long paths.
+// On Unix, this just cleans the path.
+func canonicalizePath(path string) string {
+	if runtime.GOOS == "windows" {
+		// EvalSymlinks resolves symlinks and converts short paths to long paths on Windows
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			return resolved
+		}
+	}
+	return filepath.Clean(path)
+}
+
 // PathsEqual compares two cleaned paths for equality.
 // On Windows, comparison is case-insensitive since the filesystem is case-insensitive.
+// On Windows, short paths (8.3 format) are resolved to long paths before comparison.
 // On Unix, comparison is case-sensitive.
 func PathsEqual(path1, path2 string) bool {
-	clean1 := filepath.Clean(path1)
-	clean2 := filepath.Clean(path2)
+	clean1 := canonicalizePath(path1)
+	clean2 := canonicalizePath(path2)
 
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(clean1, clean2)
@@ -195,10 +209,10 @@ func PathsEqual(path1, path2 string) bool {
 }
 
 // PathHasPrefix checks if path starts with prefix, accounting for path separators.
-// On Windows, comparison is case-insensitive.
+// On Windows, comparison is case-insensitive and short paths are resolved to long paths.
 func PathHasPrefix(path, prefix string) bool {
-	cleanPath := filepath.Clean(path)
-	cleanPrefix := filepath.Clean(prefix) + string(filepath.Separator)
+	cleanPath := canonicalizePath(path)
+	cleanPrefix := canonicalizePath(prefix) + string(filepath.Separator)
 
 	if runtime.GOOS == "windows" {
 		return strings.HasPrefix(strings.ToLower(cleanPath), strings.ToLower(cleanPrefix))

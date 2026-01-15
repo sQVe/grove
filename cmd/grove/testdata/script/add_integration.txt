@@ -297,11 +297,10 @@ exec git -C $WORK/workspace/.bare worktree list --porcelain
 exec sh -c 'echo "" > .grove.toml'
 
 ## Very long branch name (200+ chars) - tests filesystem handling
-
-# Create a branch name that's very long (but under typical 255 limit)
-exec grove add feature/this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
-stderr 'Created worktree at'
-exists ../feature-this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
+# Skip on Windows: temp directory path + branch name exceeds Windows MAX_PATH (260 chars)
+[!windows] exec grove add feature/this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
+[!windows] stderr 'Created worktree at'
+[!windows] exists ../feature-this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
 
 ## Merge in progress in source worktree - should not affect add
 
