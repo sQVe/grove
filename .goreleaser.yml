@@ -27,10 +27,6 @@ archives:
 checksum:
   name_template: checksums.txt
 
-# Changelog is provided by changie via --release-notes flag
-changelog:
-  disable: true
-
 nfpms:
   - package_name: grove
     file_name_template: '{{ .ConventionalFileName }}'
