@@ -1,26 +1,14 @@
-# Grove Development Guide
+# CLAUDE.md
 
-## Project Context
+## Commands
 
-Grove is a Git worktree management tool that makes worktrees as simple as switching branches.
+- `make test` — run unit tests
+- `make lint` — lint and fix violations
+- `make build` — build binary
+- `make ci` — run full CI pipeline
 
-**Essential reading:**
+## Guidelines
 
-- [Contributing Guide](CONTRIBUTING.md) — Setup, architecture, and standards
-
-## Development principles
-
-**TDD always** — Write tests first, implementation second.
-
-## Development Commands
-
-```bash
-# Fast development loop
-make test  # Unit tests (~10s)
-make lint  # Auto-fix formatting
-make build # Build binaries
-
-# Before commits
-make test-unit && make test-integration
-make ci # Full pipeline
-```
+- TDD always — write tests first, implementation second
+- Follow existing patterns in `internal/`
+- Add changelog entry via `make change` for significant changes
