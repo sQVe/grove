@@ -186,3 +186,13 @@ jobs:
           cache: true
       - run: make build-dev
       - run: ./bin/grove --version
+
+  ci:
+    if: always()
+    needs: [changes, lint, test-unit, test-integration, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: lint, test-unit, test-integration, build
+          jobs: ${{ toJSON(needs) }}
