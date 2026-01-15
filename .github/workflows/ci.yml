@@ -35,9 +35,7 @@ jobs:
 
   lint:
     needs: changes
-    if: |
-      github.event.pull_request.draft != true &&
-      (needs.changes.outputs.code == 'true' || github.event_name == 'push')
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -51,9 +49,7 @@ jobs:
 
   test-unit:
     needs: changes
-    if: |
-      github.event.pull_request.draft != true &&
-      (needs.changes.outputs.code == 'true' || github.event_name == 'push')
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -77,9 +73,7 @@ jobs:
 
   test-integration:
     needs: changes
-    if: |
-      github.event.pull_request.draft != true &&
-      (needs.changes.outputs.code == 'true' || github.event_name == 'push')
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -174,9 +168,7 @@ jobs:
 
   build:
     needs: [changes, lint, test-unit]
-    if: |
-      github.event.pull_request.draft != true &&
-      (needs.changes.outputs.code == 'true' || github.event_name == 'push')
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -194,5 +186,15 @@ jobs:
     steps:
       - uses: re-actors/alls-green@release/v1
         with:
-          allowed-skips: lint, test-unit, test-integration, build
+          allowed-skips: >-
+            ${{
+              github.event.pull_request.draft == true
+              && 'changes, lint, test-unit, test-integration, build'
+              || (
+                needs.changes.outputs.code != 'true'
+                && github.event_name == 'pull_request'
+              )
+              && 'lint, test-unit, test-integration, build'
+              || ''
+            }}
           jobs: ${{ toJSON(needs) }}
