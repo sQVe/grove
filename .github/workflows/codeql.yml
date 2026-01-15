@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "0 0 * * 0"
+    - cron: '0 0 * * 0'
 
 permissions:
   actions: read
@@ -25,7 +25,7 @@ jobs:
             build-mode: autobuild
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Check for Go source files
         id: check
@@ -47,4 +47,4 @@ jobs:
       - uses: github/codeql-action/analyze@cdefb33c0f6224e58673d9004f47f7cb3e328b89 # v4
         if: matrix.language != 'go' || steps.check.outputs.has_go_files == 'true'
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'
