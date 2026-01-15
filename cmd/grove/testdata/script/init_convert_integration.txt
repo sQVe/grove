@@ -41,7 +41,7 @@ exists main/src/components/Button.tsx
 ! exists src
 # Verify only expected items in root: . .. .bare .git main = 5 entries
 exec sh -c 'ls -a | wc -l'
-stdout '^5$'
+stdout '^\s*5\s*$'
 cd ..
 
 ## Success: --branches flag creates worktrees
@@ -176,7 +176,7 @@ exec git commit -m 'nested structure'
 exec grove init convert
 # Verify all 4 files exist in worktree after convert
 exec sh -c 'find main -type f -not -name ".git" | wc -l'
-stdout '^4$'
+stdout '^\s*4\s*$'
 # Verify structure preserved
 exists main/file1.txt
 exists main/deep/file2.txt
