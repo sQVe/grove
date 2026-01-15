@@ -198,7 +198,10 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 
 func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipReason {
 	// Current worktree is always protected (also from subdirectories)
-	if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+	// Normalize paths for consistent comparison across platforms
+	cleanCwd := filepath.Clean(cwd)
+	cleanPath := filepath.Clean(info.Path)
+	if cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 		return skipCurrent
 	}
 

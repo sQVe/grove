@@ -122,7 +122,8 @@ rm only-in-main.txt
 
 ## Workspace detection error
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove exec --all -- echo hello
 stderr 'not in a grove workspace'
 

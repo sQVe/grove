@@ -65,6 +65,7 @@ stderr 'not in a grove workspace'
 ## Workspace validation
 
 # Not in workspace
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove add feature
 stderr 'not in a grove workspace'

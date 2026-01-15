@@ -68,7 +68,9 @@ func runMove(target, newBranch string) error {
 	}
 
 	// Check if user is inside the worktree being renamed
-	if cwd == worktreeInfo.Path || strings.HasPrefix(cwd, worktreeInfo.Path+string(filepath.Separator)) {
+	cleanCwd := filepath.Clean(cwd)
+	cleanPath := filepath.Clean(worktreeInfo.Path)
+	if cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 		return fmt.Errorf("cannot rename current worktree; switch to a different worktree first")
 	}
 
@@ -214,9 +216,11 @@ func completeMoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	}
 
 	var completions []string
+	cleanCwd := filepath.Clean(cwd)
 	for _, info := range infos {
 		// Exclude current worktree
-		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		cleanPath := filepath.Clean(info.Path)
+		if cleanCwd != cleanPath && !strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 			completions = append(completions, filepath.Base(info.Path))
 		}
 	}

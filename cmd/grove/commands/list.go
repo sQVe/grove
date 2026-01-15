@@ -73,8 +73,10 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 
 	// Determine current worktree path (also works from subdirectories)
 	currentPath := ""
+	cleanCwd := filepath.Clean(cwd)
 	for _, info := range infos {
-		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		cleanPath := filepath.Clean(info.Path)
+		if cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 			currentPath = info.Path
 			break
 		}

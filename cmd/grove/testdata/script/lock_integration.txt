@@ -80,7 +80,8 @@ stderr '^✗ worktree not found: nonexistent'
 
 ## Error: Not in workspace
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove lock feature
 stderr '^✗ not in a grove workspace'
 cd $WORK/workspace/main

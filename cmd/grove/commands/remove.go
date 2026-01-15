@@ -87,9 +87,11 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 	// Process each target, accumulate failures
 	var failed []string
+	cleanCwd := filepath.Clean(cwd)
 	for _, info := range unique {
 		// Check if user is inside the worktree being deleted
-		if cwd == info.Path || strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		cleanPath := filepath.Clean(info.Path)
+		if cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 			logger.Error("%s: cannot delete current worktree", info.Branch)
 			failed = append(failed, info.Branch)
 			continue
@@ -182,6 +184,7 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 
 	var completions []string
+	cleanCwd := filepath.Clean(cwd)
 	for _, info := range infos {
 		name := filepath.Base(info.Path)
 
@@ -191,7 +194,8 @@ func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([
 		}
 
 		// Exclude current worktree
-		if cwd != info.Path && !strings.HasPrefix(cwd, info.Path+string(filepath.Separator)) {
+		cleanPath := filepath.Clean(info.Path)
+		if cleanCwd != cleanPath && !strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
 			completions = append(completions, name)
 		}
 	}

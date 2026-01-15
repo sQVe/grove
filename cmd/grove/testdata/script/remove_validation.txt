@@ -20,6 +20,7 @@ stderr 'requires at least one worktree'
 ## Workspace validation
 
 # Not in workspace
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove remove feature
 stderr 'not in a grove workspace'

@@ -184,7 +184,8 @@ exec grove __complete switch main ''
 
 ## Not in workspace → error
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove switch main
 stderr 'not in a grove workspace'
 

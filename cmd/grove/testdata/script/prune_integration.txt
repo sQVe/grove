@@ -732,7 +732,8 @@ stderr 'deleted 1 local branch'
 ! exec git -C $WORK/workspace/.bare rev-parse --verify feature-pr-squashed
 
 ## Error: Not in workspace
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove prune
 stderr '^✗ not in a grove workspace'
 

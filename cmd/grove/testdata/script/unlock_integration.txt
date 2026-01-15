@@ -54,7 +54,8 @@ stderr '^✗ worktree not found: nonexistent'
 
 ## Error: Not in workspace
 
-cd /tmp
+mkdir $WORK/outside
+cd $WORK/outside
 ! exec grove unlock feature
 stderr '^✗ not in a grove workspace'
 
