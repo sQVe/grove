@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -308,12 +309,15 @@ func TestCopyFile(t *testing.T) {
 			t.Error("copied file content should match original")
 		}
 
-		info, err := os.Stat(dstFile)
-		if err != nil {
-			t.Fatalf("failed to stat destination file: %v", err)
-		}
-		if info.Mode() != FileGit {
-			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		// Skip permission check on Windows as it doesn't support Unix file permissions
+		if runtime.GOOS != "windows" {
+			info, err := os.Stat(dstFile)
+			if err != nil {
+				t.Fatalf("failed to stat destination file: %v", err)
+			}
+			if info.Mode() != FileGit {
+				t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+			}
 		}
 	})
 
@@ -347,12 +351,15 @@ func TestWriteFileAtomic(t *testing.T) {
 			t.Error("atomic file content should match written data")
 		}
 
-		info, err := os.Stat(testFile)
-		if err != nil {
-			t.Fatalf("failed to stat atomic file: %v", err)
-		}
-		if info.Mode() != FileGit {
-			t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+		// Skip permission check on Windows as it doesn't support Unix file permissions
+		if runtime.GOOS != "windows" {
+			info, err := os.Stat(testFile)
+			if err != nil {
+				t.Fatalf("failed to stat atomic file: %v", err)
+			}
+			if info.Mode() != FileGit {
+				t.Errorf("expected permissions %v, got %v", FileGit, info.Mode())
+			}
 		}
 	})
 }

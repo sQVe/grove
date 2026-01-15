@@ -1,0 +1,2 @@
+kind: Fixed
+body: Normalize path separators in ListWorktrees for Windows compatibility

@@ -339,45 +339,40 @@ exists test-file.txt
 cd ..
 
 # Test symlink handling during conversion
-mkdir convert-symlink-test
-cd convert-symlink-test
-exec git init
-cp ../test-file.txt .
-# Create a symlink to the file
-exec ln -s test-file.txt link-to-file.txt
-exec git add .
-exec git commit -m 'initial commit with symlink'
-# Convert and verify symlink is preserved
-exec grove init convert
-exists main/test-file.txt
-exists main/link-to-file.txt
-# Verify symlink still points to correct target (readlink outputs target)
-exec readlink main/link-to-file.txt
-stdout '^test-file.txt$'
-cd ..
+# Skip on Windows: ln -s and readlink are Unix-specific
+[!windows] mkdir convert-symlink-test
+[!windows] cd convert-symlink-test
+[!windows] exec git init
+[!windows] cp ../test-file.txt .
+[!windows] exec ln -s test-file.txt link-to-file.txt
+[!windows] exec git add .
+[!windows] exec git commit -m 'initial commit with symlink'
+[!windows] exec grove init convert
+[!windows] exists main/test-file.txt
+[!windows] exists main/link-to-file.txt
+[!windows] exec readlink main/link-to-file.txt
+[!windows] stdout '^test-file.txt$'
+[!windows] cd ..
 
 # Test symlink restoration during rollback
-mkdir convert-symlink-rollback-test
-cd convert-symlink-rollback-test
-exec git init
-cp ../test-file.txt .
-exec ln -s test-file.txt link-to-file.txt
-exec git add .
-exec git commit -m 'initial commit with symlink'
-# Create blocking directory to force rollback
-mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
-exec git add .
-exec git commit -m 'add blocker'
-! exec grove init convert
-stderr '^✗ failed to create worktree'
-# Verify symlink was restored correctly during rollback
-exists test-file.txt
-exists link-to-file.txt
-# Verify symlink target (readlink outputs target)
-exec readlink link-to-file.txt
-stdout '^test-file.txt$'
-cd ..
+[!windows] mkdir convert-symlink-rollback-test
+[!windows] cd convert-symlink-rollback-test
+[!windows] exec git init
+[!windows] cp ../test-file.txt .
+[!windows] exec ln -s test-file.txt link-to-file.txt
+[!windows] exec git add .
+[!windows] exec git commit -m 'initial commit with symlink'
+[!windows] mkdir main
+[!windows] exec sh -c 'echo "blocker" > main/blocker.txt'
+[!windows] exec git add .
+[!windows] exec git commit -m 'add blocker'
+[!windows] ! exec grove init convert
+[!windows] stderr '^✗ failed to create worktree'
+[!windows] exists test-file.txt
+[!windows] exists link-to-file.txt
+[!windows] exec readlink link-to-file.txt
+[!windows] stdout '^test-file.txt$'
+[!windows] cd ..
 
 # Test file restoration on rollback failure with multiple files
 mkdir convert-file-restore-test
