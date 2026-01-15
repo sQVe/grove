@@ -41,8 +41,8 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 		return errors.New("branch name cannot be empty")
 	}
 
-	logger.Debug("Executing: git worktree add %s %s", worktreePath, branch)
-	cmd, cancel := GitCommand("git", "worktree", "add", worktreePath, branch)
+	logger.Debug("Executing: git worktree add --relative-paths %s %s", worktreePath, branch)
+	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", worktreePath, branch)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -62,8 +62,8 @@ func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bo
 		return errors.New("branch name cannot be empty")
 	}
 
-	logger.Debug("Executing: git worktree add -b %s %s", branch, worktreePath)
-	cmd, cancel := GitCommand("git", "worktree", "add", "-b", branch, worktreePath)
+	logger.Debug("Executing: git worktree add --relative-paths -b %s %s", branch, worktreePath)
+	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "-b", branch, worktreePath)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -86,8 +86,8 @@ func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string
 		return errors.New("base reference cannot be empty")
 	}
 
-	logger.Debug("Executing: git worktree add -b %s %s %s", branch, worktreePath, base)
-	cmd, cancel := GitCommand("git", "worktree", "add", "-b", branch, worktreePath, base)
+	logger.Debug("Executing: git worktree add --relative-paths -b %s %s %s", branch, worktreePath, base)
+	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "-b", branch, worktreePath, base)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -107,8 +107,8 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 		return errors.New("ref cannot be empty")
 	}
 
-	logger.Debug("Executing: git worktree add --detach %s %s", worktreePath, ref)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--detach", worktreePath, ref)
+	logger.Debug("Executing: git worktree add --relative-paths --detach %s %s", worktreePath, ref)
+	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "--detach", worktreePath, ref)
 	defer cancel()
 	cmd.Dir = bareRepo
 

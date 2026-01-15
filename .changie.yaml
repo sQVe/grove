@@ -9,10 +9,11 @@ changeFormat: '- {{.Body}}{{if .Custom.Issue}} ([#{{.Custom.Issue}}](https://git
 fragmentFileFormat: '{{.Kind | lower}}-{{.Custom.Issue}}{{if not .Custom.Issue}}{{randAlphaNum 8}}{{end}}'
 
 body:
-  type: string
-  useEditor: true
+  block: true
 
 kinds:
+  - label: Breaking
+    auto: major
   - label: Added
     auto: minor
   - label: Changed

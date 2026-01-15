@@ -263,7 +263,12 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		// Check if the worktree directory exists
 		// Note: gitdir file contains path to .git FILE (e.g., /path/worktree/.git)
 		// We need to check the parent directory (the actual worktree)
+		// The path may be relative (e.g., ../../main/.git) or absolute
 		gitFilePath := strings.TrimSpace(string(content))
+		if !filepath.IsAbs(gitFilePath) {
+			// Resolve relative path from the gitdir file's directory
+			gitFilePath = filepath.Clean(filepath.Join(worktreesDir, worktreeName, gitFilePath))
+		}
 		worktreeDir := filepath.Dir(gitFilePath)
 		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
 			result.Issues = append(result.Issues, Issue{

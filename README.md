@@ -43,6 +43,10 @@ The catch: `git worktree` is clunky. Grove makes it feel like `git checkout` —
 
 </details>
 
+## 📋 Requirements
+
+- **Git 2.48+** — Grove uses `--relative-paths` for portable worktrees
+
 ## 📦 Installation
 
 ### Quick install (Linux/macOS)
