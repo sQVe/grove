@@ -10,7 +10,7 @@ Thanks for contributing! Grove makes Git worktrees simple, and we want contribut
 | **Install** | `go mod download && make deps-tools`                  |
 | **Verify**  | `make test-unit && make lint && make build-dev`       |
 
-**Prerequisites:** Go 1.24+, Git 2.5+, golangci-lint
+**Prerequisites:** Go 1.24+, Git 2.48+, golangci-lint
 
 ## Tech Stack
 

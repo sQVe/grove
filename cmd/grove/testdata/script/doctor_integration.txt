@@ -49,6 +49,18 @@ stdout 'orphan-branch'
 # Clean up orphan entry for remaining tests
 exec rm -rf ../.bare/worktrees/orphan-branch
 
+## Detect stale worktree entry with relative path
+
+mkdir ../.bare/worktrees/orphan-relative
+exec sh -c 'echo "../../nonexistent-worktree/.git" > ../.bare/worktrees/orphan-relative/gitdir'
+
+! exec grove doctor
+stdout 'Git Issues'
+stdout '✗ Stale worktree entry'
+stdout 'orphan-relative'
+
+exec rm -rf ../.bare/worktrees/orphan-relative
+
 ## Detect invalid TOML syntax
 
 exec sh -c 'echo "this is not valid toml [[[" > ../.grove.toml'

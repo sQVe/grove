@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
@@ -63,6 +64,35 @@ func TestCreateWorktree(t *testing.T) {
 		// Verify it's recognized as a worktree
 		if !IsWorktree(worktreeDir) {
 			t.Error("created directory is not recognized as a worktree")
+		}
+	})
+
+	t.Run("uses relative paths in .git file", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+
+		// Create a branch first
+		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create branch: %v", err)
+		}
+
+		err := CreateWorktree(repo.Path, worktreeDir, "feature", true)
+		if err != nil {
+			t.Fatalf("CreateWorktree failed: %v", err)
+		}
+
+		// Read the .git file and verify it contains a relative path
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		if err != nil {
+			t.Fatalf("failed to read .git file: %v", err)
+		}
+
+		gitdir := strings.TrimPrefix(strings.TrimSpace(string(content)), "gitdir: ")
+		if filepath.IsAbs(gitdir) {
+			t.Errorf("expected relative path in .git file, got absolute: %s", gitdir)
 		}
 	})
 }
@@ -541,6 +571,27 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
+
+	t.Run("uses relative paths in .git file", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.Dir, "new-branch-worktree")
+
+		err := CreateWorktreeWithNewBranch(repo.Path, worktreeDir, "new-feature", true)
+		if err != nil {
+			t.Fatalf("CreateWorktreeWithNewBranch failed: %v", err)
+		}
+
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		if err != nil {
+			t.Fatalf("failed to read .git file: %v", err)
+		}
+
+		gitdir := strings.TrimPrefix(strings.TrimSpace(string(content)), "gitdir: ")
+		if filepath.IsAbs(gitdir) {
+			t.Errorf("expected relative path in .git file, got absolute: %s", gitdir)
+		}
+	})
 }
 
 func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
@@ -583,6 +634,27 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
+
+	t.Run("uses relative paths in .git file", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.Dir, "branch-from-worktree")
+
+		err := CreateWorktreeWithNewBranchFrom(repo.Path, worktreeDir, "feature-from-head", "HEAD", true)
+		if err != nil {
+			t.Fatalf("CreateWorktreeWithNewBranchFrom failed: %v", err)
+		}
+
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		if err != nil {
+			t.Fatalf("failed to read .git file: %v", err)
+		}
+
+		gitdir := strings.TrimPrefix(strings.TrimSpace(string(content)), "gitdir: ")
+		if filepath.IsAbs(gitdir) {
+			t.Errorf("expected relative path in .git file, got absolute: %s", gitdir)
+		}
+	})
 }
 
 func TestCreateWorktreeDetached(t *testing.T) {
@@ -613,6 +685,27 @@ func TestCreateWorktreeDetached(t *testing.T) {
 		}
 		if err.Error() != errRefEmpty {
 			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("uses relative paths in .git file", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+
+		err := CreateWorktreeDetached(repo.Path, worktreeDir, "HEAD", true)
+		if err != nil {
+			t.Fatalf("CreateWorktreeDetached failed: %v", err)
+		}
+
+		gitFile := filepath.Join(worktreeDir, ".git")
+		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		if err != nil {
+			t.Fatalf("failed to read .git file: %v", err)
+		}
+
+		gitdir := strings.TrimPrefix(strings.TrimSpace(string(content)), "gitdir: ")
+		if filepath.IsAbs(gitdir) {
+			t.Errorf("expected relative path in .git file, got absolute: %s", gitdir)
 		}
 	})
 }
