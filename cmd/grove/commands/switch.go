@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -192,11 +193,9 @@ func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 
 	var completions []string
-	cleanCwd := filepath.Clean(cwd)
 	for _, info := range infos {
 		// Exclude current worktree (check if cwd is at root or inside this worktree)
-		cleanPath := filepath.Clean(info.Path)
-		inWorktree := cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator))
+		inWorktree := fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path)
 		if !inWorktree {
 			// Suggest worktree name (directory basename)
 			completions = append(completions, filepath.Base(info.Path))

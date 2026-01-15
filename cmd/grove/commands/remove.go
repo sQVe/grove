@@ -88,11 +88,9 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 	// Process each target, accumulate failures
 	var failed []string
-	cleanCwd := filepath.Clean(cwd)
 	for _, info := range unique {
 		// Check if user is inside the worktree being deleted
-		cleanPath := filepath.Clean(info.Path)
-		if cleanCwd == cleanPath || strings.HasPrefix(cleanCwd, cleanPath+string(filepath.Separator)) {
+		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
 			logger.Error("%s: cannot delete current worktree", info.Branch)
 			failed = append(failed, info.Branch)
 			continue
