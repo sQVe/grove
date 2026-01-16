@@ -409,6 +409,12 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 			t.Fatalf("failed to add worktree: %v", err)
 		}
 
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", developDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
 		result := findFallbackSourceWorktree(bareDir)
 		if result != developDir {
 			t.Errorf("expected %q, got %q", developDir, result)
@@ -433,6 +439,12 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 			t.Fatalf("failed to add main worktree: %v", err)
 		}
 
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
 		result := findFallbackSourceWorktree(bareDir)
 		if result != mainDir {
 			t.Errorf("expected %q, got %q", mainDir, result)
@@ -456,6 +468,12 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add master worktree: %v", err)
 		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", masterDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
 
 		result := findFallbackSourceWorktree(bareDir)
 		if result != masterDir {
@@ -489,6 +507,12 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add feature worktree: %v", err)
 		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
 
 		result := findFallbackSourceWorktree(bareDir)
 		if result != "" {
@@ -570,6 +594,14 @@ func TestRunAdd_FromValidation(t *testing.T) {
 			t.Fatalf("failed to add main worktree: %v", err)
 		}
 
+		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
+		t.Cleanup(func() {
+			_ = os.Chdir(tempDir)                                                // Exit worktree dir before removal (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
 		return tempDir, bareDir
 	}
 
@@ -603,6 +635,18 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create source worktree: %v", err)
 		}
+
+		// Register cleanup for worktrees created in this subtest (Windows file locks)
+		featureDir := filepath.Join(tempDir, "feature-from-test")
+		t.Cleanup(func() {
+			_ = os.Chdir(tempDir)                                                   // Exit worktree dir before removal (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+			cmd = exec.Command("git", "worktree", "remove", "--force", sourceDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
 
 		// Create a new worktree with --from pointing to source
 		err := runAdd([]string{"feature-from-test"}, false, "", "", false, 0, false, "source")
@@ -691,6 +735,17 @@ func TestCompleteFromWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add feature worktree: %v", err)
 		}
+
+		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
+		t.Cleanup(func() {
+			_ = os.Chdir(tempDir)                                                   // Exit worktree dir before removal (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+			cmd = exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
 
 		if err := os.Chdir(mainDir); err != nil {
 			t.Fatal(err)
