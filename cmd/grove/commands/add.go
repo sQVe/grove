@@ -23,6 +23,7 @@ func NewAddCmd() *cobra.Command {
 	var detach bool
 	var prNumber int
 	var reset bool
+	var from string
 
 	cmd := &cobra.Command{
 		Use:   "add [branch|PR-URL|ref]",
@@ -38,12 +39,13 @@ Examples:
   grove add -s feat/auth           # Add and switch to worktree
   grove add --base main feat/auth  # New branch from main
   grove add --detach v1.0.0        # Detached HEAD at tag
-  grove add --pr 123               # Creates ./pr-123 worktree`,
+  grove add --pr 123               # Creates ./pr-123 worktree
+  grove add --from dev feat/auth   # Preserve files from dev worktree (name or branch)`,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset)
+			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset, from)
 		},
 	}
 
@@ -53,6 +55,7 @@ Examples:
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
+	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -62,11 +65,12 @@ Examples:
 	_ = cmd.RegisterFlagCompletionFunc("pr", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	})
+	_ = cmd.RegisterFlagCompletionFunc("from", completeFromWorktree)
 
 	return cmd
 }
 
-func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool) error {
+func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string) error {
 	name = strings.TrimSpace(name)
 
 	// Validate --pr value if provided
@@ -145,11 +149,25 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 		_ = os.Remove(lockFile)
 	}()
 
-	sourceWorktree := findSourceWorktree(cwd, workspaceRoot)
-	if sourceWorktree == "" {
-		sourceWorktree = findFallbackSourceWorktree(bareDir)
-		if sourceWorktree != "" {
-			logger.Debug("Using %s as source for file preservation", sourceWorktree)
+	var sourceWorktree string
+	if from != "" {
+		infos, err := git.ListWorktreesWithInfo(bareDir, true)
+		if err != nil {
+			return fmt.Errorf("failed to list worktrees: %w", err)
+		}
+		info := git.FindWorktree(infos, from)
+		if info == nil {
+			return fmt.Errorf("worktree %q not found", from)
+		}
+		sourceWorktree = info.Path
+		logger.Debug("Using %s as source for file preservation (--from)", sourceWorktree)
+	} else {
+		sourceWorktree = findSourceWorktree(cwd, workspaceRoot)
+		if sourceWorktree == "" {
+			sourceWorktree = findFallbackSourceWorktree(bareDir)
+			if sourceWorktree != "" {
+				logger.Debug("Using %s as source for file preservation", sourceWorktree)
+			}
 		}
 	}
 
@@ -661,5 +679,32 @@ func completeBaseBranch(cmd *cobra.Command, args []string, toComplete string) ([
 			completions = append(completions, b)
 		}
 	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func completeFromWorktree(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	bareDir, err := workspace.FindBareDir(cwd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	var completions []string
+	for _, info := range infos {
+		name := filepath.Base(info.Path)
+		if strings.HasPrefix(name, toComplete) {
+			completions = append(completions, name)
+		}
+	}
+
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
