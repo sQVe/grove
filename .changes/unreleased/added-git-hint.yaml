@@ -1,0 +1,2 @@
+kind: Added
+body: Detect old Git versions and hint users to run `grove doctor`
