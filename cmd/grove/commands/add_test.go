@@ -596,7 +596,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 
 		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
 		t.Cleanup(func() {
-			_ = os.Chdir(tempDir)                                                // Exit worktree dir before removal (Windows requirement)
+			_ = os.Chdir(origDir)                                                // Exit temp dir entirely (Windows requirement)
 			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
 			cmd.Dir = bareDir
 			_ = cmd.Run()
@@ -639,7 +639,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		// Register cleanup for worktrees created in this subtest (Windows file locks)
 		featureDir := filepath.Join(tempDir, "feature-from-test")
 		t.Cleanup(func() {
-			_ = os.Chdir(tempDir)                                                   // Exit worktree dir before removal (Windows requirement)
+			_ = os.Chdir(origDir)                                                   // Exit temp dir entirely (Windows requirement)
 			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
 			cmd.Dir = bareDir
 			_ = cmd.Run()
@@ -738,7 +738,7 @@ func TestCompleteFromWorktree(t *testing.T) {
 
 		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
 		t.Cleanup(func() {
-			_ = os.Chdir(tempDir)                                                   // Exit worktree dir before removal (Windows requirement)
+			_ = os.Chdir(origDir)                                                   // Exit temp dir entirely (Windows requirement)
 			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
 			cmd.Dir = bareDir
 			_ = cmd.Run()
