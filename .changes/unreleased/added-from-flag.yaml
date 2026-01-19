@@ -1,2 +1,0 @@
-kind: Added
-body: Add `--from` flag to `grove add` for specifying source worktree during file preservation
