@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -619,6 +620,84 @@ func TestFetchBranch(t *testing.T) {
 		err := FetchBranch(downstream.Path, "upstream", "nonexistent-branch")
 		if err == nil {
 			t.Error("expected error for non-existing branch")
+		}
+	})
+}
+
+func TestWrapGitTooOldError(t *testing.T) {
+	t.Run("nil error returns nil", func(t *testing.T) {
+		result := WrapGitTooOldError(nil)
+		if result != nil {
+			t.Errorf("expected nil, got %v", result)
+		}
+	})
+
+	t.Run("wraps relative-paths error", func(t *testing.T) {
+		err := errors.New("exit status 129: error: unknown option `relative-paths'")
+		result := WrapGitTooOldError(err)
+		if !errors.Is(result, ErrGitTooOld) {
+			t.Error("expected error to be wrapped with ErrGitTooOld")
+		}
+	})
+
+	t.Run("passes through unrelated errors", func(t *testing.T) {
+		err := errors.New("some other error")
+		result := WrapGitTooOldError(err)
+		if errors.Is(result, ErrGitTooOld) {
+			t.Error("expected error NOT to be wrapped with ErrGitTooOld")
+		}
+		if !errors.Is(result, err) {
+			t.Error("expected original error to be returned unchanged")
+		}
+	})
+}
+
+func TestIsGitTooOld(t *testing.T) {
+	t.Run("returns true for ErrGitTooOld", func(t *testing.T) {
+		err := WrapGitTooOldError(errors.New("error: unknown option `relative-paths'"))
+		if !IsGitTooOld(err) {
+			t.Error("expected IsGitTooOld to return true")
+		}
+	})
+
+	t.Run("returns false for unrelated errors", func(t *testing.T) {
+		err := errors.New("some other error")
+		if IsGitTooOld(err) {
+			t.Error("expected IsGitTooOld to return false")
+		}
+	})
+
+	t.Run("returns false for nil", func(t *testing.T) {
+		if IsGitTooOld(nil) {
+			t.Error("expected IsGitTooOld to return false for nil")
+		}
+	})
+}
+
+func TestHintGitTooOld(t *testing.T) {
+	t.Run("returns nil for nil error", func(t *testing.T) {
+		result := HintGitTooOld(nil)
+		if result != nil {
+			t.Errorf("expected nil, got %v", result)
+		}
+	})
+
+	t.Run("returns same error for ErrGitTooOld", func(t *testing.T) {
+		err := WrapGitTooOldError(errors.New("error: unknown option `relative-paths'"))
+		result := HintGitTooOld(err)
+		if !errors.Is(result, err) {
+			t.Error("expected same error to be returned")
+		}
+		if !errors.Is(result, ErrGitTooOld) {
+			t.Error("expected error to still contain ErrGitTooOld")
+		}
+	})
+
+	t.Run("returns same error for unrelated errors", func(t *testing.T) {
+		err := errors.New("some other error")
+		result := HintGitTooOld(err)
+		if !errors.Is(result, err) {
+			t.Error("expected same error to be returned")
 		}
 	})
 }

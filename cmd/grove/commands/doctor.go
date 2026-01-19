@@ -167,7 +167,7 @@ type depInfo struct {
 var dependencies = []depInfo{
 	{
 		name:             "git",
-		minVersion:       "2.48.0",
+		minVersion:       git.MinGitVersion + ".0",
 		missingSeverity:  SeverityError,
 		outdatedSeverity: SeverityError,
 		installURL:       "https://git-scm.com/downloads",

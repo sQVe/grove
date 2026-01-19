@@ -189,7 +189,7 @@ func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 					logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
 				}
 			}
-			return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+			return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
@@ -454,8 +454,8 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
 
 		if i == 0 {
-			logger.Debug("Executing: git worktree add --no-checkout %s %s in %s", worktreePath, branch, bareDir)
-			cmd, cancel := git.GitCommand("git", "worktree", "add", "--no-checkout", worktreePath, branch) // nolint:gosec
+			logger.Debug("Executing: git worktree add --relative-paths --no-checkout %s %s in %s", worktreePath, branch, bareDir)
+			cmd, cancel := git.GitCommand("git", "worktree", "add", "--relative-paths", "--no-checkout", worktreePath, branch) // nolint:gosec
 			cmd.Dir = bareDir
 
 			var stderr bytes.Buffer
@@ -469,14 +469,15 @@ func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]str
 			err := cmd.Run()
 			cancel()
 			if err != nil {
+				errMsg := fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
 				if !verbose && stderr.Len() > 0 {
-					return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
+					errMsg = fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
 				}
-				return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+				return createdPaths, git.HintGitTooOld(git.WrapGitTooOldError(errMsg))
 			}
 		} else {
 			if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-				return createdPaths, fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
+				return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
 			}
 		}
 		createdPaths = append(createdPaths, absWorktreePath)

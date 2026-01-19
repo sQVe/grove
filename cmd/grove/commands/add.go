@@ -204,7 +204,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
 		}
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
-			return fmt.Errorf("failed to create worktree: %w", err)
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	} else {
 		if baseBranch != "" {
@@ -217,11 +217,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 				return fmt.Errorf("base branch %q does not exist", baseBranch)
 			}
 			if err := git.CreateWorktreeWithNewBranchFrom(bareDir, worktreePath, branch, baseBranch, true); err != nil {
-				return fmt.Errorf("failed to create worktree: %w", err)
+				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		} else {
 			if err := git.CreateWorktreeWithNewBranch(bareDir, worktreePath, branch, true); err != nil {
-				return fmt.Errorf("failed to create worktree: %w", err)
+				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		}
 	}
@@ -266,7 +266,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 
 	if err := git.CreateWorktreeDetached(bareDir, worktreePath, ref, true); err != nil {
-		return fmt.Errorf("failed to create detached worktree: %w", err)
+		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
 	// Note: Auto-lock not applied for detached worktrees (no branch to lock)
@@ -379,7 +379,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
 		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, true); err != nil {
 			cleanupRemote()
-			return fmt.Errorf("failed to create worktree: %w", err)
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	} else {
 		// Same-repo PR: fetch and create worktree
@@ -420,7 +420,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		}
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
-			return fmt.Errorf("failed to create worktree: %w", err)
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	}
 
