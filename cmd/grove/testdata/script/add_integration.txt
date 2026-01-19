@@ -236,6 +236,22 @@ exists ../remote-only-branch
 exec git -C ../remote-only-branch rev-parse --abbrev-ref HEAD
 stdout '^remote-only-branch$'
 
+## Upstream tracking: Existing branch is configured with upstream tracking
+
+# Create another branch on remote for tracking test
+exec git -C $WORK/testrepo checkout -b tracking-test-branch
+exec git -C $WORK/testrepo checkout main
+# Fetch from remote
+cd $WORK/workspace/.bare
+exec git fetch origin
+cd $WORK/workspace/main
+exec grove add tracking-test-branch
+stderr 'Created worktree at .*[/\\\\]tracking-test-branch'
+exists ../tracking-test-branch
+# Verify upstream tracking is configured
+exec git -C ../tracking-test-branch rev-parse --abbrev-ref @{u}
+stdout '^origin/tracking-test-branch$'
+
 ## Auto-lock: Feature branch not locked
 
 # Create .grove.toml with auto-lock for main

@@ -20,21 +20,18 @@ cd ..
 mkdir workspace
 exec grove clone file://$WORK/testrepo workspace --branches main,feature-to-delete,feature-dirty
 
-# Configure git user and set up upstream tracking for each worktree
+# Configure git user for each worktree
 cd $WORK/workspace/main
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/main main
 
 cd $WORK/workspace/feature-to-delete
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-to-delete feature-to-delete
 
 cd $WORK/workspace/feature-dirty
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-dirty feature-dirty
 
 ## Success: No stale worktrees initially
 cd $WORK/workspace/main
@@ -109,7 +106,6 @@ exec grove add feature-current
 cd $WORK/workspace/feature-current
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-current feature-current
 
 # Delete branch on "remote"
 exec git -C $WORK/testrepo branch -D feature-current
@@ -163,7 +159,6 @@ exec grove add feature-locked
 cd $WORK/workspace/feature-locked
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-locked feature-locked
 
 # Lock the worktree
 exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'Important work'
@@ -201,7 +196,6 @@ exec grove add feature-unpushed
 cd $WORK/workspace/feature-unpushed
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-unpushed feature-unpushed
 
 # Create local commit (unpushed)
 exec sh -c 'echo "unpushed change" > unpushed.txt'
@@ -244,17 +238,14 @@ exec grove add feature-multi-3
 cd $WORK/workspace/feature-multi-1
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-multi-1 feature-multi-1
 
 cd $WORK/workspace/feature-multi-2
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-multi-2 feature-multi-2
 
 cd $WORK/workspace/feature-multi-3
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-multi-3 feature-multi-3
 
 # Delete all branches on remote
 exec git -C $WORK/testrepo branch -D feature-multi-1
@@ -296,12 +287,10 @@ exec grove add feature-dirty-mix
 cd $WORK/workspace/feature-clean
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-clean feature-clean
 
 cd $WORK/workspace/feature-dirty-mix
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-dirty-mix feature-dirty-mix
 # Make dirty
 exec sh -c 'echo "dirty" > dirty-file.txt'
 
@@ -343,7 +332,6 @@ exec grove add feature-priority
 cd $WORK/workspace/feature-priority
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-priority feature-priority
 # Make dirty
 exec sh -c 'echo "dirty" > dirty-file.txt'
 # Delete remote
@@ -613,7 +601,6 @@ exec grove add feature-gone-detached
 cd $WORK/workspace/feature-gone-detached
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-gone-detached feature-gone-detached
 
 # Detach HEAD
 exec git checkout HEAD~0
@@ -643,7 +630,6 @@ exec grove add feature-gone-stale
 cd $WORK/workspace/feature-gone-stale
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-gone-stale feature-gone-stale
 
 # Delete from remote - now both gone AND stale
 exec git -C $WORK/testrepo branch -D feature-gone-stale
@@ -711,7 +697,6 @@ exec grove add feature-pr-squashed
 cd $WORK/workspace/feature-pr-squashed
 exec git config user.name "Test"
 exec git config user.email "test@example.com"
-exec git branch --set-upstream-to=origin/feature-pr-squashed feature-pr-squashed
 
 # Delete remote branch (simulating PR merge + auto-delete)
 exec git -C $WORK/testrepo branch -D feature-pr-squashed

@@ -168,6 +168,19 @@ exec git worktree list --porcelain
 stdout 'locked'
 cd ../..
 
+## Upstream tracking: Worktrees are configured with upstream tracking
+mkdir clone-tracking
+exec grove clone file://$WORK/testrepo clone-tracking --branches main,develop
+cd clone-tracking/main
+# main worktree should track origin/main
+exec git rev-parse --abbrev-ref @{u}
+stdout '^origin/main$'
+cd ../develop
+# develop worktree should track origin/develop
+exec git rev-parse --abbrev-ref @{u}
+stdout '^origin/develop$'
+cd ../..
+
 -- README.md --
 # Test Repository
 This is a test repository for grove.

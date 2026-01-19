@@ -1010,6 +1010,103 @@ func TestRevParse(t *testing.T) {
 	})
 }
 
+func TestRemoteBranchExists(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns true for existing remote branch", func(t *testing.T) {
+		t.Parallel()
+		// Create origin repo with a branch
+		origin := testgit.NewTestRepo(t)
+		origin.CreateBranch("feature")
+
+		// Clone it (creates remote tracking refs)
+		cloneDir := filepath.Join(origin.Dir, "clone")
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to clone: %v", err)
+		}
+
+		exists, err := RemoteBranchExists(cloneDir, "origin", "feature")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !exists {
+			t.Error("expected remote branch origin/feature to exist")
+		}
+	})
+
+	t.Run("returns false for non-existent remote branch", func(t *testing.T) {
+		t.Parallel()
+		origin := testgit.NewTestRepo(t)
+
+		cloneDir := filepath.Join(origin.Dir, "clone")
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to clone: %v", err)
+		}
+
+		exists, err := RemoteBranchExists(cloneDir, "origin", "nonexistent")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if exists {
+			t.Error("expected nonexistent remote branch to not exist")
+		}
+	})
+
+	t.Run("returns false for local-only branch", func(t *testing.T) {
+		t.Parallel()
+		origin := testgit.NewTestRepo(t)
+
+		cloneDir := filepath.Join(origin.Dir, "clone")
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to clone: %v", err)
+		}
+
+		// Create local-only branch
+		cmd = exec.Command("git", "checkout", "-b", "local-only") //nolint:gosec
+		cmd.Dir = cloneDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create local branch: %v", err)
+		}
+
+		exists, err := RemoteBranchExists(cloneDir, "origin", "local-only")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if exists {
+			t.Error("expected local-only branch to not exist as remote branch")
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		t.Parallel()
+		_, err := RemoteBranchExists("", "origin", "main")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for empty remote", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, err := RemoteBranchExists(repo.Path, "", "main")
+		if err == nil {
+			t.Error("expected error for empty remote")
+		}
+	})
+
+	t.Run("returns error for empty branch", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		_, err := RemoteBranchExists(repo.Path, "origin", "")
+		if err == nil {
+			t.Error("expected error for empty branch")
+		}
+	})
+}
+
 func TestIsUnbornHead(t *testing.T) {
 	t.Parallel()
 
