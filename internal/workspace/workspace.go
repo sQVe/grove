@@ -193,6 +193,12 @@ func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
+		if exists, _ := git.RemoteBranchExists(bareDir, "origin", branch); exists {
+			if err := git.SetUpstreamBranch(absWorktreePath, "origin/"+branch); err != nil {
+				logger.Debug("Failed to set upstream for %s: %v", branch, err)
+			}
+		}
+
 		if config.ShouldAutoLock(branch) {
 			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
 				logger.Debug("Failed to auto-lock worktree: %v", err)

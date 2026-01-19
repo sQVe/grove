@@ -224,6 +224,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
+		if remoteExists, _ := git.RemoteBranchExists(bareDir, "origin", branch); remoteExists {
+			if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
+				logger.Debug("Failed to set upstream for %s: %v", branch, err)
+			}
+		}
 	} else {
 		if baseBranch != "" {
 			// Validate base branch exists
@@ -399,6 +404,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 			cleanupRemote()
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
+		if err := git.SetUpstreamBranch(worktreePath, trackingRef); err != nil {
+			logger.Debug("Failed to set upstream for %s: %v", branch, err)
+		}
 	} else {
 		// Same-repo PR: fetch and create worktree
 		logger.Info("Fetching branch %s...", branch)
@@ -439,6 +447,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
+		}
+		if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
+			logger.Debug("Failed to set upstream for %s: %v", branch, err)
 		}
 	}
 

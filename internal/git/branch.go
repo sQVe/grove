@@ -294,6 +294,28 @@ func LocalBranchExists(repoPath, branch string) (bool, error) {
 	return true, nil
 }
 
+func RemoteBranchExists(repoPath, remote, branch string) (bool, error) {
+	if repoPath == "" || remote == "" || branch == "" {
+		return false, errors.New("repository path, remote, and branch name cannot be empty")
+	}
+
+	ref := fmt.Sprintf("refs/remotes/%s/%s", remote, branch)
+	logger.Debug("Executing: git show-ref --verify --quiet %s in %s", ref, repoPath)
+	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", ref) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
 // CompareBranchRefs returns how localRef compares to remoteRef.
 // Returns (ahead, behind) where:
 //   - ahead = commits in localRef not in remoteRef
