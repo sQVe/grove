@@ -70,7 +70,7 @@ Examples:
 
 			// Check if this is a PR URL (full URL only, not #N format)
 			if github.IsPRURL(urlOrPR) {
-				return runCloneFromPR(urlOrPR, targetDir, verbose)
+				return runCloneFromPR(urlOrPR, targetDir, verbose, shallow)
 			}
 
 			// Check if this is a GitHub URL and gh is available - use gh for protocol preference
@@ -108,7 +108,7 @@ Examples:
 	return cloneCmd
 }
 
-func runCloneFromPR(prURL, targetDir string, verbose bool) error {
+func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -163,6 +163,9 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 	repoSpec := fmt.Sprintf("%s/%s", ref.Owner, ref.Repo)
 
 	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
+	if shallow {
+		args = append(args, "--depth", "1")
+	}
 	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -178,6 +181,18 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 			return fmt.Errorf("clone failed: %s", errStr)
 		}
 		return fmt.Errorf("clone failed: %w", err)
+	}
+
+	if err := git.ConfigureFetchRefspec(bareDir, "origin"); err != nil {
+		cleanup("")
+		return fmt.Errorf("failed to configure fetch refspec: %w", err)
+	}
+
+	if !shallow {
+		if err := git.FetchPrune(bareDir); err != nil {
+			cleanup("")
+			return fmt.Errorf("failed to fetch remote branches: %w", err)
+		}
 	}
 
 	// Create .git file pointing to .bare
@@ -251,7 +266,7 @@ func runCloneFromGitHub(owner, repo, targetDir, branches string, verbose, shallo
 		return cloneWithGh(repoSpec, bareDir, verbose, shallow)
 	}
 
-	if err := workspace.CloneAndInitializeWithCloner(cloneFn, targetDir, branches, verbose); err != nil {
+	if err := workspace.CloneAndInitializeWithCloner(cloneFn, targetDir, branches, verbose, shallow); err != nil {
 		return err
 	}
 

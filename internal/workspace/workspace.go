@@ -245,7 +245,7 @@ type CloneFunc func(bareDir string) error
 // CloneAndInitializeWithCloner creates a grove workspace using a custom clone function.
 // This allows different clone mechanisms (direct git, gh CLI, etc.) while sharing
 // all the workspace setup logic.
-func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose bool) error {
+func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool) error {
 	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
@@ -270,6 +270,18 @@ func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verb
 	if err := cloneFn(bareDir); err != nil {
 		cleanup(nil)
 		return err
+	}
+
+	if err := git.ConfigureFetchRefspec(bareDir, "origin"); err != nil {
+		cleanup(nil)
+		return fmt.Errorf("failed to configure fetch refspec: %w", err)
+	}
+
+	if !shallow {
+		if err := git.FetchPrune(bareDir); err != nil {
+			cleanup(nil)
+			return fmt.Errorf("failed to fetch remote branches: %w", err)
+		}
 	}
 
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
@@ -305,7 +317,7 @@ func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error
 		return nil
 	}
 
-	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose)
+	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose, shallow)
 }
 
 // validateRepoForConversion performs all pre-conversion validation checks

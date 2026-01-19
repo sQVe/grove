@@ -20,12 +20,6 @@ cd ..
 mkdir workspace
 exec grove clone file://$WORK/testrepo workspace --branches main,feature-to-delete,feature-dirty
 
-# Configure bare repo to have proper remote tracking refs
-# By default, bare clone maps refs/heads/* directly, we need origin/* refs
-cd $WORK/workspace/.bare
-exec git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-exec git fetch origin
-
 # Configure git user and set up upstream tracking for each worktree
 cd $WORK/workspace/main
 exec git config user.name "Test"
