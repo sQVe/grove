@@ -701,3 +701,45 @@ func TestHintGitTooOld(t *testing.T) {
 		}
 	})
 }
+
+func TestConfigureFetchRefspec(t *testing.T) {
+	t.Run("configures fetch refspec for remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		if err := AddRemote(repo.Path, "origin", "https://example.com/repo.git"); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		err := ConfigureFetchRefspec(repo.Path, "origin")
+		if err != nil {
+			t.Fatalf("ConfigureFetchRefspec failed: %v", err)
+		}
+
+		cmd, cancel := GitCommand("git", "config", "--get", "remote.origin.fetch")
+		defer cancel()
+		cmd.Dir = repo.Path
+		output, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("failed to get config: %v", err)
+		}
+
+		expected := "+refs/heads/*:refs/remotes/origin/*"
+		if strings.TrimSpace(string(output)) != expected {
+			t.Errorf("expected refspec %q, got %q", expected, strings.TrimSpace(string(output)))
+		}
+	})
+
+	t.Run("returns error for empty repo path", func(t *testing.T) {
+		err := ConfigureFetchRefspec("", "origin")
+		if err == nil {
+			t.Error("expected error for empty repo path")
+		}
+	})
+
+	t.Run("returns error for empty remote", func(t *testing.T) {
+		err := ConfigureFetchRefspec("/tmp/repo", "")
+		if err == nil {
+			t.Error("expected error for empty remote")
+		}
+	})
+}

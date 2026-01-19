@@ -214,6 +214,28 @@ func FetchPrune(repoPath string) error {
 	return runGitCommand(cmd, true)
 }
 
+// ConfigureFetchRefspec configures the fetch refspec for a remote to enable
+// tracking of remote branches. This is needed after bare clones which don't
+// automatically set up the refspec.
+func ConfigureFetchRefspec(repoPath, remote string) error {
+	if repoPath == "" {
+		return errors.New("repository path cannot be empty")
+	}
+	if remote == "" {
+		return errors.New("remote name cannot be empty")
+	}
+
+	refspec := fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", remote)
+	key := fmt.Sprintf("remote.%s.fetch", remote)
+
+	logger.Debug("Configuring fetch refspec: %s=%s in %s", key, refspec, repoPath)
+	cmd, cancel := GitCommand("git", "config", key, refspec)
+	defer cancel()
+	cmd.Dir = repoPath
+
+	return runGitCommand(cmd, true)
+}
+
 // FetchBranch fetches a specific branch from a remote.
 func FetchBranch(repoPath, remote, branch string) error {
 	if repoPath == "" {
