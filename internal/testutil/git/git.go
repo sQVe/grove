@@ -180,3 +180,14 @@ func (r *TestRepo) SquashMerge(branch string) {
 		r.t.Fatalf("Failed to commit squash merge: %v", err)
 	}
 }
+
+// CleanupWorktree registers cleanup for a worktree path to release Windows file locks.
+// Call this after creating a worktree with git worktree add.
+func CleanupWorktree(t *testing.T, bareDir, worktreePath string) {
+	t.Helper()
+	t.Cleanup(func() {
+		cmd := exec.Command("git", "worktree", "remove", "--force", worktreePath) // nolint:gosec
+		cmd.Dir = bareDir
+		_ = cmd.Run()
+	})
+}

@@ -178,6 +178,41 @@ stderr 'Created worktree at .*[/\\\\]feature-preserve-test'
 stderr 'preserved'
 exists ../feature-preserve-test/.env
 
+## Success: --from specifies source worktree for preservation
+
+cd $WORK/workspace/main
+# Add a unique preserve pattern and gitignore BEFORE creating worktrees
+exec sh -c 'echo ".env.from-test" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'add from-test gitignore'
+# Configure preserve pattern via git config
+exec git config --add grove.preserve .env.from-test
+# Now create another worktree to use as source (gitignore will be included)
+exec grove add --base main feature/alt-source-2
+# Create unique .env.from-test content in the alt-source worktree
+exec sh -c 'echo "FROM_FLAG_TEST=from-alt" > ../feature-alt-source-2/.env.from-test'
+# Create different content in main worktree
+exec sh -c 'echo "FROM_FLAG_TEST=from-main" > .env.from-test'
+# Create worktree from workspace root with --from pointing to alt-source
+cd $WORK/workspace
+exec grove add --from feature-alt-source-2 feature/from-flag-test
+stderr 'Created worktree at .*[/\\\\]feature-from-flag-test'
+stderr 'preserved'
+stderr '.env.from-test'
+# Verify file came from alt-source (not main)
+exists feature-from-flag-test/.env.from-test
+exec sh -c 'cat feature-from-flag-test/.env.from-test'
+stdout 'from-alt'
+# Cleanup git config
+cd $WORK/workspace/main
+exec git config --unset grove.preserve
+
+## Error: --from with nonexistent worktree
+
+cd $WORK/workspace/main
+! exec grove add --from nonexistent-worktree feature/from-nonexistent
+stderr 'worktree.*not found'
+
 ## Error: --base with existing branch (no worktree)
 
 cd $WORK/workspace/main
