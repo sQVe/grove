@@ -20,8 +20,7 @@ stderr 'unknown command "extra-arg"'
 
 ## Workspace validation
 
-# Not in workspace
+# Outside workspace - doctor still works for dependency checking
 mkdir $WORK/outside
 cd $WORK/outside
-! exec grove doctor
-stderr 'not in a grove workspace'
+exec grove doctor

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -30,9 +31,238 @@ const (
 type Category int
 
 const (
-	CategoryGit Category = iota
+	CategoryDeps Category = iota
+	CategoryGit
 	CategoryConfig
 )
+
+// parseVersion extracts major, minor, patch from a version string like "2.48.0"
+func parseVersion(s string) (major, minor, patch int, err error) {
+	if s == "" {
+		return 0, 0, 0, fmt.Errorf("empty version string")
+	}
+
+	parts := strings.Split(s, ".")
+	if len(parts) < 2 {
+		return 0, 0, 0, fmt.Errorf("invalid version format: %s", s)
+	}
+
+	major, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid major version: %s", parts[0])
+	}
+
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid minor version: %s", parts[1])
+	}
+
+	if len(parts) >= 3 {
+		patch, err = strconv.Atoi(parts[2])
+		if err != nil {
+			return 0, 0, 0, fmt.Errorf("invalid patch version: %s", parts[2])
+		}
+	}
+
+	return major, minor, patch, nil
+}
+
+// compareVersions returns -1 if current < minimum, 0 if equal, 1 if current > minimum
+func compareVersions(current, minimum string) int {
+	curMajor, curMinor, curPatch, curErr := parseVersion(current)
+	minMajor, minMinor, minPatch, minErr := parseVersion(minimum)
+
+	if curErr != nil {
+		return -1
+	}
+	if minErr != nil {
+		return 1
+	}
+
+	if curMajor != minMajor {
+		if curMajor < minMajor {
+			return -1
+		}
+		return 1
+	}
+
+	if curMinor != minMinor {
+		if curMinor < minMinor {
+			return -1
+		}
+		return 1
+	}
+
+	if curPatch != minPatch {
+		if curPatch < minPatch {
+			return -1
+		}
+		return 1
+	}
+
+	return 0
+}
+
+// parseGitVersionOutput extracts version from "git version X.Y.Z" output
+func parseGitVersionOutput(output string) (string, error) {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return "", fmt.Errorf("empty output")
+	}
+
+	if !strings.HasPrefix(output, "git version ") {
+		return "", fmt.Errorf("unexpected format: %s", output)
+	}
+
+	versionPart := strings.TrimPrefix(output, "git version ")
+	versionPart = strings.Split(versionPart, " ")[0]
+	versionPart = strings.Split(versionPart, ".windows.")[0]
+
+	parts := strings.Split(versionPart, ".")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid version: %s", versionPart)
+	}
+
+	if len(parts) >= 3 {
+		return parts[0] + "." + parts[1] + "." + parts[2], nil
+	}
+
+	return parts[0] + "." + parts[1] + ".0", nil
+}
+
+// parseGhVersionOutput extracts version from "gh version X.Y.Z" output
+func parseGhVersionOutput(output string) (string, error) {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return "", fmt.Errorf("empty output")
+	}
+
+	lines := strings.Split(output, "\n")
+	firstLine := lines[0]
+
+	if !strings.HasPrefix(firstLine, "gh version ") {
+		return "", fmt.Errorf("unexpected format: %s", firstLine)
+	}
+
+	versionPart := strings.TrimPrefix(firstLine, "gh version ")
+	versionPart = strings.Split(versionPart, " ")[0]
+
+	if _, _, _, err := parseVersion(versionPart); err != nil {
+		return "", fmt.Errorf("invalid version: %s", versionPart)
+	}
+
+	return versionPart, nil
+}
+
+// depInfo describes a dependency to check
+type depInfo struct {
+	name             string
+	minVersion       string
+	missingSeverity  Severity
+	outdatedSeverity Severity
+	installURL       string
+	missingHint      string
+}
+
+var dependencies = []depInfo{
+	{
+		name:             "git",
+		minVersion:       "2.48.0",
+		missingSeverity:  SeverityError,
+		outdatedSeverity: SeverityError,
+		installURL:       "https://git-scm.com/downloads",
+	},
+	{
+		name:             "gh",
+		minVersion:       "2.0.0",
+		missingSeverity:  SeverityInfo,
+		outdatedSeverity: SeverityInfo,
+		installURL:       "https://cli.github.com",
+		missingHint:      "Optional: enables PR worktrees",
+	},
+}
+
+// checkDepVersion returns an issue if the dependency has a problem, nil otherwise
+func checkDepVersion(dep *depInfo, installed bool, version string) *Issue {
+	if !installed {
+		var details []string
+		if dep.missingHint != "" {
+			details = append(details, dep.missingHint)
+		}
+		details = append(details, "Install: "+dep.installURL)
+
+		return &Issue{
+			Category: CategoryDeps,
+			Severity: dep.missingSeverity,
+			Message:  dep.name + " not installed",
+			Details:  details,
+		}
+	}
+
+	if version == "" {
+		return &Issue{
+			Category: CategoryDeps,
+			Severity: SeverityWarning,
+			Message:  dep.name + " version could not be determined",
+			Details:  []string{"Upgrade: " + dep.installURL},
+		}
+	}
+
+	if compareVersions(version, dep.minVersion) < 0 {
+		return &Issue{
+			Category: CategoryDeps,
+			Severity: dep.outdatedSeverity,
+			Message:  dep.name + " " + version + " below minimum " + dep.minVersion,
+			Details:  []string{"Upgrade: " + dep.installURL},
+		}
+	}
+
+	return nil
+}
+
+// detectDependencyIssues checks all dependencies and adds issues to result
+func detectDependencyIssues(result *DoctorResult) {
+	for i := range dependencies {
+		dep := &dependencies[i]
+		installed, version := getDepVersion(dep.name)
+		if issue := checkDepVersion(dep, installed, version); issue != nil {
+			result.Issues = append(result.Issues, *issue)
+		}
+	}
+}
+
+// getDepVersion checks if a dependency is installed and returns its version
+func getDepVersion(name string) (installed bool, version string) {
+	path, err := exec.LookPath(name)
+	if err != nil || path == "" {
+		return false, ""
+	}
+
+	var output []byte
+
+	switch name {
+	case "git":
+		cmd := exec.Command(name, "--version")
+		output, err = cmd.Output()
+		if err != nil {
+			logger.Debug("Failed to get git version: %v", err)
+			return true, ""
+		}
+		version, _ = parseGitVersionOutput(string(output))
+	case "gh":
+		cmd := exec.Command(name, "--version")
+		output, err = cmd.Output()
+		if err != nil {
+			logger.Debug("Failed to get gh version: %v", err)
+			return true, ""
+		}
+		version, _ = parseGhVersionOutput(string(output))
+	default:
+		return false, ""
+	}
+
+	return true, version
+}
 
 // Issue represents a single diagnostic issue found by doctor
 type Issue struct {
@@ -93,40 +323,44 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Verify we're in a grove workspace
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return err
-	}
-
 	// Gather issues
 	result := &DoctorResult{}
 
-	// Phase 2: Git detection
-	detectGitIssues(bareDir, result)
+	// Phase 1: Dependency version checking (runs before workspace detection)
+	detectDependencyIssues(result)
 
-	// Phase 3: Config validation
-	detectConfigIssues(bareDir, result)
+	// Check if we're in a grove workspace
+	bareDir, err := workspace.FindBareDir(cwd)
+	inWorkspace := err == nil
 
-	// Handle fix mode (Phase 4)
-	if fix {
-		fixIssues(bareDir, result)
-
-		// Re-run detection after fixes to get current state
-		result = &DoctorResult{}
+	if inWorkspace {
+		// Phase 2: Git detection
 		detectGitIssues(bareDir, result)
+
+		// Phase 3: Config validation
 		detectConfigIssues(bareDir, result)
+
+		// Handle fix mode (Phase 4)
+		if fix {
+			fixIssues(bareDir, result)
+
+			// Re-run detection after fixes to get current state
+			depsIssues := filterIssuesByCategory(result.Issues, CategoryDeps)
+			result = &DoctorResult{Issues: depsIssues}
+			detectGitIssues(bareDir, result)
+			detectConfigIssues(bareDir, result)
+		}
+
+		if perf {
+			if err := outputPerfAnalysis(bareDir); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Output results
 	if jsonOutput {
 		return outputJSONResult(result)
-	}
-
-	if perf {
-		if err := outputPerfAnalysis(bareDir); err != nil {
-			return err
-		}
 	}
 
 	// Output human-readable format
@@ -310,8 +544,14 @@ func outputDoctorResult(result *DoctorResult) error {
 	}
 
 	// Group issues by category
+	depsIssues := filterIssuesByCategory(result.Issues, CategoryDeps)
 	gitIssues := filterIssuesByCategory(result.Issues, CategoryGit)
 	configIssues := filterIssuesByCategory(result.Issues, CategoryConfig)
+
+	// Output deps issues
+	if len(depsIssues) > 0 {
+		outputCategoryIssues("Dependencies", depsIssues)
+	}
 
 	// Output git issues
 	if len(gitIssues) > 0 {
@@ -348,26 +588,42 @@ func filterIssuesByCategory(issues []Issue, category Category) []Issue {
 	return filtered
 }
 
-func outputCategoryIssues(categoryName string, issues []Issue) {
-	// Count errors and warnings in this category
-	var errors, warnings int
-
+func countSeverities(issues []Issue) (errors, warnings, infos int) {
 	for _, issue := range issues {
 		switch issue.Severity {
 		case SeverityError:
 			errors++
 		case SeverityWarning:
 			warnings++
+		case SeverityInfo:
+			infos++
 		}
 	}
+	return errors, warnings, infos
+}
+
+func outputCategoryIssues(categoryName string, issues []Issue) {
+	errors, warnings, infos := countSeverities(issues)
 
 	// Print category header
 	var countParts []string
 	if errors > 0 {
-		countParts = append(countParts, fmt.Sprintf("%d errors", errors))
+		countParts = append(countParts, fmt.Sprintf("%d error", errors))
+		if errors > 1 {
+			countParts[len(countParts)-1] += "s"
+		}
 	}
 	if warnings > 0 {
-		countParts = append(countParts, fmt.Sprintf("%d warnings", warnings))
+		countParts = append(countParts, fmt.Sprintf("%d warning", warnings))
+		if warnings > 1 {
+			countParts[len(countParts)-1] += "s"
+		}
+	}
+	if infos > 0 {
+		countParts = append(countParts, fmt.Sprintf("%d info", infos))
+		if infos > 1 {
+			countParts[len(countParts)-1] += "s"
+		}
 	}
 
 	fmt.Printf("%s (%s)\n", categoryName, strings.Join(countParts, ", "))
@@ -693,6 +949,8 @@ func outputJSONResult(result *DoctorResult) error {
 
 func categoryToString(c Category) string {
 	switch c {
+	case CategoryDeps:
+		return "deps"
 	case CategoryGit:
 		return "git"
 	case CategoryConfig:
