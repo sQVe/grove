@@ -18,6 +18,33 @@ import (
 // ErrNoUpstreamConfigured is returned when a branch has no upstream configured
 var ErrNoUpstreamConfigured = errors.New("branch has no upstream configured")
 
+var ErrGitTooOld = errors.New("git version too old")
+
+const MinGitVersion = "2.48"
+
+func WrapGitTooOldError(err error) error {
+	if err == nil {
+		return nil
+	}
+	errStr := err.Error()
+	if strings.Contains(errStr, "unknown option") && strings.Contains(errStr, "relative-paths") {
+		return fmt.Errorf("%w: %w", ErrGitTooOld, err)
+	}
+	return err
+}
+
+func IsGitTooOld(err error) bool {
+	return errors.Is(err, ErrGitTooOld)
+}
+
+func HintGitTooOld(err error) error {
+	if err != nil && IsGitTooOld(err) {
+		logger.Warning("Grove requires Git %s+ for portable worktrees", MinGitVersion)
+		logger.Info("Run 'grove doctor' to check your environment")
+	}
+	return err
+}
+
 // Git operation marker files/directories
 const (
 	markerMergeHead      = "MERGE_HEAD"

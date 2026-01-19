@@ -223,7 +223,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
 		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, !verbose); err != nil {
 			cleanup(worktreePath)
-			return fmt.Errorf("failed to create worktree: %w", err)
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	} else {
 		// Same-repo PR: fetch and create worktree
@@ -235,7 +235,7 @@ func runCloneFromPR(prURL, targetDir string, verbose bool) error {
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
 			cleanup(worktreePath)
-			return fmt.Errorf("failed to create worktree: %w", err)
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	}
 

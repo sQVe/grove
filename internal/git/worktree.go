@@ -46,7 +46,7 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 	defer cancel()
 	cmd.Dir = bareRepo
 
-	return runGitCommand(cmd, quiet)
+	return WrapGitTooOldError(runGitCommand(cmd, quiet))
 }
 
 // CreateWorktreeWithNewBranch creates a new worktree with a new branch.
@@ -67,7 +67,7 @@ func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bo
 	defer cancel()
 	cmd.Dir = bareRepo
 
-	return runGitCommand(cmd, quiet)
+	return WrapGitTooOldError(runGitCommand(cmd, quiet))
 }
 
 // CreateWorktreeWithNewBranchFrom creates a new worktree with a new branch based on a specific commit/branch.
@@ -91,7 +91,7 @@ func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string
 	defer cancel()
 	cmd.Dir = bareRepo
 
-	return runGitCommand(cmd, quiet)
+	return WrapGitTooOldError(runGitCommand(cmd, quiet))
 }
 
 // CreateWorktreeDetached creates a worktree in detached HEAD state at the specified ref.
@@ -112,7 +112,7 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 	defer cancel()
 	cmd.Dir = bareRepo
 
-	return runGitCommand(cmd, quiet)
+	return WrapGitTooOldError(runGitCommand(cmd, quiet))
 }
 
 // RemoveWorktree removes a worktree directory
