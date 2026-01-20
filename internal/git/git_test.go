@@ -775,6 +775,8 @@ func TestIsRemoteReachable(t *testing.T) {
 }
 
 func TestListRemotes(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns empty slice for repo with no remotes", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
@@ -424,10 +425,13 @@ func IsRemoteReachable(repoPath, remote string) bool {
 	}
 
 	logger.Debug("Checking if remote %s is reachable in %s", remote, repoPath)
-	cmd, cancel := GitCommand("git", "ls-remote", "--heads", remote) //nolint:gosec
-	defer cancel()
-	cmd.Dir = repoPath
 
+	const reachabilityTimeout = 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), reachabilityTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", remote) //nolint:gosec
+	cmd.Dir = repoPath
 	cmd.Env = append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=5",
