@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
@@ -374,8 +375,8 @@ func detectGitIssues(bareDir string, result *DoctorResult) {
 	// Check all worktrees for broken .git pointers
 	detectBrokenGitPointers(workspaceRoot, bareDir, result)
 
-	// Check for stale worktree entries in .bare/worktrees
 	detectStaleWorktreeEntries(bareDir, result)
+	detectRemoteIssues(bareDir, result)
 }
 
 func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult) {
@@ -516,6 +517,44 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			})
 		}
 	}
+}
+
+func detectRemoteIssues(bareDir string, result *DoctorResult) {
+	remotes, err := git.ListRemotes(bareDir)
+	if err != nil {
+		logger.Debug("Failed to list remotes: %v", err)
+		return
+	}
+
+	var (
+		wg     sync.WaitGroup
+		mu     sync.Mutex
+		issues []Issue
+	)
+
+	for _, remote := range remotes {
+		wg.Add(1)
+		go func(remote string) {
+			defer wg.Done()
+			if !git.IsRemoteReachable(bareDir, remote) {
+				url, _ := git.GetRemoteURL(bareDir, remote)
+				mu.Lock()
+				issues = append(issues, Issue{
+					Category:    CategoryGit,
+					Severity:    SeverityWarning,
+					Message:     "Remote not accessible",
+					Path:        remote,
+					Details:     []string{url},
+					FixHint:     "Check network connection or verify remote URL with 'git remote -v'",
+					AutoFixable: false,
+				})
+				mu.Unlock()
+			}
+		}(remote)
+	}
+
+	wg.Wait()
+	result.Issues = append(result.Issues, issues...)
 }
 
 func outputDoctorResult(result *DoctorResult) error {

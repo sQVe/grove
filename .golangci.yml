@@ -70,6 +70,7 @@ linters:
       ignore-string-values:
         - '^(true|false|yes|no|on|off)$' # Boolean strings
         - '^[0-9]+$' # Numeric strings like "1", "0"
+        - '^origin$'
 
     gocritic:
       enabled-tags:

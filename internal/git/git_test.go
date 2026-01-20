@@ -702,6 +702,169 @@ func TestHintGitTooOld(t *testing.T) {
 	})
 }
 
+func TestIsRemoteReachable(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns true for reachable local file remote", func(t *testing.T) {
+		t.Parallel()
+		// Create a bare repo to act as a remote
+		remoteDir := t.TempDir()
+		remoteRepo := filepath.Join(remoteDir, "remote.git")
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("git", "init", "--bare")
+		cmd.Dir = remoteRepo
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create a local repo with that remote
+		localRepo := testgit.NewTestRepo(t)
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) //nolint:gosec
+		cmd.Dir = localRepo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		if !IsRemoteReachable(localRepo.Path, "origin") {
+			t.Error("expected reachable remote to return true")
+		}
+	})
+
+	t.Run("returns false for unreachable remote", func(t *testing.T) {
+		t.Parallel()
+		localRepo := testgit.NewTestRepo(t)
+
+		// Add a remote with a non-existent path
+		cmd := exec.Command("git", "remote", "add", "origin", "/nonexistent/path/repo.git")
+		cmd.Dir = localRepo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+
+		if IsRemoteReachable(localRepo.Path, "origin") {
+			t.Error("expected unreachable remote to return false")
+		}
+	})
+
+	t.Run("returns false for non-existent remote name", func(t *testing.T) {
+		t.Parallel()
+		localRepo := testgit.NewTestRepo(t)
+
+		if IsRemoteReachable(localRepo.Path, "nonexistent") {
+			t.Error("expected non-existent remote to return false")
+		}
+	})
+
+	t.Run("returns false for empty path", func(t *testing.T) {
+		t.Parallel()
+		if IsRemoteReachable("", "origin") {
+			t.Error("expected empty path to return false")
+		}
+	})
+
+	t.Run("returns false for empty remote name", func(t *testing.T) {
+		t.Parallel()
+		localRepo := testgit.NewTestRepo(t)
+
+		if IsRemoteReachable(localRepo.Path, "") {
+			t.Error("expected empty remote name to return false")
+		}
+	})
+}
+
+func TestListRemotes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns empty slice for repo with no remotes", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		remotes, err := ListRemotes(repo.Path)
+		if err != nil {
+			t.Fatalf("ListRemotes failed: %v", err)
+		}
+		if len(remotes) != 0 {
+			t.Errorf("expected no remotes, got %v", remotes)
+		}
+	})
+
+	t.Run("returns single remote", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		cmd := exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add remote: %v", err)
+		}
+
+		remotes, err := ListRemotes(repo.Path)
+		if err != nil {
+			t.Fatalf("ListRemotes failed: %v", err)
+		}
+		if len(remotes) != 1 {
+			t.Fatalf("expected 1 remote, got %d", len(remotes))
+		}
+		if remotes[0] != "origin" {
+			t.Errorf("expected remote 'origin', got %q", remotes[0])
+		}
+	})
+
+	t.Run("returns multiple remotes", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		cmd := exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add origin: %v", err)
+		}
+
+		cmd = exec.Command("git", "remote", "add", "upstream", "https://github.com/upstream/repo.git")
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add upstream: %v", err)
+		}
+
+		remotes, err := ListRemotes(repo.Path)
+		if err != nil {
+			t.Fatalf("ListRemotes failed: %v", err)
+		}
+		if len(remotes) != 2 {
+			t.Fatalf("expected 2 remotes, got %d", len(remotes))
+		}
+
+		// Check both remotes exist (order may vary)
+		hasOrigin := false
+		hasUpstream := false
+		for _, r := range remotes {
+			if r == "origin" {
+				hasOrigin = true
+			}
+			if r == "upstream" {
+				hasUpstream = true
+			}
+		}
+		if !hasOrigin || !hasUpstream {
+			t.Errorf("expected origin and upstream, got %v", remotes)
+		}
+	})
+
+	t.Run("returns error for empty path", func(t *testing.T) {
+		_, err := ListRemotes("")
+		if err == nil {
+			t.Error("expected error for empty path")
+		}
+	})
+
+	t.Run("returns error for non-git directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		_, err := ListRemotes(tempDir)
+		if err == nil {
+			t.Error("expected error for non-git directory")
+		}
+	})
+}
+
 func TestConfigureFetchRefspec(t *testing.T) {
 	t.Run("configures fetch refspec for remote", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
