@@ -204,6 +204,8 @@ Add a worktree for a branch, pull request, or ref.
 - `--name <name>` — Custom directory name
 - `-d, --detach` — Detached HEAD state
 - `--pr <number>` — Create worktree for a pull request
+- `--from <worktree>` — Source worktree for file preservation (name or branch)
+- `--reset` — Reset diverged PR branch to match remote (use with `--pr`)
 
 **Examples:**
 
@@ -211,8 +213,10 @@ Add a worktree for a branch, pull request, or ref.
 grove add feat/auth
 grove add feat/auth --switch
 grove add --base main feat/auth
-grove add --pr 123            # PR by number
-grove add --detach v1.0.0     # Tag in detached HEAD
+grove add --pr 123             # PR by number
+grove add --pr 123 --reset     # PR, discarding local commits
+grove add --detach v1.0.0      # Tag in detached HEAD
+grove add --from dev feat/auth # Copy .env from dev worktree
 ```
 
 </details>
@@ -284,11 +288,11 @@ grove status --verbose
 </details>
 
 <details>
-<summary><code>grove remove &lt;worktree&gt;</code></summary>
+<summary><code>grove remove &lt;worktree&gt;...</code></summary>
 
 <br>
 
-Remove a worktree.
+Remove one or more worktrees.
 
 **Flags:**
 
@@ -301,6 +305,7 @@ Remove a worktree.
 grove remove feat-auth
 grove remove feat-auth --branch
 grove remove --force wip
+grove remove feat-auth bugfix-123 # Remove multiple
 ```
 
 </details>
@@ -321,11 +326,11 @@ grove move feat/old feat/new
 </details>
 
 <details>
-<summary><code>grove lock &lt;worktree&gt;</code></summary>
+<summary><code>grove lock &lt;worktree&gt;...</code></summary>
 
 <br>
 
-Lock a worktree to prevent removal.
+Lock one or more worktrees to prevent removal.
 
 **Flags:**
 
@@ -336,21 +341,23 @@ Lock a worktree to prevent removal.
 ```bash
 grove lock main
 grove lock release --reason "Production release"
+grove lock feat-auth bugfix-123 # Lock multiple
 ```
 
 </details>
 
 <details>
-<summary><code>grove unlock &lt;worktree&gt;</code></summary>
+<summary><code>grove unlock &lt;worktree&gt;...</code></summary>
 
 <br>
 
-Unlock a worktree.
+Unlock one or more worktrees.
 
 **Examples:**
 
 ```bash
 grove unlock feat-auth
+grove unlock feat-auth bugfix-123 # Unlock multiple
 ```
 
 </details>
@@ -362,20 +369,24 @@ grove unlock feat-auth
 
 Remove worktrees with deleted upstream branches. Dry-run by default.
 
+When removing worktrees whose upstream was deleted on remote, local branches are also deleted.
+
 **Flags:**
 
 - `--commit` — Actually remove (default is dry-run)
 - `-f, --force` — Remove even if dirty, locked, or unpushed
 - `--stale <duration>` — Include inactive worktrees (e.g., `30d`, `2w`)
 - `--merged` — Include branches merged into default branch
+- `--detached` — Include detached worktrees
 
 **Examples:**
 
 ```bash
-grove prune          # Dry-run
-grove prune --commit # Actually remove
+grove prune             # Dry-run
+grove prune --commit    # Actually remove
 grove prune --stale 30d --commit
 grove prune --merged --commit
+grove prune --detached --commit
 ```
 
 </details>
@@ -450,9 +461,12 @@ Diagnose workspace issues.
 
 **Detects:**
 
+- Dependency versions (Git 2.48+, optional gh CLI)
 - Broken `.git` pointers
 - Stale worktree entries
+- Unreachable remotes
 - Invalid `.grove.toml` syntax
+- Hook commands not found in PATH
 - Stale lock files
 
 **Examples:**
