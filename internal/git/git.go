@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -414,4 +415,51 @@ func ListIgnoredFiles(dir string) ([]string, error) {
 		}
 	}
 	return files, nil
+}
+
+// IsRemoteReachable checks if a remote is accessible.
+func IsRemoteReachable(repoPath, remote string) bool {
+	if repoPath == "" || remote == "" {
+		return false
+	}
+
+	logger.Debug("Checking if remote %s is reachable in %s", remote, repoPath)
+	cmd, cancel := GitCommand("git", "ls-remote", "--heads", remote) //nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=5",
+	)
+
+	return cmd.Run() == nil
+}
+
+// ListRemotes returns a list of configured remote names for the repository.
+func ListRemotes(repoPath string) ([]string, error) {
+	if repoPath == "" {
+		return nil, errors.New("repository path cannot be empty")
+	}
+
+	logger.Debug("Executing: git remote in %s", repoPath)
+	cmd, cancel := GitCommand("git", "remote")
+	defer cancel()
+	cmd.Dir = repoPath
+
+	output, err := executeWithOutputBuffer(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	var remotes []string
+	scanner := bufio.NewScanner(output)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			remotes = append(remotes, line)
+		}
+	}
+
+	return remotes, scanner.Err()
 }
