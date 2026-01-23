@@ -1,0 +1,8 @@
+{
+  "commit_docs": true,
+  "depth": "thorough",
+  "mode": "yolo",
+  "model_profile": "quality",
+  "parallelization": true,
+  "verifier": true
+}
