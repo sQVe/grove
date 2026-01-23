@@ -13,7 +13,7 @@ Deliver `grove fetch` in two phases: first a working command with human-readable
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Fetch** - Fetch all remotes and show what changed
+- [x] **Phase 1: Core Fetch** - Fetch all remotes and show what changed
 - [ ] **Phase 2: Output Modes** - Add JSON and verbose output options
 
 ## Phase Details
@@ -36,9 +36,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 
-- [ ] 01-01-PLAN.md - Git fetch operations with TDD (ref snapshot, change detection)
-- [ ] 01-02-PLAN.md - Fetch command implementation (CLI, output formatting)
-- [ ] 01-03-PLAN.md - Integration tests (testscript for end-to-end verification)
+- [x] 01-01-PLAN.md - Git fetch operations with TDD (ref snapshot, change detection)
+- [x] 01-02-PLAN.md - Fetch command implementation (CLI, output formatting)
+- [x] 01-03-PLAN.md - Integration tests (testscript for end-to-end verification)
 
 ### Phase 2: Output Modes
 
@@ -62,7 +62,7 @@ Plans:
 **Execution Order:**
 Phases execute in numeric order: 1 -> 2
 
-| Phase           | Plans Complete | Status      | Completed |
-| --------------- | -------------- | ----------- | --------- |
-| 1. Core Fetch   | 0/3            | Planned     | -         |
-| 2. Output Modes | 0/?            | Not started | -         |
+| Phase           | Plans Complete | Status      | Completed  |
+| --------------- | -------------- | ----------- | ---------- |
+| 1. Core Fetch   | 3/3            | Complete    | 2026-01-23 |
+| 2. Output Modes | 0/?            | Not started | -          |

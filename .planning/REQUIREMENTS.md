@@ -7,23 +7,23 @@
 
 ### Core
 
-- [ ] **CORE-01**: Command runs from anywhere in grove workspace
-- [ ] **CORE-02**: Fetches all configured remotes
-- [ ] **CORE-03**: Prunes stale remote-tracking refs by default
-- [ ] **CORE-04**: Shows new refs (branches created on remote)
-- [ ] **CORE-05**: Shows updated refs (branches moved to different commit)
-- [ ] **CORE-06**: Shows pruned refs (branches deleted on remote)
-- [ ] **CORE-07**: Skips remotes with no changes in output
+- [x] **CORE-01**: Command runs from anywhere in grove workspace
+- [x] **CORE-02**: Fetches all configured remotes
+- [x] **CORE-03**: Prunes stale remote-tracking refs by default
+- [x] **CORE-04**: Shows new refs (branches created on remote)
+- [x] **CORE-05**: Shows updated refs (branches moved to different commit)
+- [x] **CORE-06**: Shows pruned refs (branches deleted on remote)
+- [x] **CORE-07**: Skips remotes with no changes in output
 
 ### Output
 
-- [ ] **OUT-01**: Human-readable output with clear labeling per remote
+- [x] **OUT-01**: Human-readable output with clear labeling per remote
 - [ ] **OUT-02**: `--json` flag for machine-readable JSON output
 - [ ] **OUT-03**: `--verbose` flag shows additional details (commit info)
 
 ### CLI
 
-- [ ] **CLI-01**: Shell completion support (no file completions, flags complete)
+- [x] **CLI-01**: Shell completion support (no file completions, flags complete)
 
 ## v2 Requirements
 
@@ -45,19 +45,19 @@
 
 ## Traceability
 
-| Requirement | Phase   | Status  |
-| ----------- | ------- | ------- |
-| CORE-01     | Phase 1 | Pending |
-| CORE-02     | Phase 1 | Pending |
-| CORE-03     | Phase 1 | Pending |
-| CORE-04     | Phase 1 | Pending |
-| CORE-05     | Phase 1 | Pending |
-| CORE-06     | Phase 1 | Pending |
-| CORE-07     | Phase 1 | Pending |
-| OUT-01      | Phase 1 | Pending |
-| OUT-02      | Phase 2 | Pending |
-| OUT-03      | Phase 2 | Pending |
-| CLI-01      | Phase 1 | Pending |
+| Requirement | Phase   | Status   |
+| ----------- | ------- | -------- |
+| CORE-01     | Phase 1 | Complete |
+| CORE-02     | Phase 1 | Complete |
+| CORE-03     | Phase 1 | Complete |
+| CORE-04     | Phase 1 | Complete |
+| CORE-05     | Phase 1 | Complete |
+| CORE-06     | Phase 1 | Complete |
+| CORE-07     | Phase 1 | Complete |
+| OUT-01      | Phase 1 | Complete |
+| OUT-02      | Phase 2 | Pending  |
+| OUT-03      | Phase 2 | Pending  |
+| CLI-01      | Phase 1 | Complete |
 
 **Coverage:**
 
