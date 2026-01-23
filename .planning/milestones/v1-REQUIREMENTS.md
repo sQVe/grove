@@ -1,3 +1,13 @@
+# Requirements Archive: v1 Grove Fetch
+
+**Archived:** 2026-01-23
+**Status:** ✅ SHIPPED
+
+This is the archived requirements specification for v1.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
+
 # Requirements: Grove Fetch
 
 **Defined:** 2026-01-23
@@ -24,14 +34,6 @@
 ### CLI
 
 - [x] **CLI-01**: Shell completion support (no file completions, flags complete)
-
-## v2 Requirements
-
-### Enhanced Output
-
-- **ENH-01**: `--quiet` flag suppresses all output
-- **ENH-02**: `--dry-run` shows what would be fetched without fetching
-- **ENH-03**: Per-worktree behind counts after fetch
 
 ## Out of Scope
 
@@ -62,10 +64,18 @@
 **Coverage:**
 
 - v1 requirements: 11 total
-- Mapped to phases: 11
-- Unmapped: 0
+- Shipped: 11
+- Adjusted: 0
+- Dropped: 0
 
 ---
 
-_Requirements defined: 2026-01-23_
-_Last updated: 2026-01-23 after roadmap creation_
+## Milestone Summary
+
+**Shipped:** 11 of 11 v1 requirements
+**Adjusted:** None
+**Dropped:** None
+
+---
+
+_Archived: 2026-01-23 as part of v1 milestone completion_
