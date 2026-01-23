@@ -1,0 +1,12 @@
+{
+  "commit_docs": true,
+  "depth": "comprehensive",
+  "mode": "interactive",
+  "model_profile": "balanced",
+  "parallelization": true,
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true
+  }
+}
