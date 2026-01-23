@@ -51,11 +51,12 @@ Plans:
 2. User can run `grove fetch --verbose` to see additional commit details
 3. Both flags work correctly with empty results (no changes)
 4. All tests pass (TDD: tests written before implementation)
-   **Plans**: TBD
+
+**Plans:** 1 plan in 1 wave
 
 Plans:
 
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md - Add --json and --verbose output modes
 
 ## Progress
 
@@ -65,4 +66,4 @@ Phases execute in numeric order: 1 -> 2
 | Phase           | Plans Complete | Status      | Completed  |
 | --------------- | -------------- | ----------- | ---------- |
 | 1. Core Fetch   | 3/3            | Complete    | 2026-01-23 |
-| 2. Output Modes | 0/?            | Not started | -          |
+| 2. Output Modes | 0/1            | Not started | -          |
