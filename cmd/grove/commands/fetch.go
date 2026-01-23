@@ -1,11 +1,14 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
@@ -18,7 +21,29 @@ type remoteResult struct {
 	Error   error
 }
 
+type fetchChangeJSON struct {
+	Remote      string `json:"remote"`
+	RefName     string `json:"ref"`
+	Type        string `json:"type"`
+	OldHash     string `json:"old_hash,omitempty"`
+	NewHash     string `json:"new_hash,omitempty"`
+	CommitCount int    `json:"commit_count,omitempty"`
+}
+
+type fetchErrorJSON struct {
+	Remote  string `json:"remote"`
+	Message string `json:"message"`
+}
+
+type fetchResultJSON struct {
+	Changes []fetchChangeJSON `json:"changes"`
+	Errors  []fetchErrorJSON  `json:"errors,omitempty"`
+}
+
 func NewFetchCmd() *cobra.Command {
+	var jsonOutput bool
+	var verbose bool
+
 	cmd := &cobra.Command{
 		Use:   "fetch",
 		Short: "Fetch all remotes and show changes",
@@ -27,14 +52,17 @@ func NewFetchCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFetch()
+			return runFetch(jsonOutput, verbose)
 		},
 	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show commit hash details")
 
 	return cmd
 }
 
-func runFetch() error {
+func runFetch(jsonOutput, verbose bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -61,7 +89,7 @@ func runFetch() error {
 		results = append(results, result)
 	}
 
-	return outputFetchResults(bareDir, results)
+	return outputFetchResults(bareDir, results, jsonOutput, verbose)
 }
 
 func fetchRemoteWithRetry(bareDir, remote string) remoteResult {
@@ -97,7 +125,47 @@ func fetchRemoteWithRetry(bareDir, remote string) remoteResult {
 	return result
 }
 
-func outputFetchResults(bareDir string, results []remoteResult) error {
+func outputFetchJSON(bareDir string, results []remoteResult) error {
+	output := fetchResultJSON{
+		Changes: make([]fetchChangeJSON, 0),
+	}
+
+	for _, result := range results {
+		if result.Error != nil {
+			output.Errors = append(output.Errors, fetchErrorJSON{
+				Remote:  result.Remote,
+				Message: result.Error.Error(),
+			})
+			continue
+		}
+
+		for _, change := range result.Changes {
+			jsonChange := fetchChangeJSON{
+				Remote:  result.Remote,
+				RefName: stripRefPrefix(change.RefName, result.Remote),
+				Type:    change.Type.String(),
+				OldHash: change.OldHash,
+				NewHash: change.NewHash,
+			}
+
+			if change.Type == git.Updated {
+				jsonChange.CommitCount = getCommitCount(bareDir, change.OldHash, change.NewHash)
+			}
+
+			output.Changes = append(output.Changes, jsonChange)
+		}
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(output)
+}
+
+func outputFetchResults(bareDir string, results []remoteResult, jsonOutput, verbose bool) error {
+	if jsonOutput {
+		return outputFetchJSON(bareDir, results)
+	}
+
 	var errors []error
 	hasChanges := false
 
@@ -114,7 +182,11 @@ func outputFetchResults(bareDir string, results []remoteResult) error {
 		hasChanges = true
 		fmt.Printf("%s:\n", result.Remote)
 		for _, change := range result.Changes {
-			printRefChange(bareDir, result.Remote, change)
+			if verbose {
+				printRefChangeVerbose(bareDir, result.Remote, change)
+			} else {
+				printRefChange(bareDir, result.Remote, change)
+			}
 		}
 	}
 
@@ -156,6 +228,57 @@ func printRefChange(bareDir, remote string, change git.RefChange) {
 		symbol := styles.Render(&styles.Dimmed, "-")
 		hint := styles.Render(&styles.Dimmed, "(deleted on remote)")
 		fmt.Printf("  %s %s %s\n", symbol, shortName, hint)
+	}
+}
+
+func printRefChangeVerbose(bareDir, remote string, change git.RefChange) {
+	printRefChange(bareDir, remote, change)
+
+	prefix := formatter.SubItemPrefix()
+
+	switch change.Type {
+	case git.New:
+		if change.NewHash != "" {
+			shortHash := change.NewHash
+			if len(shortHash) > 7 {
+				shortHash = shortHash[:7]
+			}
+			if config.IsPlain() {
+				fmt.Printf("    %s at: %s\n", prefix, shortHash)
+			} else {
+				fmt.Printf("    %s at: %s\n",
+					styles.Render(&styles.Dimmed, prefix),
+					styles.Render(&styles.Dimmed, shortHash))
+			}
+		}
+
+	case git.Updated:
+		if change.OldHash != "" {
+			shortHash := change.OldHash
+			if len(shortHash) > 7 {
+				shortHash = shortHash[:7]
+			}
+			if config.IsPlain() {
+				fmt.Printf("    %s from: %s\n", prefix, shortHash)
+			} else {
+				fmt.Printf("    %s from: %s\n",
+					styles.Render(&styles.Dimmed, prefix),
+					styles.Render(&styles.Dimmed, shortHash))
+			}
+		}
+		if change.NewHash != "" {
+			shortHash := change.NewHash
+			if len(shortHash) > 7 {
+				shortHash = shortHash[:7]
+			}
+			if config.IsPlain() {
+				fmt.Printf("    %s to:   %s\n", prefix, shortHash)
+			} else {
+				fmt.Printf("    %s to:   %s\n",
+					styles.Render(&styles.Dimmed, prefix),
+					styles.Render(&styles.Dimmed, shortHash))
+			}
+		}
 	}
 }
 
