@@ -14,7 +14,7 @@ Deliver `grove fetch` in two phases: first a working command with human-readable
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Fetch** - Fetch all remotes and show what changed
-- [ ] **Phase 2: Output Modes** - Add JSON and verbose output options
+- [x] **Phase 2: Output Modes** - Add JSON and verbose output options
 
 ## Phase Details
 
@@ -56,14 +56,14 @@ Plans:
 
 Plans:
 
-- [ ] 02-01-PLAN.md - Add --json and --verbose output modes
+- [x] 02-01-PLAN.md - Add --json and --verbose output modes
 
 ## Progress
 
 **Execution Order:**
 Phases execute in numeric order: 1 -> 2
 
-| Phase           | Plans Complete | Status      | Completed  |
-| --------------- | -------------- | ----------- | ---------- |
-| 1. Core Fetch   | 3/3            | Complete    | 2026-01-23 |
-| 2. Output Modes | 0/1            | Not started | -          |
+| Phase           | Plans Complete | Status   | Completed  |
+| --------------- | -------------- | -------- | ---------- |
+| 1. Core Fetch   | 3/3            | Complete | 2026-01-23 |
+| 2. Output Modes | 1/1            | Complete | 2026-01-23 |

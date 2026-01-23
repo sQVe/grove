@@ -18,8 +18,8 @@
 ### Output
 
 - [x] **OUT-01**: Human-readable output with clear labeling per remote
-- [ ] **OUT-02**: `--json` flag for machine-readable JSON output
-- [ ] **OUT-03**: `--verbose` flag shows additional details (commit info)
+- [x] **OUT-02**: `--json` flag for machine-readable JSON output
+- [x] **OUT-03**: `--verbose` flag shows additional details (commit info)
 
 ### CLI
 
@@ -55,8 +55,8 @@
 | CORE-06     | Phase 1 | Complete |
 | CORE-07     | Phase 1 | Complete |
 | OUT-01      | Phase 1 | Complete |
-| OUT-02      | Phase 2 | Pending  |
-| OUT-03      | Phase 2 | Pending  |
+| OUT-02      | Phase 2 | Complete |
+| OUT-03      | Phase 2 | Complete |
 | CLI-01      | Phase 1 | Complete |
 
 **Coverage:**
