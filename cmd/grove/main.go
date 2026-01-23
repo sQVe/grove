@@ -53,6 +53,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewConfigCmd())
 	rootCmd.AddCommand(commands.NewDoctorCmd())
 	rootCmd.AddCommand(commands.NewExecCmd())
+	rootCmd.AddCommand(commands.NewFetchCmd())
 	rootCmd.AddCommand(commands.NewInitCmd())
 	rootCmd.AddCommand(commands.NewListCmd())
 	rootCmd.AddCommand(commands.NewLockCmd())
