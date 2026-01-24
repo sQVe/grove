@@ -158,7 +158,15 @@ func outputFetchJSON(bareDir string, results []remoteResult) error {
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(output)
+	if err := enc.Encode(output); err != nil {
+		return err
+	}
+
+	if len(output.Errors) > 0 {
+		return fmt.Errorf("failed to fetch %d remote(s)", len(output.Errors))
+	}
+
+	return nil
 }
 
 func outputFetchResults(bareDir string, results []remoteResult, jsonOutput, verbose bool) error {
