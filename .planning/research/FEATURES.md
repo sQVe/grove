@@ -1,155 +1,170 @@
-# Features Research
+# Feature Landscape: CLI Output Polish
 
-**Domain:** CLI fetch command for git worktree management
-**Researched:** 2026-01-23
-**Confidence:** HIGH (based on git documentation and existing CLI patterns)
+**Domain:** CLI output UX for Grove worktree manager
+**Researched:** 2026-01-24
+**Confidence:** HIGH (based on clig.dev, GitHub CLI patterns, existing Grove codebase)
 
 ## Table Stakes
 
-Features users expect from a fetch command. Missing any of these makes the command feel incomplete.
+Features users expect from polished CLI output. Missing these makes Grove feel unfinished.
 
-| Feature             | Why Expected                                    | Complexity | Notes                                     |
-| ------------------- | ----------------------------------------------- | ---------- | ----------------------------------------- |
-| Fetch all remotes   | Standard behavior for `git fetch --all`         | Low        | Grove already has `FetchPrune()`          |
-| Progress indication | Users expect feedback during network operations | Low        | Spinner or progress bar                   |
-| Prune stale refs    | `--prune` is standard practice                  | Low        | Already implemented in `git.FetchPrune()` |
-| Error handling      | Clear messages when fetch fails (network, auth) | Low        | Map git errors to user-friendly messages  |
-| Quiet mode          | `-q/--quiet` for scripting                      | Low        | Suppress progress output                  |
-| Summary output      | Show what changed after fetch                   | Medium     | Count of updated refs                     |
+| Feature                              | Why Expected                                       | Complexity | Existing? | Notes                                             |
+| ------------------------------------ | -------------------------------------------------- | ---------- | --------- | ------------------------------------------------- |
+| Spinner for long operations          | Users need feedback during network/disk operations | Low        | Partial   | `logger.StartSpinner()` exists but only for fetch |
+| Clear success/error indicators       | Visual distinction between outcomes                | Low        | Yes       | `logger.Success()`, `logger.Error()` with icons   |
+| Plain mode for scripts               | Disable colors/spinners when piped                 | Low        | Yes       | `--plain` flag, `isPlain()` check                 |
+| Show what was affected               | "Deleted worktree X" should show path              | Low        | No        | Issue #68 - remove output unclear                 |
+| Stream subprocess output             | Hook output should appear in real-time             | Medium     | No        | Issue #44 - hooks buffer until complete           |
+| Stderr for progress, stdout for data | Separation for piping                              | Low        | Yes       | Spinners use stderr                               |
+| Error messages with context          | "Failed to X: because Y"                           | Low        | Partial   | Some errors lack actionable guidance              |
+| Non-TTY graceful degradation         | Works in CI, scripts, cron                         | Low        | Yes       | Plain mode fallback                               |
 
 ## Differentiators
 
-Features that would distinguish Grove fetch from raw `git fetch`. Not expected, but valuable for worktree workflows.
+Features that elevate Grove above basic CLI tools. Not expected, but valuable.
 
-| Feature               | Value Proposition                                           | Complexity | Notes                                    |
-| --------------------- | ----------------------------------------------------------- | ---------- | ---------------------------------------- |
-| Show incoming changes | `git log HEAD..@{u}` after fetch shows what would be pulled | Medium     | Key value-add for workflow               |
-| Per-worktree status   | Show which worktrees are behind after fetch                 | Medium     | Leverages existing `list` infrastructure |
-| Parallel fetch        | `git fetch --jobs=N` for multiple remotes                   | Low        | Just pass `--jobs` flag                  |
-| Dry run               | `--dry-run` shows what would be fetched                     | Low        | Native git support                       |
-| JSON output           | `--json` for scripting/tooling                              | Low        | Follow existing Grove patterns           |
-| Prune tags            | `--prune-tags` removes stale local tags                     | Low        | Native git support, use carefully        |
-| Verbose mode          | `-v/--verbose` shows detailed ref updates                   | Low        | Pass through to git                      |
+| Feature                            | Value Proposition                                      | Complexity | Existing? | Notes                                        |
+| ---------------------------------- | ------------------------------------------------------ | ---------- | --------- | -------------------------------------------- |
+| Consistent message vocabulary      | Same verbs across commands (Created, Deleted, Updated) | Low        | Partial   | Some inconsistency exists                    |
+| Structured output (--json)         | Machine-readable for tooling                           | Medium     | Partial   | Only on fetch command                        |
+| Verbose mode (-v)                  | Show more details when requested                       | Low        | Partial   | Only on fetch command                        |
+| Multi-step operation feedback      | "Step 1/3: Fetching..."                                | Medium     | No        | Would help grove add with hooks              |
+| Summary after batch operations     | "Removed 3 worktrees"                                  | Low        | No        | Currently logs each individually             |
+| Contextual hints                   | "Use --force to remove dirty worktree"                 | Low        | Partial   | Some commands have hints                     |
+| Time estimates for long ops        | "Fetching... (~30s remaining)"                         | High       | No        | Rarely worth the complexity                  |
+| Progress bars for known-length ops | File downloads, large operations                       | High       | No        | Grove operations are typically indeterminate |
 
 ## Anti-Features
 
-Features to explicitly avoid. Common mistakes or scope creep.
+Features to deliberately NOT build. Common mistakes in CLI design.
 
-| Anti-Feature        | Why Avoid                                               | What to Do Instead                     |
-| ------------------- | ------------------------------------------------------- | -------------------------------------- |
-| Auto-pull/merge     | Fetch should be read-only, never modify working tree    | Keep fetch and pull separate           |
-| Interactive mode    | Asking "do you want to pull?" breaks scripting          | Let user decide next action            |
-| Branch creation     | Don't auto-create local branches from remote            | User creates via `grove add`           |
-| Submodule recursion | Adds complexity, most worktree users don't need it      | Add only if explicitly requested       |
-| Per-worktree fetch  | Worktrees share refs, fetching per-worktree is wasteful | Fetch once at bare repo level          |
-| Complex filtering   | Filtering which refs to fetch                           | Keep it simple: all or specific remote |
-
-## Reference Commands
-
-### git fetch
-
-```bash
-git fetch --all           # Fetch all remotes
-git fetch --prune         # Remove stale remote-tracking refs
-git fetch --jobs=N        # Parallel fetch for multiple remotes
-git fetch --dry-run       # Show what would be fetched
-git fetch -v              # Verbose output
-git fetch -q              # Quiet mode
-```
-
-Key flags from [git-fetch documentation](https://git-scm.com/docs/git-fetch):
-
-- `--all` fetches all remotes
-- `--prune` removes refs that no longer exist on remote
-- `--prune-tags` removes local tags deleted on remote
-- `-j/--jobs=N` parallel fetching (default sequential)
-- `--dry-run` simulate without changes
-
-### gh repo sync
-
-```bash
-gh repo sync              # Sync local from remote parent
-gh repo sync --branch v1  # Specific branch
-gh repo sync --force      # Hard reset to match
-```
-
-From [gh repo sync](https://cli.github.com/manual/gh_repo_sync):
-
-- Focused on fork synchronization
-- Uses default branch by default
-- Force flag for hard reset
-
-### Viewing incoming changes
-
-```bash
-git fetch origin
-git log HEAD..@{u}        # Commits on remote not in local
-git diff HEAD..@{u}       # Full diff of changes
-git diff --stat @{u}      # Summary of changed files
-```
-
-From [git workflow guides](https://safjan.com/git-workflow-reviewing-changes-before-pulling-remote-branch/):
-
-- Fetch is read-only, pull is destructive
-- Preview before integrating
-
-### Git Repo Manager (grm)
-
-```bash
-grm fetch                 # Fetch all remotes in worktree setup
-grm wt pull               # Update all worktrees
-```
-
-From [Git Repo Manager docs](https://hakoerber.github.io/git-repo-manager/worktree_remotes.html):
-
-- Equivalent to `git fetch --all`
-- Designed for worktree workflows
+| Anti-Feature                      | Why Avoid                                                 | What to Do Instead                                 |
+| --------------------------------- | --------------------------------------------------------- | -------------------------------------------------- |
+| Interactive prompts by default    | Breaks scripting, CI, automation                          | Use flags; only prompt with explicit --interactive |
+| Emoji everywhere                  | Not universal, accessibility issues, looks unprofessional | Use simple ASCII symbols with Unicode fallback     |
+| Color-coding semantic information | Colorblind users miss meaning                             | Use icons + color, not color alone                 |
+| Animations in non-TTY             | Pollutes logs with escape codes                           | Already handled: plain mode                        |
+| Overly verbose default output     | Drowns important information                              | Default to concise; use -v for verbose             |
+| Custom progress bar library       | Maintenance burden, edge cases                            | Use proven library or simple spinner               |
+| Chatty "helpful" messages         | "Did you know you can..." clutters output                 | Keep output minimal and purposeful                 |
 
 ## Feature Dependencies
 
 ```
-grove fetch (core)
+Existing Infrastructure
     |
-    +-- Fetch all remotes
-    |       |
-    |       +-- Progress indication
-    |       +-- Error handling
-    |       +-- Prune stale refs
+    +-- logger.StartSpinner() -----> Enhanced spinner with message updates
     |
-    +-- Show changes (differentiator)
-            |
-            +-- Per-worktree behind status
-            +-- Incoming commit summary
+    +-- logger.Success/Error() ----> Consistent output vocabulary
+    |
+    +-- config.IsPlain() ----------> Already handles non-TTY
+    |
+    +-- styles (lipgloss) ---------> Already has color definitions
 ```
 
-## Recommended MVP
+### Implementation Dependencies
 
-**Phase 1 (MVP):**
+```
+Issue #68 (remove output)
+    Requires: No new infrastructure
+    Uses: logger.Success() with path info
 
-1. Fetch all remotes with prune (table stakes)
-2. Progress spinner during fetch (table stakes)
-3. Summary of what changed (table stakes)
-4. `--quiet` flag (table stakes)
+Issue #44 (hook streaming)
+    Requires: Refactor hooks.RunAddHooks()
+    Uses: cmd.Stdout = os.Stdout pattern
+    Impact: hooks.go, add.go output handling
+```
 
-**Phase 2 (Enhancement):**
+## Existing Grove Patterns
 
-1. Show incoming changes per worktree (`--status`)
-2. Parallel fetch with `--jobs`
-3. `--json` output
-4. `--dry-run`
+### Current logger API
 
-**Defer indefinitely:**
+```go
+logger.Success("Created worktree at %s", path)  // Green checkmark
+logger.Error("failed to remove: %v", err)       // Red X
+logger.Warning("branch has unpushed commits")   // Yellow triangle
+logger.Info("Fetching PR #%d...", n)            // Blue arrow
+logger.Dimmed("secondary information")          // Gray text
+logger.StartSpinner("Fetching...")              // Animated spinner
+```
 
-- Submodule support
-- Interactive mode
-- Auto-pull
+### Current pain points from issues
+
+**#68 - grove remove output unclear:**
+
+```
+Current:  "Deleted worktree feat-auth"
+Expected: "Deleted worktree feat-auth at ~/code/project/feat-auth"
+          OR show path, branch, and any deleted branch info
+```
+
+**#44 - Hook output not streamed:**
+
+```
+Current:  User sees nothing until hooks complete
+Expected: Real-time output as hooks run (npm install, etc.)
+```
+
+## Implementation Recommendations
+
+### Priority 1: Fix Known Issues (Low Effort, High Impact)
+
+1. **Remove command output (#68)**
+    - Add path to deletion message
+    - Consistent format: "Deleted worktree {branch} at {path}"
+    - If --branch: "Deleted worktree and branch {branch} at {path}"
+
+2. **Hook streaming (#44)**
+    - Replace buffered capture with streaming
+    - Use `cmd.Stdout = os.Stdout`, `cmd.Stderr = os.Stderr`
+    - Keep spinner until first output, then let output flow
+    - Show "[hook: {command}]" prefix for clarity
+
+### Priority 2: Consistency Pass (Low Effort)
+
+3. **Audit all commands for output consistency**
+    - Same verb tense (past: "Created", "Deleted", "Updated")
+    - Same information density (always show path for create/delete)
+    - Same error format ("failed to X: Y")
+
+4. **Extend --json to more commands**
+    - list command (already shows data, easy to JSONify)
+    - status command
+    - doctor command
+
+### Priority 3: Enhanced Feedback (Medium Effort)
+
+5. **Multi-step spinners for grove add**
+    - "Fetching branch..." -> "Creating worktree..." -> "Running hooks..."
+    - Each step with its own spinner/completion
+
+6. **Summary for batch operations**
+    - grove remove x y z: "Removed 3 worktrees"
+    - grove prune: "Pruned 2 stale worktrees"
+
+## Go Libraries for CLI Output
+
+### Already in use
+
+- **lipgloss** (charmbracelet) - Styling, colors
+- **cobra** - Command framework
+
+### Recommended additions
+
+None required. Current implementation is sufficient with minor refactoring.
+
+### If needing more features later
+
+- **bubbletea** - Interactive TUIs (overkill for Grove)
+- **briandowns/spinner** - More spinner options (current is fine)
+- **schollz/progressbar** - Progress bars (Grove ops are indeterminate)
 
 ## Sources
 
-- [Git fetch documentation](https://git-scm.com/docs/git-fetch)
-- [Git fetch options](https://git-scm.com/docs/fetch-options)
-- [gh repo sync](https://cli.github.com/manual/gh_repo_sync)
-- [Git Repo Manager worktrees](https://hakoerber.github.io/git-repo-manager/worktree_remotes.html)
-- [Atlassian Git fetch tutorial](https://www.atlassian.com/git/tutorials/syncing/git-fetch)
-- [CLI UX progress patterns](https://evilmartians.com/chronicles/cli-ux-best-practices-3-patterns-for-improving-progress-displays)
-- [Git prune best practices](https://www.git-tower.com/learn/git/faq/cleanup-remote-branches-with-git-prune)
+- [Command Line Interface Guidelines](https://clig.dev/) - Comprehensive CLI UX guide
+- [Heroku CLI Style Guide](https://devcenter.heroku.com/articles/cli-style-guide) - Action command patterns
+- [GitHub CLI Accessibility](https://github.blog/engineering/user-experience/building-a-more-accessible-github-cli/) - Screen reader considerations
+- [CLI UX Progress Patterns](https://evilmartians.com/chronicles/cli-ux-best-practices-3-patterns-for-improving-progress-displays) - Spinner vs progress bar guidance
+- [briandowns/spinner](https://github.com/briandowns/spinner) - Go spinner library
+- [go-cmd/cmd](https://github.com/go-cmd/cmd) - Streaming subprocess output
+- [Go os/exec](https://pkg.go.dev/os/exec) - Subprocess handling patterns
