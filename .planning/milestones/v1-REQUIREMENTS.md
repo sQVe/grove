@@ -1,3 +1,13 @@
+# Requirements Archive: v1 Grove Fetch
+
+**Archived:** 2026-01-23
+**Status:** ✅ SHIPPED
+
+This is the archived requirements specification for v1.
+For current requirements, see `.planning/REQUIREMENTS.md` (created for next milestone).
+
+---
+
 # Requirements: Grove Fetch
 
 **Defined:** 2026-01-23
@@ -18,20 +28,12 @@
 ### Output
 
 - [x] **OUT-01**: Human-readable output with clear labeling per remote
-- [ ] **OUT-02**: `--json` flag for machine-readable JSON output
-- [ ] **OUT-03**: `--verbose` flag shows additional details (commit info)
+- [x] **OUT-02**: `--json` flag for machine-readable JSON output
+- [x] **OUT-03**: `--verbose` flag shows additional details (commit info)
 
 ### CLI
 
 - [x] **CLI-01**: Shell completion support (no file completions, flags complete)
-
-## v2 Requirements
-
-### Enhanced Output
-
-- **ENH-01**: `--quiet` flag suppresses all output
-- **ENH-02**: `--dry-run` shows what would be fetched without fetching
-- **ENH-03**: Per-worktree behind counts after fetch
 
 ## Out of Scope
 
@@ -55,17 +57,25 @@
 | CORE-06     | Phase 1 | Complete |
 | CORE-07     | Phase 1 | Complete |
 | OUT-01      | Phase 1 | Complete |
-| OUT-02      | Phase 2 | Pending  |
-| OUT-03      | Phase 2 | Pending  |
+| OUT-02      | Phase 2 | Complete |
+| OUT-03      | Phase 2 | Complete |
 | CLI-01      | Phase 1 | Complete |
 
 **Coverage:**
 
 - v1 requirements: 11 total
-- Mapped to phases: 11
-- Unmapped: 0
+- Shipped: 11
+- Adjusted: 0
+- Dropped: 0
 
 ---
 
-_Requirements defined: 2026-01-23_
-_Last updated: 2026-01-23 after roadmap creation_
+## Milestone Summary
+
+**Shipped:** 11 of 11 v1 requirements
+**Adjusted:** None
+**Dropped:** None
+
+---
+
+_Archived: 2026-01-23 as part of v1 milestone completion_

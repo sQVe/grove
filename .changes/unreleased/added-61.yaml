@@ -1,0 +1,4 @@
+kind: Added
+body: '`--json` and `--verbose` flags to `grove fetch` for structured output and commit hash details'
+custom:
+  Issue: 61
