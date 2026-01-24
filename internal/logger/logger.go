@@ -3,9 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
-	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/sqve/grove/internal/styles"
 )
@@ -135,44 +133,5 @@ func ListItemGroup(header string, items []string) {
 		} else {
 			fmt.Fprintf(os.Stderr, "        %s\n", styles.Render(&styles.Dimmed, item))
 		}
-	}
-}
-
-// StartSpinner starts a spinner with a message and returns a stop function
-// Output goes to stderr to keep stdout clean for program output
-func StartSpinner(message string) func() {
-	if isPlain() {
-		fmt.Fprintf(os.Stderr, "%s %s\n", styles.Render(&styles.Info, "→"), message)
-		return func() {}
-	}
-
-	done := make(chan bool)
-	var once sync.Once
-
-	go func() {
-		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-
-		i := 0
-		for {
-			select {
-			case <-done:
-				fmt.Fprint(os.Stderr, "\r\033[K") // Clear line
-				return
-			case <-ticker.C:
-				fmt.Fprintf(os.Stderr, "\r%s %s",
-					styles.Render(&styles.Info, frames[i]),
-					message)
-				i = (i + 1) % len(frames)
-			}
-		}
-	}()
-
-	return func() {
-		once.Do(func() {
-			close(done)
-			time.Sleep(10 * time.Millisecond) // Let spinner goroutine clear the line before exit
-		})
 	}
 }

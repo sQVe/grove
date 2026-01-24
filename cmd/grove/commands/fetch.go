@@ -101,14 +101,14 @@ func fetchRemoteWithRetry(bareDir, remote string) remoteResult {
 		return result
 	}
 
-	stopSpinner := logger.StartSpinner(fmt.Sprintf("Fetching %s...", remote))
+	spinner := logger.StartSpinner(fmt.Sprintf("Fetching %s...", remote))
 
 	err = git.FetchRemote(bareDir, remote)
 	if err != nil {
 		logger.Debug("Fetch failed for %s, retrying: %v", remote, err)
 		err = git.FetchRemote(bareDir, remote)
 	}
-	stopSpinner()
+	spinner.Stop()
 
 	if err != nil {
 		result.Error = err
