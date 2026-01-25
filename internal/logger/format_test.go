@@ -38,6 +38,34 @@ func TestStepFormat(t *testing.T) {
 			message: "Processing",
 			want:    "Step 1/1: Processing",
 		},
+		{
+			name:    "step zero returns message only",
+			step:    0,
+			total:   5,
+			message: "Invalid",
+			want:    "Invalid",
+		},
+		{
+			name:    "total zero returns message only",
+			step:    1,
+			total:   0,
+			message: "Invalid",
+			want:    "Invalid",
+		},
+		{
+			name:    "step exceeds total returns message only",
+			step:    10,
+			total:   3,
+			message: "Invalid",
+			want:    "Invalid",
+		},
+		{
+			name:    "negative step returns message only",
+			step:    -1,
+			total:   5,
+			message: "Invalid",
+			want:    "Invalid",
+		},
 	}
 
 	for _, tt := range tests {
