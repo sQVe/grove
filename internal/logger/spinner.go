@@ -14,6 +14,7 @@ type Spinner struct {
 	message atomic.Value
 	done    chan struct{}
 	once    sync.Once
+	wg      sync.WaitGroup
 }
 
 func StartSpinner(message string) *Spinner {
@@ -26,11 +27,13 @@ func StartSpinner(message string) *Spinner {
 		return s
 	}
 
+	s.wg.Add(1)
 	go s.animate()
 	return s
 }
 
 func (s *Spinner) animate() {
+	defer s.wg.Done()
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	ticker := time.NewTicker(80 * time.Millisecond)
 	defer ticker.Stop()
@@ -56,10 +59,8 @@ func (s *Spinner) Update(message string) {
 }
 
 func (s *Spinner) Stop() {
-	s.once.Do(func() {
-		close(s.done)
-		time.Sleep(10 * time.Millisecond)
-	})
+	s.once.Do(func() { close(s.done) })
+	s.wg.Wait()
 }
 
 func (s *Spinner) StopWithSuccess(message string) {
