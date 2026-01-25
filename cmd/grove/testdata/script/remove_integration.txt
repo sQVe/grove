@@ -30,7 +30,7 @@ exec grove add new-feature
 exec grove add to-remove-by-dir
 exists ../to-remove-by-dir
 exec grove remove to-remove-by-dir
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../to-remove-by-dir
 
 ## Match by branch name (fallback) → removes worktree
@@ -38,7 +38,7 @@ stderr 'Deleted worktree'
 exec grove add feature/slash-test
 exists ../feature-slash-test
 exec grove remove feature/slash-test
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../feature-slash-test
 
 ## Directory name takes precedence over branch name
@@ -50,7 +50,7 @@ exists ../ambiguous
 # Also a worktree 'feature-branch' exists from earlier setup
 # If we remove 'ambiguous', it should match directory name first, not search branches
 exec grove remove ambiguous
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../ambiguous
 # Verify feature-branch still exists (wasn't confused by name matching)
 exists ../feature-branch
@@ -66,7 +66,7 @@ exec git tag v1.0.0
 exec grove add --detach v1.0.0
 exists ../v1.0.0
 exec grove remove v1.0.0
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../v1.0.0
 
 ## CWD is subdirectory of target → error
@@ -82,7 +82,7 @@ cd $WORK/workspace/main
 
 cd $WORK/workspace
 exec grove remove subdir-test
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists subdir-test
 cd main
 
@@ -133,7 +133,7 @@ exec grove add force-both
 exec sh -c 'echo "dirty" > ../force-both/untracked.txt'
 exec git -C $WORK/workspace/.bare worktree lock ../force-both
 exec grove remove --force force-both
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../force-both
 
 ## -f shorthand works
@@ -141,7 +141,7 @@ stderr 'Deleted worktree'
 exec grove add shorthand-test
 exec sh -c 'echo "dirty" > ../shorthand-test/untracked.txt'
 exec grove remove -f shorthand-test
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../shorthand-test
 
 ## --branch with unmerged commits (without force) → worktree removed, branch fails
@@ -168,7 +168,7 @@ exec git branch -D branch-unmerged
 exec grove add branch-merged
 # No new commits - branch is at same point as main, so it's "merged"
 exec grove remove --branch branch-merged
-stderr 'Deleted worktree and branch'
+stderr 'Removed worktree and branch'
 ! exists ../branch-merged
 
 ## --force --branch unmerged → both deleted (uses git branch -D)
@@ -180,24 +180,24 @@ exec git add work.txt
 exec git commit -m 'unmerged commit'
 cd ../main
 exec grove remove --force --branch unmerged-force
-stderr 'Deleted worktree and branch'
+stderr 'Removed worktree and branch'
 ! exists ../unmerged-force
 # Verify branch is actually deleted
 exec git branch --list unmerged-force
 ! stdout 'unmerged-force'
 
-## Output without --branch → "Deleted worktree <name>"
+## Output without --branch → "Removed worktree <name>"
 
 exec grove add output-test
 exec grove remove output-test
-stderr 'Deleted worktree.*output-test'
+stderr 'Removed worktree.*output-test'
 ! stdout 'branch'
 
-## Output with --branch → "Deleted worktree and branch <name>"
+## Output with --branch → "Removed worktree and branch <name>"
 
 exec grove add output-branch-test
 exec grove remove --branch output-branch-test
-stderr 'Deleted worktree and branch.*output-branch-test'
+stderr 'Removed worktree and branch.*output-branch-test'
 
 ## Phantom worktree (dir manually deleted) → shows warning, not found error
 
@@ -275,7 +275,7 @@ exec grove remove completion-test completion-extra
 exec grove add --name 'my worktree' spaces-branch
 exists '../my worktree'
 exec grove remove 'my worktree'
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists '../my worktree'
 
 ## Worktree created outside grove → still removable
@@ -285,7 +285,7 @@ exec git -C $WORK/workspace/.bare worktree add -b outside-grove-branch ../outsid
 exists ../outside-grove
 # Grove should still be able to remove it
 exec grove remove outside-grove
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../outside-grove
 
 ## --branch with unpushed commits → warns about unpushed, branch delete fails without force
@@ -323,7 +323,7 @@ exec git commit -m 'another unpushed'
 cd ../main
 exec grove remove --force --branch unpushed-test
 stderr 'unpushed'
-stderr 'Deleted worktree and branch'
+stderr 'Removed worktree and branch'
 ! exists ../unpushed-test
 
 ## --branch with upstream gone → no warning, deletes
@@ -339,7 +339,7 @@ exec git -C $WORK/remote-repo branch -D upstream-gone-test
 exec git fetch upstream --prune
 # Remove should work without error (upstream is gone)
 exec grove remove --branch upstream-gone-test
-stderr 'Deleted worktree and branch'
+stderr 'Removed worktree and branch'
 ! exists ../upstream-gone-test
 
 ## Submodule handling → git blocks removal (git limitation)

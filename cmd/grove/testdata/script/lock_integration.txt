@@ -149,7 +149,7 @@ exec grove remove remove-lock-test
 exec grove add remove-force-test
 exec grove lock remove-force-test
 exec grove remove --force remove-force-test
-stderr 'Deleted worktree'
+stderr 'Removed worktree'
 ! exists ../remove-force-test
 
 ## Integration: Move blocked by lock
