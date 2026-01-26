@@ -277,9 +277,8 @@ cd $WORK/workspace/main
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"touch .hook-ran\"]" >> .grove.toml'
 exec grove add feature/hook-success
+stderr 'Running 1 hook'
 stderr 'Created worktree at .*[/\\\\]feature-hook-success'
-stderr 'ran 1 hook'
-stderr 'touch .hook-ran'
 # Verify hook actually ran
 exists ../feature-hook-success/.hook-ran
 
@@ -288,8 +287,8 @@ exists ../feature-hook-success/.hook-ran
 exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = [\"touch .hook1\", \"touch .hook2\"]" >> .grove.toml'
 exec grove add feature/multi-hook
+stderr 'Running 2 hook'
 stderr 'Created worktree at .*[/\\\\]feature-multi-hook'
-stderr 'ran 2 hooks'
 exists ../feature-multi-hook/.hook1
 exists ../feature-multi-hook/.hook2
 
@@ -318,7 +317,7 @@ exec sh -c 'echo "[hooks]" > .grove.toml'
 exec sh -c 'echo "add = []" >> .grove.toml'
 exec grove add feature/no-hooks
 stderr 'Created worktree at .*[/\\\\]feature-no-hooks'
-! stderr 'ran.*hook'
+! stderr 'Running.*hook'
 ! stderr 'Hook'
 
 ## Hooks: Invalid TOML shows warning
