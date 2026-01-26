@@ -1,66 +1,83 @@
-# Grove Fetch
+# Grove
 
 ## What This Is
 
-A `grove fetch` command for Grove that fetches all remotes, prunes stale refs, and reports what changed. Users see exactly what happened on their remotes (new branches, updated branches, deleted branches) in a single command with optional JSON output for scripting.
+Grove is a CLI tool for managing git worktrees with a bare repository workflow. It simplifies creating, switching, and organizing worktrees while providing visibility into repository state across all branches.
 
 ## Core Value
 
-Users can see exactly what changed on their remotes in a single command.
+Users get a clean, organized multi-branch workflow where each branch lives in its own directory with full IDE support.
+
+## Current Milestone: v1.5 Output Polish
+
+**Goal:** Consistent, polished output across all Grove commands with progress feedback and clear error messages.
+
+**Target features:**
+
+- Progress/streaming — Spinners for long operations, stream hook output
+- Consistent messages — Unified success/error formats across all commands
+- Better error UX — Input-to-output mapping, actionable errors, suppress noise
 
 ## Requirements
 
 ### Validated
 
-- ✓ Command runs from anywhere in workspace — v1
-- ✓ Fetches all configured remotes — v1
-- ✓ Prunes stale remote-tracking refs by default — v1
-- ✓ Shows new refs (branches that didn't exist before) — v1
-- ✓ Shows updated refs (branches pointing to different commit) — v1
-- ✓ Shows pruned refs (branches deleted on remote) — v1
-- ✓ Skips remotes with no changes in output — v1
-- ✓ Human-readable output with clear labeling per remote — v1
-- ✓ `--json` flag for machine-readable output — v1
-- ✓ `--verbose` flag shows commit hash details — v1
-- ✓ Shell completion support — v1
+**Fetch command (v1.4):**
+
+- ✓ Command runs from anywhere in workspace
+- ✓ Fetches all configured remotes with automatic pruning
+- ✓ Shows new, updated, and pruned refs per remote
+- ✓ Human-readable and JSON output modes
+- ✓ `--verbose` flag shows commit hash details
+
+**Core commands (pre-v1.4):**
+
+- ✓ `grove new` creates worktrees from branches
+- ✓ `grove list` shows all worktrees with status
+- ✓ `grove remove` cleans up worktrees
+- ✓ `grove doctor` diagnoses workspace issues
+- ✓ `grove status` shows repository state
 
 ### Active
 
-- [ ] `--quiet` flag suppresses all output
-- [ ] `--dry-run` shows what would be fetched without fetching
-- [ ] Per-worktree behind counts after fetch
+**Output polish (v1.5):**
+
+- [ ] Spinners for long-running operations
+- [ ] Stream hook output in real-time
+- [ ] Consistent success/error message format
+- [ ] Remove command maps input to output clearly
+- [ ] Actionable error messages with suggestions
+- [ ] Suppress noisy git output where appropriate
 
 ### Out of Scope
 
-- Fetching specific remotes only — keep it simple, fetch all
-- Progress indicators during fetch — git handles this
-- Automatic worktree creation for new branches — separate concern
-- Auto-pull after fetch — users should control pulls
-- Tag handling — focus on branches
+- GUI or TUI interface — CLI-first
+- Git replacement — wraps git, doesn't replace it
+- Remote hosting integration — pure local tool
 
 ## Context
 
-Shipped v1 with 1,189 LOC Go.
-Tech stack: Go, Cobra CLI, existing internal packages.
-Files: internal/git/fetch.go, cmd/grove/commands/fetch.go, integration tests.
+Grove is a personal project for managing multiple worktrees efficiently. The codebase follows standard Go CLI patterns with Cobra for commands. Existing utilities include `logger.StartSpinner()`, `logger.Success/Error/Warning`, and a `formatter` package, but usage is inconsistent across commands.
+
+**Known issues:**
+
+- #68: `grove remove` output doesn't clearly show what was removed
+- #44: Hook output isn't streamed, user sees nothing until completion
 
 ## Key Decisions
 
-| Decision                   | Rationale                                        | Outcome |
-| -------------------------- | ------------------------------------------------ | ------- |
-| "Updated" = commit changed | Simpler than tracking fast-forward vs force-push | ✓ Good  |
-| Skip silent remotes        | Cleaner output, show only actionable info        | ✓ Good  |
-| Fetch all remotes          | Keep command simple, single purpose              | ✓ Good  |
-| Sorted output by ref name  | Deterministic results for testing                | ✓ Good  |
-| Short hashes in verbose    | 7 chars balances uniqueness and readability      | ✓ Good  |
-| omitempty JSON tags        | Cleaner machine output without nulls             | ✓ Good  |
+| Decision                 | Rationale                                        | Outcome   |
+| ------------------------ | ------------------------------------------------ | --------- |
+| Bare repository workflow | Clean separation of worktrees, no pollution      | ✓ Good    |
+| Cobra CLI framework      | Standard Go CLI tooling, good completion support | ✓ Good    |
+| Internal logger package  | Consistent formatting, spinner support           | — Pending |
 
 ## Constraints
 
-- **Tech stack**: Go, Cobra CLI, existing internal packages
-- **Compatibility**: Must work with git 2.48+
-- **Pattern**: Follow existing command patterns (see `list.go`, `doctor.go`)
+- **Tech stack**: Go 1.21+, Cobra CLI
+- **Compatibility**: git 2.48+
+- **Pattern**: Follow existing command patterns in `internal/`
 
 ---
 
-_Last updated: 2026-01-23 after v1 milestone_
+_Last updated: 2026-01-24 after v1.5 milestone start_

@@ -1,154 +1,168 @@
 # Project Research Summary
 
-**Project:** Grove fetch command
-**Domain:** CLI command for git worktree management
-**Researched:** 2026-01-23
+**Project:** Grove v1.5 Output Polish
+**Domain:** CLI output UX for Go-based worktree manager
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Executive Summary
 
-The fetch command is a straightforward addition to Grove that fetches remote changes and reports what changed. The recommended implementation uses a **snapshot-based approach**: capture refs before fetch, run `git fetch --all --prune`, capture refs after, then diff the two snapshots. This approach is simpler and more reliable than parsing git's porcelain output, and aligns with Grove's existing exec-based git patterns.
+Grove v1.5 output polish is a low-risk, high-impact milestone that requires no new dependencies. The existing stack (lipgloss v1.1.0, termenv, custom spinner, stdlib os/exec) is sufficient. Research confirms the codebase already has the right foundations: logger package with plain mode support, styles with themeable colors, formatter for domain-specific output. The work is refactoring and consistency, not greenfield development.
 
-The key value-add over raw `git fetch` is structured output showing what actually changed: new branches, updated branches, and pruned refs. Table stakes features include progress indication, prune support, and clear error handling. Differentiators include per-worktree behind status and JSON output for scripting.
+The recommended approach is extend-not-replace. Extract the spinner to its own file with new methods (StopWithSuccess, StopWithError, Update), add a stream writer for hook output, then sweep all commands for output consistency. The two open issues (#68 remove output clarity, #44 hook streaming) fit naturally into this plan and serve as validation targets.
 
-Primary risks are network failures going unnoticed and prune terminology confusing users about what gets deleted. Mitigate by checking remote reachability upfront (Grove already has this), providing per-remote status, and clearly labeling pruned items as remote-tracking refs (not local branches).
+Key risks are breaking scripted usage and CI pipelines. The existing `config.IsPlain()` pattern prevents most issues, but any new output must use it. Testing in non-TTY environments before each phase completes is essential. The phased approach (foundation, streaming, consistency, errors) isolates risk and allows incremental delivery.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Use `git for-each-ref` for snapshotting refs before/after fetch. This is explicitly recommended over `git show-ref` in git documentation for scripts. Stick with Grove's exec-based approach rather than adding go-git as a dependency.
+No new dependencies needed. The existing stack is current and sufficient.
 
-**Core technologies:**
+**Core technologies (keep as-is):**
 
-- `git for-each-ref`: Ref listing (preferred over show-ref for packed-refs handling)
-- `git fetch --all --prune`: Multi-remote fetch with cleanup
-- Snapshot diffing: Compare before/after ref maps (simpler than parsing porcelain output)
+- **lipgloss v1.1.0:** Styling and colors — stay on v1, v2 beta offers no value for CLI output
+- **termenv v0.16.0:** Terminal detection — already handles TTY checks
+- **Custom spinner:** Progress indication — enhance in-place, 50 lines vs external dependency
+- **os/exec stdlib:** Subprocess execution — streaming patterns are 20 lines of stdlib
+
+**Explicit non-recommendations:**
+
+- bubbletea/bubbles: TUI frameworks, overkill for CLI
+- briandowns/spinner: 90+ styles when Grove needs one
+- go-cmd/cmd: Streaming wrapper for something stdlib handles
 
 ### Expected Features
 
 **Must have (table stakes):**
 
-- Fetch all remotes with prune
-- Progress spinner during network operation
-- Summary of changes (count of new/updated/pruned refs)
-- `--quiet` flag for scripting
+- Spinner for long operations — exists but underused, needs extension
+- Clear success/error indicators — exists, needs consistent usage
+- Show what was affected — missing, causes #68
+- Stream subprocess output — missing, causes #44
+- Plain mode for scripts — exists, works correctly
 
-**Should have (competitive):**
+**Should have (differentiators):**
 
-- Show incoming changes per worktree (`--status`)
-- Parallel fetch with `--jobs`
-- `--json` output for tooling
-- `--dry-run` preview
+- Consistent message vocabulary — partial, needs audit
+- Multi-step operation feedback — would help grove add with hooks
+- Summary after batch operations — "Removed 3 worktrees"
+- Contextual hints — "Use --force to remove dirty worktree"
 
 **Defer (v2+):**
 
-- Submodule support
-- Interactive mode
-- Auto-pull
+- Time estimates for long ops — rarely worth complexity
+- Progress bars for known-length ops — Grove operations are indeterminate
+- Extended --json to all commands — lower priority than UX fixes
 
 ### Architecture Approach
 
-Follow Grove's existing command structure: command layer handles user interaction and orchestration, git layer handles low-level operations. Add new `git.GetRefSnapshot()` and `git.DiffRefs()` functions. The fetch command will use `workspace.FindBareDir()` for context, then call git functions.
+Extend internal/logger/, don't create parallel abstractions. Keep output in command layer, not business logic. Use stderr for feedback (spinners, success, errors) and stdout for data (list output, JSON). The existing formatter package is domain-specific and should stay that way.
 
-**Major components:**
+**Component changes:**
 
-1. `commands/fetch.go`: Cobra command, flags, orchestration, output formatting
-2. `git/refs.go`: `GetRefSnapshot()`, `DiffRefs()` functions (new file)
-3. `git/git.go`: Extend with `FetchAllPrune()` (adds `--all` to existing pattern)
+1. **internal/logger/spinner.go** (extract) — add StopWithSuccess/StopWithError/Update methods
+2. **internal/logger/stream.go** (new) — StreamCommand for real-time hook output with prefix
+3. **cmd/grove/commands/\*.go** (audit) — standardize logger usage, eliminate bare fmt.Print
 
 ### Critical Pitfalls
 
-1. **Prune confusion**: Users may think `--prune` deletes local branches. Label pruned refs clearly as `origin/branch` format and document that local branches are unaffected.
-
-2. **Silent network failures**: Fetch may "succeed" but refs don't update due to network issues. Check remote reachability first (use existing `git.IsRemoteReachable()`), report per-remote status.
-
-3. **No ref change visibility**: Users can't tell what changed after fetch. Categorize output: "New branches:", "Updated:", "Pruned:" based on snapshot diff.
-
-4. **Bare clone refspec issues**: Grove's bare clones need proper fetch refspecs. Verify refspec configured before fetch; Grove already handles this during clone.
-
-5. **Timeout on large repos**: Default 30s may not be enough. Document timeout configuration, consider longer default for fetch.
+1. **Breaking scripted usage with spinners** — Always check isatty(), test with pipes, ensure --plain disables all animation
+2. **Stdout/stderr confusion during migration** — Data to stdout, feedback to stderr, never change existing stream destinations
+3. **Blocking output during long operations** — Stream hook output in real-time, use spinner for opaque operations
+4. **Input-output mapping confusion (#68)** — Echo user input in output, show both directory name and branch when they differ
+5. **Breaking --plain mode** — Test every change in both modes, plain mode must produce pure ASCII
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-### Phase 1: Core fetch with snapshot tracking
+### Phase 1: Foundation
 
-**Rationale:** Foundation must exist before enhancements. Snapshot approach establishes data model for all subsequent features.
+**Rationale:** Establish patterns before adding features. The spinner extraction and output audit de-risk later phases.
+**Delivers:** Enhanced spinner API, documented output rules, consistency audit
+**Addresses:** Consistent message vocabulary, plain mode compliance
+**Avoids:** Breaking existing functionality, inconsistent patterns proliferating
 
-**Delivers:** `grove fetch` command that fetches all remotes, prunes stale refs, and reports changes (new/updated/pruned).
+### Phase 2: Hook Streaming
 
-**Addresses:** Table stakes features (fetch all, prune, progress, summary output).
+**Rationale:** Fixes the most painful UX issue (#44). Requires spinner to be stable first.
+**Delivers:** Real-time hook output via StreamWriter, better grove add experience
+**Addresses:** Stream subprocess output feature, blocking output pitfall
+**Avoids:** Spinner lifecycle bugs by building on Phase 1 patterns
 
-**Avoids:** Silent failure pitfall by adding basic error reporting. Prune confusion by labeling refs clearly.
+### Phase 3: Output Consistency
 
-### Phase 2: Output modes and flags
+**Rationale:** Apply consistent patterns across all commands. Depends on Phase 1 patterns being established.
+**Delivers:** Unified output format, all commands using logger properly
+**Addresses:** Consistent message vocabulary, doctor.go and fetch.go standardization
+**Avoids:** Piecemeal fixes that create new inconsistencies
 
-**Rationale:** Once core works, add flexibility. JSON output is essential for scripting; verbose mode passes through git's native output.
+### Phase 4: Error Formatting
 
-**Delivers:** `--json`, `--quiet`, `--verbose`, `--dry-run` flags.
-
-**Uses:** Existing Grove JSON patterns from `list.go` and `status.go`.
-
-**Implements:** Consistent flag handling across command.
-
-### Phase 3: Worktree integration
-
-**Rationale:** Key differentiator, but requires working fetch first. Shows which worktrees are behind their upstream after fetch.
-
-**Delivers:** `--status` flag showing per-worktree behind/ahead counts.
-
-**Uses:** Existing `git.ListWorktreesWithInfo()` infrastructure.
-
-**Avoids:** Performance issues by making this opt-in.
+**Rationale:** Polish layer on top of consistent output. Includes #68 fix.
+**Delivers:** Input-to-output mapping, actionable errors, suppressed noise
+**Addresses:** Remove command clarity (#68), contextual hints, verbose path warnings
+**Avoids:** Input-output mapping confusion, verbose error paths
 
 ### Phase Ordering Rationale
 
-- Phase 1 first because all other features depend on working fetch with change tracking
-- Phase 2 before Phase 3 because JSON output is simpler and more universally useful
-- Worktree integration last because it's a differentiator, not table stakes
+- Phase 1 before Phase 2: Spinner extraction must stabilize before hook streaming adds complexity
+- Phase 2 before Phase 3: Streaming implementation may reveal new output patterns to codify
+- Phase 3 before Phase 4: Consistent output format required before adding hints and enhanced errors
+- All phases test plain mode: Each phase must pass non-TTY tests before completion
 
 ### Research Flags
 
-Phases with standard patterns (no additional research needed):
+**Phases with standard patterns (skip research-phase):**
 
-- **Phase 1:** Snapshot approach is well-documented, git commands are standard
-- **Phase 2:** Flag patterns already exist in Grove codebase
-- **Phase 3:** Reuses existing worktree listing infrastructure
+- **Phase 1:** Logger enhancement is internal refactoring, patterns well understood
+- **Phase 3:** Consistency sweep is audit-driven, no new research needed
+- **Phase 4:** Error formatting follows established patterns from Phase 1
 
-No phases require additional research. Implementation can proceed directly.
+**Phases potentially needing deeper research:**
+
+- **Phase 2:** Hook streaming may need investigation if subprocess buffering causes issues (scanner line limits, stderr/stdout ordering). Monitor during implementation.
 
 ## Confidence Assessment
 
-| Area         | Confidence | Notes                                                       |
-| ------------ | ---------- | ----------------------------------------------------------- |
-| Stack        | HIGH       | Git documentation verified, approach matches Grove patterns |
-| Features     | HIGH       | Based on git-fetch docs and existing CLI patterns           |
-| Architecture | HIGH       | Direct codebase analysis, clear component boundaries        |
-| Pitfalls     | HIGH       | Combination of git docs and Grove-specific concerns         |
+| Area         | Confidence | Notes                                                    |
+| ------------ | ---------- | -------------------------------------------------------- |
+| Stack        | HIGH       | Verified against codebase and official releases          |
+| Features     | HIGH       | Based on clig.dev, GitHub CLI patterns, existing issues  |
+| Architecture | HIGH       | Based entirely on codebase analysis                      |
+| Pitfalls     | HIGH       | Real issues from community and Grove's own issue tracker |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Parallel fetch performance:** Whether `--jobs` provides meaningful speedup for typical Grove users (most have 1-2 remotes). Can defer to user feedback.
-- **Tag handling:** Whether to include tags by default. Recommend yes for completeness, but monitor for edge cases.
+- **Test coverage for plain mode:** Current tests may not cover --plain adequately. Add plain mode assertions during Phase 1.
+- **Spinner goroutine cleanup:** Existing implementation uses 10ms sleep for cleanup. Monitor for race conditions when adding more spinners in Phase 2.
+- **Backward compatibility for parsed output:** No formal contract exists for stdout format. Document during Phase 1 that stderr is for humans, --json is for machines.
 
 ## Sources
 
 ### Primary (HIGH confidence)
 
-- [Git fetch documentation](https://git-scm.com/docs/git-fetch) - porcelain format, flags
-- [Git for-each-ref documentation](https://git-scm.com/docs/git-for-each-ref) - ref listing
-- Grove codebase (`internal/git/git.go`, `cmd/grove/commands/`) - existing patterns
+- Grove codebase: internal/logger/logger.go, internal/styles/styles.go, cmd/grove/commands/\*.go
+- [Command Line Interface Guidelines](https://clig.dev/)
+- [GitHub CLI Accessibility](https://github.blog/engineering/user-experience/building-a-more-accessible-github-cli/)
 
 ### Secondary (MEDIUM confidence)
 
-- [Atlassian Git fetch tutorial](https://www.atlassian.com/git/tutorials/syncing/git-fetch) - usage patterns
-- [Git Tower prune guide](https://www.git-tower.com/learn/git/faq/cleanup-remote-branches-with-git-prune) - prune behavior
+- [Heroku CLI Style Guide](https://devcenter.heroku.com/articles/cli-style-guide)
+- [CLI UX Progress Patterns](https://evilmartians.com/chronicles/cli-ux-best-practices-3-patterns-for-improving-progress-displays)
+- [lipgloss releases](https://github.com/charmbracelet/lipgloss/releases)
+
+### Issue-specific
+
+- [Grove Issue #68](https://github.com/sqve/grove/issues/68) — Remove command output clarity
+- [Grove Issue #44](https://github.com/sqve/grove/issues/44) — Hook output streaming
+- [Salesforce CLI TTY Issue](https://github.com/forcedotcom/cli/issues/327) — Progress bar in non-TTY
+- [golang-migrate stderr Issue](https://github.com/golang-migrate/migrate/issues/363) — Stream confusion
 
 ---
 
-_Research completed: 2026-01-23_
+_Research completed: 2026-01-24_
 _Ready for roadmap: yes_

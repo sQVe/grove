@@ -1,0 +1,4 @@
+kind: Added
+body: Spinner API with `Update`, `StopWithSuccess`, `StopWithError` methods and `StepFormat` helper for step/total formatting
+custom:
+  Issue: 73

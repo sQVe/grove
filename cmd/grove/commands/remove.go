@@ -86,7 +86,8 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		unique = append(unique, info)
 	}
 
-	// Process each target, accumulate failures
+	// Process each target, accumulate successes and failures
+	var removed []string
 	var failed []string
 	for _, info := range unique {
 		// Check if user is inside the worktree being deleted
@@ -147,9 +148,24 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				failed = append(failed, info.Branch)
 				continue
 			}
-			logger.Success("Deleted worktree and branch %s", info.Branch)
+		}
+		removed = append(removed, info.Branch)
+	}
+
+	// Print summary
+	if len(removed) > 0 {
+		if len(removed) == 1 {
+			if deleteBranch {
+				logger.Success("Removed worktree and branch %s", removed[0])
+			} else {
+				logger.Success("Removed worktree %s", removed[0])
+			}
 		} else {
-			logger.Success("Deleted worktree %s", info.Branch)
+			if deleteBranch {
+				logger.Success("Removed %d worktrees and branches", len(removed))
+			} else {
+				logger.Success("Removed %d worktrees", len(removed))
+			}
 		}
 	}
 

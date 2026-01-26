@@ -153,14 +153,13 @@ func ValidateAndPrepareDirectory(path string) error {
 
 // cloneWithProgress clones a repository with progress indication
 func cloneWithProgress(url, bareDir string, verbose, shallow bool) error {
-	stop := logger.StartSpinner("Cloning repository...")
-	defer stop()
+	spinner := logger.StartSpinner("Cloning repository...")
+	defer spinner.Stop()
 
 	if err := git.Clone(url, bareDir, !verbose, shallow); err != nil {
 		return err
 	}
 
-	stop()
 	logger.Success("Repository cloned")
 	return nil
 }
