@@ -10,6 +10,7 @@ import (
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -87,13 +88,32 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	}
 
 	// Process each target, accumulate successes and failures
-	var removed []string
+	type removedWorktree struct {
+		path   string
+		branch string
+	}
+	var removed []removedWorktree
 	var failed []string
-	for _, info := range unique {
+
+	var spin *logger.Spinner
+	if len(unique) > 1 {
+		spin = logger.StartSpinner(fmt.Sprintf("Removing worktrees (0/%d)...", len(unique)))
+	}
+
+	for i, info := range unique {
+		if spin != nil {
+			spin.Update(fmt.Sprintf("Removing worktrees (%d/%d)...", i+1, len(unique)))
+		}
+
+		displayName := info.Branch
+		if displayName == "" {
+			displayName = filepath.Base(info.Path)
+		}
+
 		// Check if user is inside the worktree being deleted
 		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
-			logger.Error("%s: cannot delete current worktree", info.Branch)
-			failed = append(failed, info.Branch)
+			logger.Error("%s: cannot delete current worktree", displayName)
+			failed = append(failed, displayName)
 			continue
 		}
 
@@ -101,19 +121,19 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		if !force {
 			hasChanges, _, err := git.CheckGitChanges(info.Path)
 			if err != nil {
-				logger.Error("%s: failed to check worktree status: %v", info.Branch, err)
-				failed = append(failed, info.Branch)
+				logger.Error("%s: failed to check worktree status: %v", displayName, err)
+				failed = append(failed, displayName)
 				continue
 			}
 			if hasChanges {
-				logger.Error("%s: worktree has uncommitted changes; use --force to remove anyway", info.Branch)
-				failed = append(failed, info.Branch)
+				logger.Error("%s: worktree has uncommitted changes; use --force to remove anyway", displayName)
+				failed = append(failed, displayName)
 				continue
 			}
 
 			if git.IsWorktreeLocked(info.Path) {
-				logger.Error("%s: worktree is locked; use --force to remove anyway", info.Branch)
-				failed = append(failed, info.Branch)
+				logger.Error("%s: worktree is locked; use --force to remove anyway", displayName)
+				failed = append(failed, displayName)
 				continue
 			}
 		} else if git.IsWorktreeLocked(info.Path) {
@@ -132,8 +152,8 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 		// Remove the worktree
 		if err := git.RemoveWorktree(bareDir, info.Path, force); err != nil {
-			logger.Error("%s: failed to remove worktree: %v", info.Branch, err)
-			failed = append(failed, info.Branch)
+			logger.Error("%s: failed to remove worktree: %v", displayName, err)
+			failed = append(failed, displayName)
 			continue
 		}
 
@@ -144,27 +164,37 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			}
 
 			if err := git.DeleteBranch(bareDir, info.Branch, force); err != nil {
-				logger.Error("%s: worktree removed but failed to delete branch: %v", info.Branch, err)
-				failed = append(failed, info.Branch)
+				logger.Error("%s: worktree removed but failed to delete branch: %v", displayName, err)
+				failed = append(failed, displayName)
 				continue
 			}
 		}
-		removed = append(removed, info.Branch)
+		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch})
+	}
+
+	if spin != nil {
+		spin.Stop()
 	}
 
 	// Print summary
 	if len(removed) > 0 {
 		if len(removed) == 1 {
+			logger.Success("Removed worktree %s", styles.RenderPath(removed[0].path))
 			if deleteBranch {
-				logger.Success("Removed worktree and branch %s", removed[0])
-			} else {
-				logger.Success("Removed worktree %s", removed[0])
+				logger.ListSubItem("deleted branch %s", removed[0].branch)
 			}
 		} else {
 			if deleteBranch {
-				logger.Success("Removed %d worktrees and branches", len(removed))
+				logger.Success("Removed %d worktrees and branches:", len(removed))
 			} else {
-				logger.Success("Removed %d worktrees", len(removed))
+				logger.Success("Removed %d worktrees:", len(removed))
+			}
+			for _, r := range removed {
+				if deleteBranch {
+					logger.ListSubItem("%s (branch %s)", styles.RenderPath(r.path), r.branch)
+				} else {
+					logger.ListSubItem("%s", styles.RenderPath(r.path))
+				}
 			}
 		}
 	}

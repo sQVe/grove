@@ -168,7 +168,8 @@ exec git branch -D branch-unmerged
 exec grove add branch-merged
 # No new commits - branch is at same point as main, so it's "merged"
 exec grove remove --branch branch-merged
-stderr 'Removed worktree and branch'
+stderr 'Removed worktree.*branch-merged'
+stderr 'deleted branch'
 ! exists ../branch-merged
 
 ## --force --branch unmerged → both deleted (uses git branch -D)
@@ -180,7 +181,8 @@ exec git add work.txt
 exec git commit -m 'unmerged commit'
 cd ../main
 exec grove remove --force --branch unmerged-force
-stderr 'Removed worktree and branch'
+stderr 'Removed worktree.*unmerged-force'
+stderr 'deleted branch'
 ! exists ../unmerged-force
 # Verify branch is actually deleted
 exec git branch --list unmerged-force
@@ -193,11 +195,12 @@ exec grove remove output-test
 stderr 'Removed worktree.*output-test'
 ! stdout 'branch'
 
-## Output with --branch → "Removed worktree and branch <name>"
+## Output with --branch → "Removed worktree <path>" with "deleted branch" sub-item
 
 exec grove add output-branch-test
 exec grove remove --branch output-branch-test
-stderr 'Removed worktree and branch.*output-branch-test'
+stderr 'Removed worktree.*output-branch-test'
+stderr 'deleted branch'
 
 ## Phantom worktree (dir manually deleted) → shows warning, not found error
 
@@ -323,7 +326,8 @@ exec git commit -m 'another unpushed'
 cd ../main
 exec grove remove --force --branch unpushed-test
 stderr 'unpushed'
-stderr 'Removed worktree and branch'
+stderr 'Removed worktree.*unpushed-test'
+stderr 'deleted branch'
 ! exists ../unpushed-test
 
 ## --branch with upstream gone → no warning, deletes
@@ -339,7 +343,8 @@ exec git -C $WORK/remote-repo branch -D upstream-gone-test
 exec git fetch upstream --prune
 # Remove should work without error (upstream is gone)
 exec grove remove --branch upstream-gone-test
-stderr 'Removed worktree and branch'
+stderr 'Removed worktree.*upstream-gone-test'
+stderr 'deleted branch'
 ! exists ../upstream-gone-test
 
 ## Submodule handling → git blocks removal (git limitation)

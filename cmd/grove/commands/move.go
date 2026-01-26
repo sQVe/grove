@@ -119,6 +119,7 @@ func runMove(target, newBranch string) error {
 	// Track steps for rollback
 	var branchRenamed, dirMoved bool
 	oldWorktreePath := worktreeInfo.Path
+	spin := logger.StartSpinner(fmt.Sprintf("Moving worktree %s to %s...", target, newBranch))
 
 	defer func() {
 		if !branchRenamed && !dirMoved {
@@ -146,20 +147,24 @@ func runMove(target, newBranch string) error {
 
 	// Step 1: Rename the git branch
 	if err := git.RenameBranch(bareDir, worktreeInfo.Branch, newBranch); err != nil {
+		spin.StopWithError("Failed to rename branch")
 		return fmt.Errorf("failed to rename branch: %w", err)
 	}
 	branchRenamed = true
 
 	// Step 2: Move the worktree directory
 	if err := os.Rename(oldWorktreePath, newWorktreePath); err != nil {
+		spin.StopWithError("Failed to move directory")
 		return fmt.Errorf("failed to move worktree directory: %w", err)
 	}
 	dirMoved = true
 
 	// Step 3: Repair worktree to update git's registry with new path
 	if err := git.RepairWorktree(bareDir, newWorktreePath); err != nil {
+		spin.StopWithError("Failed to repair worktree")
 		return fmt.Errorf("failed to repair worktree: %w", err)
 	}
+	spin.Stop()
 
 	// Step 4: Update upstream tracking if configured
 	if worktreeInfo.Upstream != "" {

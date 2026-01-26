@@ -22,7 +22,7 @@ exec git config user.email "test@example.com"
 ## Clean workspace reports no issues
 
 exec grove doctor
-stdout '✓ No issues found'
+stderr '✓ No issues found'
 
 ## Detect broken .git pointer (missing file)
 
@@ -93,7 +93,7 @@ stdout '⚠ Stale lock file'
 ## Fix stale lock file with --fix
 
 exec grove doctor --fix
-stdout 'Fixed: Stale lock file'
+stderr 'Fixed: Stale lock file'
 ! exists ../.grove-convert.lock
 
 ## Fix stale worktree entry with --fix
@@ -101,17 +101,17 @@ stdout 'Fixed: Stale lock file'
 mkdir ../.bare/worktrees/orphan-fix-test
 exec sh -c 'echo "/nonexistent/path" > ../.bare/worktrees/orphan-fix-test/gitdir'
 exec grove doctor --fix
-stdout 'Fixed: Stale worktree entry'
+stderr 'Fixed: Stale worktree entry'
 ! exists ../.bare/worktrees/orphan-fix-test
 
 ## Fix broken .git pointer with --fix
 
 exec rm .git
 exec grove doctor --fix
-stdout 'Fixed: Broken .git pointer'
+stderr 'Fixed: Broken .git pointer'
 exists .git
 exec grove doctor
-stdout '✓ No issues found'
+stderr '✓ No issues found'
 
 ## JSON output format
 

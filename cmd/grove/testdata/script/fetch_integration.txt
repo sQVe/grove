@@ -29,7 +29,7 @@ exec git config user.email "test@example.com"
 ## Test: Fetch with no changes
 
 exec grove fetch
-stdout 'All remotes up to date'
+stderr 'All remotes up to date'
 
 ## Test: Detect new branch
 
@@ -47,7 +47,7 @@ stdout '\+ feature/new-branch'
 
 # Subsequent fetch should show no changes
 exec grove fetch
-stdout 'All remotes up to date'
+stderr 'All remotes up to date'
 
 ## Test: Detect updated branch
 
@@ -83,13 +83,13 @@ stdout 'deleted on remote'
 mkdir subdir
 cd subdir
 exec grove fetch
-stdout 'All remotes up to date'
+stderr 'All remotes up to date'
 
 ## Test: Works from workspace root
 
 cd $WORK/workspace
 exec grove fetch
-stdout 'All remotes up to date'
+stderr 'All remotes up to date'
 
 ## Test: Multiple commits shown with count
 
@@ -237,7 +237,7 @@ cd empty-ws
 exec grove add main
 cd main
 exec grove fetch
-stdout 'No remotes configured'
+stderr 'No remotes configured'
 
 -- README.md --
 # Test

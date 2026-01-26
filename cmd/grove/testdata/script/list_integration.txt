@@ -33,7 +33,7 @@ stdout 'main'
 stdout 'develop'
 stdout 'feature-test'
 ! stdout '\[locked\]'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Extra arguments → error
 
@@ -45,7 +45,7 @@ stderr 'unknown command'
 exec grove list --fast --plain
 stdout 'main'
 stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## --json flag → JSON output
 
@@ -53,32 +53,29 @@ exec grove list --json
 stdout '"name":'
 stdout '"main"'
 stdout '"path":'
-! stderr .
 
 ## --verbose / -v flag → show path, upstream, lock reason
 
 exec grove list --verbose
 stdout 'main'
 stdout 'workspace[/\\\\]main'
-! stderr .
 
 exec grove list -v
 stdout 'main'
-! stderr .
 
 ## Filter with no matches → empty output
 
 exec grove list --filter dirty --plain
 ! stdout 'main'
 ! stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Dirty worktree (modified files) → dirty indicator
 
 exec sh -c 'echo "modified" >> README.md'
 exec grove list --plain
 stdout '\[dirty\]'
-! stderr .
+stderr 'Gathering worktree status'
 # Clean up
 exec git checkout README.md
 
@@ -87,7 +84,7 @@ exec git checkout README.md
 exec sh -c 'echo "new" > untracked.txt'
 exec grove list --plain
 stdout '\[dirty\]'
-! stderr .
+stderr 'Gathering worktree status'
 rm untracked.txt
 
 ## Dirty worktree (staged files) → dirty indicator
@@ -96,7 +93,7 @@ exec sh -c 'echo "staged" > staged.txt'
 exec git add staged.txt
 exec grove list --plain
 stdout '\[dirty\]'
-! stderr .
+stderr 'Gathering worktree status'
 exec git reset HEAD staged.txt
 rm staged.txt
 
@@ -105,7 +102,7 @@ rm staged.txt
 exec git -C $WORK/workspace/.bare worktree lock ../develop
 exec grove list --plain
 stdout '\[locked\]'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Locked with reason → reason shown in verbose
 
@@ -114,7 +111,6 @@ exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Important w
 exec grove list --verbose
 stdout 'lock reason'
 stdout 'Important work in progress'
-! stderr .
 exec git -C $WORK/workspace/.bare worktree unlock ../develop
 
 ## Detached HEAD → shows "(detached)"
@@ -124,7 +120,7 @@ exec grove add --detach v1.0.0
 exec grove list --plain
 stdout 'v1.0.0'
 stdout '\(detached\)'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## --filter dirty → only dirty worktrees
 
@@ -132,7 +128,7 @@ exec sh -c 'echo "dirty" > ../develop/dirty.txt'
 exec grove list --filter dirty --plain
 stdout 'develop'
 ! stdout '^[^d]*main'
-! stderr .
+stderr 'Gathering worktree status'
 rm ../develop/dirty.txt
 
 ## --filter locked → only locked worktrees
@@ -142,7 +138,7 @@ exec grove list --filter locked --plain
 stdout 'feature-test'
 ! stdout '^[^f]*main'
 ! stdout '^[^f]*develop'
-! stderr .
+stderr 'Gathering worktree status'
 exec git -C $WORK/workspace/.bare worktree unlock ../feature-test
 
 ## --filter dirty,locked → OR logic
@@ -153,7 +149,7 @@ exec grove list --filter dirty,locked --plain
 stdout 'develop'
 stdout 'feature-test'
 ! stdout '^[^df]*main'
-! stderr .
+stderr 'Gathering worktree status'
 rm ../develop/dirty.txt
 exec git -C $WORK/workspace/.bare worktree unlock ../feature-test
 
@@ -162,7 +158,7 @@ exec git -C $WORK/workspace/.bare worktree unlock ../feature-test
 exec sh -c 'echo "dirty" > ../develop/dirty.txt'
 exec grove list --filter ' dirty ' --plain
 stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 rm ../develop/dirty.txt
 
 ## --filter DIRTY → case-insensitive
@@ -170,7 +166,7 @@ rm ../develop/dirty.txt
 exec sh -c 'echo "dirty" > ../develop/dirty.txt'
 exec grove list --filter DIRTY --plain
 stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 rm ../develop/dirty.txt
 
 ## --filter invalid → unknown filter, matches nothing
@@ -178,14 +174,14 @@ rm ../develop/dirty.txt
 exec grove list --filter invalid --plain
 ! stdout 'main'
 ! stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## --filter "" → empty filter, returns all
 
 exec grove list --filter '' --plain
 stdout 'main'
 stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Sync status tests - setup remote tracking
 
@@ -208,7 +204,7 @@ exec git add ahead.txt
 exec git commit -m 'ahead commit'
 exec grove list --plain
 stdout '\+1'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Behind upstream → shows behind indicator
 
@@ -230,7 +226,7 @@ cd $WORK/workspace/develop
 exec git fetch upstream
 exec grove list --plain
 stdout '\-1'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Both ahead and behind → shows both indicators
 
@@ -240,7 +236,7 @@ exec git add local-dev.txt
 exec git commit -m 'local develop commit'
 exec grove list --plain
 stdout '\+1.*\-1'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Upstream gone → shows gone indicator
 
@@ -249,7 +245,7 @@ exec git -C $WORK/remote-repo branch -D develop
 exec git fetch upstream --prune
 exec grove list --plain
 stdout 'gone'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## No upstream configured → no sync indicator
 
@@ -258,7 +254,7 @@ cd $WORK/workspace/main
 exec grove list --plain
 # feature-test line should not have sync indicators
 stdout 'feature-test.*\[feature/test\]'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## In sync with upstream → no indicator (clean)
 
@@ -268,7 +264,7 @@ exec git reset --hard upstream/main
 exec grove list --plain
 # main should have no sync indicators when in sync
 stdout '^\*.*main.*\[main\]'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## --fast skips sync status
 
@@ -281,7 +277,7 @@ exec grove list --fast --plain
 ! stdout '\+[0-9]'
 ! stdout '\-[0-9]'
 ! stdout 'gone'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## --fast skips dirty status too (dirty requires git status check)
 
@@ -289,7 +285,7 @@ exec sh -c 'echo "dirty" > dirty.txt'
 exec grove list --fast --plain
 # Fast mode skips dirty detection (would require git status call)
 ! stdout '\[dirty\]'
-! stderr .
+stderr 'Gathering worktree status'
 rm dirty.txt
 
 ## --fast still shows lock status
@@ -297,7 +293,7 @@ rm dirty.txt
 exec git -C $WORK/workspace/.bare worktree lock ../develop
 exec grove list --fast --plain
 stdout '\[locked\]'
-! stderr .
+stderr 'Gathering worktree status'
 exec git -C $WORK/workspace/.bare worktree unlock ../develop
 
 ## CWD in worktree → marked as current, sorted first
@@ -308,7 +304,7 @@ exec grove list --plain
 stdout '^\*'
 # Main should be first (current), then others alphabetically
 stdout '^.*main'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## CWD in worktree subdirectory → parent marked current
 
@@ -317,7 +313,7 @@ cd src/components
 exec grove list --plain
 stdout '^\*'
 stdout 'main'
-! stderr .
+stderr 'Gathering worktree status'
 cd $WORK/workspace/main
 
 ## CWD at workspace root → no current marker
@@ -327,7 +323,7 @@ exec grove list --plain
 ! stdout '^\*'
 stdout 'main'
 stdout 'develop'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Alphabetical sort after current
 
@@ -336,7 +332,7 @@ exec grove list --plain
 # develop should come before feature-test alphabetically
 stdout 'develop'
 stdout 'feature-test'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## JSON output - all fields present
 
@@ -344,13 +340,11 @@ exec grove list --json
 stdout '"name"'
 stdout '"path"'
 stdout '"current"'
-! stderr .
 
 ## JSON output - detached worktree has detached: true
 
 exec grove list --json
 stdout '"detached": true'
-! stderr .
 
 ## JSON output - locked worktree has locked: true, lock_reason
 
@@ -358,7 +352,6 @@ exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Test reason
 exec grove list --json
 stdout '"locked": true'
 stdout '"lock_reason": "Test reason"'
-! stderr .
 exec git -C $WORK/workspace/.bare worktree unlock ../develop
 
 ## JSON output - clean worktree omits dirty: false (omitempty)
@@ -368,7 +361,6 @@ exec grove list --json
 ! stdout '"dirty": false'
 # Should NOT have "locked": false for unlocked worktrees
 ! stdout '"locked": false'
-! stderr .
 
 ## Corrupted worktree (phantom) → skipped with warning
 
@@ -387,7 +379,7 @@ exec git -C $WORK/workspace/.bare worktree prune
 exec grove list --plain
 # Shows the actual branch name in brackets
 stdout 'feature-test.*\[feature/test\]'
-! stderr .
+stderr 'Gathering worktree status'
 
 ## Very long branch name → displayed correctly
 
@@ -397,7 +389,7 @@ exec git checkout main
 exec grove add this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
 exec grove list --plain
 stdout 'this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly'
-! stderr .
+stderr 'Gathering worktree status'
 exec grove remove this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
 
 ## Shell completion: --filter suggests values

@@ -159,8 +159,8 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 	}
 
 	// Clone using gh repo clone (respects user's protocol preference)
-	logger.Info("Cloning %s/%s...", ref.Owner, ref.Repo)
 	repoSpec := fmt.Sprintf("%s/%s", ref.Owner, ref.Repo)
+	spin := logger.StartSpinner(fmt.Sprintf("Cloning %s/%s...", ref.Owner, ref.Repo))
 
 	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
 	if shallow {
@@ -168,13 +168,15 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 	}
 	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
 	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
 	if verbose {
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	} else {
+		cmd.Stderr = &stderr
 	}
 
 	if err := cmd.Run(); err != nil {
+		spin.StopWithError("Clone failed")
 		cleanup("")
 		errStr := strings.TrimSpace(stderr.String())
 		if errStr != "" {
@@ -182,6 +184,7 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 		}
 		return fmt.Errorf("clone failed: %w", err)
 	}
+	spin.Stop()
 
 	if err := git.ConfigureFetchRefspec(bareDir, "origin"); err != nil {
 		cleanup("")
@@ -202,12 +205,14 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 	}
 
 	// Fetch PR info
-	logger.Info("Fetching PR #%d...", ref.Number)
+	spin = logger.StartSpinner(fmt.Sprintf("Fetching PR #%d...", ref.Number))
 	prInfo, err := github.FetchPRInfo(ref.Owner, ref.Repo, ref.Number)
 	if err != nil {
+		spin.StopWithError("Failed to fetch PR info")
 		cleanup("")
 		return err
 	}
+	spin.Stop()
 
 	branch := prInfo.HeadRef
 	dirName := fmt.Sprintf("pr-%d", ref.Number)
@@ -222,17 +227,21 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 			return fmt.Errorf("failed to get fork URL: %w", err)
 		}
 
-		logger.Info("Adding remote %s for fork...", remoteName)
+		spin = logger.StartSpinner(fmt.Sprintf("Adding remote %s for fork...", remoteName))
 		if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
+			spin.StopWithError("Failed to add remote")
 			cleanup("")
 			return fmt.Errorf("failed to add fork remote: %w", err)
 		}
+		spin.Stop()
 
-		logger.Info("Fetching branch %s from fork...", branch)
+		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s from fork...", branch))
 		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
+			spin.StopWithError("Failed to fetch branch")
 			cleanup("")
 			return fmt.Errorf("failed to fetch fork branch: %w", err)
 		}
+		spin.Stop()
 
 		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
@@ -242,11 +251,13 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 		}
 	} else {
 		// Same-repo PR: fetch and create worktree
-		logger.Info("Fetching branch %s...", branch)
+		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s...", branch))
 		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+			spin.StopWithError("Failed to fetch branch")
 			cleanup("")
 			return fmt.Errorf("failed to fetch branch: %w", err)
 		}
+		spin.Stop()
 
 		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
 			cleanup(worktreePath)
@@ -276,7 +287,7 @@ func runCloneFromGitHub(owner, repo, targetDir, branches string, verbose, shallo
 
 // cloneWithGh clones a repository using the gh CLI, which respects the user's protocol preference.
 func cloneWithGh(repoSpec, bareDir string, verbose, shallow bool) error {
-	logger.Info("Cloning %s...", repoSpec)
+	spin := logger.StartSpinner(fmt.Sprintf("Cloning %s...", repoSpec))
 
 	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
 	if shallow {
@@ -293,6 +304,7 @@ func cloneWithGh(repoSpec, bareDir string, verbose, shallow bool) error {
 	}
 
 	if err := cmd.Run(); err != nil {
+		spin.StopWithError("Clone failed")
 		errStr := strings.TrimSpace(stderr.String())
 		if errStr != "" {
 			return fmt.Errorf("clone failed: %s", errStr)
@@ -300,6 +312,7 @@ func cloneWithGh(repoSpec, bareDir string, verbose, shallow bool) error {
 
 		return fmt.Errorf("clone failed: %w", err)
 	}
+	spin.Stop()
 
 	return nil
 }

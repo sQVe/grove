@@ -330,11 +330,13 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 
 	// Fetch PR info
-	logger.Info("Fetching PR #%d from %s/%s...", ref.Number, owner, repo)
+	spin := logger.StartSpinner(fmt.Sprintf("Fetching PR #%d from %s/%s...", ref.Number, owner, repo))
 	prInfo, err := github.FetchPRInfo(owner, repo, ref.Number)
 	if err != nil {
+		spin.StopWithError("Failed to fetch PR info")
 		return err
 	}
+	spin.Stop()
 
 	branch := prInfo.HeadRef
 	dirName := name
@@ -377,10 +379,12 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 				return fmt.Errorf("failed to get fork URL: %w", err)
 			}
 
-			logger.Info("Adding remote %s for fork...", remoteName)
+			spin = logger.StartSpinner(fmt.Sprintf("Adding remote %s for fork...", remoteName))
 			if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
+				spin.StopWithError("Failed to add remote")
 				return fmt.Errorf("failed to add fork remote: %w", err)
 			}
+			spin.Stop()
 			addedRemote = true
 		}
 
@@ -392,11 +396,13 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 			}
 		}
 
-		logger.Info("Fetching branch %s from fork...", branch)
+		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s from fork...", branch))
 		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
+			spin.StopWithError("Failed to fetch branch")
 			cleanupRemote()
 			return fmt.Errorf("failed to fetch fork branch: %w", err)
 		}
+		spin.Stop()
 
 		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
@@ -409,10 +415,12 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		}
 	} else {
 		// Same-repo PR: fetch and create worktree
-		logger.Info("Fetching branch %s...", branch)
+		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s...", branch))
 		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+			spin.StopWithError("Failed to fetch branch")
 			return fmt.Errorf("failed to fetch branch: %w", err)
 		}
+		spin.Stop()
 
 		// Resolve FETCH_HEAD to a commit hash immediately to avoid race conditions.
 		// Another fetch could overwrite FETCH_HEAD between our fetch and comparison.
@@ -438,10 +446,12 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 				if !reset {
 					return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
 				}
-				logger.Info("Resetting %s to match remote (discarding %d local commits)...", branch, ahead)
+				spin = logger.StartSpinner(fmt.Sprintf("Resetting %s to match remote (discarding %d local commits)...", branch, ahead))
 				if err := git.UpdateBranchRef(bareDir, branch, fetchedHash); err != nil {
+					spin.StopWithError("Failed to reset branch")
 					return fmt.Errorf("failed to reset branch: %w", err)
 				}
+				spin.Stop()
 			}
 		}
 
