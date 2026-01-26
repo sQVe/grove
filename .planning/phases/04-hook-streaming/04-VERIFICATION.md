@@ -22,7 +22,7 @@ score: 5/5 must-haves verified
 | 2   | Hook stderr streams to terminal as hooks execute                    | VERIFIED | Separate `PrefixWriter` attached to `cmd.Stderr` (line 74)                                                                          |
 | 3   | Each line of hook output shows which hook is running                | VERIFIED | Prefix format `[%s]` on line 72: `fmt.Sprintf("  [%s]", cmdStr)`                                                                    |
 | 4   | Output goes to stderr (not stdout) via `output io.Writer` parameter | VERIFIED | `add.go` line 602 passes `os.Stderr`; `RunAddHooksStreaming` accepts `output io.Writer` for testability                             |
-| 5   | Existing `RunAddHooks` remains unchanged                            | VERIFIED | `hooks.go` unchanged, `RunAddHooks` still exists with original buffered implementation                                              |
+| 5   | Hook execution consolidated to streaming implementation             | VERIFIED | `RunAddHooks` removed from `hooks.go`, replaced by `RunAddHooksStreaming` in `streaming.go`                                         |
 
 **Score:** 5/5 truths verified
 
@@ -33,7 +33,7 @@ score: 5/5 must-haves verified
 | `internal/hooks/streaming.go`      | PrefixWriter + RunAddHooksStreaming | VERIFIED | 115 lines, substantive implementation                         |
 | `internal/hooks/streaming_test.go` | Test coverage                       | VERIFIED | 227 lines, 13 tests (8 PrefixWriter + 5 RunAddHooksStreaming) |
 | `cmd/grove/commands/add.go`        | Integration                         | VERIFIED | Line 602 calls `hooks.RunAddHooksStreaming` with `os.Stderr`  |
-| `internal/hooks/hooks.go`          | Unchanged                           | VERIFIED | `RunAddHooks` preserved for backward compatibility            |
+| `internal/hooks/hooks.go`          | RunAddHooks removed                 | VERIFIED | Buffered implementation removed, types and GetAddHooks remain |
 
 ### Key Link Verification
 
