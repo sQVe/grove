@@ -606,7 +606,7 @@ func outputDoctorResult(result *DoctorResult) error {
 	}
 
 	// Output summary
-	fmt.Println()
+	logger.Info("")
 	logger.Info("Summary: %d errors, %d warnings (%d auto-fixable)",
 		result.Errors, result.Warnings, result.AutoFixable)
 

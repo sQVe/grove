@@ -67,10 +67,11 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 	// Get worktree info
 	spin := logger.StartSpinner("Gathering worktree status...")
 	infos, err := git.ListWorktreesWithInfo(bareDir, fast)
-	spin.Stop()
 	if err != nil {
+		spin.StopWithError("Failed to gather worktree status")
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
+	spin.Stop()
 
 	// Apply filter if specified
 	infos = filterWorktrees(infos, filter)

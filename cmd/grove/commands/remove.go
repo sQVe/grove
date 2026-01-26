@@ -88,7 +88,11 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	}
 
 	// Process each target, accumulate successes and failures
-	var removed []string
+	type removedWorktree struct {
+		path   string
+		branch string
+	}
+	var removed []removedWorktree
 	var failed []string
 
 	var spin *logger.Spinner
@@ -165,7 +169,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				continue
 			}
 		}
-		removed = append(removed, info.Path)
+		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch})
 	}
 
 	if spin != nil {
@@ -175,9 +179,9 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	// Print summary
 	if len(removed) > 0 {
 		if len(removed) == 1 {
-			logger.Success("Removed worktree %s", styles.RenderPath(removed[0]))
+			logger.Success("Removed worktree %s", styles.RenderPath(removed[0].path))
 			if deleteBranch {
-				logger.ListSubItem("deleted branch")
+				logger.ListSubItem("deleted branch %s", removed[0].branch)
 			}
 		} else {
 			if deleteBranch {
@@ -185,8 +189,12 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			} else {
 				logger.Success("Removed %d worktrees:", len(removed))
 			}
-			for _, path := range removed {
-				logger.ListSubItem("%s", styles.RenderPath(path))
+			for _, r := range removed {
+				if deleteBranch {
+					logger.ListSubItem("%s (branch %s)", styles.RenderPath(r.path), r.branch)
+				} else {
+					logger.ListSubItem("%s", styles.RenderPath(r.path))
+				}
 			}
 		}
 	}
