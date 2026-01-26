@@ -24,7 +24,7 @@ Completed phases from previous milestone. See git history for details.
 
 - [x] **Phase 3: Foundation** - Spinner API enhancements and patterns
 - [x] **Phase 4: Hook Streaming** - Real-time hook output during grove add
-- [ ] **Phase 5: Output Consistency** - Sweep all commands for unified output
+- [x] **Phase 5: Output Consistency** - Sweep all commands for unified output
 - [ ] **Phase 6: Error Formatting** - Actionable error hints
 
 ## Phase Details
@@ -80,12 +80,14 @@ Plans:
 3. All user-facing output goes through logger package (no bare fmt.Print)
 4. Empty state messages are consistent ("No worktrees found" pattern)
 5. grove remove shows full path of deleted worktree (fixes #68)
-   **Plans**: TBD
+
+**Plans:** 3 plans
 
 Plans:
 
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [x] 05-01-PLAN.md — Add spinners to list/clone/doctor commands (SPIN-05, SPIN-06, SPIN-07)
+- [x] 05-02-PLAN.md — Remove command output: full path display + spinner (CLRT-01, SPIN-08)
+- [x] 05-03-PLAN.md — Audit fmt.Print for user messages, standardize empty states (CLRT-04, CLRT-05)
 
 ### Phase 6: Error Formatting
 
@@ -112,7 +114,7 @@ Plans:
 | --------------------- | --------- | -------------- | ----------- | ---------- |
 | 3. Foundation         | v1.5      | 4/4            | Complete    | 2026-01-24 |
 | 4. Hook Streaming     | v1.5      | 2/2            | Complete    | 2026-01-26 |
-| 5. Output Consistency | v1.5      | 0/?            | Not started | -          |
+| 5. Output Consistency | v1.5      | 3/3            | Complete    | 2026-01-26 |
 | 6. Error Formatting   | v1.5      | 0/?            | Not started | -          |
 
 ---
