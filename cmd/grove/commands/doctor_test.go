@@ -3,6 +3,8 @@ package commands
 import (
 	"strings"
 	"testing"
+
+	"github.com/sqve/grove/internal/config"
 )
 
 func TestParseVersion(t *testing.T) {
@@ -272,4 +274,155 @@ func TestCheckDepVersion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		bytes    int64
+		expected string
+	}{
+		{"zero bytes", 0, "     0 B "},
+		{"small bytes", 512, "   512 B "},
+		{"just under 1KB", 1023, "  1023 B "},
+		{"exactly 1KB", 1024, "   1.0 KB"},
+		{"1.5KB", 1536, "   1.5 KB"},
+		{"just under 1MB", 1048575, "1024.0 KB"},
+		{"exactly 1MB", 1048576, "   1.0 MB"},
+		{"10.5MB", 11010048, "  10.5 MB"},
+		{"just under 1GB", 1073741823, "1024.0 MB"},
+		{"exactly 1GB", 1073741824, "   1.0 GB"},
+		{"2.5GB", 2684354560, "   2.5 GB"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatSize(tt.bytes)
+			if got != tt.expected {
+				t.Errorf("formatSize(%d) = %q, want %q", tt.bytes, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCategoryToString(t *testing.T) {
+	tests := []struct {
+		category Category
+		expected string
+	}{
+		{CategoryDeps, "deps"},
+		{CategoryGit, "git"},
+		{CategoryConfig, "config"},
+		{Category(999), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			got := categoryToString(tt.category)
+			if got != tt.expected {
+				t.Errorf("categoryToString(%v) = %q, want %q", tt.category, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSeverityToString(t *testing.T) {
+	tests := []struct {
+		severity Severity
+		expected string
+	}{
+		{SeverityInfo, "info"},
+		{SeverityWarning, "warning"},
+		{SeverityError, "error"},
+		{Severity(999), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			got := severityToString(tt.severity)
+			if got != tt.expected {
+				t.Errorf("severityToString(%v) = %q, want %q", tt.severity, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetIssueSymbol(t *testing.T) {
+	tests := []struct {
+		name     string
+		severity Severity
+		plain    bool
+		expected string
+	}{
+		{"error plain", SeverityError, true, "[x]"},
+		{"warning plain", SeverityWarning, true, "[!]"},
+		{"info plain", SeverityInfo, true, "[i]"},
+		{"unknown plain", Severity(999), true, "[-]"},
+		{"error styled", SeverityError, false, "✗"},
+		{"warning styled", SeverityWarning, false, "⚠"},
+		{"info styled", SeverityInfo, false, "→"},
+		{"unknown styled", Severity(999), false, "•"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.SetPlain(tt.plain)
+			defer config.SetPlain(false)
+
+			got := getIssueSymbol(tt.severity)
+			if got != tt.expected {
+				t.Errorf("getIssueSymbol(%v) with plain=%v = %q, want %q",
+					tt.severity, tt.plain, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFilterIssuesByCategory(t *testing.T) {
+	issues := []Issue{
+		{Category: CategoryDeps, Message: "deps1"},
+		{Category: CategoryGit, Message: "git1"},
+		{Category: CategoryDeps, Message: "deps2"},
+		{Category: CategoryConfig, Message: "config1"},
+		{Category: CategoryGit, Message: "git2"},
+	}
+
+	tests := []struct {
+		name     string
+		category Category
+		wantLen  int
+	}{
+		{"filter deps", CategoryDeps, 2},
+		{"filter git", CategoryGit, 2},
+		{"filter config", CategoryConfig, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterIssuesByCategory(issues, tt.category)
+			if len(got) != tt.wantLen {
+				t.Errorf("filterIssuesByCategory() returned %d issues, want %d", len(got), tt.wantLen)
+			}
+			for _, issue := range got {
+				if issue.Category != tt.category {
+					t.Errorf("filtered issue has wrong category: got %v, want %v", issue.Category, tt.category)
+				}
+			}
+		})
+	}
+
+	t.Run("empty input returns empty", func(t *testing.T) {
+		got := filterIssuesByCategory([]Issue{}, CategoryDeps)
+		if len(got) != 0 {
+			t.Errorf("expected empty slice, got %d items", len(got))
+		}
+	})
+
+	t.Run("no matches returns empty", func(t *testing.T) {
+		depsOnly := []Issue{{Category: CategoryDeps}}
+		got := filterIssuesByCategory(depsOnly, CategoryGit)
+		if len(got) != 0 {
+			t.Errorf("expected empty slice, got %d items", len(got))
+		}
+	})
 }

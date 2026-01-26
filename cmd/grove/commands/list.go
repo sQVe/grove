@@ -12,6 +12,7 @@ import (
 	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -64,7 +65,9 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 	}
 
 	// Get worktree info
+	spin := logger.StartSpinner("Gathering worktree status...")
 	infos, err := git.ListWorktreesWithInfo(bareDir, fast)
+	spin.Stop()
 	if err != nil {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}

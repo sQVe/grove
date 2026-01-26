@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -165,4 +166,67 @@ func TestFilterWorktrees(t *testing.T) {
 			t.Errorf("expected main and feature, got %v", got)
 		}
 	})
+}
+
+func TestCompleteFilterValues(t *testing.T) {
+	tests := []struct {
+		name       string
+		toComplete string
+		wantLen    int
+		wantFirst  string
+	}{
+		{
+			name:       "empty returns all filters",
+			toComplete: "",
+			wantLen:    5,
+			wantFirst:  "dirty",
+		},
+		{
+			name:       "partial match d",
+			toComplete: "d",
+			wantLen:    1,
+			wantFirst:  "dirty",
+		},
+		{
+			name:       "partial match a",
+			toComplete: "a",
+			wantLen:    1,
+			wantFirst:  "ahead",
+		},
+		{
+			name:       "after comma returns remaining filters",
+			toComplete: "dirty,",
+			wantLen:    4,
+			wantFirst:  "dirty,ahead",
+		},
+		{
+			name:       "partial after comma",
+			toComplete: "dirty,l",
+			wantLen:    1,
+			wantFirst:  "dirty,locked",
+		},
+		{
+			name:       "multiple selected excludes them",
+			toComplete: "dirty,ahead,",
+			wantLen:    3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			completions, directive := completeFilterValues(nil, nil, tt.toComplete)
+			if len(completions) != tt.wantLen {
+				t.Errorf("completeFilterValues(%q) returned %d completions, want %d: %v",
+					tt.toComplete, len(completions), tt.wantLen, completions)
+			}
+			if tt.wantFirst != "" && len(completions) > 0 && completions[0] != tt.wantFirst {
+				t.Errorf("completeFilterValues(%q) first = %q, want %q",
+					tt.toComplete, completions[0], tt.wantFirst)
+			}
+			wantDirective := cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
+			if directive != wantDirective {
+				t.Errorf("completeFilterValues(%q) directive = %v, want %v", tt.toComplete, directive, wantDirective)
+			}
+		})
+	}
 }

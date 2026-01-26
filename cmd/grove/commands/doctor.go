@@ -526,6 +526,12 @@ func detectRemoteIssues(bareDir string, result *DoctorResult) {
 		return
 	}
 
+	if len(remotes) == 0 {
+		return
+	}
+
+	spin := logger.StartSpinner("Checking remote connectivity...")
+
 	var (
 		wg     sync.WaitGroup
 		mu     sync.Mutex
@@ -554,6 +560,8 @@ func detectRemoteIssues(bareDir string, result *DoctorResult) {
 	}
 
 	wg.Wait()
+	spin.Stop()
+
 	result.Issues = append(result.Issues, issues...)
 }
 
@@ -573,12 +581,7 @@ func outputDoctorResult(result *DoctorResult) error {
 
 	// If no issues, report clean
 	if len(result.Issues) == 0 {
-		if config.IsPlain() {
-			fmt.Println("[ok] No issues found")
-		} else {
-			fmt.Println("✓ No issues found")
-		}
-
+		logger.Success("No issues found")
 		return nil
 	}
 
@@ -604,7 +607,7 @@ func outputDoctorResult(result *DoctorResult) error {
 
 	// Output summary
 	fmt.Println()
-	fmt.Printf("Summary: %d errors, %d warnings (%d auto-fixable)\n",
+	logger.Info("Summary: %d errors, %d warnings (%d auto-fixable)",
 		result.Errors, result.Warnings, result.AutoFixable)
 
 	// Return error to set exit code 1 if there are errors
@@ -868,7 +871,7 @@ func fixIssues(bareDir string, result *DoctorResult) {
 			logger.Warning("Failed to fix %s: %v", issue.Message, err)
 		} else {
 			issue.Fixed = true
-			fmt.Printf("Fixed: %s (%s)\n", issue.Message, issue.Path)
+			logger.Success("Fixed: %s (%s)", issue.Message, issue.Path)
 		}
 	}
 }
