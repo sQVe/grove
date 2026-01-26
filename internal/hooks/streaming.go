@@ -6,22 +6,27 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"sync"
 
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
 )
 
-type PrefixWriter struct {
+type prefixWriter struct {
 	prefix string
 	target io.Writer
 	buf    bytes.Buffer
+	mu     *sync.Mutex
 }
 
-func NewPrefixWriter(prefix string, target io.Writer) *PrefixWriter {
-	return &PrefixWriter{prefix: prefix, target: target}
+func newPrefixWriter(prefix string, target io.Writer, mu *sync.Mutex) *prefixWriter {
+	return &prefixWriter{prefix: prefix, target: target, mu: mu}
 }
 
-func (w *PrefixWriter) Write(p []byte) (n int, err error) {
+func (w *prefixWriter) Write(p []byte) (n int, err error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	n, err = w.buf.Write(p)
 	if err != nil {
 		return n, err
@@ -45,7 +50,10 @@ func (w *PrefixWriter) Write(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (w *PrefixWriter) Flush() error {
+func (w *prefixWriter) Flush() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	remaining := w.buf.String()
 	if remaining != "" {
 		_, err := fmt.Fprintf(w.target, "%s %s\n", w.prefix, remaining)
@@ -69,9 +77,10 @@ func RunAddHooksStreaming(workDir string, commands []string, output io.Writer) *
 		cmd := exec.Command("sh", "-c", cmdStr) //nolint:gosec // User-configured hooks are intentionally executed
 		cmd.Dir = workDir
 
+		var mu sync.Mutex
 		prefix := styles.Render(&styles.Dimmed, fmt.Sprintf("  [%s]", cmdStr))
-		stdout := NewPrefixWriter(prefix, output)
-		stderr := NewPrefixWriter(prefix, output)
+		stdout := newPrefixWriter(prefix, output, &mu)
+		stderr := newPrefixWriter(prefix, output, &mu)
 
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
@@ -89,8 +98,12 @@ func RunAddHooksStreaming(workDir string, commands []string, output io.Writer) *
 
 		err = cmd.Wait()
 
-		_ = stdout.Flush()
-		_ = stderr.Flush()
+		if flushErr := stdout.Flush(); flushErr != nil {
+			logger.Debug("Failed to flush stdout: %v", flushErr)
+		}
+		if flushErr := stderr.Flush(); flushErr != nil {
+			logger.Debug("Failed to flush stderr: %v", flushErr)
+		}
 
 		if err != nil {
 			exitCode := 1

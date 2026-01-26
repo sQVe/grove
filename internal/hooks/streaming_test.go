@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sqve/grove/internal/config"
@@ -23,10 +24,14 @@ func (w *errorWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func TestPrefixWriter(t *testing.T) {
+func testPrefixWriter(prefix string, target *bytes.Buffer) *prefixWriter {
+	return newPrefixWriter(prefix, target, &sync.Mutex{})
+}
+
+func Test_prefixWriter(t *testing.T) {
 	t.Run("single complete line", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		n, err := pw.Write([]byte("line\n"))
 		if err != nil {
@@ -42,7 +47,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("multiple lines in single write", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		_, err := pw.Write([]byte("a\nb\n"))
 		if err != nil {
@@ -56,7 +61,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("partial line buffered until flush", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		_, err := pw.Write([]byte("partial"))
 		if err != nil {
@@ -80,7 +85,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("split line across writes", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		_, _ = pw.Write([]byte("hel"))
 		if buf.String() != "" {
@@ -96,7 +101,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("flush on empty buffer does nothing", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		err := pw.Flush()
 		if err != nil {
@@ -109,7 +114,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("mixed complete and partial lines", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		_, _ = pw.Write([]byte("a\nb"))
 
@@ -130,7 +135,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("empty prefix works", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("", &buf)
+		pw := testPrefixWriter("", &buf)
 
 		_, _ = pw.Write([]byte("line\n"))
 
@@ -141,7 +146,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("multiple flushes are idempotent", func(t *testing.T) {
 		var buf bytes.Buffer
-		pw := NewPrefixWriter("[prefix]", &buf)
+		pw := testPrefixWriter("[prefix]", &buf)
 
 		_, _ = pw.Write([]byte("data"))
 		_ = pw.Flush()
@@ -155,7 +160,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("returns error when target writer fails during Write", func(t *testing.T) {
 		ew := &errorWriter{errAfter: 0}
-		pw := NewPrefixWriter("[prefix]", ew)
+		pw := newPrefixWriter("[prefix]", ew, &sync.Mutex{})
 
 		_, err := pw.Write([]byte("line\n"))
 		if err == nil {
@@ -168,7 +173,7 @@ func TestPrefixWriter(t *testing.T) {
 
 	t.Run("returns error when target writer fails during Flush", func(t *testing.T) {
 		ew := &errorWriter{errAfter: 0}
-		pw := NewPrefixWriter("[prefix]", ew)
+		pw := newPrefixWriter("[prefix]", ew, &sync.Mutex{})
 
 		_, err := pw.Write([]byte("partial"))
 		if err != nil {
