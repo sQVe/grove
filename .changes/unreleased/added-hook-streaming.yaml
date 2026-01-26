@@ -1,0 +1,2 @@
+kind: Added
+body: Real-time hook output streaming during `grove add` with prefixed lines identifying each hook
