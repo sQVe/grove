@@ -112,7 +112,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 		// Check if user is inside the worktree being deleted
 		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
-			logger.Error("%s: cannot delete current worktree", displayName)
+			logger.Error("%s: cannot delete current worktree\n\nHint: Switch to a different worktree first with 'grove switch <worktree>'", displayName)
 			failed = append(failed, displayName)
 			continue
 		}

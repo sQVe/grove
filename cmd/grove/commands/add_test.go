@@ -656,6 +656,97 @@ func TestRunAdd_FromValidation(t *testing.T) {
 	})
 }
 
+func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Setup workspace
+	tempDir := testutil.TempDir(t)
+	bareDir := filepath.Join(tempDir, ".bare")
+
+	srcDir := filepath.Join(tempDir, "src")
+	if err := os.MkdirAll(srcDir, fs.DirStrict); err != nil {
+		t.Fatalf("failed to create src dir: %v", err)
+	}
+
+	cmd := exec.Command("git", "init", "-b", "main")
+	cmd.Dir = srcDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+
+	for _, cfg := range [][]string{
+		{"user.email", "test@test.com"},
+		{"user.name", "Test"},
+		{"commit.gpgsign", "false"},
+	} {
+		cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+		cmd.Dir = srcDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to set config: %v", err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(srcDir, "test.txt"), []byte("test"), fs.FileStrict); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = srcDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "init")
+	cmd.Dir = srcDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir) //nolint:gosec
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to clone bare: %v", err)
+	}
+
+	if err := os.RemoveAll(srcDir); err != nil {
+		t.Fatalf("failed to remove src: %v", err)
+	}
+
+	// Create main worktree
+	mainDir := filepath.Join(tempDir, "main")
+	cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to add main worktree: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = os.Chdir(origDir)
+		cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+		cmd.Dir = bareDir
+		_ = cmd.Run()
+	})
+
+	if err := os.Chdir(mainDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Try to create worktree for existing branch
+	err = runAdd([]string{"main"}, false, "", "", false, 0, false, "")
+	if err == nil {
+		t.Fatal("expected error for existing worktree")
+	}
+
+	// Verify hint is present
+	if !strings.Contains(err.Error(), "grove list") {
+		t.Errorf("expected error to contain 'grove list' hint, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "--name") {
+		t.Errorf("expected error to contain '--name' hint, got: %v", err)
+	}
+}
+
 func TestCompleteFromWorktree(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
