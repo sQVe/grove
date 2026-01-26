@@ -6,8 +6,8 @@ This milestone delivers consistent, polished output across all Grove commands. S
 
 ## Milestones
 
-- ✅ **v1.4 Grove Fetch** - Phases 1-2 (shipped)
-- 🚧 **v1.5 Output Polish** - Phases 3-6 (in progress)
+- v1.4 Grove Fetch - Phases 1-2 (shipped)
+- v1.5 Output Polish - Phases 3-6 (in progress)
 
 ## Phases
 
@@ -25,7 +25,7 @@ Completed phases from previous milestone. See git history for details.
 - [x] **Phase 3: Foundation** - Spinner API enhancements and patterns
 - [x] **Phase 4: Hook Streaming** - Real-time hook output during grove add
 - [x] **Phase 5: Output Consistency** - Sweep all commands for unified output
-- [ ] **Phase 6: Error Formatting** - Actionable error hints
+- [x] **Phase 6: Error Formatting** - Actionable error hints
 
 ## Phase Details
 
@@ -100,24 +100,25 @@ Plans:
 2. "Cannot delete current worktree" error suggests switching first
 3. "Already locked" error suggests unlock command
 4. "Cannot rename current worktree" error suggests switch command
-   **Plans**: TBD
+
+**Plans:** 1 plan
 
 Plans:
 
-- [ ] 06-01: TBD
+- [x] 06-01-PLAN.md — Add actionable hints to error messages (HINT-01, HINT-02, HINT-03, HINT-04)
 
 ## Progress
 
 **Execution Order:** 3 -> 4 -> 5 -> 6
 
-| Phase                 | Milestone | Plans Complete | Status      | Completed  |
-| --------------------- | --------- | -------------- | ----------- | ---------- |
-| 3. Foundation         | v1.5      | 4/4            | Complete    | 2026-01-24 |
-| 4. Hook Streaming     | v1.5      | 2/2            | Complete    | 2026-01-26 |
-| 5. Output Consistency | v1.5      | 3/3            | Complete    | 2026-01-26 |
-| 6. Error Formatting   | v1.5      | 0/?            | Not started | -          |
+| Phase                 | Milestone | Plans Complete | Status   | Completed  |
+| --------------------- | --------- | -------------- | -------- | ---------- |
+| 3. Foundation         | v1.5      | 4/4            | Complete | 2026-01-24 |
+| 4. Hook Streaming     | v1.5      | 2/2            | Complete | 2026-01-26 |
+| 5. Output Consistency | v1.5      | 3/3            | Complete | 2026-01-26 |
+| 6. Error Formatting   | v1.5      | 1/1            | Complete | 2026-01-26 |
 
 ---
 
 _Roadmap created: 2026-01-24_
-_Last updated: 2026-01-26_
+_Last updated: 2026-01-26 — Milestone complete_

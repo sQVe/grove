@@ -27,16 +27,16 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **CLRT-01**: `grove remove` shows full path of deleted worktree
 - [x] **CLRT-02**: All commands use consistent past-tense verbs (Created, Deleted, Updated)
-- [ ] **CLRT-03**: Error messages include actionable hints where applicable
+- [x] **CLRT-03**: Error messages include actionable hints where applicable
 - [x] **CLRT-04**: Commands use logger package consistently (no bare fmt.Print for user output)
 - [x] **CLRT-05**: Commands show consistent empty state messages when no results
 
 ### Error Hints
 
-- [ ] **HINT-01**: "worktree already exists" suggests using existing or different name
-- [ ] **HINT-02**: "cannot delete current worktree" suggests switching first
-- [ ] **HINT-03**: "already locked" suggests unlock command
-- [ ] **HINT-04**: "cannot rename current worktree" suggests switch command
+- [x] **HINT-01**: "worktree already exists" suggests using existing or different name
+- [x] **HINT-02**: "cannot delete current worktree" suggests switching first
+- [x] **HINT-03**: "already locked" suggests unlock command
+- [x] **HINT-04**: "cannot rename current worktree" suggests switch command
 
 ## Future Requirements
 
@@ -90,13 +90,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STRM-02     | 4     | Complete |
 | CLRT-01     | 5     | Complete |
 | CLRT-02     | 5     | Complete |
-| CLRT-03     | 6     | Pending  |
+| CLRT-03     | 6     | Complete |
 | CLRT-04     | 5     | Complete |
 | CLRT-05     | 5     | Complete |
-| HINT-01     | 6     | Pending  |
-| HINT-02     | 6     | Pending  |
-| HINT-03     | 6     | Pending  |
-| HINT-04     | 6     | Pending  |
+| HINT-01     | 6     | Complete |
+| HINT-02     | 6     | Complete |
+| HINT-03     | 6     | Complete |
+| HINT-04     | 6     | Complete |
 
 **Coverage:**
 
@@ -107,4 +107,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 
 _Requirements defined: 2026-01-24_
-_Last updated: 2026-01-26 — Phase 5 requirements complete_
+_Last updated: 2026-01-26 — Milestone complete (all requirements met)_
