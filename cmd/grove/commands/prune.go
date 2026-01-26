@@ -117,10 +117,13 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	}
 
 	// Fetch and prune remote refs
-	logger.Info("Fetching remote changes...")
+	spin := logger.StartSpinner("Fetching remote changes...")
 	if err := git.FetchPrune(bareDir); err != nil {
+		spin.Stop()
 		// Non-fatal: network issues shouldn't block prune of already-known gone branches
 		logger.Warning("Failed to fetch: %v", err)
+	} else {
+		spin.Stop()
 	}
 
 	// Get default branch - needed for --merged check AND gone branch deletion
