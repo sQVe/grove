@@ -663,7 +663,6 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Setup workspace
 	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 
@@ -713,7 +712,6 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatalf("failed to remove src: %v", err)
 	}
 
-	// Create main worktree
 	mainDir := filepath.Join(tempDir, "main")
 	cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
 	cmd.Dir = bareDir
@@ -732,13 +730,11 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Try to create worktree for existing branch
 	err = runAdd([]string{"main"}, false, "", "", false, 0, false, "")
 	if err == nil {
 		t.Fatal("expected error for existing worktree")
 	}
 
-	// Verify hint is present
 	if !strings.Contains(err.Error(), "grove list") {
 		t.Errorf("expected error to contain 'grove list' hint, got: %v", err)
 	}

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -121,7 +123,6 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// Capture logger output to verify hint
 	tempDir := t.TempDir()
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
@@ -140,11 +141,19 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 
 	_ = os.Chdir(mainPath)
 
-	// The hint is logged via logger.Error, which writes to stderr
-	// We'll just verify the function returns an error and trust the logger output
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
 	err := runRemove([]string{"main"}, false, false)
 	if err == nil {
 		t.Error("expected error when removing current worktree")
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "grove switch") {
+		t.Errorf("expected output to contain 'grove switch' hint, got: %s", output)
 	}
 }
 

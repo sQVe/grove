@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -164,11 +166,19 @@ func TestRunLock_AlreadyLockedHint(t *testing.T) {
 
 	_ = os.Chdir(mainPath)
 
-	// The hint is logged via logger.Error, which writes to stderr
-	// We'll just verify the function returns an error and trust the logger output
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
 	err := runLock([]string{"feature"}, "")
 	if err == nil {
 		t.Error("expected error for already locked worktree")
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "grove unlock") {
+		t.Errorf("expected output to contain 'grove unlock' hint, got: %s", output)
 	}
 }
 
