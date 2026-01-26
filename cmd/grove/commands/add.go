@@ -598,8 +598,8 @@ func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
 		return nil
 	}
 
-	logger.Debug("Found %d add hooks", len(addHooks))
-	return hooks.RunAddHooks(destWorktree, addHooks)
+	logger.Info("Running %d hook(s)...", len(addHooks))
+	return hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
 }
 
 func logHookResult(result *hooks.RunResult) {
@@ -607,24 +607,8 @@ func logHookResult(result *hooks.RunResult) {
 		return
 	}
 
-	if len(result.Succeeded) > 0 {
-		header := fmt.Sprintf("ran %d hooks:", len(result.Succeeded))
-		if len(result.Succeeded) == 1 {
-			header = "ran 1 hook:"
-		}
-		logger.ListItemGroup(header, result.Succeeded)
-	}
-
 	if result.Failed != nil {
 		logger.Warning("Hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
-		if config.IsDebug() {
-			if result.Failed.Stdout != "" {
-				logger.Debug("stdout: %s", result.Failed.Stdout)
-			}
-			if result.Failed.Stderr != "" {
-				logger.Debug("stderr: %s", result.Failed.Stderr)
-			}
-		}
 	}
 }
 

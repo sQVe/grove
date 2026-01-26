@@ -23,7 +23,7 @@ Completed phases from previous milestone. See git history for details.
 **Milestone Goal:** Users get consistent, polished output with progress feedback and clear error messages.
 
 - [x] **Phase 3: Foundation** - Spinner API enhancements and patterns
-- [ ] **Phase 4: Hook Streaming** - Real-time hook output during grove add
+- [x] **Phase 4: Hook Streaming** - Real-time hook output during grove add
 - [ ] **Phase 5: Output Consistency** - Sweep all commands for unified output
 - [ ] **Phase 6: Error Formatting** - Actionable error hints
 
@@ -65,8 +65,8 @@ Plans:
 
 Plans:
 
-- [ ] 04-01-PLAN.md — TDD: PrefixWriter type for line-by-line prefixed output
-- [ ] 04-02-PLAN.md — RunAddHooksStreaming function and add.go integration
+- [x] 04-01-PLAN.md — TDD: PrefixWriter type for line-by-line prefixed output
+- [x] 04-02-PLAN.md — RunAddHooksStreaming function and add.go integration
 
 ### Phase 5: Output Consistency
 
@@ -111,11 +111,11 @@ Plans:
 | Phase                 | Milestone | Plans Complete | Status      | Completed  |
 | --------------------- | --------- | -------------- | ----------- | ---------- |
 | 3. Foundation         | v1.5      | 4/4            | Complete    | 2026-01-24 |
-| 4. Hook Streaming     | v1.5      | 0/2            | Planned     | -          |
+| 4. Hook Streaming     | v1.5      | 2/2            | Complete    | 2026-01-26 |
 | 5. Output Consistency | v1.5      | 0/?            | Not started | -          |
 | 6. Error Formatting   | v1.5      | 0/?            | Not started | -          |
 
 ---
 
 _Roadmap created: 2026-01-24_
-_Last updated: 2026-01-24_
+_Last updated: 2026-01-26_
