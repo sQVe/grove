@@ -79,7 +79,7 @@ func runFetch(jsonOutput, verbose bool) error {
 	}
 
 	if len(remotes) == 0 {
-		fmt.Println("No remotes configured")
+		logger.Info("No remotes configured")
 		return nil
 	}
 
@@ -199,7 +199,7 @@ func outputFetchResults(bareDir string, results []remoteResult, jsonOutput, verb
 	}
 
 	if !hasChanges && len(errors) == 0 {
-		fmt.Println("All remotes up to date")
+		logger.Success("All remotes up to date")
 	}
 
 	if len(errors) > 0 {

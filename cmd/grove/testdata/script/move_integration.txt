@@ -32,6 +32,7 @@ exec grove add develop
 exec grove add to-move-dir
 exists ../to-move-dir
 exec grove move to-move-dir renamed-branch
+stderr 'Moving worktree'
 stderr 'Renamed to-move-dir to renamed-branch'
 ! exists ../to-move-dir
 exists ../renamed-branch

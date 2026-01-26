@@ -133,7 +133,7 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 		} else {
 			succeeded++
 		}
-		fmt.Println() // Blank line between worktrees
+		fmt.Fprintln(os.Stderr) // Blank line between worktrees
 	}
 
 	// Print summary
