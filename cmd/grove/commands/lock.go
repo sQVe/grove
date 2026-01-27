@@ -93,9 +93,9 @@ func runLock(targets []string, reason string) error {
 		if git.IsWorktreeLocked(info.Path) {
 			existingReason := git.GetWorktreeLockReason(info.Path)
 			if existingReason != "" {
-				logger.Error("%s: already locked (%q)", info.Branch, existingReason)
+				logger.Error("%s: already locked (%q)\n\nHint: Use 'grove unlock %s' to remove the lock", info.Branch, existingReason, info.Branch)
 			} else {
-				logger.Error("%s: already locked", info.Branch)
+				logger.Error("%s: already locked\n\nHint: Use 'grove unlock %s' to remove the lock", info.Branch, info.Branch)
 			}
 			failed = append(failed, info.Branch)
 			continue

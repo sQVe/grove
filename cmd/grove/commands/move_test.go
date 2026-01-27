@@ -3,10 +3,14 @@ package commands
 import (
 	"errors"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -83,5 +87,37 @@ func TestNewMoveCmd_ValidArgsFunction(t *testing.T) {
 	_, directive := cmd.ValidArgsFunction(cmd, []string{"existing"}, "")
 	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected ShellCompDirectiveNoFileComp when first arg present, got %v", directive)
+	}
+}
+
+func TestRunMove_CurrentWorktreeHint(t *testing.T) {
+	origDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origDir) }()
+
+	tempDir := t.TempDir()
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.InitBare(bareDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mainPath := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	_ = os.Chdir(mainPath)
+
+	err := runMove("main", "new-branch")
+	if err == nil {
+		t.Fatal("expected error for current worktree")
+	}
+
+	if !strings.Contains(err.Error(), "grove switch") {
+		t.Errorf("expected error to contain 'grove switch' hint, got: %v", err)
 	}
 }

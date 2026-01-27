@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -114,6 +116,44 @@ func TestRunRemove_CurrentWorktree(t *testing.T) {
 	// Error message is now "failed: main" (per-item reason logged separately)
 	if !strings.Contains(err.Error(), "main") {
 		t.Errorf("expected error to mention 'main', got: %v", err)
+	}
+}
+
+func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
+	origDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origDir) }()
+
+	tempDir := t.TempDir()
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.InitBare(bareDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mainPath := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	_ = os.Chdir(mainPath)
+
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
+	err := runRemove([]string{"main"}, false, false)
+	if err == nil {
+		t.Error("expected error when removing current worktree")
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "grove switch") {
+		t.Errorf("expected output to contain 'grove switch' hint, got: %s", output)
 	}
 }
 

@@ -207,28 +207,6 @@ exec git commit -m 'other'
 stderr '^✗ cannot convert: repository has unresolved conflicts'
 cd ..
 
-## Error: Unresolved conflicts
-mkdir convert-conflicts
-cd convert-conflicts
-exec git init
-cp ../test-file.txt .
-exec git add .
-exec git commit -m 'initial commit'
-exec git checkout -b conflict-branch
-exec sh -c 'echo "conflict content" > test-file.txt'
-exec git add .
-exec git commit -m 'conflict commit'
-exec git checkout main
-exec sh -c 'echo "main content" > test-file.txt'
-exec git add .
-exec git commit -m 'main commit'
-! exec git merge conflict-branch
-exec git reset --hard HEAD
-! exec git merge --no-commit conflict-branch
-! exec grove init convert
-stderr '^✗ cannot convert: repository has unresolved conflicts'
-cd ..
-
 ## Success: Remote-only branch
 mkdir convert-remote-branch
 cd convert-remote-branch

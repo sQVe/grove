@@ -70,7 +70,7 @@ func runMove(target, newBranch string) error {
 
 	// Check if user is inside the worktree being renamed
 	if fs.PathsEqual(cwd, worktreeInfo.Path) || fs.PathHasPrefix(cwd, worktreeInfo.Path) {
-		return fmt.Errorf("cannot rename current worktree; switch to a different worktree first")
+		return fmt.Errorf("cannot rename current worktree\n\nHint: Switch to a different worktree first with 'grove switch <worktree>'")
 	}
 
 	// Check new branch doesn't already exist
