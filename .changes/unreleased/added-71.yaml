@@ -1,4 +1,0 @@
-kind: Added
-body: '`grove fetch` command to sync all remotes and display new, updated, and pruned refs'
-custom:
-  Issue: 71
