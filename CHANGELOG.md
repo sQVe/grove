@@ -1,3 +1,17 @@
+## [v1.5.0](https://github.com/sQVe/grove/releases/tag/v1.5.0) - 2026-01-27
+
+### Added
+- `--json` and `--verbose` flags to `grove fetch` for structured output and commit hash details ([#61](https://github.com/sQVe/grove/issues/61))
+- `grove fetch` command to sync all remotes and display new, updated, and pruned refs ([#71](https://github.com/sQVe/grove/issues/71))
+- Spinner API with `Update`, `StopWithSuccess`, `StopWithError` methods and `StepFormat` helper for step/total formatting ([#73](https://github.com/sQVe/grove/issues/73))
+- `grove doctor` checks remote accessibility and warns about unreachable remotes
+- Actionable hints to error messages showing recovery commands
+- Real-time hook output streaming during `grove add` with prefixed lines identifying each hook
+
+### Changed
+- `grove remove` shows summary counts instead of per-item messages ([#73](https://github.com/sQVe/grove/issues/73))
+- Add spinners to show progress during network operations and improve output consistency across commands
+
 ## [v1.4.0](https://github.com/sQVe/grove/releases/tag/v1.4.0) - 2026-01-19
 
 ### Added

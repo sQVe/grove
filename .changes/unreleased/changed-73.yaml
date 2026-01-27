@@ -1,4 +1,0 @@
-kind: Changed
-body: '`grove remove` shows summary counts instead of per-item messages'
-custom:
-  Issue: 73
