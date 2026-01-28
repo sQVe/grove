@@ -1,0 +1,13 @@
+# Test: grove unlock unlocks a locked worktree
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+exec grove unlock feature
+stderr 'Unlocked worktree'
+
+# Verify unlocked via status
+cd ../feature
+exec grove status --json
+stdout '"locked": false'

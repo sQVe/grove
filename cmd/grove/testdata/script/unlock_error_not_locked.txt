@@ -1,0 +1,7 @@
+# Test: grove unlock fails when worktree is not locked
+setup_workspace feature
+
+exec grove add feature
+
+! exec grove unlock feature
+stderr 'worktree is not locked'
