@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -43,11 +42,10 @@ func TestNewPruneCmd(t *testing.T) {
 func TestRunPrune(t *testing.T) {
 	t.Run("returns error when not in workspace", func(t *testing.T) {
 		// Save and restore cwd
-		origDir, _ := os.Getwd()
-		defer func() { _ = os.Chdir(origDir) }()
+		defer testutil.SaveCwd(t)()
 
 		tmpDir := testutil.TempDir(t)
-		_ = os.Chdir(tmpDir)
+		testutil.Chdir(t, tmpDir)
 
 		err := runPrune(false, false, "", false, false)
 		if err == nil {

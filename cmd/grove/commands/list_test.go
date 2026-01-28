@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"os"
 	"reflect"
 	"testing"
 
@@ -41,11 +40,10 @@ func TestNewListCmd(t *testing.T) {
 func TestRunList(t *testing.T) {
 	t.Run("returns error when not in workspace", func(t *testing.T) {
 		// Save and restore cwd
-		origDir, _ := os.Getwd()
-		defer func() { _ = os.Chdir(origDir) }()
+		defer testutil.SaveCwd(t)()
 
 		tmpDir := testutil.TempDir(t)
-		_ = os.Chdir(tmpDir)
+		testutil.Chdir(t, tmpDir)
 
 		err := runList(false, false, false, "")
 		if err == nil {

@@ -75,11 +75,6 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 		}
 	}
 
-	t.Cleanup(func() {
-		// Cleanup is automatic with t.TempDir() but we can add additional
-		// cleanup if needed
-	})
-
 	return &TestRepo{
 		t:    t,
 		Dir:  dir,
@@ -127,10 +122,14 @@ func (r *TestRepo) Checkout(name string) {
 	}
 }
 
-// WriteFile writes content to a file in the repository
+// WriteFile writes content to a file in the repository, creating parent dirs.
 func (r *TestRepo) WriteFile(name, content string) {
 	r.t.Helper()
 	path := filepath.Join(r.Path, name)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, fs.DirGit); err != nil {
+		r.t.Fatalf("Failed to create directory %s: %v", dir, err)
+	}
 	if err := os.WriteFile(path, []byte(content), fs.FileGit); err != nil {
 		r.t.Fatalf("Failed to write file: %v", err)
 	}
@@ -202,12 +201,12 @@ func (r *TestRepo) Run(args ...string) (string, error) {
 	return string(out), err
 }
 
-// RunOutput executes a git command, fails on error, returns stdout.
+// RunOutput executes a git command, fails on error, returns combined output.
 func (r *TestRepo) RunOutput(args ...string) string {
 	r.t.Helper()
 	out, err := r.Run(args...)
 	if err != nil {
-		r.t.Fatalf("git %v failed: %v", args, err)
+		r.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
 	}
 	return out
 }
@@ -287,12 +286,12 @@ func (r *BareTestRepo) Run(args ...string) (string, error) {
 	return string(out), err
 }
 
-// RunOutput executes a git command, fails on error, returns stdout.
+// RunOutput executes a git command, fails on error, returns combined output.
 func (r *BareTestRepo) RunOutput(args ...string) string {
 	r.t.Helper()
 	out, err := r.Run(args...)
 	if err != nil {
-		r.t.Fatalf("git %v failed: %v", args, err)
+		r.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
 	}
 	return out
 }
@@ -424,12 +423,12 @@ func (w *GroveWorkspace) Run(args ...string) (string, error) {
 	return string(out), err
 }
 
-// RunOutput executes a git command in the bare repo, fails on error, returns stdout.
+// RunOutput executes a git command in the bare repo, fails on error, returns combined output.
 func (w *GroveWorkspace) RunOutput(args ...string) string {
 	w.t.Helper()
 	out, err := w.Run(args...)
 	if err != nil {
-		w.t.Fatalf("git %v failed: %v", args, err)
+		w.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
 	}
 	return out
 }

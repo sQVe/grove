@@ -36,11 +36,10 @@ func TestNewExecCmd(t *testing.T) {
 }
 
 func TestRunExec_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tmpDir := testutil.TempDir(t)
-	_ = os.Chdir(tmpDir)
+	testutil.Chdir(t, tmpDir)
 
 	err := runExec(true, false, nil, []string{"echo", "hello"})
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
@@ -133,8 +132,7 @@ func setupExecTestWorkspace(t *testing.T) (tempDir, bareDir, mainPath string) {
 }
 
 func TestRunExec_AllWorktrees(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
@@ -147,7 +145,7 @@ func TestRunExec_AllWorktrees(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Run command in all worktrees (creates a marker file)
 	err := runExec(true, false, nil, []string{"touch", "exec-marker.txt"})
@@ -165,8 +163,7 @@ func TestRunExec_AllWorktrees(t *testing.T) {
 }
 
 func TestRunExec_SpecificWorktrees(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
@@ -186,7 +183,7 @@ func TestRunExec_SpecificWorktrees(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Run command only in main and feature (not bugfix)
 	err := runExec(false, false, []string{"main", "feature"}, []string{"touch", "specific-marker.txt"})
@@ -207,13 +204,12 @@ func TestRunExec_SpecificWorktrees(t *testing.T) {
 }
 
 func TestRunExec_InvalidWorktree(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	_, _, mainPath := setupExecTestWorkspace(t)
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Try to run in non-existent worktree
 	err := runExec(false, false, []string{"nonexistent"}, []string{"echo", "hello"})
@@ -226,8 +222,7 @@ func TestRunExec_InvalidWorktree(t *testing.T) {
 }
 
 func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
@@ -240,7 +235,7 @@ func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Run a command that creates a marker file then fails (exit 1).
 	// Both worktrees will fail, but execution should continue to all worktrees.
@@ -261,8 +256,7 @@ func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
 }
 
 func TestRunExec_FailFast(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
@@ -276,7 +270,7 @@ func TestRunExec_FailFast(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Run a command that creates a marker then fails, with --fail-fast.
 	// Worktrees are processed in alphabetical order by directory name.
@@ -298,8 +292,7 @@ func TestRunExec_FailFast(t *testing.T) {
 }
 
 func TestCompleteExecArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
 
@@ -319,7 +312,7 @@ func TestCompleteExecArgs(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	execCmd := NewExecCmd()
 

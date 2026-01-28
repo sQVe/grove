@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -63,11 +62,10 @@ func TestNewStatusCmd_ValidArgsFunction(t *testing.T) {
 }
 
 func TestRunStatus_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tmpDir := testutil.TempDir(t)
-	_ = os.Chdir(tmpDir)
+	testutil.Chdir(t, tmpDir)
 
 	err := runStatus(false, false)
 	if err == nil {

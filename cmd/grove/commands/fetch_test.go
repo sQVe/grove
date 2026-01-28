@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -61,11 +60,10 @@ func TestFetchCmdValidArgsFunction(t *testing.T) {
 }
 
 func TestRunFetch_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tmpDir := testutil.TempDir(t)
-	_ = os.Chdir(tmpDir)
+	testutil.Chdir(t, tmpDir)
 
 	err := runFetch(false, false)
 	if err == nil {

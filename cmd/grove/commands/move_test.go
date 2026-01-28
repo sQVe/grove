@@ -54,7 +54,7 @@ func TestRunMove_NotInWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(origDir) }()
+	defer func() { testutil.Chdir(t, origDir) }()
 
 	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
@@ -92,8 +92,7 @@ func TestNewMoveCmd_ValidArgsFunction(t *testing.T) {
 }
 
 func TestRunMove_CurrentWorktreeHint(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
@@ -111,7 +110,7 @@ func TestRunMove_CurrentWorktreeHint(t *testing.T) {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runMove("main", "new-branch")
 	if err == nil {

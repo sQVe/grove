@@ -44,14 +44,14 @@ func WriteFileMode(t *testing.T, path, content string, perm os.FileMode) {
 	}
 }
 
-// MustExec runs a command in dir, fails on error, returns stdout.
+// MustExec runs a command in dir, fails on error, returns combined output.
 func MustExec(t *testing.T, dir, name string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command(name, args...) // nolint:gosec
 	cmd.Dir = dir
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("%s %v failed: %v", name, args, err)
+		t.Fatalf("%s %v failed: %v\nOutput: %s", name, args, err, out)
 	}
 	return string(out)
 }
@@ -75,4 +75,28 @@ func InTempDir(t *testing.T, fn func(dir string)) {
 		t.Fatalf("failed to change to temp directory: %v", err)
 	}
 	fn(dir)
+}
+
+// Chdir changes to dir with proper error handling. Fails test on error.
+// WARNING: Not safe for use with t.Parallel() as it changes process cwd.
+func Chdir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to change to directory %s: %v", dir, err)
+	}
+}
+
+// SaveCwd saves current directory and returns a cleanup function to restore it.
+// WARNING: Not safe for use with t.Parallel() as it changes process cwd.
+func SaveCwd(t *testing.T) func() {
+	t.Helper()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	return func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Logf("warning: failed to restore cwd: %v", err)
+		}
+	}
 }
