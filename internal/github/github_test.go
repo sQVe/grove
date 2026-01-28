@@ -7,6 +7,8 @@ import (
 )
 
 func TestIsGitHubURL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input    string
 		expected bool
@@ -33,6 +35,8 @@ func TestIsGitHubURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
 			result := IsGitHubURL(tt.input)
 			if result != tt.expected {
 				t.Errorf("IsGitHubURL(%q) = %v, want %v", tt.input, result, tt.expected)
@@ -42,6 +46,7 @@ func TestIsGitHubURL(t *testing.T) {
 }
 
 func TestIsPRURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected bool
@@ -74,6 +79,8 @@ func TestIsPRURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
 			result := IsPRURL(tt.input)
 			if result != tt.expected {
 				t.Errorf("IsPRURL(%q) = %v, want %v", tt.input, result, tt.expected)
@@ -83,6 +90,7 @@ func TestIsPRURL(t *testing.T) {
 }
 
 func TestParsePRReference_Number(t *testing.T) {
+	t.Parallel()
 	ref, err := ParsePRReference("#123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -100,6 +108,8 @@ func TestParsePRReference_Number(t *testing.T) {
 }
 
 func TestParsePRReference_URL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		input      string
 		wantOwner  string
@@ -170,6 +180,8 @@ func TestParsePRReference_URL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
 			ref, err := ParsePRReference(tt.input)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -189,6 +201,7 @@ func TestParsePRReference_URL(t *testing.T) {
 }
 
 func TestParsePRReference_Invalid(t *testing.T) {
+	t.Parallel()
 	tests := []string{
 		"main",
 		"feature/auth",
@@ -202,6 +215,8 @@ func TestParsePRReference_Invalid(t *testing.T) {
 
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := ParsePRReference(input)
 			if err == nil {
 				t.Errorf("ParsePRReference(%q) should return error", input)
@@ -211,6 +226,7 @@ func TestParsePRReference_Invalid(t *testing.T) {
 }
 
 func TestParseRepoURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input     string
 		wantOwner string
@@ -229,6 +245,8 @@ func TestParseRepoURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+
 			ref, err := ParseRepoURL(tt.input)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -245,6 +263,7 @@ func TestParseRepoURL(t *testing.T) {
 }
 
 func TestParseRepoURL_Invalid(t *testing.T) {
+	t.Parallel()
 	tests := []string{
 		"",
 		"not-a-url",
@@ -254,6 +273,8 @@ func TestParseRepoURL_Invalid(t *testing.T) {
 
 	for _, input := range tests {
 		t.Run(input, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := ParseRepoURL(input)
 			if err == nil {
 				t.Errorf("ParseRepoURL(%q) should return error", input)
@@ -263,6 +284,7 @@ func TestParseRepoURL_Invalid(t *testing.T) {
 }
 
 func TestParsePRInfoJSON_SameRepo(t *testing.T) {
+	t.Parallel()
 	jsonData := []byte(`{
 		"headRefName": "feature-branch",
 		"headRepository": {"name": "grove"},
@@ -289,6 +311,8 @@ func TestParsePRInfoJSON_SameRepo(t *testing.T) {
 }
 
 func TestParsePRInfoJSON_SameRepoMixedCase(t *testing.T) {
+	t.Parallel()
+
 	// GitHub usernames are case-insensitive, so "sQVe" == "sqve"
 	jsonData := []byte(`{
 		"headRefName": "feature-branch",
@@ -308,6 +332,8 @@ func TestParsePRInfoJSON_SameRepoMixedCase(t *testing.T) {
 }
 
 func TestParsePRInfoJSON_Fork(t *testing.T) {
+	t.Parallel()
+
 	jsonData := []byte(`{
 		"headRefName": "feature-branch",
 		"headRepository": {"name": "grove"},
@@ -334,6 +360,8 @@ func TestParsePRInfoJSON_Fork(t *testing.T) {
 }
 
 func TestParsePRInfoJSON_Invalid(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		json string
@@ -345,6 +373,8 @@ func TestParsePRInfoJSON_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := parsePRInfoJSON([]byte(tt.json), "owner")
 			if err == nil {
 				t.Error("expected error, got nil")
@@ -354,11 +384,14 @@ func TestParsePRInfoJSON_Invalid(t *testing.T) {
 }
 
 func TestCheckGhAvailable(t *testing.T) {
+	t.Parallel()
 	// This test verifies the error messages are helpful.
 	// Note: We can't easily test the "not installed" case without
 	// modifying PATH, so we focus on testing when gh IS available.
 
 	t.Run("returns nil when gh is available and authenticated", func(t *testing.T) {
+		t.Parallel()
+
 		// Skip if gh is not installed (CI environments without gh)
 		if _, err := exec.LookPath("gh"); err != nil {
 			t.Skip("gh CLI not installed, skipping")
@@ -378,11 +411,14 @@ func TestCheckGhAvailable(t *testing.T) {
 }
 
 func TestGhErrorMessages(t *testing.T) {
+	t.Parallel()
+
 	// Test that error messages contain helpful information.
 	// These tests verify the error message format without needing to
 	// actually uninstall gh or log out.
 
 	t.Run("not installed error contains install URL", func(t *testing.T) {
+		t.Parallel()
 		expectedMsg := "gh CLI not found. Install from https://cli.github.com"
 		// We can't trigger this error easily, but we document the expected message
 		// This serves as documentation and will catch if someone changes the message
@@ -392,6 +428,8 @@ func TestGhErrorMessages(t *testing.T) {
 	})
 
 	t.Run("not authenticated error contains gh auth login", func(t *testing.T) {
+		t.Parallel()
+
 		expectedMsg := "gh not authenticated. Run 'gh auth login' first"
 		// Same as above - documents the expected message
 		if expectedMsg == "" {
@@ -401,6 +439,8 @@ func TestGhErrorMessages(t *testing.T) {
 }
 
 func TestParseMergedPRBranchesJSON(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		json     string
@@ -436,6 +476,8 @@ func TestParseMergedPRBranchesJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := parseMergedPRBranchesJSON([]byte(tt.json))
 			if tt.wantErr {
 				if err == nil {
@@ -459,6 +501,8 @@ func TestParseMergedPRBranchesJSON(t *testing.T) {
 }
 
 func TestGetMergedPRBranches(t *testing.T) {
+	t.Parallel()
+
 	// Skip if gh is not available
 	if _, err := exec.LookPath("gh"); err != nil {
 		t.Skip("gh CLI not installed, skipping")
@@ -469,6 +513,8 @@ func TestGetMergedPRBranches(t *testing.T) {
 	}
 
 	t.Run("returns branches for repo with merged PRs", func(t *testing.T) {
+		t.Parallel()
+
 		// This test runs against the actual Grove repo
 		// which should have merged PRs
 		branches, err := GetMergedPRBranches(".")
@@ -483,6 +529,8 @@ func TestGetMergedPRBranches(t *testing.T) {
 }
 
 func TestGetRepoCloneURL(t *testing.T) {
+	t.Parallel()
+
 	// Skip if gh is not available
 	if _, err := exec.LookPath("gh"); err != nil {
 		t.Skip("gh CLI not installed, skipping")
@@ -493,6 +541,8 @@ func TestGetRepoCloneURL(t *testing.T) {
 	}
 
 	t.Run("returns URL for valid repo", func(t *testing.T) {
+		t.Parallel()
+
 		// Use a well-known public repo
 		url, err := GetRepoCloneURL("cli", "cli")
 		if err != nil {
@@ -508,6 +558,8 @@ func TestGetRepoCloneURL(t *testing.T) {
 	})
 
 	t.Run("returns error for non-existent repo", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := GetRepoCloneURL("nonexistent-owner-12345", "nonexistent-repo-67890")
 		if err == nil {
 			t.Error("expected error for non-existent repo")

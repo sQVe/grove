@@ -3,6 +3,8 @@ package logger
 import "testing"
 
 func TestStepFormat(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		step    int
@@ -70,6 +72,8 @@ func TestStepFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := StepFormat(tt.step, tt.total, tt.message)
 			if got != tt.want {
 				t.Errorf("StepFormat(%d, %d, %q) = %q, want %q",

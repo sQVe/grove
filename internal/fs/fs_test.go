@@ -9,7 +9,10 @@ import (
 )
 
 func TestDirectoryExists(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true for existing directory", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 
 		if !DirectoryExists(tempDir) {
@@ -18,6 +21,8 @@ func TestDirectoryExists(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existent directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistentDir := filepath.Join(tempDir, "nonexistent")
 
@@ -28,7 +33,10 @@ func TestDirectoryExists(t *testing.T) {
 }
 
 func TestIsEmptyDir(t *testing.T) {
+	t.Parallel()
 	t.Run("returns true for empty directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 
 		empty, err := IsEmptyDir(tempDir)
@@ -41,6 +49,8 @@ func TestIsEmptyDir(t *testing.T) {
 	})
 
 	t.Run("returns false for non-empty directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		testFile := filepath.Join(tempDir, "test.txt")
 		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
@@ -57,6 +67,8 @@ func TestIsEmptyDir(t *testing.T) {
 	})
 
 	t.Run("returns error for non-existent directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistentDir := filepath.Join(tempDir, "nonexistent")
 
@@ -68,7 +80,10 @@ func TestIsEmptyDir(t *testing.T) {
 }
 
 func TestFileExists(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true for existing file", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		testFile := filepath.Join(tempDir, "test.txt")
 		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
@@ -81,6 +96,8 @@ func TestFileExists(t *testing.T) {
 	})
 
 	t.Run("returns false for directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 
 		if FileExists(tempDir) {
@@ -89,6 +106,8 @@ func TestFileExists(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existent path", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistent := filepath.Join(tempDir, "nonexistent")
 
@@ -99,7 +118,10 @@ func TestFileExists(t *testing.T) {
 }
 
 func TestPathExists(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true for existing file", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		testFile := filepath.Join(tempDir, "test.txt")
 		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
@@ -112,6 +134,8 @@ func TestPathExists(t *testing.T) {
 	})
 
 	t.Run("returns true for existing directory", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 
 		if !PathExists(tempDir) {
@@ -120,6 +144,8 @@ func TestPathExists(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existent path", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistent := filepath.Join(tempDir, "nonexistent")
 
@@ -130,7 +156,10 @@ func TestPathExists(t *testing.T) {
 }
 
 func TestCreateDirectory(t *testing.T) {
+	t.Parallel()
+
 	t.Run("creates directory with correct permissions", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		testDir := filepath.Join(tempDir, "test")
 
@@ -148,6 +177,8 @@ func TestCreateDirectory(t *testing.T) {
 	})
 
 	t.Run("creates nested directories", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nestedDir := filepath.Join(tempDir, "a", "b", "c")
 
@@ -161,6 +192,8 @@ func TestCreateDirectory(t *testing.T) {
 	})
 
 	t.Run("succeeds if directory already exists", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		testDir := filepath.Join(tempDir, "existing")
 
@@ -175,7 +208,10 @@ func TestCreateDirectory(t *testing.T) {
 }
 
 func TestRemoveAll(t *testing.T) {
+	t.Parallel()
+
 	t.Run("removes file", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		testFile := filepath.Join(tempDir, "test.txt")
 		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
@@ -192,6 +228,8 @@ func TestRemoveAll(t *testing.T) {
 	})
 
 	t.Run("removes directory and contents", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		testDir := filepath.Join(tempDir, "test")
 		testFile := filepath.Join(testDir, "file.txt")
@@ -213,6 +251,8 @@ func TestRemoveAll(t *testing.T) {
 	})
 
 	t.Run("succeeds for non-existent path", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistent := filepath.Join(tempDir, "nonexistent")
 
@@ -223,7 +263,10 @@ func TestRemoveAll(t *testing.T) {
 }
 
 func TestRenameWithFallback(t *testing.T) {
+	t.Parallel()
+
 	t.Run("renames file successfully", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		oldFile := filepath.Join(tempDir, "old.txt")
 		newFile := filepath.Join(tempDir, "new.txt")
@@ -254,6 +297,8 @@ func TestRenameWithFallback(t *testing.T) {
 	})
 
 	t.Run("renames directory successfully", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		oldDir := filepath.Join(tempDir, "old")
 		newDir := filepath.Join(tempDir, "new")
@@ -275,6 +320,8 @@ func TestRenameWithFallback(t *testing.T) {
 	})
 
 	t.Run("fails for non-existent source", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistent := filepath.Join(tempDir, "nonexistent")
 		newPath := filepath.Join(tempDir, "new")
@@ -287,7 +334,11 @@ func TestRenameWithFallback(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
+	t.Parallel()
+
 	t.Run("copies file with correct content and permissions", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		srcFile := filepath.Join(tempDir, "source.txt")
 		dstFile := filepath.Join(tempDir, "dest.txt")
@@ -322,6 +373,8 @@ func TestCopyFile(t *testing.T) {
 	})
 
 	t.Run("fails when source file does not exist", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		srcFile := filepath.Join(tempDir, "nonexistent.txt")
 		dstFile := filepath.Join(tempDir, "dest.txt")
@@ -334,7 +387,10 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestPathsEqual(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true for identical paths", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		if !PathsEqual(tempDir, tempDir) {
 			t.Error("PathsEqual should return true for identical paths")
@@ -342,6 +398,8 @@ func TestPathsEqual(t *testing.T) {
 	})
 
 	t.Run("returns true for paths with different trailing separators", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		withSep := tempDir + string(filepath.Separator)
 		// filepath.Clean removes trailing separators
@@ -351,6 +409,8 @@ func TestPathsEqual(t *testing.T) {
 	})
 
 	t.Run("returns false for different paths", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		otherDir := filepath.Join(tempDir, "other")
 		if err := CreateDirectory(otherDir, DirGit); err != nil {
@@ -362,6 +422,8 @@ func TestPathsEqual(t *testing.T) {
 	})
 
 	t.Run("handles non-existent paths", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		nonExistent := filepath.Join(tempDir, "nonexistent")
 		if PathsEqual(tempDir, nonExistent) {
@@ -371,7 +433,10 @@ func TestPathsEqual(t *testing.T) {
 }
 
 func TestPathHasPrefix(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true when path is inside prefix directory", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		subDir := filepath.Join(tempDir, "sub", "dir")
 		if err := CreateDirectory(subDir, DirGit); err != nil {
@@ -383,6 +448,8 @@ func TestPathHasPrefix(t *testing.T) {
 	})
 
 	t.Run("returns false when path equals prefix", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		if PathHasPrefix(tempDir, tempDir) {
 			t.Error("PathHasPrefix should return false when path equals prefix (not a child)")
@@ -390,6 +457,8 @@ func TestPathHasPrefix(t *testing.T) {
 	})
 
 	t.Run("returns false when path is not inside prefix", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		otherDir := filepath.Join(tempDir, "other")
 		subDir := filepath.Join(tempDir, "sub")
@@ -405,6 +474,8 @@ func TestPathHasPrefix(t *testing.T) {
 	})
 
 	t.Run("handles prefix that is a substring but not a directory prefix", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		// Create /tmp/xxx/foobar and /tmp/xxx/foo
 		fooDir := filepath.Join(tempDir, "foo")
@@ -423,7 +494,11 @@ func TestPathHasPrefix(t *testing.T) {
 }
 
 func TestWriteFileAtomic(t *testing.T) {
+	t.Parallel()
+
 	t.Run("writes file with correct content and permissions", func(t *testing.T) {
+		t.Parallel()
+
 		tempDir := t.TempDir()
 		testFile := filepath.Join(tempDir, "atomic.txt")
 		content := []byte("atomic write test")
