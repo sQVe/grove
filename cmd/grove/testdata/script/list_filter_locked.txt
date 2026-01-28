@@ -1,0 +1,11 @@
+# Test: grove list --filter locked shows only locked worktrees
+setup_workspace develop feature/test
+
+exec grove add develop
+exec grove add feature/test
+# main and develop are auto-locked, feature/test is not
+exec grove list --filter locked --plain
+stdout 'main'
+stdout 'develop'
+! stdout 'feature-test'
+stderr 'Gathering worktree status'

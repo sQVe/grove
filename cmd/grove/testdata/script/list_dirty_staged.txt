@@ -1,0 +1,8 @@
+# Test: grove list shows dirty indicator for staged files
+setup_workspace
+
+exec sh -c 'echo "staged" > staged.txt'
+exec git add staged.txt
+exec grove list --plain
+stdout '\[dirty\]'
+stderr 'Gathering worktree status'

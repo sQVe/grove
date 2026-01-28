@@ -1,0 +1,9 @@
+# Test: grove list shows (detached) indicator for detached HEAD
+setup_workspace
+
+exec git tag v1.0.0
+exec grove add --detach v1.0.0
+exec grove list --plain
+stdout 'v1.0.0'
+stdout '\(detached\)'
+stderr 'Gathering worktree status'

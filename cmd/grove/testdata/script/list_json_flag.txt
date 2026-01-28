@@ -1,0 +1,7 @@
+# Test: grove list --json outputs JSON format
+setup_workspace
+
+exec grove list --json
+stdout '"name":'
+stdout '"main"'
+stdout '"path":'

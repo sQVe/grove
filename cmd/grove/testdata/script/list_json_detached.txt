@@ -1,0 +1,7 @@
+# Test: grove list --json shows detached: true for detached worktrees
+setup_workspace
+
+exec git tag v1.0.0
+exec grove add --detach v1.0.0
+exec grove list --json
+stdout '"detached": true'

@@ -1,0 +1,8 @@
+# Test: grove list --filter trims whitespace
+setup_workspace develop
+
+exec grove add develop
+exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+exec grove list --filter ' dirty ' --plain
+stdout 'develop'
+stderr 'Gathering worktree status'

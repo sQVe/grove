@@ -1,0 +1,10 @@
+# Test: grove list --verbose shows lock reason
+setup_workspace develop
+
+exec grove add develop
+# Unlock auto-lock, then lock with custom reason
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Important work in progress'
+exec grove list --verbose
+stdout 'lock reason'
+stdout 'Important work in progress'

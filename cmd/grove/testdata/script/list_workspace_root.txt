@@ -1,0 +1,10 @@
+# Test: grove list shows no current marker from workspace root
+setup_workspace develop
+
+exec grove add develop
+cd $WORK/workspace
+exec grove list --plain
+! stdout '^\*'
+stdout 'main'
+stdout 'develop'
+stderr 'Gathering worktree status'

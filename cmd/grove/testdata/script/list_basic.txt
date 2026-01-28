@@ -1,0 +1,10 @@
+# Test: grove list shows all worktrees
+setup_workspace develop feature/test
+
+exec grove add develop
+exec grove add feature/test
+exec grove list --plain
+stdout 'main'
+stdout 'develop'
+stdout 'feature-test'
+stderr 'Gathering worktree status'

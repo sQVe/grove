@@ -1,0 +1,13 @@
+# Test: grove list --filter shell completion suggests filter values
+setup_workspace
+
+exec grove __complete list --filter ''
+stdout 'dirty'
+stdout 'locked'
+stdout 'ahead'
+stdout 'behind'
+stdout 'gone'
+
+# Partial filter filters suggestions
+exec grove __complete list --filter 'd'
+stdout 'dirty'

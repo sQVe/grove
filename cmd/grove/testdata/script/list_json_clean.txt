@@ -1,0 +1,8 @@
+# Test: grove list --json omits false values (omitempty)
+setup_workspace
+
+exec grove list --json
+# Should NOT have "dirty": false for clean worktrees
+! stdout '"dirty": false'
+# Should NOT have "locked": false for unlocked worktrees
+! stdout '"locked": false'

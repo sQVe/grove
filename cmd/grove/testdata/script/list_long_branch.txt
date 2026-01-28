@@ -1,0 +1,9 @@
+# Test: grove list handles very long branch names
+setup_workspace
+
+exec git checkout -b this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
+exec git checkout main
+exec grove add this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly
+exec grove list --plain
+stdout 'this-is-a-very-long-branch-name-that-exceeds-typical-limits-and-tests-display-handling-properly'
+stderr 'Gathering worktree status'

@@ -1,0 +1,9 @@
+# Test: grove list marks parent worktree as current from subdirectory
+setup_workspace
+
+mkdir -p src/components
+cd src/components
+exec grove list --plain
+stdout '^\*'
+stdout 'main'
+stderr 'Gathering worktree status'

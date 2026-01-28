@@ -1,0 +1,7 @@
+# Test: grove list --json includes all standard fields
+setup_workspace
+
+exec grove list --json
+stdout '"name"'
+stdout '"path"'
+stdout '"current"'

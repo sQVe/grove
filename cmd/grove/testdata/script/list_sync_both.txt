@@ -1,0 +1,30 @@
+# Test: grove list shows both ahead and behind indicators
+setup_workspace
+
+# Create a bare remote to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+exec git push -u upstream main
+
+# Create a commit on upstream via temp clone
+cd $WORK
+exec git clone remote-repo temp-clone
+cd temp-clone
+exec git checkout main
+exec sh -c 'echo "remote commit" > remote.txt'
+exec git add remote.txt
+exec git commit -m 'remote commit'
+exec git push origin main
+
+# Create local commit (ahead) while still behind
+cd $WORK/workspace/main
+exec git fetch upstream
+exec sh -c 'echo "local commit" > local.txt'
+exec git add local.txt
+exec git commit -m 'local commit'
+exec grove list --plain
+stdout '\+1.*\-1'
+stderr 'Gathering worktree status'

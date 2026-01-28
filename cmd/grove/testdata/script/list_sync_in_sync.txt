@@ -1,0 +1,18 @@
+# Test: grove list shows no indicator when in sync with upstream
+setup_workspace
+
+# Create a bare remote to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+exec git push -u upstream main
+exec git fetch upstream
+
+# main should have no sync indicators when in sync
+exec grove list --plain
+stdout '^\*.*main.*\[main\]'
+! stdout 'main.*\+[0-9]'
+! stdout 'main.*\-[0-9]'
+stderr 'Gathering worktree status'

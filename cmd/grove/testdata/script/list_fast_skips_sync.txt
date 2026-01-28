@@ -1,0 +1,22 @@
+# Test: grove list --fast skips sync status indicators
+setup_workspace
+
+# Create a bare remote to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+exec git push -u upstream main
+
+# Create local commit to be ahead
+exec sh -c 'echo "local" > local.txt'
+exec git add local.txt
+exec git commit -m 'local commit'
+
+# With --fast, no sync indicators shown
+exec grove list --fast --plain
+! stdout '\+[0-9]'
+! stdout '\-[0-9]'
+! stdout 'gone'
+stderr 'Gathering worktree status'
