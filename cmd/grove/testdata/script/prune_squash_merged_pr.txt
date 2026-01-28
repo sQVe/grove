@@ -1,0 +1,28 @@
+# Test: grove prune deletes local branch for gone squash-merged PR
+# This tests the scenario where:
+# 1. Feature branch has unique commits
+# 2. PR was squash-merged into main (new commit, not ancestor)
+# 3. Remote branch deleted after merge
+setup_workspace feature-pr-squashed
+
+# Create commit on feature branch
+exec git -C $WORK/testrepo checkout feature-pr-squashed
+exec sh -c 'echo "squash content" > $WORK/testrepo/squash-pr.txt'
+exec git -C $WORK/testrepo add squash-pr.txt
+exec git -C $WORK/testrepo commit -m 'feature commit'
+# Squash merge into main (simulating GitHub squash-and-merge)
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/testrepo merge --squash feature-pr-squashed
+exec git -C $WORK/testrepo commit -m 'squashed feature'
+exec git -C $WORK/workspace/.bare fetch origin
+exec git pull
+exec grove add feature-pr-squashed
+# Delete remote branch (simulating PR merge + auto-delete)
+exec git -C $WORK/testrepo branch -D feature-pr-squashed
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'deleted 1 local branch'
+! stderr 'unmerged commits'
+! exists ../feature-pr-squashed
+# Local branch should be deleted (was squash-merged into default)
+assert_branch deleted feature-pr-squashed

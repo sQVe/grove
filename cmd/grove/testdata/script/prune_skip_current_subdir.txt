@@ -1,0 +1,14 @@
+# Test: grove prune skips current worktree when run from subdirectory
+setup_workspace feature-current
+
+exec grove add feature-current
+exec git -C $WORK/testrepo branch -D feature-current
+mkdir -p ../feature-current/src/components
+cd ../feature-current/src/components
+exec grove prune
+stderr 'Would skip 1 worktree'
+stderr 'feature-current'
+stderr 'current worktree'
+exec grove prune --commit
+stderr 'Skipped 1 worktree'
+exists ../..

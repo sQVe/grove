@@ -1,0 +1,11 @@
+# Test: grove prune --commit removes worktree and deletes local branch
+setup_workspace feature-to-delete
+
+exec grove add feature-to-delete
+exec git -C $WORK/testrepo branch -D feature-to-delete
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'feature-to-delete'
+stderr 'deleted 1 local branch'
+! exists ../feature-to-delete
+assert_branch deleted feature-to-delete

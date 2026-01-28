@@ -1,0 +1,21 @@
+# Test: grove prune --detached skips dirty detached worktree
+setup_workspace feature-detached-dirty
+
+exec git -C $WORK/testrepo checkout feature-detached-dirty
+exec sh -c 'echo "dirty detached" > $WORK/testrepo/dirty-detached.txt'
+exec git -C $WORK/testrepo add dirty-detached.txt
+exec git -C $WORK/testrepo commit -m 'dirty detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-detached-dirty
+# Detach HEAD and make dirty
+exec git -C ../feature-detached-dirty checkout HEAD~0
+exec sh -c 'echo "dirty" > ../feature-detached-dirty/dirty-file.txt'
+exec grove prune --detached
+stderr 'Would skip 1 worktree'
+stderr 'feature-detached-dirty'
+stderr 'dirty, use --force'
+exec grove prune --detached --commit
+stderr 'Skipped 1 worktree'
+stderr 'feature-detached-dirty'
+exists ../feature-detached-dirty

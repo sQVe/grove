@@ -1,0 +1,4 @@
+# Test: grove prune errors when not in a workspace
+setup_workspace
+
+assert_outside_error grove prune

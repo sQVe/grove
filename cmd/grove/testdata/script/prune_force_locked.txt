@@ -1,0 +1,13 @@
+# Test: grove prune --force removes locked worktree (requires manual unlock)
+setup_workspace feature-locked
+
+exec grove add feature-locked
+exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'Important work'
+exec git -C $WORK/testrepo branch -D feature-locked
+# Git requires unlock or --force --force for locked worktrees
+# Grove's --force doesn't pass double-force, so we unlock first
+exec git -C $WORK/workspace/.bare worktree unlock ../feature-locked
+exec grove prune --commit --force
+stderr 'Pruned 1 worktree'
+stderr 'feature-locked'
+! exists ../feature-locked

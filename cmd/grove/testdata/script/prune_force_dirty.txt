@@ -1,0 +1,10 @@
+# Test: grove prune --force removes dirty worktree
+setup_workspace feature-dirty
+
+exec grove add feature-dirty
+exec sh -c 'echo "dirty content" > ../feature-dirty/dirty.txt'
+exec git -C $WORK/testrepo branch -D feature-dirty
+exec grove prune --commit --force
+stderr 'Pruned 1 worktree'
+stderr 'feature-dirty'
+! exists ../feature-dirty

@@ -1,0 +1,15 @@
+# Test: grove prune --commit handles mixed prunable and skipped
+setup_workspace feature-clean feature-dirty-mix
+
+exec grove add feature-clean
+exec grove add feature-dirty-mix
+exec sh -c 'echo "dirty" > ../feature-dirty-mix/dirty-file.txt'
+exec git -C $WORK/testrepo branch -D feature-clean
+exec git -C $WORK/testrepo branch -D feature-dirty-mix
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'feature-clean'
+stderr 'Skipped 1 worktree'
+stderr 'feature-dirty-mix'
+! exists ../feature-clean
+exists ../feature-dirty-mix

@@ -1,0 +1,20 @@
+# Test: grove prune --merged detects merged branches
+setup_workspace feature-merged
+
+# Create commit and merge into main on remote
+exec git -C $WORK/testrepo checkout feature-merged
+exec sh -c 'echo "feature content" > $WORK/testrepo/merged-feature.txt'
+exec git -C $WORK/testrepo add merged-feature.txt
+exec git -C $WORK/testrepo commit -m 'feature commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/testrepo merge --no-ff feature-merged -m 'merge feature'
+exec git -C $WORK/workspace/.bare fetch origin
+exec git pull
+exec grove add feature-merged
+# Without --merged, not detected
+exec grove prune
+stderr 'No worktrees to prune'
+# With --merged, detected
+exec grove prune --merged
+stderr 'Would prune 1 worktree'
+stderr 'feature-merged'

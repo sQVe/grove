@@ -1,0 +1,14 @@
+# Test: grove prune lists multiple gone worktrees
+setup_workspace feature-multi-1 feature-multi-2 feature-multi-3
+
+exec grove add feature-multi-1
+exec grove add feature-multi-2
+exec grove add feature-multi-3
+exec git -C $WORK/testrepo branch -D feature-multi-1
+exec git -C $WORK/testrepo branch -D feature-multi-2
+exec git -C $WORK/testrepo branch -D feature-multi-3
+exec grove prune
+stderr 'Would prune 3 worktrees'
+stderr 'feature-multi-1'
+stderr 'feature-multi-2'
+stderr 'feature-multi-3'

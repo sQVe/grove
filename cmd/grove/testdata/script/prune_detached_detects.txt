@@ -1,0 +1,22 @@
+# Test: grove prune --detached detects detached worktrees
+setup_workspace feature-detached
+
+exec git -C $WORK/testrepo checkout feature-detached
+exec sh -c 'echo "detached content" > $WORK/testrepo/detached-feature.txt'
+exec git -C $WORK/testrepo add detached-feature.txt
+exec git -C $WORK/testrepo commit -m 'detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-detached
+# Detach HEAD by checking out the commit directly
+exec git -C ../feature-detached checkout HEAD~0
+# Without --detached, not detected
+exec grove prune
+stderr 'No worktrees to prune'
+# With --detached, detected
+exec grove prune --detached
+stderr 'Would prune 1 worktree'
+# Should show directory name, not "(detached)"
+stderr 'feature-detached'
+! stderr '\(detached\)'
+stderr 'Run with --commit to remove'

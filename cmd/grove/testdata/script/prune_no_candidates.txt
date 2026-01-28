@@ -1,0 +1,6 @@
+# Test: grove prune reports no stale worktrees when none exist
+setup_workspace feature-active
+
+exec grove add feature-active
+exec grove prune
+stderr 'No worktrees to prune'

@@ -1,0 +1,20 @@
+# Test: grove prune --detached detects detached worktree with deleted remote branch
+setup_workspace feature-gone-detached
+
+exec git -C $WORK/testrepo checkout feature-gone-detached
+exec sh -c 'echo "gone detached" > $WORK/testrepo/gone-detached.txt'
+exec git -C $WORK/testrepo add gone-detached.txt
+exec git -C $WORK/testrepo commit -m 'gone detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-gone-detached
+# Detach HEAD then delete remote branch
+exec git -C ../feature-gone-detached checkout HEAD~0
+exec git -C $WORK/testrepo branch -D feature-gone-detached
+# Detached worktrees have NoUpstream=true, so Gone check doesn't apply
+# With --detached, detected as detached candidate
+exec grove prune --detached
+stderr 'Would prune 1 worktree'
+stderr 'feature-gone-detached'
+exec grove prune --detached --commit
+! exists ../feature-gone-detached

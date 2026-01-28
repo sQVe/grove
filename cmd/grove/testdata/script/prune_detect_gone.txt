@@ -1,0 +1,10 @@
+# Test: grove prune detects worktree with gone upstream (dry-run)
+setup_workspace feature-to-delete
+
+exec grove add feature-to-delete
+exec git -C $WORK/testrepo branch -D feature-to-delete
+exec grove prune
+stderr 'Would prune 1 worktree'
+stderr 'feature-to-delete'
+stderr 'Run with --commit to remove'
+exists ../feature-to-delete

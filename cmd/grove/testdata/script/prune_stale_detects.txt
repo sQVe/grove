@@ -1,0 +1,18 @@
+# Test: grove prune --stale detects old worktrees
+setup_workspace
+
+# Create branch with old commit on remote (bypassing setup_workspace)
+exec git -C $WORK/testrepo checkout -b feature-stale
+exec sh -c 'cd $WORK/testrepo && GIT_COMMITTER_DATE="2024-01-01T00:00:00" GIT_AUTHOR_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-stale
+# Without --stale, not detected (branch still has upstream)
+exec grove prune
+stderr 'No worktrees to prune'
+# With --stale 30d, detected as stale candidate
+exec grove prune --stale 30d
+stderr 'Would prune 1 worktree'
+stderr 'feature-stale'
+stderr 'year.* ago'
+stderr 'Run with --commit to remove'
