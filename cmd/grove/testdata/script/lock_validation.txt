@@ -20,13 +20,13 @@ stdout '<worktree>...'
 
 # No arguments → error
 ! exec grove lock
-stderr 'requires at least one worktree'
+stderr '✗ requires at least one worktree'
 
 ## Unlock argument validation
 
 # No arguments → error
 ! exec grove unlock
-stderr 'requires at least one worktree'
+stderr '✗ requires at least one worktree'
 
 ## Workspace validation
 
@@ -34,11 +34,11 @@ stderr 'requires at least one worktree'
 mkdir not-a-workspace
 cd not-a-workspace
 ! exec grove lock feature
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Unlock not in workspace
 ! exec grove unlock feature
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..
 
 # Lock in regular git repo
@@ -46,9 +46,9 @@ mkdir git-repo
 cd git-repo
 exec git init
 ! exec grove lock feature
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Unlock in regular git repo
 ! exec grove unlock feature
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..

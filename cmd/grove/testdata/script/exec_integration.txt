@@ -34,19 +34,19 @@ stdout '\-\-fail-fast'
 
 # No command → error
 ! exec grove exec --all --
-stderr 'no command specified'
+stderr '✗ no command specified'
 
 # No target → error
 ! exec grove exec -- echo hello
-stderr 'must specify --all or at least one worktree'
+stderr '✗ must specify --all or at least one worktree'
 
 # --all with specific worktrees → error
 ! exec grove exec --all main -- echo hello
-stderr 'cannot use --all with specific worktrees'
+stderr '✗ cannot use --all with specific worktrees'
 
 # Invalid worktree → error
 ! exec grove exec nonexistent -- echo hello
-stderr 'worktree not found: nonexistent'
+stderr '✗ worktree not found: nonexistent'
 
 ## Basic execution
 
@@ -125,7 +125,7 @@ rm only-in-main.txt
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove exec --all -- echo hello
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 -- README.md --
 # Test

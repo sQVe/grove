@@ -38,7 +38,7 @@ stderr 'Gathering worktree status'
 ## Extra arguments → error
 
 ! exec grove list foo
-stderr 'unknown command'
+stderr '✗ unknown command'
 
 ## --fast flag → skip sync status checks
 
@@ -413,7 +413,7 @@ stdout 'dirty'
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove list
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 -- README.md --
 # Test

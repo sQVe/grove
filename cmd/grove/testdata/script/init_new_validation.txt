@@ -14,7 +14,7 @@ stdout '[directory]'
 
 # Too many arguments
 ! exec grove init new dir1 dir2
-stderr '^✗ accepts at most 1 arg'
+stderr '✗ accepts at most 1 arg'
 stderr 'received 2'
 
 ## Pre-condition validation
@@ -23,7 +23,7 @@ stderr 'received 2'
 mkdir new-fails-not-empty
 cp existing.txt new-fails-not-empty/existing.txt
 ! exec grove init new new-fails-not-empty
-stderr '^✗ directory.*new-fails-not-empty.*not empty'
+stderr '✗ directory.*new-fails-not-empty.*not empty'
 
 # Inside existing grove workspace
 mkdir new-fails-inside-grove
@@ -31,7 +31,7 @@ exec grove init new new-fails-inside-grove
 stderr 'Initialized grove workspace'
 cd new-fails-inside-grove
 ! exec grove init new
-stderr '^✗ cannot initialize grove inside existing grove workspace'
+stderr '✗ cannot initialize grove inside existing grove workspace'
 cd ..
 
 # Nested inside existing grove workspace
@@ -39,7 +39,7 @@ mkdir new-fails-nested-grove
 exec grove init new new-fails-nested-grove
 stderr 'Initialized grove workspace'
 ! exec grove init new new-fails-nested-grove/nested
-stderr '^✗ cannot initialize grove inside existing grove workspace'
+stderr '✗ cannot initialize grove inside existing grove workspace'
 
 -- existing.txt --
 content

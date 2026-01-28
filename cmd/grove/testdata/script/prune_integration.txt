@@ -714,7 +714,7 @@ stderr 'deleted 1 local branch'
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove prune
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 -- README.md --
 # Test

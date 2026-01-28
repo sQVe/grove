@@ -67,17 +67,17 @@ stderr 'Preparing worktree'
 ## Error: Output remains visible
 mkdir clone-error-output
 ! exec grove clone file:///nonexistent/repo.git clone-error-output
-stderr 'failed to clone repository'
+stderr '✗ failed to clone repository'
 
 ## Error: Invalid branch
 mkdir clone-invalid-branch
 ! exec grove clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
-stderr 'failed to create worktree for branch.*nonexistent.*invalid reference'
+stderr '✗ failed to create worktree for branch.*nonexistent.*invalid reference'
 
 ## Error: Partial failure cleans up
 mkdir clone-partial-failure
 ! exec grove clone file://$WORK/testrepo clone-partial-failure --branches main,nonexistent
-stderr 'failed to create worktree for branch.*nonexistent'
+stderr '✗ failed to create worktree for branch.*nonexistent'
 # Workspace should be cleaned up (no .bare directory)
 ! exists clone-partial-failure/.bare
 ! exists clone-partial-failure/main
@@ -137,6 +137,7 @@ stderr 'release-v1-patch'
 ## Error: Duplicate branches
 mkdir clone-duplicate-branches
 ! exec grove clone file://$WORK/testrepo clone-duplicate-branches --branches 'main,main'
+stderr '✗ failed to create worktree for branch'
 stderr 'already exists'
 
 ## Edge case: Same repo cloned to different dirs
@@ -151,7 +152,7 @@ exists clone-twice-b/.bare
 mkdir clone-same-dir
 exec grove clone file://$WORK/testrepo clone-same-dir --branches main
 ! exec grove clone file://$WORK/testrepo clone-same-dir --branches main
-stderr 'cannot initialize grove inside existing grove workspace'
+stderr '✗ cannot initialize grove inside existing grove workspace'
 
 ## Error: Cleanup on failure
 mkdir clone-fail-cleanup

@@ -25,7 +25,7 @@ exec git config user.email "test@example.com"
 
 # Extra arguments → error (treated as unknown subcommand)
 ! exec grove status extra-arg
-stderr 'unknown command'
+stderr '✗ unknown command'
 
 ## Basic status tests
 
@@ -95,12 +95,12 @@ stdout '"branch": "main"'
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove status
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Test not in worktree error (from workspace root)
 cd $WORK/workspace
 ! exec grove status
-stderr '^✗ failed to check changes.*must be run in a work tree'
+stderr '✗ failed to check changes.*must be run in a work tree'
 
 cd main
 

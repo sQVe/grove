@@ -19,11 +19,11 @@ stdout '--reset'
 
 # No arguments and no --pr flag
 ! exec grove add
-stderr '^✗ requires branch, PR URL, or --pr flag'
+stderr '✗ requires branch, PR URL, or --pr flag'
 
 # Too many arguments
 ! exec grove add branch extra
-stderr '^✗ accepts at most 1 arg'
+stderr '✗ accepts at most 1 arg'
 stderr 'received 2'
 
 # Old #N syntax gives helpful error
@@ -33,29 +33,29 @@ stderr 'grove add --pr 123'
 
 # --pr cannot be combined with positional argument
 ! exec grove add --pr 123 feature
-stderr '^✗ --pr flag cannot be combined with positional argument'
+stderr '✗ --pr flag cannot be combined with positional argument'
 
 # Negative --pr gives clear error
 ! exec grove add --pr -5
-stderr '^✗ --pr must be a positive number'
+stderr '✗ --pr must be a positive number'
 
 ## Flag conflicts
 
 # --base with --pr
 ! exec grove add --base main --pr 123
-stderr '^✗ --base cannot be used with PR references'
+stderr '✗ --base cannot be used with PR references'
 
 # --detach with --pr
 ! exec grove add --detach --pr 123
-stderr '^✗ --detach cannot be used with PR references'
+stderr '✗ --detach cannot be used with PR references'
 
 # --detach and --base together
 ! exec grove add --detach --base main v1.0.0
-stderr '^✗ --detach and --base cannot be used together'
+stderr '✗ --detach and --base cannot be used together'
 
 # --reset without --pr
 ! exec grove add --reset feature
-stderr '^✗ --reset can only be used with PR references'
+stderr '✗ --reset can only be used with PR references'
 
 # --reset with --pr is valid (but will fail without workspace - that's ok)
 ! exec grove add --reset --pr 123

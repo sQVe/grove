@@ -59,20 +59,20 @@ stdout '[/\\\\]workspace[/\\\\]main$'
 ## Empty string after trimming → error
 
 ! exec grove switch '   '
-stderr 'worktree not found'
+stderr '✗ worktree not found'
 
 ## No match found → error
 
 ! exec grove switch nonexistent
-stderr 'worktree not found: nonexistent'
+stderr '✗ worktree not found: nonexistent'
 
 ## Case-sensitive matching → exact match required
 
 ! exec grove switch Main
-stderr 'worktree not found: Main'
+stderr '✗ worktree not found: Main'
 
 ! exec grove switch DEVELOP
-stderr 'worktree not found: DEVELOP'
+stderr '✗ worktree not found: DEVELOP'
 
 ## Switch to current worktree → succeeds (outputs same path)
 
@@ -187,7 +187,7 @@ exec grove __complete switch main ''
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove switch main
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 ## Shell init - sh (used for bash/zsh/sh)
 # Generates a POSIX-compatible shell function that wraps `grove switch`
@@ -235,7 +235,7 @@ stdout 'Set-Location'
 ## Shell init - unsupported shell
 
 ! exec grove switch shell-init --shell tcsh
-stderr 'unsupported shell: tcsh'
+stderr '✗ unsupported shell: tcsh'
 
 -- README.md --
 # Test

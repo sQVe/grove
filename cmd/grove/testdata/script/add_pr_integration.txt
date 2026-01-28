@@ -45,12 +45,12 @@ exists ../pr-7
 ## PR doesn't exist → error
 
 ! exec grove add --pr 99999
-stderr 'not found'
+stderr '✗ .*not found'
 
 ## PR branch already has worktree → error
 
 ! exec grove add --pr 7
-stderr 'worktree already exists'
+stderr '✗ worktree already exists'
 
 ## PR with --switch outputs only path
 
@@ -81,5 +81,5 @@ exec git config user.name "Test"
 exec git config user.email "test@example.com"
 # PR number requires GitHub origin
 ! exec grove add --pr 123
-stderr 'requires workspace context'
+stderr '✗ .*requires workspace context'
 

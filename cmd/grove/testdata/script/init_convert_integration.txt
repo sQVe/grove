@@ -158,7 +158,7 @@ exec sh -c 'echo "output" > build/main.js'
 mkdir -p node_modules/package
 exec sh -c 'echo "{}" > node_modules/package/package.json'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has uncommitted changes'
+stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
 
 ## Success: File integrity check
@@ -204,7 +204,7 @@ exec git add .
 exec git commit -m 'other'
 ! exec git merge branch2
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has unresolved conflicts'
+stderr '✗ cannot convert: repository has unresolved conflicts'
 cd ..
 
 ## Success: Remote-only branch
@@ -253,7 +253,7 @@ exec sh -c 'echo "blocking file" > main/blocker.txt'
 exec git add .
 exec git commit -m 'add blocking directory'
 ! exec grove init convert --branches main,develop
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify rollback restored original state
 ! exists .bare
 exists .git
@@ -274,7 +274,7 @@ exec git add .
 exec git commit -m 'initial commit'
 # Try to convert with nonexistent branch - should fail during validation
 ! exec grove init convert --branches main,nonexistent-branch
-stderr '^✗ branch.*does not exist'
+stderr '✗ branch.*does not exist'
 # Verify no changes were made since validation failed early
 ! exists .bare
 exists .git
@@ -309,7 +309,7 @@ exec sh -c 'echo "blocker" > main/blocker.txt'
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify lock file was cleaned up even on failure
 ! exists .grove-convert.lock
 exists .git
@@ -345,7 +345,7 @@ cd ..
 [!windows] exec git add .
 [!windows] exec git commit -m 'add blocker'
 [!windows] ! exec grove init convert
-[!windows] stderr '^✗ failed to create worktree'
+[!windows] stderr '✗ failed to create worktree'
 [!windows] exists test-file.txt
 [!windows] exists link-to-file.txt
 [!windows] exec readlink link-to-file.txt
@@ -369,7 +369,7 @@ exec git commit -m 'add blocker'
 exists test-file.txt
 exists another-file.txt
 ! exec grove init convert
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify all files were restored to root after rollback
 exists test-file.txt
 exists another-file.txt
@@ -394,7 +394,7 @@ exec sh -c 'echo "blocker" > main/blocker.txt'
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify directory hierarchy was restored correctly
 exists subdir/test-file.txt
 exists subdir/nested/nested-file.txt
@@ -418,7 +418,7 @@ exec sh -c 'echo "blocker" > main/blocker.txt'
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify git config was restored to non-bare
 exec sh -c 'test "$(git config --bool core.bare)" = "false" || test -z "$(git config --bool core.bare)"'
 # Verify repository still functions normally
@@ -442,7 +442,7 @@ exec sh -c 'echo "blocker" > main/blocker.txt'
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify all file types were restored
 exists test-file.txt
 exists .hidden-file
@@ -471,7 +471,7 @@ exec git add .
 exec git commit -m 'add blocker'
 # Attempt conversion with multiple branches - should fail and rollback
 ! exec grove init convert --branches feature,main
-stderr '^✗ failed to create worktree'
+stderr '✗ failed to create worktree'
 # Verify rollback cleaned up created worktrees (main directory should still exist as it was part of original repo)
 ! exists feature
 exists main

@@ -58,7 +58,7 @@ exists ../feature-branch
 ## Worktree not found → error
 
 ! exec grove remove nonexistent-worktree
-stderr 'worktree not found'
+stderr '✗ worktree not found'
 
 ## Detached HEAD worktree → removes normally
 
@@ -75,7 +75,7 @@ exec grove add subdir-test
 mkdir ../subdir-test/deep/nested
 cd ../subdir-test/deep/nested
 ! exec grove remove subdir-test
-stderr 'cannot.*current worktree'
+stderr 'cannot delete current worktree'
 cd $WORK/workspace/main
 
 ## CWD is workspace root → succeeds
@@ -91,7 +91,7 @@ cd main
 exec grove add dirty-modified
 exec sh -c 'echo "modified" >> ../dirty-modified/README.md'
 ! exec grove remove dirty-modified
-stderr 'uncommitted changes'
+stderr '✗ .*uncommitted changes'
 # Clean up
 exec git -C ../dirty-modified checkout README.md
 exec grove remove dirty-modified
@@ -102,7 +102,7 @@ exec grove add dirty-staged
 exec sh -c 'echo "staged" > ../dirty-staged/newfile.txt'
 exec git -C ../dirty-staged add newfile.txt
 ! exec grove remove dirty-staged
-stderr 'uncommitted changes'
+stderr '✗ .*uncommitted changes'
 # Clean up with force
 exec grove remove --force dirty-staged
 
@@ -122,7 +122,7 @@ exec grove add dirty-plus-locked
 exec sh -c 'echo "dirty" > ../dirty-plus-locked/untracked.txt'
 exec git -C $WORK/workspace/.bare worktree lock ../dirty-plus-locked
 ! exec grove remove dirty-plus-locked
-stderr 'uncommitted changes'
+stderr '✗ .*uncommitted changes'
 ! stderr 'is locked'
 # Clean up
 exec grove remove --force dirty-plus-locked
@@ -154,7 +154,7 @@ exec git commit -m 'unmerged commit'
 cd ../main
 # Branch has commits not merged to main, so git branch -d fails
 ! exec grove remove --branch branch-unmerged
-stderr 'not fully merged'
+stderr '✗ .*not fully merged'
 # Worktree was removed, but branch deletion failed
 ! exists ../branch-unmerged
 # Branch still exists because deletion failed
@@ -209,7 +209,7 @@ rm -r ../phantom-test
 # Grove skips corrupted worktrees and then can't find it
 ! exec grove remove phantom-test
 stderr 'may be corrupted'
-stderr 'worktree not found'
+stderr '✗ worktree not found'
 # Clean up phantom via git prune
 exec git -C $WORK/workspace/.bare worktree prune
 
@@ -253,7 +253,7 @@ exec git status
 stdout 'Unmerged'
 cd ../main
 ! exec grove remove merge-test
-stderr 'uncommitted changes'
+stderr '✗ .*uncommitted changes'
 # Clean up
 exec git -C ../merge-test merge --abort
 exec grove remove --force merge-test
@@ -311,7 +311,7 @@ cd ../main
 # Remove with --branch warns about unpushed but fails branch delete (not merged to main)
 ! exec grove remove --branch unpushed-test
 stderr 'unpushed'
-stderr 'not fully merged'
+stderr '✗ .*not fully merged'
 # Worktree was removed
 ! exists ../unpushed-test
 # Branch still exists
@@ -371,7 +371,7 @@ exec git -C ../submod-worktree submodule update --init
 exists ../submod-worktree/sub/submod-file.txt
 # Git blocks removal of worktrees with submodules (this is a git limitation)
 ! exec grove remove submod-worktree
-stderr 'submodules cannot be moved or removed'
+stderr '✗ .*submodules cannot be moved or removed'
 exists ../submod-worktree
 # Note: Workaround is to manually delete with rm -rf and then git worktree prune
 # Grove cannot work around this git limitation
@@ -383,10 +383,10 @@ exec git config --global --unset protocol.file.allow
 ## Empty/whitespace argument → error
 
 ! exec grove remove ''
-stderr 'worktree not found'
+stderr '✗ worktree not found'
 
 ! exec grove remove '   '
-stderr 'worktree not found'
+stderr '✗ worktree not found'
 
 -- README.md --
 # Test

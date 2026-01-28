@@ -76,14 +76,14 @@ stdout '"lock_reason": "Do not delete"'
 ## Error: Worktree not found
 
 ! exec grove lock nonexistent
-stderr '^✗ worktree not found: nonexistent'
+stderr '✗ worktree not found: nonexistent'
 
 ## Error: Not in workspace
 
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove lock feature
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd $WORK/workspace/main
 
 ## Success: Unlock output
@@ -99,7 +99,7 @@ stderr 'worktree is not locked'
 ## Error: Unlock nonexistent worktree
 
 ! exec grove unlock nonexistent
-stderr '^✗ worktree not found: nonexistent'
+stderr '✗ worktree not found: nonexistent'
 
 ## Success: Branch name with slashes
 

@@ -16,7 +16,7 @@ stdout '--stale'
 
 # Rejects positional arguments
 ! exec grove prune extra-arg
-stderr '^✗ unknown command "extra-arg" for "grove prune"'
+stderr '✗ unknown command "extra-arg" for "grove prune"'
 
 ## Workspace validation
 
@@ -24,7 +24,7 @@ stderr '^✗ unknown command "extra-arg" for "grove prune"'
 mkdir not-a-workspace
 cd not-a-workspace
 ! exec grove prune
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..
 
 # Regular git repo (not grove)
@@ -32,55 +32,55 @@ mkdir git-repo
 cd git-repo
 exec git init
 ! exec grove prune
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..
 
 ## Stale duration validation
 
 # Invalid unit
 ! exec grove prune --stale 30x
-stderr '^✗ unknown duration unit: x'
+stderr '✗ unknown duration unit: x'
 
 # Negative duration
 ! exec grove prune --stale -5d
-stderr '^✗ duration must be positive'
+stderr '✗ duration must be positive'
 
 # Zero duration
 ! exec grove prune --stale 0d
-stderr '^✗ duration must be positive'
+stderr '✗ duration must be positive'
 
 # Non-numeric
 ! exec grove prune --stale abcd
-stderr '^✗ invalid duration number: abcd'
+stderr '✗ invalid duration number: abcd'
 
 ## Valid duration formats
 
 # Days
 ! exec grove prune --stale 30d
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Weeks
 ! exec grove prune --stale 2w
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Months
 ! exec grove prune --stale 6m
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Case insensitive
 ! exec grove prune --stale 30D
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 ! exec grove prune --stale 2W
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 ! exec grove prune --stale 6M
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Single digit
 ! exec grove prune --stale 1d
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 # Large number
 ! exec grove prune --stale 365d
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'

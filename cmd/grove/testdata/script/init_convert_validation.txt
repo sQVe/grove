@@ -14,7 +14,7 @@ stdout '--branches'
 
 # Rejects positional arguments
 ! exec grove init convert arg1
-stderr '^✗ unknown command "arg1" for "grove init convert"'
+stderr '✗ unknown command "arg1" for "grove init convert"'
 
 ## Pre-condition validation
 
@@ -22,7 +22,7 @@ stderr '^✗ unknown command "arg1" for "grove init convert"'
 mkdir not-git-repo
 cd not-git-repo
 ! exec grove init convert
-stderr '^✗ not a git repository'
+stderr '✗ not a git repository'
 cd ..
 
 # Already grove workspace
@@ -30,7 +30,7 @@ mkdir already-grove
 exec grove init new already-grove
 cd already-grove
 ! exec grove init convert
-stderr '^✗ already a grove workspace'
+stderr '✗ already a grove workspace'
 cd ..
 
 # Repository is a worktree
@@ -45,7 +45,7 @@ exec git checkout main
 exec git worktree add ../convert-worktree-feature feature
 cd ../convert-worktree-feature
 ! exec grove init convert
-stderr '^✗ cannot convert: repository is already a worktree'
+stderr '✗ cannot convert: repository is already a worktree'
 cd ..
 
 # Unborn HEAD (no commits)
@@ -53,7 +53,7 @@ mkdir convert-unborn
 cd convert-unborn
 exec git init
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has no commits'
+stderr '✗ cannot convert: repository has no commits'
 cd ..
 
 # Detached HEAD
@@ -65,7 +65,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec git checkout HEAD~0
 ! exec grove init convert
-stderr '^✗ cannot convert: repository is in detached HEAD state'
+stderr '✗ cannot convert: repository is in detached HEAD state'
 cd ..
 
 # Staged changes
@@ -78,7 +78,7 @@ exec git commit -m 'initial commit'
 exec sh -c 'echo "staged content" > staged-file.txt'
 exec git add staged-file.txt
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has uncommitted changes'
+stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
 
 # Untracked files
@@ -90,7 +90,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'echo "this file should not be deleted" > untracked.txt'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has uncommitted changes'
+stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
 
 # Modified unstaged files
@@ -102,7 +102,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'echo "modified content" >> test-file.txt'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has uncommitted changes'
+stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
 
 # Existing worktrees
@@ -116,7 +116,7 @@ exec git checkout -b feature
 exec git checkout main
 exec git worktree add ../feature-worktree feature
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has existing worktrees'
+stderr '✗ cannot convert: repository has existing worktrees'
 cd ..
 
 # Lock files present
@@ -128,7 +128,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'touch .git/index.lock'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has active lock files'
+stderr '✗ cannot convert: repository has active lock files'
 cd ..
 
 # Has submodules
@@ -140,7 +140,7 @@ exec git add .
 exec git commit -m 'initial commit'
 cp ../gitmodules .gitmodules
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has submodules'
+stderr '✗ cannot convert: repository has submodules'
 cd ..
 
 # Unresolved conflicts
@@ -152,7 +152,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'touch .git/MERGE_HEAD'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
+stderr '✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
 # Ongoing merge/rebase/cherry-pick
@@ -164,7 +164,7 @@ exec git add .
 exec git commit -m 'initial commit'
 exec sh -c 'touch .git/MERGE_HEAD'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
+stderr '✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
 
 # Unpushed commits
@@ -184,7 +184,7 @@ cp ../test-file2.txt .
 exec git add .
 exec git commit -m 'unpushed commit'
 ! exec grove init convert
-stderr '^✗ cannot convert: repository has unpushed commits'
+stderr '✗ cannot convert: repository has unpushed commits'
 cd ..
 
 -- test-file.txt --

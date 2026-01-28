@@ -20,60 +20,60 @@ stdout 'Usage:'
 
 # Invalid subcommand
 ! exec grove config invalid
-stderr 'unknown command "invalid" for "grove config"'
+stderr '✗ unknown command "invalid" for "grove config"'
 
 # list rejects extra arguments
 ! exec grove config list extra
-stderr 'unknown command "extra" for "grove config list"'
+stderr '✗ unknown command "extra" for "grove config list"'
 
 # get requires key
 ! exec grove config get
-stderr 'accepts 1 arg'
+stderr '✗ accepts 1 arg'
 stderr 'received 0'
 
 # set requires key and value
 ! exec grove config set --global key
-stderr 'accepts 2 arg'
+stderr '✗ accepts 2 arg'
 stderr 'received 1'
 
 # unset requires key
 ! exec grove config unset --global
-stderr 'accepts between 1 and 2 arg'
+stderr '✗ accepts between 1 and 2 arg'
 stderr 'received 0'
 
 ## Scope validation
 
 # set requires --shared or --global
 ! exec grove config set grove.plain true
-stderr 'must specify --shared or --global'
+stderr '✗ must specify --shared or --global'
 
 # --shared and --global conflict
 ! exec grove config set --shared --global grove.plain true
-stderr '--shared and --global cannot be used together'
+stderr '✗ --shared and --global cannot be used together'
 
 ## Key validation
 
 # non-grove.* keys rejected - get
 ! exec grove config get --global user.name
-stderr 'only grove\.\* settings'
+stderr '✗ only grove\.\* settings'
 
 # non-grove.* keys rejected - set
 ! exec grove config set --global user.name value
-stderr 'only grove\.\* settings'
+stderr '✗ only grove\.\* settings'
 
 # non-grove.* keys rejected - unset
 ! exec grove config unset --global user.name
-stderr 'only grove\.\* settings'
+stderr '✗ only grove\.\* settings'
 
 ## Value validation
 
 # boolean validation for grove.plain
 ! exec grove config set --global grove.plain maybe
-stderr 'invalid boolean'
+stderr '✗ invalid boolean'
 
 # boolean validation for grove.debug
 ! exec grove config set --global grove.debug 2
-stderr 'invalid boolean'
+stderr '✗ invalid boolean'
 
 ## Global operations
 

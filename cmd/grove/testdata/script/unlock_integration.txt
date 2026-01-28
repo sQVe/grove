@@ -50,14 +50,14 @@ stderr 'worktree is not locked'
 ## Error: Worktree not found
 
 ! exec grove unlock nonexistent
-stderr '^✗ worktree not found: nonexistent'
+stderr '✗ worktree not found: nonexistent'
 
 ## Error: Not in workspace
 
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove unlock feature
-stderr '^✗ not in a grove workspace'
+stderr '✗ not in a grove workspace'
 
 -- README.md --
 # Test
