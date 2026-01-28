@@ -1,0 +1,10 @@
+# Test: grove add has no hook output when none configured
+setup_workspace
+
+exec sh -c 'echo "[hooks]" > .grove.toml'
+exec sh -c 'echo "add = []" >> .grove.toml'
+
+exec grove add feature/no-hooks
+stderr 'Created worktree at .*[/\\]feature-no-hooks'
+! stderr 'Running.*hook'
+! stderr 'Hook'

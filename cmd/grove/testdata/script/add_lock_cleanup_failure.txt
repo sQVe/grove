@@ -1,0 +1,11 @@
+# Test: grove add cleans up lock file on failure
+setup_workspace
+
+# Try to add a branch that will fail (directory already exists)
+mkdir ../lock-fail-dir
+
+! exec grove add lock-fail-dir
+stderr '✗ directory already exists'
+
+# Verify lock file was cleaned up even after failure
+! exists ../.grove-worktree.lock

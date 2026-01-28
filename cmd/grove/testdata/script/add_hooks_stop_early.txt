@@ -1,0 +1,11 @@
+# Test: grove add stops at first hook failure
+setup_workspace
+
+exec sh -c 'echo "[hooks]" > .grove.toml'
+exec sh -c 'echo "add = [\"exit 42\", \"touch .should-not-exist\"]" >> .grove.toml'
+
+exec grove add feature/hook-stop-early
+stderr 'Created worktree at .*[/\\]feature-hook-stop-early'
+stderr 'Hook failed.*exit 42.*exit code 42'
+exists ../feature-hook-stop-early
+! exists ../feature-hook-stop-early/.should-not-exist

@@ -1,0 +1,5 @@
+# Test: grove add --base errors with nonexistent branch
+setup_workspace
+
+! exec grove add --base nonexistent-branch feature/from-nonexistent
+stderr '✗ .*does not exist'

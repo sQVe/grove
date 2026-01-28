@@ -1,0 +1,13 @@
+# Test: grove add auto-locks release branches by pattern
+setup_workspace
+
+# Create .grove.toml with auto-lock for release/*
+exec sh -c 'echo "[auto-lock]" > .grove.toml'
+exec sh -c 'echo "patterns = [\"main\", \"release/*\"]" >> .grove.toml'
+
+exec grove add release/v1.0
+stderr 'Created worktree at .*[/\\]release-v1.0'
+
+# Release branch SHOULD be locked
+exec git -C $WORK/workspace/.bare worktree list --porcelain
+stdout 'locked'

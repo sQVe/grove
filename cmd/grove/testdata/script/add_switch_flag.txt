@@ -1,0 +1,7 @@
+# Test: grove add --switch outputs path only
+setup_workspace
+
+exec grove add --switch feature/switch-test
+stdout '^.*[/\\]feature-switch-test$'
+! stderr 'Created worktree'
+exists ../feature-switch-test

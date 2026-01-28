@@ -1,0 +1,15 @@
+# Test: grove add --base creates branch from specified base
+setup_workspace existing-branch
+
+exec grove add --base existing-branch feature/from-existing
+stderr 'Created worktree at .*[/\\]feature-from-existing'
+exists ../feature-from-existing
+exec git -C ../feature-from-existing rev-parse --abbrev-ref HEAD
+stdout '^feature/from-existing$'
+
+# Verify branch started from correct base (same commit as existing-branch)
+exec git -C ../feature-from-existing rev-parse HEAD
+cp stdout head_commit.txt
+exec grove add existing-branch
+exec git -C ../existing-branch rev-parse HEAD
+cmp stdout head_commit.txt

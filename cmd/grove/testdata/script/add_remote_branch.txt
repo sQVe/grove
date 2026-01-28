@@ -1,0 +1,15 @@
+# Test: grove add creates worktree for existing remote branch
+setup_workspace
+
+# Create a branch on the remote
+exec git -C $WORK/testrepo checkout -b remote-only-branch
+exec git -C $WORK/testrepo checkout main
+
+# Fetch from remote
+exec git -C $WORK/workspace/.bare fetch origin
+
+exec grove add remote-only-branch
+stderr 'Created worktree at .*[/\\]remote-only-branch'
+exists ../remote-only-branch
+exec git -C ../remote-only-branch rev-parse --abbrev-ref HEAD
+stdout '^remote-only-branch$'

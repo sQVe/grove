@@ -1,0 +1,7 @@
+# Test: grove add -s shorthand outputs path only
+setup_workspace
+
+exec grove add -s feature/short-flag
+stdout '^.*[/\\]feature-short-flag$'
+! stderr 'Created worktree'
+exists ../feature-short-flag

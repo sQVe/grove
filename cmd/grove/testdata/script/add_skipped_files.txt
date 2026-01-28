@@ -1,0 +1,23 @@
+# Test: grove add handles skipped files during preservation
+setup_workspace
+
+# Create a file that will be skipped during preservation
+exec sh -c 'echo "SKIP_TEST=1" > .env-skip-test'
+exec sh -c 'echo ".env-skip-test" >> .gitignore'
+exec git add .gitignore
+exec git commit -m 'add env-skip-test to gitignore'
+
+# First add creates worktree
+exec grove add feature/skip-test
+exists ../feature-skip-test
+
+# Create the file in destination
+exec sh -c 'echo "EXISTING=1" > ../feature-skip-test/.env-skip-test'
+
+# Remove the worktree
+exec grove remove feature-skip-test
+
+# Modify source file and re-add
+exec sh -c 'echo "SKIP_TEST=modified" > .env-skip-test'
+exec grove add feature/skip-test-2
+stderr 'Created worktree at'

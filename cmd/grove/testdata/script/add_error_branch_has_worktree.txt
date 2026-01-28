@@ -1,0 +1,8 @@
+# Test: grove add errors when branch already has worktree
+setup_workspace existing-branch
+
+exec grove add existing-branch
+exists ../existing-branch
+
+! exec grove add existing-branch
+stderr '✗ worktree already exists for branch'

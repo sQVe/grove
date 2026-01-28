@@ -1,0 +1,10 @@
+# Test: grove add shows warning when hook fails
+setup_workspace
+
+exec sh -c 'echo "[hooks]" > .grove.toml'
+exec sh -c 'echo "add = [\"exit 1\"]" >> .grove.toml'
+
+exec grove add feature/hook-fail
+stderr 'Created worktree at .*[/\\]feature-hook-fail'
+stderr 'Hook failed.*exit 1.*exit code 1'
+exists ../feature-hook-fail

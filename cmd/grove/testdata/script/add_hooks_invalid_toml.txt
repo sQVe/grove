@@ -1,0 +1,9 @@
+# Test: grove add shows warning for invalid TOML config
+setup_workspace
+
+exec sh -c 'echo "this is not valid toml [[[" > .grove.toml'
+
+exec grove add feature/invalid-toml
+stderr 'Created worktree at .*[/\\]feature-invalid-toml'
+stderr 'hooks disabled'
+exists ../feature-invalid-toml

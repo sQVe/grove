@@ -1,0 +1,5 @@
+# Test: grove add --from errors with nonexistent worktree
+setup_workspace
+
+! exec grove add --from nonexistent-worktree feature/from-nonexistent
+stderr '✗ worktree.*not found'

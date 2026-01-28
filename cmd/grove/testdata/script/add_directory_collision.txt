@@ -1,0 +1,11 @@
+# Test: grove add errors on directory collision after sanitization
+setup_workspace
+
+# Create first branch with slash
+exec grove add feature/collision-test
+stderr 'Created worktree at .*[/\\]feature-collision-test'
+exists ../feature-collision-test
+
+# Try to create branch that sanitizes to same directory name
+! exec grove add --name feature-collision-test feature/other-branch
+stderr '✗ directory already exists'

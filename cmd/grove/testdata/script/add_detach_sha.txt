@@ -1,0 +1,9 @@
+# Test: grove add --detach works with commit SHA
+setup_workspace
+
+exec grove add --detach --name detached-sha HEAD
+stderr 'Created detached worktree at .*[/\\]detached-sha'
+exists ../detached-sha
+
+exec git -C ../detached-sha rev-parse --abbrev-ref HEAD
+stdout '^HEAD$'
