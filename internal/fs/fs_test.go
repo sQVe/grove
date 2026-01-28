@@ -361,7 +361,7 @@ func TestCopyFile(t *testing.T) {
 		}
 
 		// Skip permission check on Windows as it doesn't support Unix file permissions
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != OSWindows {
 			info, err := os.Stat(dstFile)
 			if err != nil {
 				t.Fatalf("failed to stat destination file: %v", err)
@@ -516,7 +516,7 @@ func TestWriteFileAtomic(t *testing.T) {
 		}
 
 		// Skip permission check on Windows as it doesn't support Unix file permissions
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != OSWindows {
 			info, err := os.Stat(testFile)
 			if err != nil {
 				t.Fatalf("failed to stat atomic file: %v", err)

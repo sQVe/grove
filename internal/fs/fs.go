@@ -24,6 +24,9 @@ const (
 	// MaxDirectoryIterations limits directory traversal to prevent infinite loops
 	// from symlink cycles. 100 levels is generous for any sane filesystem depth.
 	MaxDirectoryIterations = 100
+
+	// OSWindows is the GOOS value for Windows
+	OSWindows = "windows"
 )
 
 // DirectoryExists checks if a directory exists
@@ -185,7 +188,7 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 // On Windows, this resolves short paths (8.3 format) to long paths.
 // On Unix, this just cleans the path.
 func canonicalizePath(path string) string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		// EvalSymlinks resolves symlinks and converts short paths to long paths on Windows
 		if resolved, err := filepath.EvalSymlinks(path); err == nil {
 			return resolved
@@ -202,7 +205,7 @@ func PathsEqual(path1, path2 string) bool {
 	clean1 := canonicalizePath(path1)
 	clean2 := canonicalizePath(path2)
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		return strings.EqualFold(clean1, clean2)
 	}
 	return clean1 == clean2
@@ -214,7 +217,7 @@ func PathHasPrefix(path, prefix string) bool {
 	cleanPath := canonicalizePath(path)
 	cleanPrefix := canonicalizePath(prefix) + string(filepath.Separator)
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OSWindows {
 		return strings.HasPrefix(strings.ToLower(cleanPath), strings.ToLower(cleanPrefix))
 	}
 	return strings.HasPrefix(cleanPath, cleanPrefix)
