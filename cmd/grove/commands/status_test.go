@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -65,7 +66,7 @@ func TestRunStatus_NotInWorkspace(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	_ = os.Chdir(tmpDir)
 
 	err := runStatus(false, false)

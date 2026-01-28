@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 func TestGetAddHooks(t *testing.T) {
 	t.Run("returns hooks from TOML config", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 
 		// Create .grove.toml with hooks
 		tomlContent := `[hooks]
@@ -32,7 +33,7 @@ add = ["pnpm i", "pnpm build"]
 	})
 
 	t.Run("returns empty when no config", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		// No .grove.toml
 
 		hooks := GetAddHooks(tmpDir)
@@ -43,7 +44,7 @@ add = ["pnpm i", "pnpm build"]
 	})
 
 	t.Run("returns empty when no add hooks defined", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 
 		// Create .grove.toml without hooks section
 		tomlContent := `[preserve]

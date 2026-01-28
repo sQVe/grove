@@ -131,7 +131,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 
 func TestFindSourceWorktree(t *testing.T) {
 	t.Run("returns empty at workspace root", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		result := findSourceWorktree(workspaceRoot, workspaceRoot)
 		if result != "" {
@@ -287,7 +287,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns worktree path when in worktree", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create a fake worktree directory with .git file
 		worktreeDir := filepath.Join(workspaceRoot, "main")
@@ -306,7 +306,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns worktree from subdirectory", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create worktree with subdirectory
 		worktreeDir := filepath.Join(workspaceRoot, "main")
@@ -326,7 +326,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns empty when not in worktree", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create a directory that's not a worktree
 		otherDir := filepath.Join(workspaceRoot, "other")

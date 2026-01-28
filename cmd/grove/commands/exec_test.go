@@ -10,6 +10,7 @@ import (
 
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -38,7 +39,7 @@ func TestRunExec_NotInWorkspace(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	_ = os.Chdir(tmpDir)
 
 	err := runExec(true, false, nil, []string{"echo", "hello"})
@@ -84,7 +85,7 @@ func TestRunExec_AllWithWorktrees(t *testing.T) {
 func setupExecTestWorkspace(t *testing.T) (tempDir, bareDir, mainPath string) {
 	t.Helper()
 
-	tempDir = t.TempDir()
+	tempDir = testutil.TempDir(t)
 	bareDir = filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)

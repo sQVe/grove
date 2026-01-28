@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -29,7 +30,7 @@ func TestRunUnlock_NotInWorkspace(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	_ = os.Chdir(tmpDir)
 
 	err := runUnlock([]string{"some-branch"})
@@ -43,7 +44,7 @@ func TestRunUnlock_BranchNotFound(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -77,7 +78,7 @@ func TestRunUnlock_NotLocked(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -120,7 +121,7 @@ func TestRunUnlock_Success(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -176,7 +177,7 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -247,7 +248,7 @@ func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -299,7 +300,7 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -359,7 +360,7 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -408,7 +409,7 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -479,7 +480,7 @@ func TestCompleteUnlockArgs(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)

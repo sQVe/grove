@@ -13,6 +13,7 @@ import (
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -41,7 +42,7 @@ func TestRunRemove_NotInWorkspace(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	_ = os.Chdir(tmpDir)
 
 	err := runRemove([]string{"some-branch"}, false, false)
@@ -55,7 +56,7 @@ func TestRunRemove_BranchNotFound(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -89,7 +90,7 @@ func TestRunRemove_CurrentWorktree(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -123,7 +124,7 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -162,7 +163,7 @@ func TestRunRemove_DirtyWorktree(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -211,7 +212,7 @@ func TestRunRemove_LockedWorktree(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -261,7 +262,7 @@ func TestRunRemove_Success(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -346,7 +347,7 @@ func TestRunRemove_ForceDirty(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -397,7 +398,7 @@ func TestRunRemove_ForceLocked(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -449,7 +450,7 @@ func TestRunRemove_WithBranchFlag(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -529,7 +530,7 @@ func TestRunRemove_MultipleWorktrees(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -580,7 +581,7 @@ func TestRunRemove_MultipleWithForce(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -641,7 +642,7 @@ func TestRunRemove_MultipleWithOneDirty(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -701,7 +702,7 @@ func TestRunRemove_MultipleWithOneLocked(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -763,7 +764,7 @@ func TestRunRemove_MultipleWithOneCurrent(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -812,7 +813,7 @@ func TestRunRemove_MultipleWithDeleteBranch(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -907,7 +908,7 @@ func TestRunRemove_DuplicateArgs(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -948,7 +949,7 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -1012,7 +1013,7 @@ func TestCompleteRemoveArgs(t *testing.T) {
 	defer func() { _ = os.Chdir(origDir) }()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)

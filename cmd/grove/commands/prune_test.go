@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -45,7 +46,7 @@ func TestRunPrune(t *testing.T) {
 		origDir, _ := os.Getwd()
 		defer func() { _ = os.Chdir(origDir) }()
 
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		_ = os.Chdir(tmpDir)
 
 		err := runPrune(false, false, "", false, false)

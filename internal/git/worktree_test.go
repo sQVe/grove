@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
@@ -22,7 +23,7 @@ const (
 
 func TestCreateWorktree(t *testing.T) {
 	t.Run("fails with non-existent branch in empty repo", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 		worktreeDir := filepath.Join(tempDir, "main")
 
@@ -99,7 +100,7 @@ func TestCreateWorktree(t *testing.T) {
 
 func TestIsWorktree(t *testing.T) {
 	t.Run("returns false for regular git repo", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -112,7 +113,7 @@ func TestIsWorktree(t *testing.T) {
 	})
 
 	t.Run("returns true for git worktree", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitFile := filepath.Join(tempDir, ".git")
 
 		if err := os.WriteFile(gitFile, []byte("gitdir: /path/to/repo"), fs.FileGit); err != nil {
@@ -125,7 +126,7 @@ func TestIsWorktree(t *testing.T) {
 	})
 
 	t.Run("returns false for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		if IsWorktree(tempDir) {
 			t.Error("expected non-git directory not to be detected as worktree")
@@ -207,7 +208,7 @@ func TestListWorktrees(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := ListWorktrees(tempDir)
 		if err == nil {
@@ -269,7 +270,7 @@ func TestGetWorktreeInfo(t *testing.T) {
 
 	t.Run("fails for incomplete git directory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		// Create a fake .git directory with only a HEAD file (not a complete git repo)
@@ -515,7 +516,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		sourceRepo := testgit.NewTestRepo(t)
 
 		// Clone it as bare to simulate grove workspace structure
-		bareDir := filepath.Join(t.TempDir(), ".bare")
+		bareDir := filepath.Join(testutil.TempDir(t), ".bare")
 		cmd := exec.Command("git", "clone", "--bare", sourceRepo.Path, bareDir) // nolint:gosec // Test
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create bare clone: %v", err)
@@ -749,7 +750,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 
 	t.Run("returns false for non-existent worktree", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		nonexistentPath := filepath.Join(tempDir, "nonexistent")
 
 		if IsWorktreeLocked(nonexistentPath) {
@@ -806,7 +807,7 @@ func TestRemoveWorktree(t *testing.T) {
 	t.Run("removes clean worktree", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -838,7 +839,7 @@ func TestRemoveWorktree(t *testing.T) {
 	t.Run("fails for dirty worktree without force", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -872,7 +873,7 @@ func TestRemoveWorktree(t *testing.T) {
 	t.Run("removes dirty worktree with force", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -905,7 +906,7 @@ func TestRemoveWorktree(t *testing.T) {
 	t.Run("returns error for non-existent worktree", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -924,7 +925,7 @@ func TestRemoveWorktree(t *testing.T) {
 func TestFindWorktreeRoot(t *testing.T) {
 	t.Run("returns root when called from worktree root", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create a .git file (simulating a worktree)
 		gitFile := filepath.Join(tempDir, ".git")
@@ -943,7 +944,7 @@ func TestFindWorktreeRoot(t *testing.T) {
 
 	t.Run("returns root when called from subdirectory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create a .git file at root
 		gitFile := filepath.Join(tempDir, ".git")
@@ -968,7 +969,7 @@ func TestFindWorktreeRoot(t *testing.T) {
 
 	t.Run("returns root when called from deeply nested subdirectory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create a .git file at root
 		gitFile := filepath.Join(tempDir, ".git")
@@ -993,7 +994,7 @@ func TestFindWorktreeRoot(t *testing.T) {
 
 	t.Run("returns error when not in a worktree", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := FindWorktreeRoot(tempDir)
 		if err == nil {
@@ -1003,7 +1004,7 @@ func TestFindWorktreeRoot(t *testing.T) {
 
 	t.Run("returns root from deeply nested subdirectory (50 levels)", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create a .git file at root
 		gitFile := filepath.Join(tempDir, ".git")
@@ -1150,7 +1151,7 @@ func TestGetWorktreeLockReason(t *testing.T) {
 	})
 
 	t.Run("returns empty string for nonexistent worktree", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		nonexistentPath := filepath.Join(tempDir, "nonexistent")
 
 		reason := GetWorktreeLockReason(nonexistentPath)

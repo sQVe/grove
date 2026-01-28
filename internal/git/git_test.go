@@ -10,13 +10,14 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 const testDefaultBranch = "main"
 
 func TestInitBare(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, "test.bare")
 
 	if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
@@ -35,7 +36,7 @@ func TestInitBare(t *testing.T) {
 }
 
 func TestInitBareGitNotAvailable(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, "test.bare")
 
 	if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
@@ -58,7 +59,7 @@ func TestInitBareGitNotAvailable(t *testing.T) {
 
 func TestConfigureBare(t *testing.T) {
 	t.Run("configures repository as bare", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 
 		if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
@@ -98,7 +99,7 @@ func TestConfigureBare(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		err := ConfigureBare(tempDir)
 		if err == nil {
@@ -109,7 +110,7 @@ func TestConfigureBare(t *testing.T) {
 
 func TestClone(t *testing.T) {
 	t.Run("returns error for non-existent repo in quiet mode", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 
 		// quiet=true suppresses git's progress output but errors must still be captured
@@ -124,7 +125,7 @@ func TestClone(t *testing.T) {
 	})
 
 	t.Run("returns error for non-existent repo in verbose mode", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 
 		// quiet=false allows git's progress output; verify errors still work
@@ -140,7 +141,7 @@ func TestClone(t *testing.T) {
 }
 
 func TestIsInsideGitRepo_NotGitRepo(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 
 	if IsInsideGitRepo(tempDir) {
 		t.Error("Expected IsInsideGitRepo to return false for non-git directory")
@@ -185,7 +186,7 @@ func TestFetchPrune(t *testing.T) {
 	t.Run("fetches and prunes stale remote refs", func(t *testing.T) {
 		t.Parallel()
 
-		remoteDir := t.TempDir()
+		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
 		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
 			t.Fatal(err)
@@ -261,7 +262,7 @@ func TestFetchPrune(t *testing.T) {
 	t.Run("returns error for non-git directory", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		err := FetchPrune(tempDir)
 		if err == nil {
 			t.Fatal("expected error for non-git directory")
@@ -287,7 +288,7 @@ func TestGetGitDir(t *testing.T) {
 
 	t.Run("resolves gitdir from .git file in worktrees", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create fake git dir
 		fakeGitDir := filepath.Join(tempDir, "fake-git-dir")
@@ -318,7 +319,7 @@ func TestGetGitDir(t *testing.T) {
 
 	t.Run("handles relative paths in .git file", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		// Create fake git dir as sibling
 		fakeGitDir := filepath.Join(tempDir, ".bare", "worktrees", "feature")
@@ -349,7 +350,7 @@ func TestGetGitDir(t *testing.T) {
 
 	t.Run("returns error for non-git directories", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := GetGitDir(tempDir)
 		if err == nil {
@@ -708,7 +709,7 @@ func TestIsRemoteReachable(t *testing.T) {
 	t.Run("returns true for reachable local file remote", func(t *testing.T) {
 		t.Parallel()
 		// Create a bare repo to act as a remote
-		remoteDir := t.TempDir()
+		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
 		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
 			t.Fatal(err)
@@ -857,7 +858,7 @@ func TestListRemotes(t *testing.T) {
 	})
 
 	t.Run("returns error for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		_, err := ListRemotes(tempDir)
 		if err == nil {
 			t.Error("expected error for non-git directory")

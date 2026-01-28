@@ -5,11 +5,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/sqve/grove/internal/testutil"
 )
 
 func TestLoadFromFile(t *testing.T) {
 	t.Run("parses preserve patterns from TOML", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlContent := `[preserve]
 patterns = [".env", ".env.local", "*.secret"]
 `
@@ -35,7 +37,7 @@ patterns = [".env", ".env.local", "*.secret"]
 	})
 
 	t.Run("parses preserve exclude patterns from TOML", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlContent := `[preserve]
 exclude = ["node_modules", "vendor", ".cache"]
 `
@@ -61,7 +63,7 @@ exclude = ["node_modules", "vendor", ".cache"]
 	})
 
 	t.Run("parses hooks from TOML", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlContent := `[hooks]
 add = ["pnpm i", "pnpm build"]
 `
@@ -87,7 +89,7 @@ add = ["pnpm i", "pnpm build"]
 	})
 
 	t.Run("parses plain and debug from TOML", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlContent := `plain = true
 debug = false
 `
@@ -110,7 +112,7 @@ debug = false
 	})
 
 	t.Run("returns empty config when file missing", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 
 		cfg, err := LoadFromFile(tmpDir)
 		if err != nil {
@@ -126,7 +128,7 @@ debug = false
 	})
 
 	t.Run("returns error on invalid TOML", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlContent := `[preserve
 patterns = invalid
 `
@@ -144,7 +146,7 @@ patterns = invalid
 
 func TestWriteToFile(t *testing.T) {
 	t.Run("writes valid TOML to file", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 
 		plainTrue := true
 		debugFalse := false
@@ -177,7 +179,7 @@ func TestWriteToFile(t *testing.T) {
 	})
 
 	t.Run("uses atomic write (temp file + rename)", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 
 		if err := os.WriteFile(tomlPath, []byte("plain = false\n"), 0o644); err != nil { //nolint:gosec
@@ -211,7 +213,7 @@ func TestWriteToFile(t *testing.T) {
 
 func TestFileConfigExists(t *testing.T) {
 	t.Run("returns true when file exists", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 		if err := os.WriteFile(tomlPath, []byte(""), 0o644); err != nil { //nolint:gosec
 			t.Fatal(err)
@@ -223,7 +225,7 @@ func TestFileConfigExists(t *testing.T) {
 	})
 
 	t.Run("returns false when file missing", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		tmpDir := testutil.TempDir(t)
 
 		if FileConfigExists(tmpDir) {
 			t.Error("Expected FileConfigExists to return false")
@@ -238,7 +240,7 @@ func setupGitRepoForFileTests(t *testing.T) (tmpDir string, cleanup func()) {
 		t.Skip("git not found in PATH")
 	}
 
-	tmpDir = t.TempDir()
+	tmpDir = testutil.TempDir(t)
 	oldWd, _ := os.Getwd()
 
 	if err := os.Chdir(tmpDir); err != nil {

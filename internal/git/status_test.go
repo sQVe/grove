@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 func TestHasOngoingOperation(t *testing.T) {
 	t.Run("returns false for clean repo", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -31,7 +32,7 @@ func TestHasOngoingOperation(t *testing.T) {
 	})
 
 	t.Run("detects merge operation", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -53,7 +54,7 @@ func TestHasOngoingOperation(t *testing.T) {
 	})
 
 	t.Run("detects rebase operation", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -75,7 +76,7 @@ func TestHasOngoingOperation(t *testing.T) {
 	})
 
 	t.Run("detects revert operation", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -97,7 +98,7 @@ func TestHasOngoingOperation(t *testing.T) {
 	})
 
 	t.Run("detects rebase-apply operation", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -119,7 +120,7 @@ func TestHasOngoingOperation(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := HasOngoingOperation(tempDir)
 		if err == nil {
@@ -173,7 +174,7 @@ func TestGetOngoingOperation(t *testing.T) {
 
 	t.Run("detects merge operation", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -196,7 +197,7 @@ func TestGetOngoingOperation(t *testing.T) {
 
 	t.Run("detects rebase operation", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -219,7 +220,7 @@ func TestGetOngoingOperation(t *testing.T) {
 
 	t.Run("detects cherry-pick operation", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -242,7 +243,7 @@ func TestGetOngoingOperation(t *testing.T) {
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := GetOngoingOperation(tempDir)
 		if err == nil {
@@ -253,7 +254,7 @@ func TestGetOngoingOperation(t *testing.T) {
 
 func TestHasLockFiles(t *testing.T) {
 	t.Run("returns false for clean repo", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tempDir
@@ -271,7 +272,7 @@ func TestHasLockFiles(t *testing.T) {
 	})
 
 	t.Run("detects index.lock file", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tempDir
@@ -295,7 +296,7 @@ func TestHasLockFiles(t *testing.T) {
 	})
 
 	t.Run("detects HEAD.lock file", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tempDir
@@ -319,7 +320,7 @@ func TestHasLockFiles(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := HasLockFiles(tempDir)
 		if err == nil {
@@ -372,7 +373,7 @@ func TestHasLockFiles(t *testing.T) {
 
 func TestHasUnresolvedConflicts(t *testing.T) {
 	t.Run("returns false for clean repo", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tempDir
@@ -467,7 +468,7 @@ func TestHasUnresolvedConflicts(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := HasUnresolvedConflicts(tempDir)
 		if err == nil {
@@ -492,7 +493,7 @@ func TestGetConflictCount(t *testing.T) {
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := GetConflictCount(tempDir)
 		if err == nil {
@@ -598,7 +599,7 @@ func TestGetConflictCount(t *testing.T) {
 
 func TestHasSubmodules(t *testing.T) {
 	t.Run("returns false for repo without submodules", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tempDir
@@ -637,7 +638,7 @@ func TestHasSubmodules(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := HasSubmodules(tempDir)
 		if err == nil {
@@ -712,7 +713,7 @@ func TestHasUnpushedCommits(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := HasUnpushedCommits(tempDir)
 		if err == nil {
@@ -747,7 +748,7 @@ func TestGetSyncStatus(t *testing.T) {
 	t.Run("detects commits ahead of upstream", func(t *testing.T) {
 		t.Parallel()
 		// Create bare repo to act as remote
-		remoteDir := t.TempDir()
+		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
 		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
 			t.Fatal(err)
@@ -805,7 +806,7 @@ func TestGetSyncStatus(t *testing.T) {
 	t.Run("detects commits behind upstream", func(t *testing.T) {
 		t.Parallel()
 		// Create bare repo to act as remote
-		remoteDir := t.TempDir()
+		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
 		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
 			t.Fatal(err)
@@ -830,7 +831,7 @@ func TestGetSyncStatus(t *testing.T) {
 		}
 
 		// Create commit on remote (via a separate clone)
-		tempClone := t.TempDir()
+		tempClone := testutil.TempDir(t)
 		cmd = exec.Command("git", "clone", remoteRepo, tempClone) // nolint:gosec // Test uses controlled temp directory
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -882,7 +883,7 @@ func TestGetSyncStatus(t *testing.T) {
 	t.Run("detects gone upstream after branch deleted on remote", func(t *testing.T) {
 		t.Parallel()
 		// Create bare repo to act as remote
-		remoteDir := t.TempDir()
+		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
 		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
 			t.Fatal(err)
@@ -965,7 +966,7 @@ func TestGetLastCommitTime(t *testing.T) {
 
 	t.Run("returns 0 for empty repo", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "empty.bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -982,7 +983,7 @@ func TestGetLastCommitTime(t *testing.T) {
 
 	t.Run("returns 0 for non-git directory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		timestamp := GetLastCommitTime(tempDir)
 		if timestamp != 0 {
@@ -1051,7 +1052,7 @@ func TestGetStashCount(t *testing.T) {
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
 		t.Parallel()
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := GetStashCount(tempDir)
 		if err == nil {
