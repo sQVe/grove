@@ -38,6 +38,9 @@ func TestScript(t *testing.T) {
 				return err
 			}
 			env.Vars = append(env.Vars, "GIT_CONFIG_GLOBAL="+gitConfigPath)
+			env.Vars = append(env.Vars, "GIT_CONFIG_SYSTEM=/dev/null")
+			env.Vars = append(env.Vars, "GIT_CONFIG_NOSYSTEM=1")
+			env.Vars = append(env.Vars, "XDG_CONFIG_HOME="+homeDir)
 
 			readmePath := filepath.Join(env.WorkDir, "README.md")
 			if err := os.WriteFile(readmePath, []byte("# Test\n"), fs.FileGit); err != nil {
@@ -110,6 +113,7 @@ func cmdSetupWorkspace(ts *testscript.TestScript, neg bool, args []string) {
 
 	cmd := exec.Command("grove", "clone", "file://"+repoDir, wsDir) // nolint:gosec
 	cmd.Dir = workDir
+	cmd.Env = testEnv(ts)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		ts.Fatalf("grove clone: %v\n%s", err, out)
 	}
@@ -242,8 +246,23 @@ func cmdAssertOutsideError(ts *testscript.TestScript, neg bool, args []string) {
 func gitRun(ts *testscript.TestScript, dir string, args ...string) {
 	cmd := exec.Command("git", args...) // nolint:gosec
 	cmd.Dir = dir
+	cmd.Env = testEnv(ts)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		ts.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// testEnv returns the environment for running commands in testscript.
+// This ensures git config and other settings are properly inherited.
+func testEnv(ts *testscript.TestScript) []string {
+	return []string{
+		"HOME=" + ts.Getenv("HOME"),
+		"PATH=" + ts.Getenv("PATH"),
+		"GIT_CONFIG_GLOBAL=" + ts.Getenv("GIT_CONFIG_GLOBAL"),
+		"GIT_CONFIG_SYSTEM=" + ts.Getenv("GIT_CONFIG_SYSTEM"),
+		"GIT_CONFIG_NOSYSTEM=" + ts.Getenv("GIT_CONFIG_NOSYSTEM"),
+		"XDG_CONFIG_HOME=" + ts.Getenv("XDG_CONFIG_HOME"),
+		"TMPDIR=" + ts.Getenv("TMPDIR"),
 	}
 }
 
