@@ -1,0 +1,16 @@
+# Test: grove remove is blocked by lock
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+! exec grove remove feature
+stderr 'worktree is locked'
+
+# Verify worktree still exists
+exists ../feature
+
+# Unlock and remove succeeds
+exec grove unlock feature
+exec grove remove feature
+! exists ../feature

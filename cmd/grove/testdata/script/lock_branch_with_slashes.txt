@@ -1,0 +1,11 @@
+# Test: grove lock/unlock works with branch names containing slashes
+setup_workspace topic/slash-test
+
+exec grove add topic/slash-test
+exists ../topic-slash-test
+
+exec grove lock topic/slash-test
+stderr 'Locked worktree'
+
+exec grove unlock topic/slash-test
+stderr 'Unlocked worktree'

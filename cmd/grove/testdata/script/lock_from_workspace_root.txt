@@ -1,0 +1,10 @@
+# Test: grove lock/unlock works from workspace root
+setup_workspace feature
+
+cd $WORK/workspace
+exec grove add feature
+exec grove lock feature
+stderr 'Locked worktree'
+
+exec grove unlock feature
+stderr 'Unlocked worktree'

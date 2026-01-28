@@ -1,0 +1,12 @@
+# Test: grove move is blocked by lock
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+! exec grove move feature feature-renamed
+stderr 'worktree is locked'
+
+# Verify worktree still at original location
+exists ../feature
+! exists ../feature-renamed

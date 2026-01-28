@@ -1,0 +1,8 @@
+# Test: grove lock locks a worktree without reason
+setup_workspace feature
+
+exec grove add feature
+exists ../feature
+
+exec grove lock feature
+stderr 'Locked worktree'

@@ -1,0 +1,2 @@
+# Test: grove lock fails outside workspace
+assert_outside_error grove lock feature

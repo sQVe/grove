@@ -1,0 +1,9 @@
+# Test: grove status --verbose shows lock reason
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature --reason 'Do not delete'
+
+cd ../feature
+exec grove status --verbose --plain
+stdout 'Do not delete'
