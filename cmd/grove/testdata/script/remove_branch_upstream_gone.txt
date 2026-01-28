@@ -1,0 +1,28 @@
+# Test: grove remove --branch deletes when upstream is gone
+setup_workspace upstream-gone-test
+
+# Set up a "remote" to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+
+# Create and push a branch
+exec grove add upstream-gone-test
+cd ../upstream-gone-test
+exec git push -u upstream upstream-gone-test
+cd ../main
+
+# Delete the branch on the remote
+exec git -C $WORK/remote-repo branch -D upstream-gone-test
+
+# Fetch to update remote tracking (will mark as gone)
+exec git fetch upstream --prune
+
+# Remove should work without error (upstream is gone)
+exec grove remove --branch upstream-gone-test
+stderr 'Removed worktree.*upstream-gone-test'
+stderr 'deleted branch'
+! exists ../upstream-gone-test
+assert_branch deleted upstream-gone-test

@@ -1,0 +1,11 @@
+# Test: grove remove --branch deletes both worktree and branch
+setup_workspace branch-merged
+
+exec grove add branch-merged
+# No new commits - branch is at same point as main, so it's "merged"
+
+exec grove remove --branch branch-merged
+stderr 'Removed worktree.*branch-merged'
+stderr 'deleted branch'
+! exists ../branch-merged
+assert_branch deleted branch-merged

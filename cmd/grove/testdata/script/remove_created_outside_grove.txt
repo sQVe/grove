@@ -1,0 +1,11 @@
+# Test: grove remove handles worktrees created outside grove
+setup_workspace
+
+# Create worktree using git directly (bypass grove) with -b to create branch
+exec git -C $WORK/workspace/.bare worktree add -b outside-grove-branch ../outside-grove HEAD
+exists ../outside-grove
+
+# Grove should still be able to remove it
+exec grove remove outside-grove
+stderr 'Removed worktree'
+! exists ../outside-grove

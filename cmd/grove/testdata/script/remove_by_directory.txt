@@ -1,0 +1,9 @@
+# Test: grove remove matches worktree by directory name
+setup_workspace to-remove-by-dir
+
+exec grove add to-remove-by-dir
+exists ../to-remove-by-dir
+
+exec grove remove to-remove-by-dir
+stderr 'Removed worktree'
+! exists ../to-remove-by-dir

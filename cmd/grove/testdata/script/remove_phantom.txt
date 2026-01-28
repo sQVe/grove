@@ -1,0 +1,10 @@
+# Test: grove remove shows warning for phantom worktree
+setup_workspace phantom-test
+
+exec grove add phantom-test
+rm -r ../phantom-test
+
+# Grove skips corrupted worktrees and then can't find it
+! exec grove remove phantom-test
+stderr 'may be corrupted'
+stderr '✗ worktree not found'

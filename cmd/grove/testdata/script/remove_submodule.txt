@@ -1,0 +1,36 @@
+# Test: grove remove errors on worktree with submodules (git limitation)
+setup_workspace
+
+# Create a submodule repo
+cd $WORK
+mkdir submod-repo
+exec git init submod-repo
+cd submod-repo
+exec sh -c 'echo "submodule content" > submod-file.txt'
+exec git add submod-file.txt
+exec git commit -m 'submodule initial'
+
+# Add submodule to main worktree (need to allow file protocol)
+cd $WORK/workspace/main
+exec git config --global protocol.file.allow always
+exec git submodule add file://$WORK/submod-repo sub
+exec git commit -m 'add submodule'
+
+# Create a branch AFTER adding submodule so it includes the submodule
+exec git checkout -b submod-worktree
+
+# Create worktree from this new branch
+exec git checkout main
+exec grove add submod-worktree
+
+# Initialize submodule in new worktree
+exec git -C ../submod-worktree submodule update --init
+exists ../submod-worktree/sub/submod-file.txt
+
+# Git blocks removal of worktrees with submodules
+! exec grove remove submod-worktree
+stderr '✗ .*submodules cannot be moved or removed'
+exists ../submod-worktree
+
+# Clean up global config
+exec git config --global --unset protocol.file.allow

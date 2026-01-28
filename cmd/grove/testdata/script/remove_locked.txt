@@ -1,0 +1,8 @@
+# Test: grove remove errors on locked worktree
+setup_workspace locked-with-reason
+
+exec grove add locked-with-reason
+exec git -C $WORK/workspace/.bare worktree lock ../locked-with-reason --reason 'Do not delete'
+
+! exec grove remove locked-with-reason
+stderr 'worktree is locked'

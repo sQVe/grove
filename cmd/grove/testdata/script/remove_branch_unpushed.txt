@@ -1,0 +1,32 @@
+# Test: grove remove --branch warns about unpushed commits
+setup_workspace unpushed-test
+
+# Set up a "remote" to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+
+# Create and push a branch
+exec grove add unpushed-test
+cd ../unpushed-test
+exec git push -u upstream unpushed-test
+
+# Add local commits that aren't pushed
+exec sh -c 'echo "local only" > local-change.txt'
+exec git add local-change.txt
+exec git commit -m 'unpushed local commit'
+cd ../main
+
+# Remove with --branch warns about unpushed but fails branch delete (not merged to main)
+! exec grove remove --branch unpushed-test
+stderr 'unpushed'
+stderr '✗ .*not fully merged'
+
+# Worktree was removed
+! exists ../unpushed-test
+
+# Branch still exists
+exec git branch --list unpushed-test
+stdout 'unpushed-test'

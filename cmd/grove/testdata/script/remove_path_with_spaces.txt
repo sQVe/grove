@@ -1,0 +1,9 @@
+# Test: grove remove handles paths with spaces
+setup_workspace spaces-branch
+
+exec grove add --name 'my worktree' spaces-branch
+exists '../my worktree'
+
+exec grove remove 'my worktree'
+stderr 'Removed worktree'
+! exists '../my worktree'

@@ -1,0 +1,15 @@
+# Test: grove remove --force --branch deletes unmerged branch
+setup_workspace unmerged-force
+
+exec grove add unmerged-force
+cd ../unmerged-force
+exec sh -c 'echo "unmerged work" > work.txt'
+exec git add work.txt
+exec git commit -m 'unmerged commit'
+cd ../main
+
+exec grove remove --force --branch unmerged-force
+stderr 'Removed worktree.*unmerged-force'
+stderr 'deleted branch'
+! exists ../unmerged-force
+assert_branch deleted unmerged-force
