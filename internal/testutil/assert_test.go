@@ -28,7 +28,7 @@ func TestAssertErrorContains(t *testing.T) {
 	})
 }
 
-func TestAssertFileExists(t *testing.T) {
+func TestAssertPathExists(t *testing.T) {
 	t.Run("passes when file exists", func(t *testing.T) {
 		tempDir := t.TempDir()
 		path := filepath.Join(tempDir, "exists.txt")
@@ -36,13 +36,13 @@ func TestAssertFileExists(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		AssertFileExists(t, path)
+		AssertPathExists(t, path)
 	})
 
 	t.Run("passes when directory exists", func(t *testing.T) {
 		tempDir := t.TempDir()
 
-		AssertFileExists(t, tempDir)
+		AssertPathExists(t, tempDir)
 	})
 }
 

@@ -130,7 +130,7 @@ func TestHasOngoingOperation(t *testing.T) {
 
 	t.Run("detects operations in worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "wt-ongoing")
+		worktreePath := filepath.Join(repo.TempDir, "wt-ongoing")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
 		cmd.Dir = repo.Path
@@ -335,7 +335,7 @@ func TestHasLockFiles(t *testing.T) {
 
 	t.Run("handles git worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "wt-locks")
+		worktreePath := filepath.Join(repo.TempDir, "wt-locks")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
 		cmd.Dir = repo.Path

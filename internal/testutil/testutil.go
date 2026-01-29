@@ -87,6 +87,7 @@ func Chdir(t *testing.T, dir string) {
 }
 
 // SaveCwd saves current directory and returns a cleanup function to restore it.
+// The returned function should only be called once, typically via defer.
 // WARNING: Not safe for use with t.Parallel() as it changes process cwd.
 func SaveCwd(t *testing.T) func() {
 	t.Helper()

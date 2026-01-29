@@ -11,17 +11,26 @@ import (
 	"github.com/sqve/grove/internal/testutil"
 )
 
+// gitConfig holds a git configuration key-value pair.
+type gitConfig struct {
+	key, value string
+}
+
 // TestRepo provides a test git repository with proper configuration
 type TestRepo struct {
-	t    *testing.T
-	Dir  string
-	Path string
+	t       *testing.T
+	TempDir string
+	Path    string
 }
 
 // NewTestRepo creates a new test repository with git config set up.
-// Pass an optional branch name (default "main").
+// Pass an optional branch name (default "main"). Only the first branch name is used.
 func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 	t.Helper()
+
+	if len(branchName) > 1 {
+		t.Fatalf("NewTestRepo accepts at most one branch name, got %d", len(branchName))
+	}
 
 	dir := testutil.TempDir(t)
 	repoPath := filepath.Join(dir, "repo")
@@ -41,19 +50,7 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 		t.Fatalf("Failed to init repo: %v", err)
 	}
 
-	configs := [][]string{
-		{"commit.gpgsign", "false"},
-		{"user.email", "test@example.com"},
-		{"user.name", "Test User"},
-	}
-
-	for _, cfg := range configs {
-		cmd := exec.Command("git", "config", cfg[0], cfg[1]) // nolint:gosec // Test helper with controlled input
-		cmd.Dir = repoPath
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to set git config %s: %v", cfg[0], err)
-		}
-	}
+	setGitConfigs(t, repoPath)
 
 	// Always create initial commit
 	{
@@ -76,9 +73,26 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 	}
 
 	return &TestRepo{
-		t:    t,
-		Dir:  dir,
-		Path: repoPath,
+		t:       t,
+		TempDir: dir,
+		Path:    repoPath,
+	}
+}
+
+// setGitConfigs configures git for test usage (no GPG, test user).
+func setGitConfigs(t *testing.T, repoPath string) {
+	t.Helper()
+	configs := []gitConfig{
+		{"commit.gpgsign", "false"},
+		{"user.email", "test@example.com"},
+		{"user.name", "Test User"},
+	}
+	for _, cfg := range configs {
+		cmd := exec.Command("git", "config", cfg.key, cfg.value) // nolint:gosec
+		cmd.Dir = repoPath
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to set git config %s: %v", cfg.key, err)
+		}
 	}
 }
 
@@ -254,7 +268,7 @@ type BareTestRepo struct {
 	Path string
 }
 
-// NewBareTestRepo creates a bare test repository.
+// NewBareTestRepo creates a bare test repository with git config set up.
 func NewBareTestRepo(t *testing.T) *BareTestRepo {
 	t.Helper()
 
@@ -269,6 +283,8 @@ func NewBareTestRepo(t *testing.T) *BareTestRepo {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init bare repo: %v", err)
 	}
+
+	setGitConfigs(t, bareDir)
 
 	return &BareTestRepo{
 		t:    t,
@@ -305,6 +321,11 @@ func (r *BareTestRepo) MustFail(args ...string) {
 	}
 }
 
+// CleanupWorktree registers cleanup for a worktree to release Windows file locks.
+func (r *BareTestRepo) CleanupWorktree(worktreePath string) {
+	CleanupWorktree(r.t, r.Path, worktreePath)
+}
+
 // GroveWorkspace represents a complete Grove workspace with bare repo and worktrees.
 type GroveWorkspace struct {
 	t         *testing.T
@@ -335,19 +356,7 @@ func NewGroveWorkspace(t *testing.T, branches ...string) *GroveWorkspace {
 		t.Fatalf("Failed to init bare repo: %v", err)
 	}
 
-	configs := [][]string{
-		{"commit.gpgsign", "false"},
-		{"user.email", "test@example.com"},
-		{"user.name", "Test User"},
-	}
-
-	for _, cfg := range configs {
-		cmd := exec.Command("git", "config", cfg[0], cfg[1]) // nolint:gosec
-		cmd.Dir = bareDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to set git config %s: %v", cfg[0], err)
-		}
-	}
+	setGitConfigs(t, bareDir)
 
 	w := &GroveWorkspace{
 		t:         t,
@@ -382,7 +391,7 @@ func NewGroveWorkspace(t *testing.T, branches ...string) *GroveWorkspace {
 }
 
 // CreateWorktree adds a worktree for the given branch.
-// If the branch doesn't exist, creates it.
+// Always creates a new branch; fails if branch already exists.
 func (w *GroveWorkspace) CreateWorktree(branch string) string {
 	w.t.Helper()
 

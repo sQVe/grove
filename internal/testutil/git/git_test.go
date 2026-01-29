@@ -385,20 +385,29 @@ func TestGroveWorkspace_Run(t *testing.T) {
 }
 
 func TestCleanupWorktree(t *testing.T) {
-	t.Run("registers cleanup function", func(t *testing.T) {
-		// This test verifies the function can be called without error
-		// The actual cleanup happens in t.Cleanup which we can't easily verify
+	t.Run("standalone function registers cleanup", func(t *testing.T) {
 		repo := NewBareTestRepo(t)
-
-		// Create a worktree manually
 		worktreePath := filepath.Join(repo.Dir, "wt-test")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "test-branch") // nolint:gosec // Test-controlled args
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "test-branch") // nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
-		// Register cleanup - this should not error
 		CleanupWorktree(t, repo.Path, worktreePath)
+	})
+}
+
+func TestBareTestRepo_CleanupWorktree(t *testing.T) {
+	t.Run("method registers cleanup", func(t *testing.T) {
+		repo := NewBareTestRepo(t)
+		worktreePath := filepath.Join(repo.Dir, "wt-method")
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "method-branch") // nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create worktree: %v", err)
+		}
+
+		repo.CleanupWorktree(worktreePath)
 	})
 }

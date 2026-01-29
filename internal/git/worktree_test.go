@@ -43,7 +43,7 @@ func TestCreateWorktree(t *testing.T) {
 
 	t.Run("succeeds with existing branch", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 
 		// Create a branch first
 		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
@@ -70,7 +70,7 @@ func TestCreateWorktree(t *testing.T) {
 
 	t.Run("uses relative paths in .git file", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 
 		// Create a branch first
 		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
@@ -159,7 +159,7 @@ func TestListWorktrees(t *testing.T) {
 	t.Run("returns worktree paths when worktrees exist", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
-		worktreeDir := filepath.Join(repo.Dir, "branch-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "branch-worktree")
 
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
 		cmd.Dir = repo.Path
@@ -185,7 +185,7 @@ func TestListWorktrees(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create a worktree with spaces in the path
-		worktreeDir := filepath.Join(repo.Dir, "branch with spaces")
+		worktreeDir := filepath.Join(repo.TempDir, "branch with spaces")
 
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature-spaces") // nolint:gosec // Test uses controlled temp directory
 		cmd.Dir = repo.Path
@@ -296,7 +296,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create a worktree
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -323,7 +323,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 	t.Run("fast mode skips status checks", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -352,13 +352,13 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create worktrees in unsorted order
-		cmd := exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "zebra-wt"), "-b", "zebra") // nolint:gosec // Test
+		cmd := exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "zebra-wt"), "-b", "zebra") // nolint:gosec // Test
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
-		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "alpha-wt"), "-b", "alpha") // nolint:gosec // Test
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "alpha-wt"), "-b", "alpha") // nolint:gosec // Test
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
-		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.Dir, "mid-wt"), "-b", "mid") // nolint:gosec // Test
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "mid-wt"), "-b", "mid") // nolint:gosec // Test
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
 
@@ -379,7 +379,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 	t.Run("populates Locked field for locked worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -418,7 +418,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 	t.Run("populates LockReason field for locked worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
-		worktreeDir := filepath.Join(repo.Dir, "feature-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -455,7 +455,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create a detached worktree
-		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
 		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -484,7 +484,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create a detached worktree
-		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
 		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -575,7 +575,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 
 	t.Run("uses relative paths in .git file", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreeDir := filepath.Join(repo.Dir, "new-branch-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "new-branch-worktree")
 
 		err := CreateWorktreeWithNewBranch(repo.Path, worktreeDir, "new-feature", true)
 		if err != nil {
@@ -638,7 +638,7 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 
 	t.Run("uses relative paths in .git file", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreeDir := filepath.Join(repo.Dir, "branch-from-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "branch-from-worktree")
 
 		err := CreateWorktreeWithNewBranchFrom(repo.Path, worktreeDir, "feature-from-head", "HEAD", true)
 		if err != nil {
@@ -691,7 +691,7 @@ func TestCreateWorktreeDetached(t *testing.T) {
 
 	t.Run("uses relative paths in .git file", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreeDir := filepath.Join(repo.Dir, "detached-worktree")
+		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
 
 		err := CreateWorktreeDetached(repo.Path, worktreeDir, "HEAD", true)
 		if err != nil {
@@ -715,7 +715,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 	t.Run("returns false for unlocked worktree", func(t *testing.T) {
 		t.Parallel()
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path
@@ -731,7 +731,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 	t.Run("returns true for locked worktree", func(t *testing.T) {
 		t.Parallel()
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path
@@ -763,7 +763,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create worktree with original name
-		originalPath := filepath.Join(repo.Dir, "original")
+		originalPath := filepath.Join(repo.TempDir, "original")
 		cmd := exec.Command("git", "worktree", "add", originalPath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
@@ -771,7 +771,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 		}
 
 		// Rename the worktree directory (simulating user moving it)
-		renamedPath := filepath.Join(repo.Dir, "renamed")
+		renamedPath := filepath.Join(repo.TempDir, "renamed")
 		if err := os.Rename(originalPath, renamedPath); err != nil {
 			t.Fatalf("failed to rename worktree: %v", err)
 		}
@@ -1035,7 +1035,7 @@ func TestLockWorktree(t *testing.T) {
 	t.Run("locks worktree without reason", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		bareDir := repo.Path
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = bareDir
@@ -1055,7 +1055,7 @@ func TestLockWorktree(t *testing.T) {
 	t.Run("locks worktree with reason", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		bareDir := repo.Path
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = bareDir
@@ -1089,7 +1089,7 @@ func TestLockWorktree(t *testing.T) {
 
 	t.Run("fails for already locked worktree", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path
@@ -1113,7 +1113,7 @@ func TestLockWorktree(t *testing.T) {
 func TestGetWorktreeLockReason(t *testing.T) {
 	t.Run("returns empty string for unlocked worktree", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path
@@ -1129,7 +1129,7 @@ func TestGetWorktreeLockReason(t *testing.T) {
 
 	t.Run("returns reason for locked worktree", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "feature")
+		worktreePath := filepath.Join(repo.TempDir, "feature")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
 		cmd.Dir = repo.Path

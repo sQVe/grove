@@ -147,7 +147,7 @@ func TestIsDetachedHead(t *testing.T) {
 
 	t.Run("works for git worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "wt-detached")
+		worktreePath := filepath.Join(repo.TempDir, "wt-detached")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
 		cmd.Dir = repo.Path
@@ -680,7 +680,7 @@ func TestLocalBranchExists(t *testing.T) {
 		origin.CreateBranch("remote-only")
 
 		// Clone it
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1021,7 +1021,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		origin.CreateBranch("feature")
 
 		// Clone it (creates remote tracking refs)
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1040,7 +1040,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		t.Parallel()
 		origin := testgit.NewTestRepo(t)
 
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1059,7 +1059,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		t.Parallel()
 		origin := testgit.NewTestRepo(t)
 
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)

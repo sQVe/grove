@@ -18,15 +18,15 @@ func AssertErrorContains(t *testing.T, err error, substring string) {
 	}
 }
 
-// AssertFileExists fails if path doesn't exist.
-func AssertFileExists(t *testing.T, path string) {
+// AssertPathExists fails if path doesn't exist. Works for files and directories.
+func AssertPathExists(t *testing.T, path string) {
 	t.Helper()
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			t.Fatalf("expected file %s to exist", path)
+			t.Fatalf("expected path %s to exist", path)
 		}
-		t.Fatalf("failed to stat file %s: %v", path, err)
+		t.Fatalf("failed to stat path %s: %v", path, err)
 	}
 }
 
