@@ -33,6 +33,8 @@ test-unit:
 
 test-integration:
 	@echo "Running integration tests..."
+	@echo "→ Installing grove binary..."
+	@go install ./cmd/grove
 	@[ -z "$(GH_TOKEN)" ] || echo "→ Using gh CLI authentication for PR tests"
 	@gotestsum -- -tags=integration -timeout=300s ./cmd/grove/...
 
