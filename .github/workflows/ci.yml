@@ -72,7 +72,7 @@ jobs:
           CI: 'true'
 
   test-integration:
-    needs: changes
+    needs: [changes, build]
     if: needs.changes.outputs.code == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
