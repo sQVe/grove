@@ -3,6 +3,7 @@ package testutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -189,6 +190,11 @@ func TestWriteFileMode(t *testing.T) {
 		info, err := os.Stat(path)
 		if err != nil {
 			t.Fatalf("failed to stat file: %v", err)
+		}
+
+		// Windows doesn't support Unix permission bits
+		if runtime.GOOS == "windows" {
+			t.Skip("skipping permission check on Windows")
 		}
 
 		// Check executable bit is set (permissions vary by umask)
