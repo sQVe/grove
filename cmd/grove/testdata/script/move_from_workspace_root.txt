@@ -1,0 +1,8 @@
+# Test: grove move succeeds when CWD is workspace root
+setup_workspace
+
+exec grove add root-test
+cd $WORK/workspace
+exec grove move root-test moved-from-root
+stderr 'Renamed root-test to moved-from-root'
+exists moved-from-root

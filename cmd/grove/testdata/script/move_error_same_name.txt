@@ -1,0 +1,5 @@
+# Test: grove move fails when source and destination are same
+setup_workspace feature-branch
+
+! exec grove move feature-branch feature-branch
+stderr '✗ source and destination are the same'

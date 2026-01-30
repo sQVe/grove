@@ -1,0 +1,15 @@
+# Test: grove move updates git branch and worktree registry
+setup_workspace
+
+exec grove add verify-git
+exec grove move verify-git verified-branch
+
+# Branch renamed in git
+exec git -C $WORK/workspace/.bare branch
+stdout 'verified-branch'
+! stdout 'verify-git'
+
+# Worktree path updated in git registry
+exec git -C $WORK/workspace/.bare worktree list
+stdout 'verified-branch'
+stdout 'workspace/verified-branch'

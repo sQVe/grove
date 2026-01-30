@@ -1,0 +1,8 @@
+# Test: grove move fails when CWD is subdirectory of target
+setup_workspace
+
+exec grove add subdir-cwd-test
+mkdir ../subdir-cwd-test/deep/nested
+cd ../subdir-cwd-test/deep/nested
+! exec grove move subdir-cwd-test subdir-renamed
+stderr '✗ cannot rename current worktree'

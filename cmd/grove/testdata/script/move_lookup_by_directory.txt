@@ -1,0 +1,9 @@
+# Test: grove move finds worktree by directory name
+setup_workspace
+
+exec grove add to-move-dir
+exists ../to-move-dir
+exec grove move to-move-dir renamed-branch
+stderr 'Renamed to-move-dir to renamed-branch'
+! exists ../to-move-dir
+exists ../renamed-branch

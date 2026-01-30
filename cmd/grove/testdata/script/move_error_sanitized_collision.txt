@@ -1,0 +1,7 @@
+# Test: grove move fails when sanitized name causes collision
+setup_workspace
+
+exec grove add sanitized-collision
+mkdir ../sanitized-collision-new
+! exec grove move sanitized-collision sanitized/collision/new
+stderr '✗ directory.*already exists'

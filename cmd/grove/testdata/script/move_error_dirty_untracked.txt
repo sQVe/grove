@@ -1,0 +1,8 @@
+# Test: grove move fails with untracked files
+setup_workspace
+
+exec grove add dirty-untracked
+exec sh -c 'echo untracked > $WORK/workspace/dirty-untracked/untracked.txt'
+exec git -C ../dirty-untracked status --porcelain
+! exec grove move dirty-untracked untracked-renamed
+stderr '✗ .*uncommitted changes'

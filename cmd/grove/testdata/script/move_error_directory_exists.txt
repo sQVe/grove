@@ -1,0 +1,7 @@
+# Test: grove move fails when target directory already exists
+setup_workspace
+
+exec grove add dir-exists-test
+mkdir ../blocking-dir
+! exec grove move dir-exists-test blocking-dir
+stderr '✗ directory.*already exists'

@@ -1,0 +1,13 @@
+# Test: grove move fails when branch exists on remote
+setup_workspace
+
+# Create branch in origin repo
+exec git -C $WORK/testrepo checkout -b remote-only-branch
+exec git -C $WORK/testrepo checkout main
+
+# Fetch to create remote tracking branch
+exec git fetch origin remote-only-branch:refs/remotes/origin/remote-only-branch
+
+exec grove add local-to-remote
+! exec grove move local-to-remote remote-only-branch
+stderr '✗ branch.*already exists'

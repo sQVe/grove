@@ -1,0 +1,8 @@
+# Test: grove move fails with modified tracked files
+setup_workspace
+
+exec grove add dirty-modified
+exec sh -c 'echo modified >> $WORK/workspace/dirty-modified/README.md'
+exec git -C ../dirty-modified status --porcelain
+! exec grove move dirty-modified dirty-renamed
+stderr '✗ .*uncommitted changes'
