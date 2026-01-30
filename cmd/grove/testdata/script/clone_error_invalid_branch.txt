@@ -1,0 +1,20 @@
+# grove clone: error when branch does not exist
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-invalid-branch
+! exec grove clone file://$WORK/testrepo clone-invalid-branch --branches "nonexistent"
+stderr '✗ failed to create worktree for branch.*nonexistent.*invalid reference'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

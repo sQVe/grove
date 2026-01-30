@@ -1,0 +1,12 @@
+# Test: grove status shows dirty indicator for staged changes
+setup_workspace
+
+cp $WORK/staged-readme.md README.md
+exec git add README.md
+exec grove status --plain
+stdout '\[dirty\]'
+! stderr .
+
+-- staged-readme.md --
+# Test
+staged

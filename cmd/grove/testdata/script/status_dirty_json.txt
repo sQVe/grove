@@ -1,0 +1,11 @@
+# Test: grove status --json shows dirty: true
+setup_workspace
+
+cp $WORK/modified-readme.md README.md
+exec grove status --json
+stdout '"dirty": true'
+! stderr .
+
+-- modified-readme.md --
+# Test
+modified

@@ -1,0 +1,9 @@
+# Test: grove status works from subdirectory
+setup_workspace
+
+mkdir -p src/components
+cd src/components
+exec grove status --plain
+stdout '\* main'
+! stdout '\[dirty\]'
+! stderr .

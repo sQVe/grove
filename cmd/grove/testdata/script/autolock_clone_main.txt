@@ -1,0 +1,26 @@
+# Clone creates locked main worktree
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+exec grove list --json
+stdout '"name": "main"'
+stdout '"locked": true'
+stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'
+
+-- README.md --
+# Test

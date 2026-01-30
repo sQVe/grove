@@ -1,0 +1,20 @@
+# grove init convert - error with invalid branch
+# Tests early validation prevents conversion with nonexistent branch
+
+mkdir convert-invalid-branch-test
+cd convert-invalid-branch-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+# Try to convert with nonexistent branch - should fail during validation
+! exec grove init convert --branches main,nonexistent-branch
+stderr '✗ branch.*does not exist'
+# Verify no changes were made since validation failed early
+! exists .bare
+exists .git
+exists test-file.txt
+cd ..
+
+-- test-file.txt --
+This is a test file

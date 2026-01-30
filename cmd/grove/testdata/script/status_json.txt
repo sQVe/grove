@@ -1,0 +1,9 @@
+# Test: grove status --json outputs JSON format
+setup_workspace
+
+exec grove status --json
+stdout '"branch":'
+stdout '"main"'
+stdout '"path":'
+stdout '"dirty": false'
+! stderr .

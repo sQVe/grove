@@ -1,0 +1,22 @@
+# grove clone: partial failure cleans up workspace
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-partial-failure
+! exec grove clone file://$WORK/testrepo clone-partial-failure --branches main,nonexistent
+stderr '✗ failed to create worktree for branch.*nonexistent'
+! exists clone-partial-failure/.bare
+! exists clone-partial-failure/main
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

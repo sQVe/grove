@@ -1,0 +1,6 @@
+# Test: grove exec fails outside workspace
+mkdir outside
+cd outside
+
+! exec grove exec --all -- echo hello
+stderr '✗ not in a grove workspace'

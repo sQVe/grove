@@ -1,0 +1,23 @@
+# grove clone: --branches with empty segments filtered
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-empty-segments
+exec grove clone file://$WORK/testrepo clone-empty-segments --branches 'main,,develop'
+exists clone-empty-segments/main
+exists clone-empty-segments/develop
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

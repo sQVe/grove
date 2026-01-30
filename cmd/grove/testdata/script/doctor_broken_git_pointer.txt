@@ -1,0 +1,28 @@
+# grove doctor: detect broken .git pointer (missing file)
+
+# Setup: Create workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+exec rm .git
+! exec grove doctor
+stdout 'Git Issues'
+stdout '✗ Broken .git pointer'
+stdout 'main'
+
+-- README.md --
+# Test fixture

@@ -1,0 +1,63 @@
+# grove fetch: force-push detection (orphan history rewrite)
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Create orphan branch with no common ancestor
+cd $WORK/source
+exec git checkout --orphan orphan-test
+exec git rm -rf .
+cp $WORK/orphan1.txt orphan.txt
+exec git add .
+exec git commit -m 'orphan commit 1'
+exec git push origin orphan-test
+
+# Fetch to get the branch
+cd $WORK/workspace/main
+exec grove fetch
+stdout '\+ orphan-test'
+
+# Create completely different orphan history (no common ancestor with previous)
+cd $WORK/source
+exec git checkout --orphan temp-orphan
+exec git rm -rf .
+cp $WORK/orphan2.txt orphan.txt
+exec git add .
+exec git commit -m 'orphan commit 2'
+exec git branch -D orphan-test
+exec git branch -m orphan-test
+exec git push --force origin orphan-test
+
+# Fetch detects the rewrite - shows commit count since histories can be measured
+cd $WORK/workspace/main
+exec grove fetch
+stdout 'origin:'
+stdout '\* orphan-test'
+
+-- README.md --
+# Test
+
+-- orphan1.txt --
+orphan1
+
+-- orphan2.txt --
+orphan2

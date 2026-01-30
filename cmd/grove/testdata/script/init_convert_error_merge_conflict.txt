@@ -1,0 +1,30 @@
+# grove init convert - error with ongoing merge
+# Tests that conversion fails when repository has unresolved merge conflicts
+
+mkdir convert-merge
+cd convert-merge
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b branch2
+cp $WORK/conflict test-file.txt
+exec git add .
+exec git commit -m 'conflict'
+exec git checkout main
+cp $WORK/other test-file.txt
+exec git add .
+exec git commit -m 'other'
+! exec git merge branch2
+! exec grove init convert
+stderr '✗ cannot convert: repository has unresolved conflicts'
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- conflict --
+conflict
+
+-- other --
+other

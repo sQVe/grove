@@ -1,0 +1,21 @@
+# grove clone: error when cloning to existing grove workspace
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-same-dir
+exec grove clone file://$WORK/testrepo clone-same-dir --branches main
+! exec grove clone file://$WORK/testrepo clone-same-dir --branches main
+stderr '✗ cannot initialize grove inside existing grove workspace'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

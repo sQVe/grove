@@ -1,0 +1,8 @@
+# Test: grove exec supports shell commands
+setup_workspace
+
+exec grove exec main -- sh -c 'echo "shell command"'
+stdout 'shell command'
+
+-- README.md --
+# Test

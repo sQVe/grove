@@ -1,0 +1,32 @@
+# grove doctor: JSON output format
+
+# Setup: Create workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+cp $WORK/invalid.toml ../.grove.toml
+! exec grove doctor --json
+stdout '"category": "config"'
+stdout '"severity": "error"'
+stdout '"message": "Invalid .grove.toml"'
+stdout '"errors": 1'
+
+-- README.md --
+# Test fixture
+
+-- invalid.toml --
+this is not valid toml [[[

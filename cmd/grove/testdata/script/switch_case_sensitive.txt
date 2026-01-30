@@ -1,0 +1,10 @@
+# Test: grove switch requires exact case match
+setup_workspace develop
+
+exec grove add develop
+
+! exec grove switch Main
+stderr '✗ worktree not found: Main'
+
+! exec grove switch DEVELOP
+stderr '✗ worktree not found: DEVELOP'

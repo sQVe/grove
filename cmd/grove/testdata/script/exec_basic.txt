@@ -1,0 +1,16 @@
+# Test: grove exec runs commands in worktrees
+setup_workspace feature bugfix
+
+exec grove add feature
+exec grove add bugfix
+
+# Execute in all worktrees
+exec grove exec --all -- echo "hello from worktree"
+stdout 'hello from worktree'
+
+# Execute in specific worktrees
+exec grove exec main feature -- echo "specific"
+stdout 'specific'
+
+-- README.md --
+# Test

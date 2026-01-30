@@ -1,0 +1,8 @@
+# Test: grove status --json works from subdirectory
+setup_workspace
+
+mkdir -p src/components
+cd src/components
+exec grove status --json
+stdout '"branch": "main"'
+! stderr .

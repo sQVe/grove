@@ -1,0 +1,20 @@
+# grove clone: absolute path works correctly
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+exec grove clone file://$WORK/testrepo $WORK/clone-abs-path --branches main
+exists $WORK/clone-abs-path/.bare
+exists $WORK/clone-abs-path/main
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

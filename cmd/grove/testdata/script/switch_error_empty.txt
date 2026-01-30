@@ -1,0 +1,5 @@
+# Test: grove switch empty string after trimming errors
+setup_workspace
+
+! exec grove switch '   '
+stderr '✗ worktree not found'

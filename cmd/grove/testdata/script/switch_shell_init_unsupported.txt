@@ -1,0 +1,5 @@
+# Test: grove switch shell-init errors on unsupported shell
+setup_workspace
+
+! exec grove switch shell-init --shell tcsh
+stderr '✗ unsupported shell: tcsh'

@@ -1,0 +1,5 @@
+# Test: grove status rejects extra arguments
+setup_workspace
+
+! exec grove status extra-arg
+stderr '✗ unknown command'

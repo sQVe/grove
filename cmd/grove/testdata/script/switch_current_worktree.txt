@@ -1,0 +1,7 @@
+# Test: grove switch to current worktree succeeds
+setup_workspace
+
+cd $WORK/workspace/main
+exec grove switch main
+stdout '[/\\]workspace[/\\]main$'
+! stderr .

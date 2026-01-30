@@ -1,0 +1,5 @@
+# grove clone: error output when repository does not exist
+
+mkdir clone-error-output
+! exec grove clone file:///nonexistent/repo.git clone-error-output
+stderr '✗ failed to clone repository'

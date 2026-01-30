@@ -1,0 +1,29 @@
+# grove config array key error
+
+# Setup workspace for --shared tests
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+exec grove config init
+
+## Error: Array keys require direct editing
+
+! exec grove config set --shared grove.preserve "*.log"
+stderr 'requires editing .grove.toml directly'
+
+-- README.md --
+# Test

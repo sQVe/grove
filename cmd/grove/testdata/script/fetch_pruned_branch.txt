@@ -1,0 +1,48 @@
+# grove fetch: detect pruned branch on remote
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Create a branch on origin after cloning
+cd $WORK/source
+exec git checkout -b feature/to-delete
+exec git push origin feature/to-delete
+exec git checkout main
+
+# Fetch to get the branch first
+cd $WORK/workspace/main
+exec grove fetch
+stdout '\+ feature/to-delete'
+
+# Delete the feature branch on origin
+cd $WORK/source
+exec git push origin --delete feature/to-delete
+
+# Fetch from workspace and detect pruned ref
+cd $WORK/workspace/main
+exec grove fetch
+stdout 'origin:'
+stdout '- feature/to-delete'
+stdout 'deleted on remote'
+
+-- README.md --
+# Test

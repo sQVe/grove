@@ -1,0 +1,6 @@
+# Test: grove switch matches worktree by directory name (first priority)
+setup_workspace
+
+exec grove switch main
+stdout '[/\\]workspace[/\\]main$'
+! stderr .

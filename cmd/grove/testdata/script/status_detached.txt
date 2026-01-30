@@ -1,0 +1,14 @@
+# Test: grove status shows detached indicator
+setup_workspace
+
+cp $WORK/second-readme.md README.md
+exec git add README.md
+exec git commit -m 'second commit'
+exec git checkout HEAD~1
+exec grove status --plain
+stdout 'detached'
+! stderr .
+
+-- second-readme.md --
+# Test
+second

@@ -1,0 +1,10 @@
+# Test: grove status --json shows lock status
+setup_workspace feature/test
+
+exec grove add feature/test
+exec grove lock feature-test --reason 'Testing lock'
+cd ../feature-test
+exec grove status --json
+stdout '"locked": true'
+stdout '"lock_reason": "Testing lock"'
+! stderr .

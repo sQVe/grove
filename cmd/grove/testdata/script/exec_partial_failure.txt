@@ -1,0 +1,20 @@
+# Test: grove exec handles partial success/failure
+setup_workspace feature bugfix
+
+exec grove add feature
+exec grove add bugfix
+
+# Create a file in main only
+cp $WORK/exists.txt only-in-main.txt
+
+# cat succeeds in main but fails in feature/bugfix
+! exec grove exec --all -- cat only-in-main.txt
+stdout 'exists'
+
+rm only-in-main.txt
+
+-- README.md --
+# Test
+
+-- exists.txt --
+exists

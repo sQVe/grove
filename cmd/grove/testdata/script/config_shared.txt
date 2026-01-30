@@ -1,0 +1,78 @@
+# grove config shared operations
+
+# Setup workspace for --shared tests
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+## Success: Shared config operations
+
+# config init creates .grove.toml template
+exec grove config init
+stderr 'Created .grove.toml'
+exists .grove.toml
+
+# config init without --force shows info when file exists
+exec grove config init
+stderr 'already exists'
+
+# config init --force overwrites existing
+exec grove config init --force
+stderr 'Created .grove.toml'
+
+# config list --shared shows .grove.toml contents
+exec grove config list --shared
+# Template has preserve.patterns
+stdout 'preserve.patterns'
+
+# config set --shared updates .grove.toml
+exec grove config set --shared grove.plain true
+exec grove config get --shared grove.plain
+stdout '^true$'
+
+# config set --shared with debug (use true to ensure it shows in list)
+exec grove config set --shared grove.debug true
+exec grove config get --shared grove.debug
+stdout '^true$'
+
+# config list --shared shows settings (TOML uses plain key names)
+exec grove config list --shared
+stdout 'plain=true'
+stdout 'debug=true'
+
+# config unset --shared removes from .grove.toml
+exec grove config unset --shared grove.debug
+# Verify debug is no longer in list output (get may return default)
+exec grove config list --shared
+! stdout 'debug='
+
+# config get without scope flag shows effective (merged) value
+exec grove config get grove.plain
+stdout '^true$'
+
+# config list without scope flag shows merged config
+exec grove config list
+stdout 'grove.plain'
+
+# --shared and --global conflict error
+! exec grove config list --shared --global
+stderr 'cannot be used together'
+
+! exec grove config get --shared --global grove.plain
+stderr 'cannot be used together'
+
+-- README.md --
+# Test

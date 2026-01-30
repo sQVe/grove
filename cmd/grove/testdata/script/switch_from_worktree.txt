@@ -1,0 +1,8 @@
+# Test: grove switch works from inside worktree
+setup_workspace develop
+
+exec grove add develop
+cd $WORK/workspace/main
+exec grove switch develop
+stdout '[/\\]workspace[/\\]develop$'
+! stderr .

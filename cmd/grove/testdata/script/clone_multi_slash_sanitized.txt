@@ -1,0 +1,23 @@
+# grove clone: multiple slashes sanitized to dashes
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b release/v1/patch
+exec git checkout main
+cd ..
+
+mkdir clone-multi-slash
+exec grove clone file://$WORK/testrepo clone-multi-slash --branches release/v1/patch
+exists clone-multi-slash/release-v1-patch
+stderr 'release-v1-patch'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

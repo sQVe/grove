@@ -1,0 +1,47 @@
+# grove init convert - preserves git-ignored files
+# Tests that ignored files matching preserve patterns are copied to worktrees
+
+mkdir convert-preserve
+cd convert-preserve
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Create ignored files that match default preserve patterns
+cp $WORK/env-dev .env
+cp $WORK/env-local .env.local
+cp $WORK/gitignore-preserve .gitignore
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+exec grove init convert --branches main,develop
+stderr 'Converted repository to grove workspace'
+stderr 'convert-preserve'
+stderr 'Creating worktrees'
+# Worktrees created in order specified in --branches flag
+stderr '✓ main'
+stderr '✓ develop'
+exists .bare
+exists .git
+# Verify preserved files exist in all worktrees
+exists main/test-file.txt
+exists main/.env
+exists main/.env.local
+exists develop/test-file.txt
+exists develop/.env
+exists develop/.env.local
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- env-dev --
+NODE_ENV=development
+
+-- env-local --
+LOCAL=true
+
+-- gitignore-preserve --
+logs/
+.env*

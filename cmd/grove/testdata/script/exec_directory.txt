@@ -1,0 +1,13 @@
+# Test: grove exec runs commands in worktree directories
+setup_workspace feature
+
+exec grove add feature
+
+exec grove exec main -- pwd
+stdout 'workspace/main'
+
+exec grove exec feature -- pwd
+stdout 'workspace/feature'
+
+-- README.md --
+# Test

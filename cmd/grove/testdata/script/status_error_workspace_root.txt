@@ -1,0 +1,6 @@
+# Test: grove status errors when run from workspace root
+setup_workspace
+
+cd $WORK/workspace
+! exec grove status
+stderr '✗ failed to check changes.*must be run in a work tree'

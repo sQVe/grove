@@ -1,0 +1,62 @@
+# grove init convert - file restoration on rollback
+# Tests that files are correctly restored when conversion fails
+
+# Test file restoration on rollback failure with multiple files
+mkdir convert-file-restore-test
+cd convert-file-restore-test
+exec git init
+cp ../test-file.txt .
+cp ../untracked.txt another-file.txt
+exec git add .
+exec git commit -m 'initial commit with multiple files'
+# Create blocking directory to force rollback
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+# Verify files exist before conversion attempt
+exists test-file.txt
+exists another-file.txt
+! exec grove init convert
+stderr '✗ failed to create worktree'
+# Verify all files were restored to root after rollback
+exists test-file.txt
+exists another-file.txt
+# Verify .git directory is restored (not .bare)
+exists .git
+! exists .bare
+cd ..
+
+# Test directory hierarchy preservation and restoration on rollback
+mkdir convert-hierarchy-test
+cd convert-hierarchy-test
+exec git init
+mkdir subdir
+mkdir subdir/nested
+cp ../test-file.txt subdir/
+cp ../test-file.txt subdir/nested/nested-file.txt
+exec git add .
+exec git commit -m 'initial commit with directory hierarchy'
+# Create blocking directory to force rollback
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+! exec grove init convert
+stderr '✗ failed to create worktree'
+# Verify directory hierarchy was restored correctly
+exists subdir/test-file.txt
+exists subdir/nested/nested-file.txt
+# Verify .git directory is restored
+exists .git
+! exists .bare
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- untracked.txt --
+This file is untracked
+
+-- blocker --
+blocking file

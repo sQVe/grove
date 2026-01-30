@@ -1,0 +1,25 @@
+# grove clone: verbose mode shows git output
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout main
+cd ..
+
+mkdir clone-verbose-output
+exec grove clone file://$WORK/testrepo clone-verbose-output --branches main --verbose
+stderr 'Creating worktrees'
+stderr '✓ main'
+stderr 'Cloned repository to.*clone-verbose-output'
+stderr 'Cloning into bare repository'
+stderr 'Preparing worktree'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

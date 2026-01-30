@@ -1,0 +1,9 @@
+# Test: grove status shows locked indicator
+setup_workspace feature/test
+
+exec grove add feature/test
+exec grove lock feature-test --reason 'Testing lock'
+cd ../feature-test
+exec grove status --plain
+stdout '\[locked\]'
+! stderr .

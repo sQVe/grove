@@ -1,0 +1,22 @@
+# Test: grove switch succeeds on worktree with merge conflict
+setup_workspace develop
+
+exec grove add develop
+
+cd $WORK/workspace/develop
+exec git checkout -b merge-source
+exec sh -c 'echo source > conflict.txt'
+exec git add conflict.txt
+exec git commit -m 'source commit'
+exec git checkout develop
+exec sh -c 'echo target > conflict.txt'
+exec git add conflict.txt
+exec git commit -m 'target commit'
+! exec git merge merge-source
+exec git status
+stdout 'Unmerged'
+
+cd $WORK/workspace/main
+exec grove switch develop
+stdout '[/\\]workspace[/\\]develop$'
+! stderr .

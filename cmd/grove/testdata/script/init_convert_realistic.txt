@@ -1,0 +1,41 @@
+# grove init convert - realistic directory structure
+# Tests conversion with a realistic project structure
+
+mkdir convert-realistic
+cd convert-realistic
+exec git init
+mkdir -p .github/workflows docs/api src/components
+cp $WORK/ci-yml .github/workflows/ci.yml
+cp $WORK/api-readme docs/api/README.md
+cp $WORK/main-go src/main.go
+cp $WORK/button-tsx src/components/Button.tsx
+exec git add .
+exec git commit -m 'initial commit'
+exec grove init convert
+stderr 'Converted repository to grove workspace'
+stderr 'convert-realistic'
+# Verify files moved to worktree
+exists main/.github/workflows/ci.yml
+exists main/docs/api/README.md
+exists main/src/main.go
+exists main/src/components/Button.tsx
+# CRITICAL: Verify root directory is clean
+! exists .github
+! exists docs
+! exists src
+# Verify only expected items in root: . .. .bare .git main = 5 entries
+exec sh -c 'ls -a | wc -l'
+stdout '^\s*5\s*$'
+cd ..
+
+-- ci-yml --
+name: CI
+
+-- api-readme --
+API docs
+
+-- main-go --
+package main
+
+-- button-tsx --
+export default {}

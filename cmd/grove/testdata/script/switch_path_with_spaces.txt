@@ -1,0 +1,7 @@
+# Test: grove switch handles path with spaces
+setup_workspace space-branch
+
+exec grove add --name 'my worktree' space-branch
+exec grove switch 'my worktree'
+stdout 'my worktree$'
+! stderr .

@@ -1,0 +1,23 @@
+# grove clone: same repo can be cloned to different directories
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-twice-a
+mkdir clone-twice-b
+exec grove clone file://$WORK/testrepo clone-twice-a --branches main
+exec grove clone file://$WORK/testrepo clone-twice-b --branches main
+exists clone-twice-a/.bare
+exists clone-twice-b/.bare
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

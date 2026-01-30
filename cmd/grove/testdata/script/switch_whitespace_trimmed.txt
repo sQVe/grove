@@ -1,0 +1,6 @@
+# Test: grove switch trims leading/trailing whitespace
+setup_workspace
+
+exec grove switch '  main  '
+stdout '[/\\]workspace[/\\]main$'
+! stderr .

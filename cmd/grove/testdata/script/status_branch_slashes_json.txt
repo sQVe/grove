@@ -1,0 +1,10 @@
+# Test: grove status --json shows branch with slashes
+setup_workspace feature/with-slash
+
+exec grove add feature/with-slash
+cd ../feature-with-slash
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec grove status --json
+stdout '"branch": "feature/with-slash"'
+! stderr .

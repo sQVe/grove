@@ -1,0 +1,5 @@
+# Test: grove status errors when not in workspace
+mkdir outside
+cd outside
+! exec grove status
+stderr '✗ not in a grove workspace'

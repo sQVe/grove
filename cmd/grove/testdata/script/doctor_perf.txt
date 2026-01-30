@@ -1,0 +1,26 @@
+# grove doctor: performance analysis with --perf
+
+# Setup: Create workspace via clone
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/testrepo workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+exec grove doctor --perf
+stdout 'Disk Usage'
+stdout 'main'
+
+-- README.md --
+# Test fixture

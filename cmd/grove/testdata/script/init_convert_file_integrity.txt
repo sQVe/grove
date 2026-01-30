@@ -1,0 +1,39 @@
+# grove init convert - file integrity check
+# Tests that all files are correctly moved to worktree with structure preserved
+
+mkdir convert-integrity
+cd convert-integrity
+exec git init
+mkdir -p deep/nested/structure
+cp $WORK/level1 file1.txt
+cp $WORK/level2 deep/file2.txt
+cp $WORK/level3 deep/nested/file3.txt
+cp $WORK/level4 deep/nested/structure/file4.txt
+exec git add .
+exec git commit -m 'nested structure'
+# We have exactly 4 files in the nested structure
+exec grove init convert
+# Verify all 4 files exist in worktree after convert
+exec sh -c 'find main -type f -not -name ".git" | wc -l'
+stdout '^\s*4\s*$'
+# Verify structure preserved
+exists main/file1.txt
+exists main/deep/file2.txt
+exists main/deep/nested/file3.txt
+exists main/deep/nested/structure/file4.txt
+# Root should be clean
+! exists file1.txt
+! exists deep
+cd ..
+
+-- level1 --
+level1
+
+-- level2 --
+level2
+
+-- level3 --
+level3
+
+-- level4 --
+level4

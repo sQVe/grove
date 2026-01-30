@@ -1,0 +1,8 @@
+# Test: grove switch succeeds on locked worktree
+setup_workspace feature/auth
+
+exec grove add feature/auth
+exec git -C $WORK/workspace/.bare worktree lock ../feature-auth --reason 'Testing lock'
+exec grove switch feature-auth
+stdout '[/\\]workspace[/\\]feature-auth$'
+! stderr .

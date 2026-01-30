@@ -1,0 +1,7 @@
+# Test: grove status --verbose shows path details
+setup_workspace
+
+exec grove status --verbose --plain
+stdout '\* main'
+stdout '> path:'
+! stderr .

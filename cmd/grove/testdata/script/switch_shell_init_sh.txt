@@ -1,0 +1,11 @@
+# Test: grove switch shell-init --shell sh generates POSIX function
+setup_workspace
+
+exec grove switch shell-init --shell sh
+stdout 'grove\(\)'
+stdout 'command grove switch'
+stdout 'case "\$1" in'
+stdout 'grove add'
+stdout '\-\-switch'
+! stdout '\[\['
+! stderr .

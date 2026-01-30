@@ -1,0 +1,13 @@
+# Test: grove exec --help shows usage information
+setup_workspace feature bugfix
+
+exec grove add feature
+exec grove add bugfix
+
+exec grove exec --help
+stdout 'Run a command in one or more worktrees'
+stdout '\-\-all'
+stdout '\-\-fail-fast'
+
+-- README.md --
+# Test

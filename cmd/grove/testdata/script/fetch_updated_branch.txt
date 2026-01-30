@@ -1,0 +1,44 @@
+# grove fetch: detect updated branch on remote
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Add commit to main on origin
+cd $WORK/source
+cp $WORK/readme-update.md README.md
+exec git add .
+exec git commit -m 'update main'
+exec git push origin main
+
+# Fetch from workspace and detect update
+cd $WORK/workspace/main
+exec grove fetch
+stdout 'origin:'
+stdout '\* main'
+stdout '\+1 commit'
+
+-- README.md --
+# Test
+
+-- readme-update.md --
+# Test
+update

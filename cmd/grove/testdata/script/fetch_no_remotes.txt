@@ -1,0 +1,9 @@
+# grove fetch: no remotes configured
+
+mkdir workspace
+exec grove init new workspace
+cd workspace
+exec grove add main
+cd main
+exec grove fetch
+stderr 'No remotes configured'

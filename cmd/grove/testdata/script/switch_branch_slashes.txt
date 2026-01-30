@@ -1,0 +1,7 @@
+# Test: grove switch matches branch with slashes
+setup_workspace feature/auth
+
+exec grove add feature/auth
+exec grove switch feature/auth
+stdout '[/\\]workspace[/\\]feature-auth$'
+! stderr .

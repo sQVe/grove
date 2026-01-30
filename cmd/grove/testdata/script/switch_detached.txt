@@ -1,0 +1,8 @@
+# Test: grove switch matches detached HEAD worktree by directory name
+setup_workspace
+
+exec git tag v1.0.0
+exec grove add --detach v1.0.0
+exec grove switch v1.0.0
+stdout '[/\\]workspace[/\\]v1.0.0$'
+! stderr .
