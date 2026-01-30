@@ -1,4 +1,6 @@
 # Test: grove add runs multiple hooks successfully
+# Skip on Windows: uses Unix shell commands (touch)
+[!windows] skip
 setup_workspace
 
 cp $WORK/grove-hooks-multi.toml .grove.toml

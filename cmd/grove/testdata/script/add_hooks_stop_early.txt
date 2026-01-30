@@ -1,4 +1,6 @@
 # Test: grove add stops at first hook failure
+# Skip on Windows: uses Unix shell commands (exit)
+[!windows] skip
 setup_workspace
 
 cp $WORK/grove-hooks-exit-early.toml .grove.toml
