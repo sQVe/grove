@@ -8,6 +8,3 @@ stdout 'workspace/main'
 
 exec grove exec feature -- pwd
 stdout 'workspace/feature'
-
--- README.md --
-# Test

@@ -1,30 +1,10 @@
 # grove doctor: detect invalid TOML syntax
-
-# Setup: Create workspace via clone
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace
 
 cp $WORK/invalid.toml ../.grove.toml
 ! exec grove doctor
 stdout 'Configuration'
 stdout '✗ Invalid .grove.toml'
-
--- README.md --
-# Test fixture
 
 -- invalid.toml --
 this is not valid toml [[[

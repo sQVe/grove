@@ -1,0 +1,6 @@
+# Test: grove config init creates .grove.toml template
+setup_workspace
+
+exec grove config init
+stderr 'Created .grove.toml'
+exists .grove.toml

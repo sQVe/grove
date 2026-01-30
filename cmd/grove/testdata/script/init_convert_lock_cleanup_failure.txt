@@ -1,0 +1,28 @@
+# grove init convert - lock file cleanup on failure
+# Tests that lock file is cleaned up even when conversion fails
+
+mkdir convert-lock-failure-test
+cd convert-lock-failure-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+
+# Create blocking directory to force conversion failure
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+
+! exec grove init convert
+stderr '✗ failed to create worktree'
+
+! exists .grove-convert.lock
+exists .git
+exists test-file.txt
+
+-- test-file.txt --
+This is a test file
+
+-- blocker --
+blocking file

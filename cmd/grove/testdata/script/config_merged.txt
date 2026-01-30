@@ -1,0 +1,11 @@
+# Test: grove config get/list without scope shows merged value
+setup_workspace
+
+exec grove config init
+exec grove config set --shared grove.plain true
+
+exec grove config get grove.plain
+stdout '^true$'
+
+exec grove config list
+stdout 'grove.plain'

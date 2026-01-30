@@ -1,0 +1,3 @@
+# Test: grove config get --global fails for missing key
+! exec grove config get --global grove.missing
+stderr 'config key not found'

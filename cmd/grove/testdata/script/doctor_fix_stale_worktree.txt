@@ -1,31 +1,11 @@
 # grove doctor: fix stale worktree entry with --fix
-
-# Setup: Create workspace via clone
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace
 
 mkdir ../.bare/worktrees/orphan-fix-test
 cp $WORK/orphan-gitdir ../.bare/worktrees/orphan-fix-test/gitdir
 exec grove doctor --fix
 stderr 'Fixed: Stale worktree entry'
 ! exists ../.bare/worktrees/orphan-fix-test
-
--- README.md --
-# Test fixture
 
 -- orphan-gitdir --
 /nonexistent/path

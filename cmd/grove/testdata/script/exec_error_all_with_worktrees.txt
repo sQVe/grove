@@ -1,0 +1,7 @@
+# Test: grove exec fails when --all used with specific worktrees
+setup_workspace feature
+
+exec grove add feature
+
+! exec grove exec --all main -- echo hello
+stderr '✗ cannot use --all with specific worktrees'

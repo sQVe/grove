@@ -1,27 +1,8 @@
 # Auto-locked worktree can be unlocked
-
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace
 
 exec grove unlock main
 stderr 'Unlocked worktree'
 
 exec grove status --json
 stdout '"locked": false'
-
--- README.md --
-# Test

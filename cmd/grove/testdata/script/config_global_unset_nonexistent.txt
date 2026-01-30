@@ -1,0 +1,2 @@
+# Test: grove config unset --global succeeds silently for nonexistent key
+exec grove config unset --global grove.nonexistent

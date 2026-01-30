@@ -1,23 +1,5 @@
 # Main stays locked after adding feature
-
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-exec git checkout -b feature
-exec git checkout main
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace feature
 
 exec grove add feature
 
@@ -25,6 +7,3 @@ exec grove list --json
 stdout '"name": "main"'
 stdout '"locked": true'
 stdout '"name": "feature"'
-
--- README.md --
-# Test

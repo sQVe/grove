@@ -1,0 +1,12 @@
+# Test: grove config shows help output
+exec grove config --help
+stdout 'Usage:'
+stdout 'list'
+stdout 'get'
+stdout 'set'
+stdout 'unset'
+! stderr .
+
+exec grove config
+stdout 'Usage:'
+! stderr .

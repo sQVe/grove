@@ -15,6 +15,3 @@ stderr 'failed'
 # --fail-fast stops on first failure
 ! exec grove exec --all --fail-fast -- false
 stderr 'failed'
-
--- README.md --
-# Test

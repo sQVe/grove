@@ -8,6 +8,3 @@ exec grove exec feature -- echo "locked but executed"
 stdout 'locked but executed'
 
 exec grove unlock feature
-
--- README.md --
-# Test

@@ -1,22 +1,5 @@
 # grove doctor: detect stale worktree entry with relative path
-
-# Setup: Create workspace via clone
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace
 
 mkdir ../.bare/worktrees/orphan-relative
 cp $WORK/orphan-relative-gitdir ../.bare/worktrees/orphan-relative/gitdir
@@ -25,9 +8,6 @@ cp $WORK/orphan-relative-gitdir ../.bare/worktrees/orphan-relative/gitdir
 stdout 'Git Issues'
 stdout '✗ Stale worktree entry'
 stdout 'orphan-relative'
-
--- README.md --
-# Test fixture
 
 -- orphan-relative-gitdir --
 ../../nonexistent-worktree/.git

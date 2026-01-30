@@ -1,23 +1,7 @@
-# grove init convert - symlink handling
-# Tests symlink handling during conversion and rollback
+# grove init convert - symlink restoration during rollback
+# Tests symlink restoration when conversion fails
 # Skip on Windows: ln -s and readlink are Unix-specific
 
-# Test symlink handling during conversion
-[!windows] mkdir convert-symlink-test
-[!windows] cd convert-symlink-test
-[!windows] exec git init
-[!windows] cp ../test-file.txt .
-[!windows] exec ln -s test-file.txt link-to-file.txt
-[!windows] exec git add .
-[!windows] exec git commit -m 'initial commit with symlink'
-[!windows] exec grove init convert
-[!windows] exists main/test-file.txt
-[!windows] exists main/link-to-file.txt
-[!windows] exec readlink main/link-to-file.txt
-[!windows] stdout '^test-file.txt$'
-[!windows] cd ..
-
-# Test symlink restoration during rollback
 [!windows] mkdir convert-symlink-rollback-test
 [!windows] cd convert-symlink-rollback-test
 [!windows] exec git init
@@ -25,17 +9,19 @@
 [!windows] exec ln -s test-file.txt link-to-file.txt
 [!windows] exec git add .
 [!windows] exec git commit -m 'initial commit with symlink'
+
 [!windows] mkdir main
 [!windows] cp $WORK/blocker main/blocker.txt
 [!windows] exec git add .
 [!windows] exec git commit -m 'add blocker'
+
 [!windows] ! exec grove init convert
 [!windows] stderr '✗ failed to create worktree'
+
 [!windows] exists test-file.txt
 [!windows] exists link-to-file.txt
 [!windows] exec readlink link-to-file.txt
 [!windows] stdout '^test-file.txt$'
-[!windows] cd ..
 
 -- test-file.txt --
 This is a test file

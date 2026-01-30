@@ -1,0 +1,7 @@
+# Test: grove exec fails when no command specified
+setup_workspace feature
+
+exec grove add feature
+
+! exec grove exec --all --
+stderr '✗ no command specified'

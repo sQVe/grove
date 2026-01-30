@@ -1,0 +1,4 @@
+# Test: grove config set requires key and value
+! exec grove config set --global key
+stderr '✗ accepts 2 arg'
+stderr 'received 1'

@@ -8,6 +8,3 @@ exec grove exec --help
 stdout 'Run a command in one or more worktrees'
 stdout '\-\-all'
 stdout '\-\-fail-fast'
-
--- README.md --
-# Test

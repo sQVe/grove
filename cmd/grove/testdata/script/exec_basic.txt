@@ -11,6 +11,3 @@ stdout 'hello from worktree'
 # Execute in specific worktrees
 exec grove exec main feature -- echo "specific"
 stdout 'specific'
-
--- README.md --
-# Test

@@ -1,0 +1,4 @@
+# Test: grove config get requires key argument
+! exec grove config get
+stderr '✗ accepts 1 arg'
+stderr 'received 0'

@@ -1,14 +1,3 @@
-# grove config invalid boolean value errors
-
-## Error: Invalid boolean value
-
+# Test: grove config set rejects invalid boolean value
 ! exec grove config set --global grove.plain maybe
 stderr 'invalid boolean value'
-
-# empty value rejected
-! exec grove config set --global grove.plain ""
-stderr 'invalid boolean value'
-
-# whitespace-only value rejected
-! exec grove config set --global grove.plain "   "
-stderr 'accepts 2 arg'

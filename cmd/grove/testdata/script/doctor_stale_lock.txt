@@ -1,27 +1,7 @@
 # grove doctor: detect stale lock file
-
-# Setup: Create workspace via clone
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
+setup_workspace
 
 exec touch ../.grove-convert.lock
 exec grove doctor
 stdout 'Configuration'
 stdout '⚠ Stale lock file'
-
--- README.md --
-# Test fixture

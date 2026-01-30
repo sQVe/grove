@@ -1,0 +1,6 @@
+# Test: grove config get --global returns stored value
+exec grove config set --global grove.plain true
+exec grove config get --global grove.plain
+stdout '^true$'
+
+exec grove config unset --global grove.plain

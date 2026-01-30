@@ -8,6 +8,3 @@ exec grove exec --all -- echo "test"
 stderr 'bugfix'
 stderr 'feature'
 stderr 'main'
-
--- README.md --
-# Test

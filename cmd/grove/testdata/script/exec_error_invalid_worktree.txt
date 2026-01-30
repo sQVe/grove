@@ -1,0 +1,7 @@
+# Test: grove exec fails for invalid worktree
+setup_workspace feature
+
+exec grove add feature
+
+! exec grove exec nonexistent -- echo hello
+stderr '✗ worktree not found: nonexistent'

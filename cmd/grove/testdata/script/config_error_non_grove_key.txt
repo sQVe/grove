@@ -1,0 +1,9 @@
+# Test: grove config rejects non-grove.* keys
+! exec grove config get --global user.name
+stderr '✗ only grove\.\* settings'
+
+! exec grove config set --global user.name value
+stderr '✗ only grove\.\* settings'
+
+! exec grove config unset --global user.name
+stderr '✗ only grove\.\* settings'

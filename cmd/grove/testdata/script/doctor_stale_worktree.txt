@@ -1,24 +1,6 @@
 # grove doctor: detect stale worktree entry
+setup_workspace
 
-# Setup: Create workspace via clone
-mkdir testrepo
-exec git init testrepo
-cd testrepo
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-exec git config commit.gpgsign false
-cp ../README.md .
-exec git add .
-exec git commit -m 'initial commit'
-cd ..
-
-mkdir workspace
-exec grove clone file://$WORK/testrepo workspace
-cd workspace/main
-exec git config user.name "Test"
-exec git config user.email "test@example.com"
-
-# Create orphaned worktree entry
 mkdir ../.bare/worktrees/orphan-branch
 cp $WORK/orphan-gitdir ../.bare/worktrees/orphan-branch/gitdir
 
@@ -26,9 +8,6 @@ cp $WORK/orphan-gitdir ../.bare/worktrees/orphan-branch/gitdir
 stdout 'Git Issues'
 stdout '✗ Stale worktree entry'
 stdout 'orphan-branch'
-
--- README.md --
-# Test fixture
 
 -- orphan-gitdir --
 /nonexistent/path

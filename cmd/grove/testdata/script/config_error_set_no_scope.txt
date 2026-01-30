@@ -1,0 +1,3 @@
+# Test: grove config set requires --shared or --global
+! exec grove config set grove.plain true
+stderr '✗ must specify --shared or --global'

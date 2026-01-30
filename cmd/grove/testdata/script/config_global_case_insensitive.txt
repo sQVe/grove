@@ -1,0 +1,5 @@
+# Test: grove config normalizes keys to lowercase
+exec grove config set --global grove.PLAIN true
+exec grove config get --global grove.plain
+stdout '^true$'
+exec grove config unset --global grove.plain

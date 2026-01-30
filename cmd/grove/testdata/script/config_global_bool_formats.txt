@@ -1,0 +1,10 @@
+# Test: grove config set --global accepts various boolean formats
+exec grove config set --global grove.plain true
+exec grove config set --global grove.debug false
+exec grove config set --global grove.plain yes
+exec grove config set --global grove.debug no
+exec grove config set --global grove.plain 1
+exec grove config set --global grove.debug 0
+
+exec grove config unset --global grove.plain
+exec grove config unset --global grove.debug
