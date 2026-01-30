@@ -1,0 +1,11 @@
+# Test: grove status shows dirty indicator for modified files
+setup_workspace
+
+cp $WORK/modified-readme.md README.md
+exec grove status --plain
+stdout '\[dirty\]'
+! stderr .
+
+-- modified-readme.md --
+# Test
+modified

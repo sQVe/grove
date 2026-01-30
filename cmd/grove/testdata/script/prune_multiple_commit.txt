@@ -1,0 +1,21 @@
+# Test: grove prune --commit removes multiple worktrees and deletes branches
+setup_workspace feature-multi-1 feature-multi-2 feature-multi-3
+
+exec grove add feature-multi-1
+exec grove add feature-multi-2
+exec grove add feature-multi-3
+exec git -C $WORK/testrepo branch -D feature-multi-1
+exec git -C $WORK/testrepo branch -D feature-multi-2
+exec git -C $WORK/testrepo branch -D feature-multi-3
+exec grove prune --commit
+stderr 'Pruned 3 worktrees'
+stderr 'feature-multi-1'
+stderr 'feature-multi-2'
+stderr 'feature-multi-3'
+stderr 'deleted 3 local branches'
+! exists ../feature-multi-1
+! exists ../feature-multi-2
+! exists ../feature-multi-3
+assert_branch deleted feature-multi-1
+assert_branch deleted feature-multi-2
+assert_branch deleted feature-multi-3

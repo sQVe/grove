@@ -1,0 +1,12 @@
+# Test: grove list --filter dirty shows only dirty worktrees
+setup_workspace develop
+
+exec grove add develop
+cp $WORK/dirty.txt ../develop/dirty.txt
+exec grove list --filter dirty --plain
+stdout 'develop'
+! stdout '^[^d]*main'
+stderr 'Gathering worktree status'
+
+-- dirty.txt --
+dirty

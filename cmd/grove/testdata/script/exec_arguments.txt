@@ -1,0 +1,7 @@
+# Test: grove exec passes arguments to command
+setup_workspace
+
+exec grove exec main -- echo "arg1" "arg2" "arg3"
+stdout 'arg1'
+stdout 'arg2'
+stdout 'arg3'

@@ -1,0 +1,34 @@
+# Test: grove add works when merge is in progress in source worktree
+setup_workspace
+
+# Create a branch with conflicting changes
+exec git checkout -b merge-source
+cp $WORK/source.txt conflict.txt
+exec git add conflict.txt
+exec git commit -m 'add conflict file on merge-source'
+exec git checkout main
+exec git checkout -b merge-target
+cp $WORK/target.txt conflict.txt
+exec git add conflict.txt
+exec git commit -m 'add conflict file on merge-target'
+
+# Start merge that will conflict
+! exec git merge merge-source
+
+# Verify we're in merge state
+exec git status
+stdout 'Unmerged paths'
+
+# grove add should still work from this worktree
+exec grove add feature/during-merge
+stderr 'Created worktree at .*[/\\]feature-during-merge'
+exists ../feature-during-merge
+
+# Clean up merge state
+exec git merge --abort
+
+-- source.txt --
+source content
+
+-- target.txt --
+target content

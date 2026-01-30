@@ -1,0 +1,17 @@
+# Test: grove exec handles exit codes correctly
+setup_workspace feature bugfix
+
+exec grove add feature
+exec grove add bugfix
+
+# Successful command shows success message
+exec grove exec --all -- true
+stderr 'Executed'
+
+# Failed command continues by default and shows failure count
+! exec grove exec --all -- false
+stderr 'failed'
+
+# --fail-fast stops on first failure
+! exec grove exec --all --fail-fast -- false
+stderr 'failed'

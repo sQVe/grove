@@ -1,0 +1,22 @@
+# Test: grove prune --detached --commit removes detached worktree but keeps branch
+setup_workspace feature-detached
+
+exec git -C $WORK/testrepo checkout feature-detached
+cp $WORK/detached-feature.txt $WORK/testrepo/detached-feature.txt
+exec git -C $WORK/testrepo add detached-feature.txt
+exec git -C $WORK/testrepo commit -m 'detached commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-detached
+exec git -C ../feature-detached checkout HEAD~0
+exec grove prune --detached --commit
+stderr 'Pruned 1 worktree'
+stderr 'feature-detached'
+# Should NOT show "deleted local branch" for detached worktrees
+! stderr 'deleted.*local branch'
+! exists ../feature-detached
+# Branch should still exist
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-detached
+
+-- detached-feature.txt --
+detached content

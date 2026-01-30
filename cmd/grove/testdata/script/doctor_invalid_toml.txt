@@ -1,0 +1,10 @@
+# grove doctor: detect invalid TOML syntax
+setup_workspace
+
+cp $WORK/invalid.toml ../.grove.toml
+! exec grove doctor
+stdout 'Configuration'
+stdout '✗ Invalid .grove.toml'
+
+-- invalid.toml --
+this is not valid toml [[[

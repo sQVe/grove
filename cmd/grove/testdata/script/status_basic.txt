@@ -1,0 +1,7 @@
+# Test: grove status shows branch in plain format
+setup_workspace
+
+exec grove status --plain
+stdout '\* main'
+! stdout '\[dirty\]'
+! stderr .

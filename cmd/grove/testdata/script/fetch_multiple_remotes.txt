@@ -1,0 +1,52 @@
+# grove fetch: multiple remotes
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Add a second remote (upstream) pointing to same origin
+exec git remote add upstream file://$WORK/origin
+
+# First fetch - upstream is new so shows new branches, origin has no changes
+exec grove fetch
+stdout 'upstream:'
+stdout '\+ main'
+! stdout 'origin:'
+
+# Make a change on origin
+cd $WORK/source
+cp $WORK/readme-update.md README.md
+exec git add .
+exec git commit -m 'multi-remote test'
+exec git push origin main
+
+# Now both remotes should show changes
+cd $WORK/workspace/main
+exec grove fetch
+stdout 'origin:'
+stdout 'upstream:'
+
+-- README.md --
+# Test
+
+-- readme-update.md --
+# Test
+update

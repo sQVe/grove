@@ -20,4 +20,4 @@ stdout 'Usage:'
 
 # Unknown subcommand shows error
 ! exec grove init invalid
-stderr '^✗ unknown command "invalid" for "grove init"'
+stderr '✗ unknown command "invalid" for "grove init"'

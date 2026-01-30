@@ -1,0 +1,6 @@
+# Test: grove list --filter with unknown value matches nothing
+setup_workspace
+
+exec grove list --filter invalid --plain
+! stdout 'main'
+stderr 'Gathering worktree status'

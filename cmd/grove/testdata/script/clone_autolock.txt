@@ -1,0 +1,24 @@
+# grove clone: branches matching pattern are locked
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-auto-lock
+exec grove clone file://$WORK/testrepo clone-auto-lock --branches main,develop
+cd clone-auto-lock/.bare
+exec git worktree list --porcelain
+stdout 'locked'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

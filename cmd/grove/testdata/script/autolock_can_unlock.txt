@@ -1,0 +1,8 @@
+# Auto-locked worktree can be unlocked
+setup_workspace
+
+exec grove unlock main
+stderr 'Unlocked worktree'
+
+exec grove status --json
+stdout '"locked": false'

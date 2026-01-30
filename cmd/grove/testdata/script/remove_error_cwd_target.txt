@@ -1,0 +1,9 @@
+# Test: grove remove errors when CWD is target worktree
+setup_workspace subdir-test
+
+exec grove add subdir-test
+mkdir ../subdir-test/deep/nested
+cd ../subdir-test/deep/nested
+
+! exec grove remove subdir-test
+stderr 'cannot delete current worktree'

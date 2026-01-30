@@ -1,0 +1,3 @@
+# Test: grove config rejects invalid subcommand
+! exec grove config invalid
+stderr '✗ unknown command "invalid" for "grove config"'

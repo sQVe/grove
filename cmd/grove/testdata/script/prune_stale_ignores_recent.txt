@@ -1,0 +1,13 @@
+# Test: grove prune --stale ignores recent worktrees
+setup_workspace feature-fresh
+
+# Create fresh commit on remote (recent, not stale)
+# Using sh -c for consistency with other stale tests
+exec git -C $WORK/testrepo checkout feature-fresh
+exec sh -c 'cd $WORK/testrepo && git commit --allow-empty -m "fresh commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-fresh
+# With --stale 30d, should NOT detect feature-fresh (it's new)
+exec grove prune --stale 30d
+stderr 'No worktrees to prune'

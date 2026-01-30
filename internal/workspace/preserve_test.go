@@ -8,12 +8,16 @@ import (
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 func TestPreserveFilesToWorktree(t *testing.T) {
+	t.Parallel()
+
 	t.Run("copies matching ignored files to destination", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create a .env file in source
 		envPath := filepath.Join(sourceDir, ".env")
@@ -50,8 +54,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("skips files that already exist in destination", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create .env in source
 		envPath := filepath.Join(sourceDir, ".env")
@@ -83,8 +89,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("only copies files that match patterns", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create files that match and don't match
 		if err := os.WriteFile(filepath.Join(sourceDir, ".env"), []byte("match"), fs.FileStrict); err != nil {
@@ -113,8 +121,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("handles nested directory paths", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create nested .env file
 		nestedDir := filepath.Join(sourceDir, "config")
@@ -146,8 +156,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("returns empty result when no files match", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		patterns := []string{".env"}
 		ignoredFiles := []string{"other.txt"} // Doesn't match .env pattern
@@ -163,8 +175,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("handles wildcard patterns", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create files matching *.local.json
 		if err := os.WriteFile(filepath.Join(sourceDir, "config.local.json"), []byte("{}"), fs.FileStrict); err != nil {
@@ -188,8 +202,10 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 	})
 
 	t.Run("excludes files matching exclude patterns", func(t *testing.T) {
-		sourceDir := t.TempDir()
-		destDir := t.TempDir()
+		t.Parallel()
+
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
 
 		// Create .env in root (should be preserved)
 		if err := os.WriteFile(filepath.Join(sourceDir, ".env"), []byte("ROOT=true"), fs.FileStrict); err != nil {
@@ -231,8 +247,11 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 }
 
 func TestFindIgnoredFilesInWorktree(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns ignored files in worktree", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := testutil.TempDir(t)
 
 		// Initialize git repo
 		cmd := exec.Command("git", "init")
@@ -271,7 +290,9 @@ func TestFindIgnoredFilesInWorktree(t *testing.T) {
 	})
 
 	t.Run("returns empty for directory with no ignored files", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 
 		cmd := exec.Command("git", "init")
 		cmd.Dir = tmpDir
@@ -296,7 +317,9 @@ func TestFindIgnoredFilesInWorktree(t *testing.T) {
 	})
 
 	t.Run("returns error for non-git directory", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 
 		_, err := FindIgnoredFilesInWorktree(tmpDir)
 		if err == nil {
@@ -306,8 +329,11 @@ func TestFindIgnoredFilesInWorktree(t *testing.T) {
 }
 
 func TestGetPreservePatternsForCreate(t *testing.T) {
+	t.Parallel()
+
 	t.Run("uses TOML config when present", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := testutil.TempDir(t)
 
 		tomlContent := `[preserve]
 patterns = [".custom", "*.secret"]
@@ -328,7 +354,9 @@ patterns = [".custom", "*.secret"]
 	})
 
 	t.Run("falls back to defaults when no config", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		// No .grove.toml, no git config
 
 		patterns := config.GetMergedPreservePatterns(tmpDir)

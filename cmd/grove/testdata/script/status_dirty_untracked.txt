@@ -1,0 +1,10 @@
+# Test: grove status shows dirty indicator for untracked files
+setup_workspace
+
+cp $WORK/dirty.txt dirty.txt
+exec grove status --plain
+stdout '\[dirty\]'
+! stderr .
+
+-- dirty.txt --
+dirty file

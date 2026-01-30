@@ -1,0 +1,3 @@
+# Test: grove config set rejects invalid boolean value
+! exec grove config set --global grove.plain maybe
+stderr 'invalid boolean value'

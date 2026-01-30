@@ -1,0 +1,46 @@
+# grove fetch: unreachable remote error
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Make a change on origin so we can verify it still fetches
+cd $WORK/source
+cp $WORK/readme-update.md README.md
+exec git add .
+exec git commit -m 'error test commit'
+exec git push origin main
+
+# Add a remote with invalid URL
+cd $WORK/workspace/main
+exec git remote add broken file:///nonexistent/path
+
+# Fetch should report error but continue with other remotes
+! exec grove fetch
+stderr 'broken:'
+stdout 'origin:'
+
+-- README.md --
+# Test
+
+-- readme-update.md --
+# Test
+update

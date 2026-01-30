@@ -1,0 +1,21 @@
+# Test: grove prune --merged detects squash merged branches
+setup_workspace feature-squashed
+
+# Create commit and squash merge into main on remote
+exec git -C $WORK/testrepo checkout feature-squashed
+cp $WORK/squash-feature.txt $WORK/testrepo/squash-feature.txt
+exec git -C $WORK/testrepo add squash-feature.txt
+exec git -C $WORK/testrepo commit -m 'squash commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/testrepo merge --squash feature-squashed
+exec git -C $WORK/testrepo commit -m 'squashed feature'
+exec git -C $WORK/workspace/.bare fetch origin
+exec git pull
+exec grove add feature-squashed
+# With --merged, should detect squash-merged branch via patch-id comparison
+exec grove prune --merged
+stderr 'Would prune 1 worktree'
+stderr 'feature-squashed'
+
+-- squash-feature.txt --
+squash content

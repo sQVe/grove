@@ -1,0 +1,8 @@
+# Test: grove list --fast still shows lock status
+setup_workspace develop
+
+# develop is auto-locked when added
+exec grove add develop
+exec grove list --fast --plain
+stdout '\[locked\]'
+stderr 'Gathering worktree status'

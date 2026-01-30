@@ -1,0 +1,10 @@
+# Test: grove list --json shows locked: true and lock_reason
+setup_workspace develop
+
+exec grove add develop
+# Unlock auto-lock, then lock with custom reason
+exec git -C $WORK/workspace/.bare worktree unlock ../develop
+exec git -C $WORK/workspace/.bare worktree lock ../develop --reason 'Test reason'
+exec grove list --json
+stdout '"locked": true'
+stdout '"lock_reason": "Test reason"'

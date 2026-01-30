@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -53,9 +54,9 @@ func TestRunMove_NotInWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chdir(origDir) }()
+	defer func() { testutil.Chdir(t, origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -91,10 +92,9 @@ func TestNewMoveCmd_ValidArgsFunction(t *testing.T) {
 }
 
 func TestRunMove_CurrentWorktreeHint(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestRunMove_CurrentWorktreeHint(t *testing.T) {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runMove("main", "new-branch")
 	if err == nil {

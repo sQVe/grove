@@ -1,0 +1,9 @@
+# Test: grove remove falls back to branch name when directory has slashes
+setup_workspace feature/slash-test
+
+exec grove add feature/slash-test
+exists ../feature-slash-test
+
+exec grove remove feature/slash-test
+stderr 'Removed worktree'
+! exists ../feature-slash-test

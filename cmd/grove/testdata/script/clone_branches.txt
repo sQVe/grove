@@ -1,0 +1,28 @@
+# grove clone: creates worktrees for specified branches
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-with-branches
+exec grove clone file://$WORK/testrepo clone-with-branches --branches main,develop
+stderr 'Cloned repository to.*clone-with-branches'
+exists clone-with-branches/.bare
+exists clone-with-branches/.git
+exists clone-with-branches/main
+exists clone-with-branches/develop
+exists clone-with-branches/main/README.md
+exists clone-with-branches/develop/README.md
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

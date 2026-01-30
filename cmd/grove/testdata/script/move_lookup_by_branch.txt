@@ -1,0 +1,9 @@
+# Test: grove move finds worktree by branch name (fallback)
+setup_workspace
+
+exec grove add feature/slash-lookup
+exists ../feature-slash-lookup
+exec grove move feature/slash-lookup feature/renamed
+stderr 'Renamed feature/slash-lookup to feature/renamed'
+! exists ../feature-slash-lookup
+exists ../feature-renamed

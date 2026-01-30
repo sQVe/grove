@@ -1,0 +1,12 @@
+# Test: grove move handles rapid consecutive moves
+setup_workspace
+
+exec grove add rapid-a
+exec grove move rapid-a rapid-b
+stderr 'Renamed rapid-a to rapid-b'
+exists ../rapid-b
+
+exec grove move rapid-b rapid-c
+stderr 'Renamed rapid-b to rapid-c'
+exists ../rapid-c
+! exists ../rapid-b

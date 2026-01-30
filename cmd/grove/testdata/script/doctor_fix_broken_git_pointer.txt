@@ -1,0 +1,9 @@
+# grove doctor: fix broken .git pointer with --fix
+setup_workspace
+
+exec rm .git
+exec grove doctor --fix
+stderr 'Fixed: Broken .git pointer'
+exists .git
+exec grove doctor
+stderr '✓ No issues found'

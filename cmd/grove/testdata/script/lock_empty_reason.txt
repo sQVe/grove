@@ -1,0 +1,6 @@
+# Test: grove lock accepts empty --reason
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature --reason ''
+stderr 'Locked worktree'

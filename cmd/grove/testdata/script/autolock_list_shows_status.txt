@@ -1,0 +1,9 @@
+# List shows correct lock status
+setup_workspace feature
+
+exec grove add feature
+
+exec grove list --verbose --plain
+stdout 'main.*\[locked\]'
+stdout 'feature'
+! stdout 'feature.*\[locked\]'

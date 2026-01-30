@@ -1,0 +1,12 @@
+# Test: grove remove errors on staged but uncommitted files
+setup_workspace dirty-staged
+
+exec grove add dirty-staged
+cp $WORK/staged.txt ../dirty-staged/newfile.txt
+exec git -C ../dirty-staged add newfile.txt
+
+! exec grove remove dirty-staged
+stderr '✗ .*uncommitted changes'
+
+-- staged.txt --
+staged

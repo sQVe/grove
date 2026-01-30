@@ -1,0 +1,8 @@
+# grove config init not in workspace error
+
+## Error: Config init not in workspace
+
+mkdir outside
+cd outside
+! exec grove config init
+stderr 'not in a grove workspace'

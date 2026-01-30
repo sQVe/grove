@@ -1,0 +1,13 @@
+# Test: grove remove --force removes dirty and locked worktree
+setup_workspace force-both
+
+exec grove add force-both
+cp $WORK/dirty.txt ../force-both/untracked.txt
+exec git -C $WORK/workspace/.bare worktree lock ../force-both
+
+exec grove remove --force force-both
+stderr 'Removed worktree'
+! exists ../force-both
+
+-- dirty.txt --
+dirty

@@ -29,12 +29,15 @@ func TestNewAddCmd(t *testing.T) {
 	flags := []struct {
 		name      string
 		shorthand string
+		defValue  string
+		valueType string
 	}{
-		{"switch", "s"},
-		{"base", ""},
-		{"detach", "d"},
-		{"name", ""},
-		{"pr", ""},
+		{"switch", "s", "false", "bool"},
+		{"base", "", "", "string"},
+		{"detach", "d", "false", "bool"},
+		{"name", "", "", "string"},
+		{"pr", "", "0", "int"},
+		{"from", "", "", "string"},
 	}
 
 	for _, f := range flags {
@@ -46,81 +49,17 @@ func TestNewAddCmd(t *testing.T) {
 		if f.shorthand != "" && flag.Shorthand != f.shorthand {
 			t.Errorf("--%s: expected shorthand %q, got %q", f.name, f.shorthand, flag.Shorthand)
 		}
+		if flag.DefValue != f.defValue {
+			t.Errorf("--%s: expected default value %q, got %q", f.name, f.defValue, flag.DefValue)
+		}
+		if flag.Value.Type() != f.valueType {
+			t.Errorf("--%s: expected type %q, got %q", f.name, f.valueType, flag.Value.Type())
+		}
 	}
 
 	// Verify ValidArgsFunction is set
 	if cmd.ValidArgsFunction == nil {
 		t.Error("expected ValidArgsFunction to be set")
-	}
-}
-
-func TestNewAddCmd_HasSwitchFlag(t *testing.T) {
-	cmd := NewAddCmd()
-	flag := cmd.Flags().Lookup("switch")
-	if flag == nil {
-		t.Fatal("expected --switch flag to exist")
-	}
-	if flag.Shorthand != "s" {
-		t.Errorf("expected shorthand 's', got %q", flag.Shorthand)
-	}
-}
-
-func TestNewAddCmd_HasBaseFlag(t *testing.T) {
-	cmd := NewAddCmd()
-	flag := cmd.Flags().Lookup("base")
-	if flag == nil {
-		t.Fatal("expected --base flag to exist")
-	}
-	if flag.DefValue != "" {
-		t.Errorf("expected default value '', got %q", flag.DefValue)
-	}
-	if flag.Value.Type() != "string" {
-		t.Errorf("expected string type, got %q", flag.Value.Type())
-	}
-}
-
-func TestNewAddCmd_HasDetachFlag(t *testing.T) {
-	cmd := NewAddCmd()
-	flag := cmd.Flags().Lookup("detach")
-	if flag == nil {
-		t.Fatal("expected --detach flag to exist")
-	}
-	if flag.Shorthand != "d" {
-		t.Errorf("expected shorthand 'd', got %q", flag.Shorthand)
-	}
-	if flag.DefValue != "false" {
-		t.Errorf("expected default value 'false', got %q", flag.DefValue)
-	}
-	if flag.Value.Type() != "bool" {
-		t.Errorf("expected bool type, got %q", flag.Value.Type())
-	}
-}
-
-func TestNewAddCmd_HasNameFlag(t *testing.T) {
-	cmd := NewAddCmd()
-	flag := cmd.Flags().Lookup("name")
-	if flag == nil {
-		t.Fatal("expected --name flag to exist")
-	}
-	if flag.DefValue != "" {
-		t.Errorf("expected default value '', got %q", flag.DefValue)
-	}
-	if flag.Value.Type() != "string" {
-		t.Errorf("expected string type, got %q", flag.Value.Type())
-	}
-}
-
-func TestNewAddCmd_HasFromFlag(t *testing.T) {
-	cmd := NewAddCmd()
-	flag := cmd.Flags().Lookup("from")
-	if flag == nil {
-		t.Fatal("expected --from flag to exist")
-	}
-	if flag.DefValue != "" {
-		t.Errorf("expected default value '', got %q", flag.DefValue)
-	}
-	if flag.Value.Type() != "string" {
-		t.Errorf("expected string type, got %q", flag.Value.Type())
 	}
 }
 
@@ -131,7 +70,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +88,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +167,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(origDir) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +217,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 
 func TestFindSourceWorktree(t *testing.T) {
 	t.Run("returns empty at workspace root", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		result := findSourceWorktree(workspaceRoot, workspaceRoot)
 		if result != "" {
@@ -287,7 +226,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns worktree path when in worktree", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create a fake worktree directory with .git file
 		worktreeDir := filepath.Join(workspaceRoot, "main")
@@ -306,7 +245,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns worktree from subdirectory", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create worktree with subdirectory
 		worktreeDir := filepath.Join(workspaceRoot, "main")
@@ -326,7 +265,7 @@ func TestFindSourceWorktree(t *testing.T) {
 	})
 
 	t.Run("returns empty when not in worktree", func(t *testing.T) {
-		workspaceRoot := t.TempDir()
+		workspaceRoot := testutil.TempDir(t)
 
 		// Create a directory that's not a worktree
 		otherDir := filepath.Join(workspaceRoot, "other")

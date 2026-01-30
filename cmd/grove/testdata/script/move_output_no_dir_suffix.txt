@@ -1,0 +1,7 @@
+# Test: grove move omits dir suffix when branch == directory
+setup_workspace
+
+exec grove add simple-output
+exec grove move simple-output simple-renamed
+stderr 'Renamed simple-output to simple-renamed'
+! stderr 'dir:'

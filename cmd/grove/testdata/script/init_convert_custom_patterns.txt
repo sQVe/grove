@@ -1,0 +1,51 @@
+# grove init convert - custom preserve patterns from config
+# Tests that custom grove.preserve patterns work for file preservation
+
+mkdir convert-custom-patterns
+cd convert-custom-patterns
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Set custom preserve patterns
+exec git config grove.preserve '*.secret'
+exec git config --add grove.preserve 'custom.*'
+# Create files that match custom patterns
+cp $WORK/secret-data api.secret
+cp $WORK/custom-config custom.config
+cp $WORK/gitignore-custom .gitignore
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+exec grove init convert --branches main,develop
+stderr 'Converted repository to grove workspace'
+stderr 'convert-custom-patterns'
+stderr 'Creating worktrees'
+stderr '✓ main'
+stderr '✓ develop'
+stderr 'Found 2 ignored files/directories matching patterns:'
+exists .bare
+exists .git
+# Verify custom pattern files are preserved in all worktrees
+exists main/test-file.txt
+exists main/api.secret
+exists main/custom.config
+exists develop/test-file.txt
+exists develop/api.secret
+exists develop/custom.config
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- secret-data --
+secret data
+
+-- custom-config --
+custom config
+
+-- gitignore-custom --
+logs/
+*.secret
+custom.*

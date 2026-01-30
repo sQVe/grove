@@ -1,0 +1,8 @@
+# Test: grove config errors when --shared and --global used together
+setup_workspace
+
+! exec grove config list --shared --global
+stderr 'cannot be used together'
+
+! exec grove config get --shared --global grove.plain
+stderr 'cannot be used together'

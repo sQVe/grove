@@ -1,0 +1,7 @@
+# Test: grove switch works from workspace root
+setup_workspace
+
+cd $WORK/workspace
+exec grove switch main
+stdout '[/\\]workspace[/\\]main$'
+! stderr .

@@ -1,0 +1,40 @@
+# grove init convert - file restoration on rollback
+# Tests that files are correctly restored when conversion fails
+
+mkdir convert-file-restore-test
+cd convert-file-restore-test
+exec git init
+cp ../test-file.txt .
+cp ../untracked.txt another-file.txt
+exec git add .
+exec git commit -m 'initial commit with multiple files'
+
+# Create blocking directory to force rollback
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+
+# Verify files exist before conversion attempt
+exists test-file.txt
+exists another-file.txt
+
+! exec grove init convert
+stderr '✗ failed to create worktree'
+
+# Verify all files were restored to root after rollback
+exists test-file.txt
+exists another-file.txt
+
+# Verify .git directory is restored (not .bare)
+exists .git
+! exists .bare
+
+-- test-file.txt --
+This is a test file
+
+-- untracked.txt --
+This file is untracked
+
+-- blocker --
+blocking file

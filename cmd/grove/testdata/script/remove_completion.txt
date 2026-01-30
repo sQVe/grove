@@ -1,0 +1,16 @@
+# Test: grove remove shell completion excludes typed worktrees
+setup_workspace completion-test completion-extra
+
+exec grove add completion-test
+exec grove add completion-extra
+
+# First argument gets completions
+exec grove __complete remove ''
+stdout 'completion-test'
+stdout 'completion-extra'
+
+# After first argument, excludes already-typed and current worktree
+exec grove __complete remove completion-test ''
+! stdout 'completion-test'
+! stdout 'main'
+stdout 'completion-extra'

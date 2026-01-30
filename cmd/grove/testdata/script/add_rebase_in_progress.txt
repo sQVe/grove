@@ -1,0 +1,41 @@
+# Test: grove add works when rebase is in progress in source worktree
+setup_workspace
+
+# Create branches for rebase conflict
+exec git checkout -b rebase-base
+cp $WORK/base.txt rebase-file.txt
+exec git add rebase-file.txt
+exec git commit -m 'base commit'
+exec git checkout -b rebase-feature
+cp $WORK/feature.txt rebase-file.txt
+exec git add rebase-file.txt
+exec git commit -m 'feature commit'
+exec git checkout rebase-base
+cp $WORK/conflicting.txt rebase-file.txt
+exec git add rebase-file.txt
+exec git commit -m 'conflicting base commit'
+exec git checkout rebase-feature
+
+# Start rebase that will conflict
+! exec git rebase rebase-base
+
+# Verify we're in rebase state
+exec git status
+stdout 'rebase in progress'
+
+# grove add should still work
+exec grove add feature/during-rebase
+stderr 'Created worktree at .*[/\\]feature-during-rebase'
+exists ../feature-during-rebase
+
+# Clean up rebase state
+exec git rebase --abort
+
+-- base.txt --
+base content
+
+-- feature.txt --
+feature content
+
+-- conflicting.txt --
+conflicting base

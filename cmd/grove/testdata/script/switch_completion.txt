@@ -1,0 +1,11 @@
+# Test: grove switch shell completion excludes current worktree
+setup_workspace feature/auth develop
+
+exec grove add feature/auth
+exec grove add develop
+
+cd $WORK/workspace/main
+exec grove __complete switch ''
+stdout 'feature-auth'
+stdout 'develop'
+! stdout '^main$'

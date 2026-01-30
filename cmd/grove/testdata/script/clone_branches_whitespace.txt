@@ -1,0 +1,23 @@
+# grove clone: --branches with whitespace trimmed
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-whitespace-branches
+exec grove clone file://$WORK/testrepo clone-whitespace-branches --branches ' main , develop '
+exists clone-whitespace-branches/main
+exists clone-whitespace-branches/develop
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

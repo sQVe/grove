@@ -1,0 +1,7 @@
+# Test: grove add works from workspace root
+setup_workspace
+
+cd $WORK/workspace
+exec grove add feature/from-root
+stderr 'Created worktree at .*[/\\]feature-from-root'
+exists feature-from-root

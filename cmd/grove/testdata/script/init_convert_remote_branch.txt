@@ -1,0 +1,35 @@
+# grove init convert - remote-only branch
+# Tests that conversion works with branches that only exist on remote
+
+mkdir convert-remote-branch
+cd convert-remote-branch
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature-branch
+exec git checkout main
+# Simulate a remote by creating bare repo and cloning it
+exec git clone --bare . ../remote.git
+exec git remote add origin ../remote.git
+exec git push -u origin main
+exec git push origin feature-branch
+# Remove local feature branch to simulate remote-only scenario
+exec git branch -D feature-branch
+# Verify branch only exists remotely
+exec git branch -a
+stdout 'remotes/origin/feature-branch'
+! stdout '^  feature-branch$'
+# Convert with remote branch should work
+exec grove init convert --branches feature-branch
+stderr 'Converted repository to grove workspace'
+stderr '✓ main'
+stderr '✓ feature-branch'
+exists .bare
+exists .git
+exists main/test-file.txt
+exists feature-branch
+cd ..
+
+-- test-file.txt --
+This is a test file

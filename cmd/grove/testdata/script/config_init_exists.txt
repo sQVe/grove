@@ -1,0 +1,7 @@
+# Test: grove config init shows info when file exists
+setup_workspace
+
+exec grove config init
+stderr 'Created .grove.toml'
+exec grove config init
+stderr 'already exists'

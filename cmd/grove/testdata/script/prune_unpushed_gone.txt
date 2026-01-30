@@ -1,0 +1,25 @@
+# Test: grove prune with unpushed commits keeps local branch
+# When upstream is deleted, Ahead=0 because there's nothing to compare to
+# So unpushed commits on a gone branch are prunable, but branch is kept
+setup_workspace feature-unpushed
+
+exec grove add feature-unpushed
+cd ../feature-unpushed
+cp $WORK/unpushed.txt unpushed.txt
+exec git add unpushed.txt
+exec git commit -m 'unpushed commit'
+exec git -C $WORK/testrepo branch -D feature-unpushed
+cd ../main
+exec grove prune
+stderr 'Would prune 1 worktree'
+stderr 'feature-unpushed'
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'kept 1 local branch'
+stderr 'unmerged commits'
+! exists ../feature-unpushed
+# Branch should still exist (not deleted due to unmerged commits)
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-unpushed
+
+-- unpushed.txt --
+unpushed change

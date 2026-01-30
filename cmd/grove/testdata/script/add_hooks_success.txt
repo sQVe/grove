@@ -1,0 +1,15 @@
+# Test: grove add shows hook success in output
+# Skip on Windows: uses Unix shell commands (touch)
+[!windows] skip
+setup_workspace
+
+cp $WORK/grove-hooks-touch.toml .grove.toml
+
+exec grove add feature/hook-success
+stderr 'Running 1 hook'
+stderr 'Created worktree at .*[/\\]feature-hook-success'
+exists ../feature-hook-success/.hook-ran
+
+-- grove-hooks-touch.toml --
+[hooks]
+add = ["touch .hook-ran"]

@@ -1,0 +1,5 @@
+# Test: grove config unset --global removes config
+exec grove config set --global grove.debug true
+exec grove config unset --global grove.debug
+! exec grove config get --global grove.debug
+stderr 'config key not found'

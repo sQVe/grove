@@ -1,0 +1,20 @@
+# grove clone: creates non-existent parent directories
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+exec grove clone file://$WORK/testrepo nonexistent/parent/dirs/repo --branches main
+exists nonexistent/parent/dirs/repo/.bare
+exists nonexistent/parent/dirs/repo/main
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

@@ -1,0 +1,30 @@
+# Test: grove list shows behind indicator when local is behind upstream
+setup_workspace
+
+# Create a bare remote to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+exec git push -u upstream main
+
+# Create a commit on upstream via temp clone
+cd $WORK
+exec git clone remote-repo temp-clone
+cd temp-clone
+exec git checkout main
+cp $WORK/remote.txt remote.txt
+exec git add remote.txt
+exec git commit -m 'remote commit'
+exec git push origin main
+
+# Fetch in workspace
+cd $WORK/workspace/main
+exec git fetch upstream
+exec grove list --plain
+stdout '\-1'
+stderr 'Gathering worktree status'
+
+-- remote.txt --
+remote commit

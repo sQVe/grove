@@ -1,0 +1,7 @@
+# Test: grove exec fails when no target specified
+setup_workspace feature
+
+exec grove add feature
+
+! exec grove exec -- echo hello
+stderr '✗ must specify --all or at least one worktree'

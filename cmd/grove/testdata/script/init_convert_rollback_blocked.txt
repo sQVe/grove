@@ -1,0 +1,34 @@
+# grove init convert - rollback when worktree blocked
+# Tests that rollback restores original state when worktree creation fails
+
+mkdir convert-rollback-test
+cd convert-rollback-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+# Create a directory that will block the main worktree creation
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocking directory'
+! exec grove init convert --branches main,develop
+stderr '✗ failed to create worktree'
+# Verify rollback restored original state
+! exists .bare
+exists .git
+exists test-file.txt
+# Verify git repository still works
+exec git log --oneline -n 1
+stdout 'add blocking directory'
+# Clean up blocking directory
+exec rm -rf main
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- blocker --
+blocking file

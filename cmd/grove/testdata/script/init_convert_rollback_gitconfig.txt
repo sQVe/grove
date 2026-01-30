@@ -1,0 +1,31 @@
+# grove init convert - git config restoration after rollback
+# Tests that git config is restored to non-bare after rollback
+
+mkdir convert-gitconfig-test
+cd convert-gitconfig-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+# Verify initial config state
+exec sh -c 'test "$(git config --bool core.bare)" = "false" || test -z "$(git config --bool core.bare)"'
+# Create blocking directory to force rollback
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+! exec grove init convert
+stderr '✗ failed to create worktree'
+# Verify git config was restored to non-bare
+exec sh -c 'test "$(git config --bool core.bare)" = "false" || test -z "$(git config --bool core.bare)"'
+# Verify repository still functions normally
+exec git status
+exists .git
+! exists .bare
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- blocker --
+blocking file

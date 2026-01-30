@@ -1,0 +1,4 @@
+# Test: grove remove errors when not in a grove workspace
+setup_workspace
+
+assert_outside_error grove remove test

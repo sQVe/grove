@@ -1,0 +1,20 @@
+# Test: grove add shows preserved files in output
+setup_workspace
+
+# Create .gitignore with .env pattern (required for preservation)
+cp $WORK/gitignore-env .gitignore
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+
+# Create .env file to be preserved
+cp $WORK/dot-env .env
+exec grove add feature/preserve-test
+stderr 'Created worktree at .*[/\\]feature-preserve-test'
+stderr 'preserved'
+exists ../feature-preserve-test/.env
+
+-- gitignore-env --
+.env
+
+-- dot-env --
+SECRET=value

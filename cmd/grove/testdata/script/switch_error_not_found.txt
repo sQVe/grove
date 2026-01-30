@@ -1,0 +1,5 @@
+# Test: grove switch errors when worktree not found
+setup_workspace
+
+! exec grove switch nonexistent
+stderr '✗ worktree not found: nonexistent'

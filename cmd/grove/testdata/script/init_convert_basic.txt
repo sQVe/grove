@@ -1,0 +1,19 @@
+# grove init convert - basic conversion
+# Tests basic repository conversion to grove workspace
+
+mkdir convert-basic
+cd convert-basic
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec grove init convert
+stderr 'Converted repository to grove workspace'
+stderr 'convert-basic'
+exists .bare
+exists .git
+exists main/test-file.txt
+cd ..
+
+-- test-file.txt --
+This is a test file

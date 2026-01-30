@@ -15,7 +15,7 @@ stdout '--force'
 
 # No arguments
 ! exec grove remove
-stderr 'requires at least one worktree'
+stderr '✗ requires at least one worktree'
 
 ## Workspace validation
 
@@ -23,4 +23,4 @@ stderr 'requires at least one worktree'
 mkdir $WORK/outside
 cd $WORK/outside
 ! exec grove remove feature
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'

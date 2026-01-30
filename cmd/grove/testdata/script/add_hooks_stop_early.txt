@@ -1,0 +1,16 @@
+# Test: grove add stops at first hook failure
+# Skip on Windows: uses Unix shell commands (exit)
+[!windows] skip
+setup_workspace
+
+cp $WORK/grove-hooks-exit-early.toml .grove.toml
+
+exec grove add feature/hook-stop-early
+stderr 'Created worktree at .*[/\\]feature-hook-stop-early'
+stderr 'Hook failed.*exit 42.*exit code 42'
+exists ../feature-hook-stop-early
+! exists ../feature-hook-stop-early/.should-not-exist
+
+-- grove-hooks-exit-early.toml --
+[hooks]
+add = ["exit 42", "touch .should-not-exist"]

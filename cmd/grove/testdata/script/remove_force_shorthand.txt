@@ -1,0 +1,12 @@
+# Test: grove remove -f shorthand works
+setup_workspace shorthand-test
+
+exec grove add shorthand-test
+cp $WORK/dirty.txt ../shorthand-test/untracked.txt
+
+exec grove remove -f shorthand-test
+stderr 'Removed worktree'
+! exists ../shorthand-test
+
+-- dirty.txt --
+dirty

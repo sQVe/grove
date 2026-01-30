@@ -1,0 +1,7 @@
+# Test: grove switch errors outside workspace
+setup_workspace
+
+mkdir $WORK/outside
+cd $WORK/outside
+! exec grove switch main
+stderr '✗ not in a grove workspace'

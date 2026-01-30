@@ -1,0 +1,5 @@
+# Test: grove list rejects extra arguments
+setup_workspace
+
+! exec grove list foo
+stderr '✗ unknown command'

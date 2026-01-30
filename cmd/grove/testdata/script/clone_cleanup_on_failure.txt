@@ -1,0 +1,21 @@
+# grove clone: cleanup on failure removes .bare and .git
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-fail-cleanup
+! exec grove clone file://$WORK/testrepo clone-fail-cleanup --branches nonexistent
+! exists clone-fail-cleanup/.bare
+! exists clone-fail-cleanup/.git
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

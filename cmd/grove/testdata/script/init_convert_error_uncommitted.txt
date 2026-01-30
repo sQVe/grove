@@ -1,0 +1,33 @@
+# grove init convert - error with uncommitted changes
+# Tests that conversion fails when repository has uncommitted changes
+
+mkdir convert-mixed-files
+cd convert-mixed-files
+exec git init
+mkdir src build
+cp $WORK/main-go src/main.go
+cp $WORK/main-test-go src/main_test.go
+exec git add src/
+exec git commit -m 'tracked files'
+cp $WORK/env-dev .env
+cp $WORK/build-output build/main.js
+mkdir -p node_modules/package
+cp $WORK/package-json node_modules/package/package.json
+! exec grove init convert
+stderr '✗ cannot convert: repository has uncommitted changes'
+cd ..
+
+-- main-go --
+package main
+
+-- main-test-go --
+tracked test
+
+-- env-dev --
+NODE_ENV=development
+
+-- build-output --
+output
+
+-- package-json --
+{}

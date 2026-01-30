@@ -1,0 +1,8 @@
+# Test: grove list --fast skips sync status checks
+setup_workspace develop
+
+exec grove add develop
+exec grove list --fast --plain
+stdout 'main'
+stdout 'develop'
+stderr 'Gathering worktree status'

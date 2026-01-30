@@ -9,11 +9,12 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 func TestListBranches(t *testing.T) {
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, "test.bare")
 
 	if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
@@ -36,7 +37,7 @@ func TestListBranches(t *testing.T) {
 
 func TestGetCurrentBranch(t *testing.T) {
 	t.Run("returns branch name from HEAD file", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -60,7 +61,7 @@ func TestGetCurrentBranch(t *testing.T) {
 	})
 
 	t.Run("fails for detached HEAD", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -80,7 +81,7 @@ func TestGetCurrentBranch(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := GetCurrentBranch(tempDir)
 		if err == nil {
@@ -91,7 +92,7 @@ func TestGetCurrentBranch(t *testing.T) {
 
 func TestIsDetachedHead(t *testing.T) {
 	t.Run("detects detached HEAD with commit hash", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -114,7 +115,7 @@ func TestIsDetachedHead(t *testing.T) {
 	})
 
 	t.Run("does not detect normal branch as detached", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
@@ -136,7 +137,7 @@ func TestIsDetachedHead(t *testing.T) {
 	})
 
 	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := IsDetachedHead(tempDir)
 		if err == nil {
@@ -146,7 +147,7 @@ func TestIsDetachedHead(t *testing.T) {
 
 	t.Run("works for git worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.Dir, "wt-detached")
+		worktreePath := filepath.Join(repo.TempDir, "wt-detached")
 
 		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
 		cmd.Dir = repo.Path
@@ -231,7 +232,7 @@ func TestBranchExists(t *testing.T) {
 	})
 
 	t.Run("returns error for non-git directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 
 		_, err := BranchExists(tempDir, "main")
 		if err == nil {
@@ -247,7 +248,7 @@ func TestBranchExists(t *testing.T) {
 			t.Fatalf("failed to create remote-feature branch: %v", err)
 		}
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareRepoPath := filepath.Join(tempDir, "bare")
 		cloneCmd := exec.Command("git", "clone", "--bare", originRepo.Path, bareRepoPath) // nolint:gosec
 		if err := cloneCmd.Run(); err != nil {
@@ -274,7 +275,7 @@ func TestDeleteBranch(t *testing.T) {
 	t.Run("deletes existing branch", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -352,7 +353,7 @@ func TestDeleteBranch(t *testing.T) {
 	t.Run("returns error for non-existent branch", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -378,7 +379,7 @@ func TestDeleteBranch(t *testing.T) {
 	t.Run("fails on unmerged branch without force", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -445,7 +446,7 @@ func TestDeleteBranch(t *testing.T) {
 	t.Run("force deletes unmerged branch", func(t *testing.T) {
 		t.Parallel()
 
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatal(err)
@@ -520,7 +521,7 @@ func TestDeleteBranch(t *testing.T) {
 
 func TestGetDefaultBranch(t *testing.T) {
 	t.Run("returns main for bare repo with main branch", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatalf("failed to create bare directory: %v", err)
@@ -543,7 +544,7 @@ func TestGetDefaultBranch(t *testing.T) {
 	})
 
 	t.Run("returns master for bare repo with master branch", func(t *testing.T) {
-		tempDir := t.TempDir()
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, "test.bare")
 		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 			t.Fatalf("failed to create bare directory: %v", err)
@@ -679,7 +680,7 @@ func TestLocalBranchExists(t *testing.T) {
 		origin.CreateBranch("remote-only")
 
 		// Clone it
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1020,7 +1021,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		origin.CreateBranch("feature")
 
 		// Clone it (creates remote tracking refs)
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1039,7 +1040,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		t.Parallel()
 		origin := testgit.NewTestRepo(t)
 
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1058,7 +1059,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		t.Parallel()
 		origin := testgit.NewTestRepo(t)
 
-		cloneDir := filepath.Join(origin.Dir, "clone")
+		cloneDir := filepath.Join(origin.TempDir, "clone")
 		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
@@ -1133,7 +1134,7 @@ func TestIsUnbornHead(t *testing.T) {
 
 	t.Run("returns true for repo without commits", func(t *testing.T) {
 		t.Parallel()
-		dir := t.TempDir()
+		dir := testutil.TempDir(t)
 		repoPath := filepath.Join(dir, "empty-repo")
 
 		if err := os.MkdirAll(repoPath, fs.DirGit); err != nil {

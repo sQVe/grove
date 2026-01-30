@@ -1,0 +1,10 @@
+# Test: grove exec shows headers for each worktree
+setup_workspace feature bugfix
+
+exec grove add feature
+exec grove add bugfix
+
+exec grove exec --all -- echo "test"
+stderr 'bugfix'
+stderr 'feature'
+stderr 'main'

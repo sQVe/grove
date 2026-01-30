@@ -1,0 +1,18 @@
+# Test: grove prune prioritizes merged over stale
+setup_workspace feature-merged-stale
+
+# Create old branch that's also merged
+# Using sh -c to set both GIT_COMMITTER_DATE and GIT_AUTHOR_DATE
+exec git -C $WORK/testrepo checkout feature-merged-stale
+exec sh -c 'cd $WORK/testrepo && GIT_COMMITTER_DATE="2024-01-01T00:00:00" GIT_AUTHOR_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old merged commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/testrepo merge --no-ff feature-merged-stale -m 'merge old feature'
+exec git -C $WORK/workspace/.bare fetch origin
+exec git pull
+exec grove add feature-merged-stale
+# With both --merged and --stale, branch should be listed once (as merged)
+exec grove prune --merged --stale 30d
+stderr 'Would prune 1 worktree'
+stderr 'feature-merged-stale'
+exec grove prune --merged --commit
+! exists ../feature-merged-stale

@@ -1,0 +1,5 @@
+# Test: grove remove errors when worktree not found
+setup_workspace
+
+! exec grove remove nonexistent-worktree
+stderr '✗ worktree not found'

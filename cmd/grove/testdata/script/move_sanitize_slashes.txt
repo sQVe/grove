@@ -1,0 +1,9 @@
+# Test: grove move sanitizes slashes to dashes in directory name
+setup_workspace
+
+exec grove add slash-sanitize
+exec grove move slash-sanitize new/with/slashes
+stderr 'Renamed slash-sanitize to new/with/slashes'
+stderr 'dir: new-with-slashes'
+! exists ../slash-sanitize
+exists ../new-with-slashes

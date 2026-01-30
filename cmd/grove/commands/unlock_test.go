@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -26,11 +27,10 @@ func TestNewUnlockCmd(t *testing.T) {
 }
 
 func TestRunUnlock_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tmpDir := t.TempDir()
-	_ = os.Chdir(tmpDir)
+	tmpDir := testutil.TempDir(t)
+	testutil.Chdir(t, tmpDir)
 
 	err := runUnlock([]string{"some-branch"})
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
@@ -39,11 +39,10 @@ func TestRunUnlock_NotInWorkspace(t *testing.T) {
 }
 
 func TestRunUnlock_BranchNotFound(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -61,7 +60,7 @@ func TestRunUnlock_BranchNotFound(t *testing.T) {
 	}
 
 	// Change to workspace
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runUnlock([]string{"nonexistent"})
 	if err == nil {
@@ -73,11 +72,10 @@ func TestRunUnlock_BranchNotFound(t *testing.T) {
 }
 
 func TestRunUnlock_NotLocked(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -103,7 +101,7 @@ func TestRunUnlock_NotLocked(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runUnlock([]string{"feature"})
 	if err == nil {
@@ -116,11 +114,10 @@ func TestRunUnlock_NotLocked(t *testing.T) {
 }
 
 func TestRunUnlock_Success(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -158,7 +155,7 @@ func TestRunUnlock_Success(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runUnlock([]string{"feature"})
 	if err != nil {
@@ -172,11 +169,10 @@ func TestRunUnlock_Success(t *testing.T) {
 }
 
 func TestRunUnlock_MultipleWorktrees(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -225,7 +221,7 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Unlock multiple worktrees at once
 	err := runUnlock([]string{"feature", "bugfix"})
@@ -243,11 +239,10 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 }
 
 func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -277,7 +272,7 @@ func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
 		t.Fatalf("failed to lock feature worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Include a nonexistent worktree - should fail immediately during validation
 	err := runUnlock([]string{"feature", "nonexistent"})
@@ -295,11 +290,10 @@ func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
 }
 
 func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -337,7 +331,7 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Try to unlock both - feature should succeed, bugfix should fail
 	err := runUnlock([]string{"feature", "bugfix"})
@@ -355,11 +349,10 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 }
 
 func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -389,7 +382,7 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 		t.Fatalf("failed to lock feature worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Pass the same worktree twice - should deduplicate and succeed
 	err := runUnlock([]string{"feature", "feature"})
@@ -404,11 +397,10 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 }
 
 func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -451,7 +443,7 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 		t.Fatalf("failed to lock bugfix worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	unlockCmd := NewUnlockCmd()
 
@@ -475,11 +467,10 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 }
 
 func TestCompleteUnlockArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -518,7 +509,7 @@ func TestCompleteUnlockArgs(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Get completions
 	unlockCmd := NewUnlockCmd()

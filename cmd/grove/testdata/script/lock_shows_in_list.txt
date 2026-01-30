@@ -1,0 +1,8 @@
+# Test: grove list shows locked indicator for locked worktree
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+exec grove list --verbose --plain
+stdout '\[locked\]'

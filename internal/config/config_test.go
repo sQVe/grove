@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/sqve/grove/internal/testutil"
 )
 
 // setupGitRepo creates a temporary git repo and changes to it
@@ -16,7 +18,7 @@ func setupGitRepo(t *testing.T) func() {
 		t.Skip("git not found in PATH, skipping test")
 	}
 
-	tmpDir := t.TempDir()
+	tmpDir := testutil.TempDir(t)
 	oldWd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)

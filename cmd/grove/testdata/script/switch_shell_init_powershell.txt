@@ -1,0 +1,7 @@
+# Test: grove switch shell-init --shell powershell generates PowerShell function
+setup_workspace
+
+exec grove switch shell-init --shell powershell
+stdout 'grove.exe switch'
+stdout 'Set-Location'
+! stderr .

@@ -1,0 +1,7 @@
+# Test: grove move fails when worktree is locked
+setup_workspace
+
+exec grove add locked-test
+exec grove lock locked-test
+! exec grove move locked-test locked-renamed
+stderr '✗ worktree is locked'

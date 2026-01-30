@@ -1,0 +1,19 @@
+# Test: grove add --detach does not auto-lock (no branch to match patterns)
+setup_workspace
+
+# Create tag in remote and fetch
+exec git -C $WORK/testrepo tag v1.0.0
+exec git -C $WORK/workspace/.bare fetch --tags
+
+cp $WORK/grove-autolock-all.toml .grove.toml
+
+exec grove add --detach v1.0.0 --name detached-lock-test
+stderr 'Created detached worktree at .*[/\\]detached-lock-test'
+
+# Detached worktrees should NOT be locked - locking it should succeed
+exec grove lock detached-lock-test --reason 'manual lock'
+stderr 'Locked worktree'
+
+-- grove-autolock-all.toml --
+[auto-lock]
+patterns = ["*"]

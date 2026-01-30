@@ -1,0 +1,9 @@
+# Main stays locked after adding feature
+setup_workspace feature
+
+exec grove add feature
+
+exec grove list --json
+stdout '"name": "main"'
+stdout '"locked": true'
+stdout '"name": "feature"'

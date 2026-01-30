@@ -1,0 +1,25 @@
+# grove clone: branch name sanitization in output
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feat/user-auth
+exec git checkout main
+cd ..
+
+mkdir clone-sanitize-branches
+exec grove clone file://$WORK/testrepo clone-sanitize-branches --branches feat/user-auth
+stderr 'Creating worktrees'
+stderr '✓ feat-user-auth'
+stderr 'Cloned repository to.*clone-sanitize-branches'
+exists clone-sanitize-branches/feat-user-auth
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

@@ -1,0 +1,10 @@
+# Test: grove list --verbose shows path and details
+setup_workspace
+
+exec grove list --verbose
+stdout 'main'
+stdout 'workspace[/\\]main'
+
+# Short flag works too
+exec grove list -v
+stdout 'main'

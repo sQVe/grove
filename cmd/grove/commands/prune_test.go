@@ -2,11 +2,11 @@ package commands
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -42,11 +42,10 @@ func TestNewPruneCmd(t *testing.T) {
 func TestRunPrune(t *testing.T) {
 	t.Run("returns error when not in workspace", func(t *testing.T) {
 		// Save and restore cwd
-		origDir, _ := os.Getwd()
-		defer func() { _ = os.Chdir(origDir) }()
+		defer testutil.SaveCwd(t)()
 
-		tmpDir := t.TempDir()
-		_ = os.Chdir(tmpDir)
+		tmpDir := testutil.TempDir(t)
+		testutil.Chdir(t, tmpDir)
 
 		err := runPrune(false, false, "", false, false)
 		if err == nil {

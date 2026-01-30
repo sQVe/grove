@@ -1,0 +1,4 @@
+# Test: grove config unset requires key argument
+! exec grove config unset --global
+stderr '✗ accepts between 1 and 2 arg'
+stderr 'received 0'

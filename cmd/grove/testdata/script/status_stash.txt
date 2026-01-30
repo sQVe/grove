@@ -1,0 +1,12 @@
+# Test: grove status --verbose shows stash count
+setup_workspace
+
+cp $WORK/stash-me.txt stash-me.txt
+exec git add stash-me.txt
+exec git stash
+exec grove status --verbose --plain
+stdout 'stashes:'
+! stderr .
+
+-- stash-me.txt --
+stash content

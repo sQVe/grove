@@ -1,0 +1,6 @@
+# grove doctor: performance analysis with --perf
+setup_workspace
+
+exec grove doctor --perf
+stdout 'Disk Usage'
+stdout 'main'

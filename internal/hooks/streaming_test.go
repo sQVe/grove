@@ -9,6 +9,7 @@ import (
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 type errorWriter struct {
@@ -195,7 +196,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	config.SetPlain(true)
 
 	t.Run("streams output with prefix", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		commands := []string{"echo 'line 1'; echo 'line 2'"}
@@ -215,7 +216,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	})
 
 	t.Run("handles command without trailing newline", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		commands := []string{"echo -n 'no newline'"}
@@ -232,7 +233,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	})
 
 	t.Run("stops on first failure", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		commands := []string{"echo 'first'", "false", "echo 'third'"}
@@ -250,7 +251,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	})
 
 	t.Run("returns empty result for empty commands", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		result := RunAddHooksStreaming(workDir, nil, &output)
@@ -261,7 +262,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	})
 
 	t.Run("captures exit code on failure", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		commands := []string{"exit 42"}
@@ -276,7 +277,7 @@ func TestRunAddHooksStreaming(t *testing.T) {
 	})
 
 	t.Run("multiple commands all succeed", func(t *testing.T) {
-		workDir := t.TempDir()
+		workDir := testutil.TempDir(t)
 		var output bytes.Buffer
 
 		commands := []string{"echo 'first'", "echo 'second'", "echo 'third'"}

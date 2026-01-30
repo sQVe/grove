@@ -1,0 +1,8 @@
+# Test: grove switch shell-init --shell bash generates POSIX function
+setup_workspace
+
+exec grove switch shell-init --shell bash
+stdout 'grove\(\)'
+stdout 'case "\$1" in'
+! stdout '\[\['
+! stderr .

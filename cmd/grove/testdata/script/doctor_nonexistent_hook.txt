@@ -1,0 +1,12 @@
+# grove doctor: detect non-executable hook command
+setup_workspace
+
+cp $WORK/hooks-nonexistent.toml ../.grove.toml
+exec grove doctor
+stdout 'Configuration'
+stdout '⚠ Hook command not found'
+stdout 'nonexistent-command-xyz'
+
+-- hooks-nonexistent.toml --
+[hooks]
+add = ["nonexistent-command-xyz"]

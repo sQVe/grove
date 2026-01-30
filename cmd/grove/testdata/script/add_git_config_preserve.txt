@@ -1,0 +1,32 @@
+# Test: grove add preserves files via git config patterns (no TOML config)
+setup_workspace
+
+# Ensure no TOML config exists
+exec rm -f .grove.toml
+
+# Create file and add to gitignore
+cp $WORK/env-gitconfig .env-gitconfig
+cp $WORK/gitignore-append .gitignore
+exec git add .gitignore
+exec git commit -m 'gitignore env-gitconfig' --allow-empty
+
+# Set git config for preservation
+exec git config grove.preserve .env-gitconfig
+exec git config --get-all grove.preserve
+stdout '.env-gitconfig'
+
+# Create worktree - should preserve via git config pattern
+exec grove add feature/git-config-preserve
+stderr 'Created worktree at .*[/\\]feature-git-config-preserve'
+stderr 'preserved'
+stderr '.env-gitconfig'
+exists ../feature-git-config-preserve/.env-gitconfig
+
+# Clean up git config
+exec git config --unset grove.preserve
+
+-- env-gitconfig --
+GIT_CONFIG_TEST=value
+
+-- gitignore-append --
+.env-gitconfig

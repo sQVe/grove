@@ -1,0 +1,21 @@
+# grove clone: error when duplicate branches specified
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-duplicate-branches
+! exec grove clone file://$WORK/testrepo clone-duplicate-branches --branches 'main,main'
+stderr '✗ failed to create worktree for branch'
+stderr 'already exists'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

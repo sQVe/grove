@@ -1,0 +1,12 @@
+# Test: grove add works in empty repository (grove init new with no commits)
+cd $WORK
+mkdir empty-workspace
+exec grove init new empty-workspace
+cd empty-workspace
+
+# Grove init new creates just bare repo, no worktrees yet
+# Adding a worktree in empty repo creates orphan branch
+exec grove add feature/test
+stderr 'Created worktree at .*[/\\]feature-test'
+exists feature-test
+exists feature-test/.git

@@ -1,0 +1,7 @@
+# Test: grove move succeeds with unlocked worktree
+setup_workspace
+
+exec grove add unlocked-test
+exec grove move unlocked-test unlocked-renamed
+stderr 'Renamed unlocked-test to unlocked-renamed'
+exists ../unlocked-renamed

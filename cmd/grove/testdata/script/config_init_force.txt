@@ -1,0 +1,7 @@
+# Test: grove config init --force overwrites existing
+setup_workspace
+
+exec grove config init
+stderr 'Created .grove.toml'
+exec grove config init --force
+stderr 'Created .grove.toml'

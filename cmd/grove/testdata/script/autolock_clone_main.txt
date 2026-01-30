@@ -1,0 +1,7 @@
+# Clone creates locked main worktree
+setup_workspace
+
+exec grove list --json
+stdout '"name": "main"'
+stdout '"locked": true'
+stdout '"lock_reason": "Auto-locked \(grove.autoLock\)"'

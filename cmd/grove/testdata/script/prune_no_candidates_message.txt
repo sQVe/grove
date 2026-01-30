@@ -1,0 +1,5 @@
+# Test: grove prune --commit shows no candidates message
+setup_workspace
+
+exec grove prune --commit
+stderr 'No worktrees to remove'

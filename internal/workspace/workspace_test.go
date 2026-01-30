@@ -16,8 +16,11 @@ import (
 const testEnvFile = ".env"
 
 func TestIsInsideGroveWorkspace(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns false for non-grove directory", func(t *testing.T) {
-		tempDir := t.TempDir()
+		t.Parallel()
+		tempDir := testutil.TempDir(t)
 		result := IsInsideGroveWorkspace(tempDir)
 		if result {
 			t.Error("expected false for non-grove directory")
@@ -25,7 +28,9 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 	})
 
 	t.Run("returns true for grove workspace root", func(t *testing.T) {
-		tempDir := t.TempDir()
+		t.Parallel()
+
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 			t.Fatalf("failed to create .bare directory: %v", err)
@@ -38,7 +43,9 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 	})
 
 	t.Run("returns true for subdirectory of grove workspace", func(t *testing.T) {
-		tempDir := t.TempDir()
+		t.Parallel()
+
+		tempDir := testutil.TempDir(t)
 		bareDir := filepath.Join(tempDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 			t.Fatalf("failed to create .bare directory: %v", err)
@@ -56,7 +63,9 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 	})
 
 	t.Run("returns false for regular git repository", func(t *testing.T) {
-		tempDir := t.TempDir()
+		t.Parallel()
+
+		tempDir := testutil.TempDir(t)
 		gitDir := filepath.Join(tempDir, ".git")
 		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
 			t.Fatalf("failed to create .git directory: %v", err)
@@ -70,6 +79,8 @@ func TestIsInsideGroveWorkspace(t *testing.T) {
 }
 
 func TestSanitizeBranchName(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		branch   string
 		expected string
@@ -104,6 +115,8 @@ func TestSanitizeBranchName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.branch, func(t *testing.T) {
+			t.Parallel()
+
 			result := SanitizeBranchName(tt.branch)
 			if result != tt.expected {
 				t.Errorf("expected '%s', got '%s'", tt.expected, result)
@@ -113,7 +126,8 @@ func TestSanitizeBranchName(t *testing.T) {
 }
 
 func TestPreserveIgnoredFilesFromList_NoIgnoredFiles(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Parallel()
+	tempDir := testutil.TempDir(t)
 	branches := []string{"main", "develop"}
 
 	count, patterns, err := preserveIgnoredFilesFromList(tempDir, branches, []string{}, nil)
@@ -129,7 +143,9 @@ func TestPreserveIgnoredFilesFromList_NoIgnoredFiles(t *testing.T) {
 }
 
 func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Parallel()
+
+	tempDir := testutil.TempDir(t)
 	branches := []string{"main", "develop"}
 
 	// Create worktree directories
@@ -193,7 +209,9 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 }
 
 func TestPreserveIgnoredFilesFromList_CustomPattern(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Parallel()
+
+	tempDir := testutil.TempDir(t)
 	branches := []string{"feature"}
 
 	// Create worktree directory
@@ -246,7 +264,9 @@ patterns = ["*.custom"]
 }
 
 func TestPreserveIgnoredFilesFromList_ReadsTomlConfig(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Parallel()
+
+	tempDir := testutil.TempDir(t)
 	branches := []string{"feature"}
 
 	// Create worktree directory
@@ -299,7 +319,9 @@ patterns = ["*.tomltest"]
 }
 
 func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
-	tempDir := t.TempDir()
+	t.Parallel()
+
+	tempDir := testutil.TempDir(t)
 	branches := []string{"main"}
 
 	// Create worktree directory
@@ -320,6 +342,8 @@ func TestPreserveIgnoredFilesFromList_MissingSource(t *testing.T) {
 }
 
 func TestParseBranches(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		branches   string
@@ -340,6 +364,8 @@ func TestParseBranches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := parseBranches(tt.branches, tt.skipBranch)
 			if len(got) != len(tt.want) {
 				t.Errorf("parseBranches(%q, %q) = %v, want %v", tt.branches, tt.skipBranch, got, tt.want)
@@ -355,6 +381,8 @@ func TestParseBranches(t *testing.T) {
 }
 
 func TestMatchesPattern(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		filePath string
@@ -374,6 +402,8 @@ func TestMatchesPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := matchesPattern(tt.filePath, tt.pattern)
 			if got != tt.want {
 				t.Errorf("matchesPattern(%q, %q) = %v, want %v", tt.filePath, tt.pattern, got, tt.want)
@@ -383,8 +413,11 @@ func TestMatchesPattern(t *testing.T) {
 }
 
 func TestValidateAndPrepareDirectory(t *testing.T) {
+	t.Parallel()
+
 	t.Run("rejects non-empty directory", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+		dir := testutil.TempDir(t)
 
 		// Create a file to make directory non-empty
 		if err := os.WriteFile(filepath.Join(dir, "existing.txt"), []byte("data"), fs.FileStrict); err != nil {
@@ -401,7 +434,9 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	})
 
 	t.Run("rejects directory inside git repository", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+
+		dir := testutil.TempDir(t)
 
 		// Initialize a real git repo
 		cmd := exec.Command("git", "init")
@@ -426,7 +461,9 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	})
 
 	t.Run("rejects directory inside grove workspace", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+
+		dir := testutil.TempDir(t)
 
 		// Create .bare directory to simulate grove workspace
 		if err := os.Mkdir(filepath.Join(dir, ".bare"), fs.DirGit); err != nil {
@@ -449,7 +486,9 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	})
 
 	t.Run("accepts empty existing directory", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+
+		dir := testutil.TempDir(t)
 
 		err := ValidateAndPrepareDirectory(dir)
 		if err != nil {
@@ -458,7 +497,9 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 	})
 
 	t.Run("creates new directory if it does not exist", func(t *testing.T) {
-		parentDir := t.TempDir()
+		t.Parallel()
+
+		parentDir := testutil.TempDir(t)
 		newDir := filepath.Join(parentDir, "newdir")
 
 		err := ValidateAndPrepareDirectory(newDir)
@@ -478,8 +519,11 @@ func TestValidateAndPrepareDirectory(t *testing.T) {
 }
 
 func TestFindBareDir(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns bare dir path from workspace root", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		t.Parallel()
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 			t.Fatal(err)
@@ -495,7 +539,9 @@ func TestFindBareDir(t *testing.T) {
 	})
 
 	t.Run("returns bare dir from subdirectory", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		t.Parallel()
+
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 		subDir := filepath.Join(workspaceDir, "main", "src")
 		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
@@ -515,7 +561,9 @@ func TestFindBareDir(t *testing.T) {
 	})
 
 	t.Run("returns error outside workspace", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+
+		dir := testutil.TempDir(t)
 
 		_, err := FindBareDir(dir)
 		if err == nil {
@@ -527,7 +575,8 @@ func TestFindBareDir(t *testing.T) {
 	})
 
 	t.Run("returns bare dir from deeply nested subdirectory (50 levels)", func(t *testing.T) {
-		workspaceDir := t.TempDir()
+		t.Parallel()
+		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 			t.Fatal(err)
@@ -553,7 +602,10 @@ func TestFindBareDir(t *testing.T) {
 }
 
 func TestResolveConfigDir(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns worktree root when inside worktree", func(t *testing.T) {
+		t.Parallel()
 		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
@@ -601,6 +653,8 @@ func TestResolveConfigDir(t *testing.T) {
 	})
 
 	t.Run("returns default branch worktree from workspace root", func(t *testing.T) {
+		t.Parallel()
+
 		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
@@ -656,6 +710,8 @@ func TestResolveConfigDir(t *testing.T) {
 	})
 
 	t.Run("returns first worktree when default branch missing", func(t *testing.T) {
+		t.Parallel()
+
 		workspaceDir := testutil.TempDir(t)
 		bareDir := filepath.Join(workspaceDir, ".bare")
 
@@ -697,7 +753,9 @@ func TestResolveConfigDir(t *testing.T) {
 	})
 
 	t.Run("returns error outside workspace", func(t *testing.T) {
-		dir := t.TempDir()
+		t.Parallel()
+
+		dir := testutil.TempDir(t)
 
 		_, err := ResolveConfigDir(dir)
 		if err == nil {

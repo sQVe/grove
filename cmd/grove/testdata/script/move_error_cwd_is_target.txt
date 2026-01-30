@@ -1,0 +1,7 @@
+# Test: grove move fails when CWD is target worktree
+setup_workspace
+
+exec grove add cwd-test
+cd ../cwd-test
+! exec grove move cwd-test cwd-renamed
+stderr '✗ cannot rename current worktree'

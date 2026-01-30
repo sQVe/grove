@@ -1,0 +1,8 @@
+# Test: grove list shows actual branch name for branches with slashes
+setup_workspace feature/test
+
+exec grove add feature/test
+# feature/test branch - dir is feature-test, branch shown in brackets
+exec grove list --plain
+stdout 'feature-test.*\[feature/test\]'
+stderr 'Gathering worktree status'

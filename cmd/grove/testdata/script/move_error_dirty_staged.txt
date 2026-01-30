@@ -1,0 +1,8 @@
+# Test: grove move fails with staged but uncommitted changes
+setup_workspace
+
+exec grove add dirty-staged
+exec sh -c 'echo staged >> $WORK/workspace/dirty-staged/README.md'
+exec git -C ../dirty-staged add README.md
+! exec grove move dirty-staged staged-renamed
+stderr '✗ .*uncommitted changes'

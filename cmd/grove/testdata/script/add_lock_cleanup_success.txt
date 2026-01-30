@@ -1,0 +1,12 @@
+# Test: grove add cleans up lock file on success
+setup_workspace
+
+# Verify no lock file exists before operation
+! exists ../.grove-worktree.lock
+
+exec grove add feature/lock-test-success
+stderr 'Created worktree at'
+exists ../feature-lock-test-success
+
+# Verify lock file was cleaned up after successful operation
+! exists ../.grove-worktree.lock

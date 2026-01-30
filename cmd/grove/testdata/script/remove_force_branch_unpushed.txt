@@ -1,0 +1,30 @@
+# Test: grove remove --force --branch deletes unpushed branch
+setup_workspace unpushed-force
+
+# Set up a "remote" to track against
+cd $WORK
+mkdir remote-repo
+exec git init --bare remote-repo
+cd workspace/main
+exec git remote add upstream file://$WORK/remote-repo
+
+# Create and push a branch
+exec grove add unpushed-force
+cd ../unpushed-force
+exec git push -u upstream unpushed-force
+
+# Add local commits that aren't pushed
+cp $WORK/another.txt another.txt
+exec git add another.txt
+exec git commit -m 'another unpushed'
+cd ../main
+
+exec grove remove --force --branch unpushed-force
+stderr 'unpushed'
+stderr 'Removed worktree.*unpushed-force'
+stderr 'deleted branch'
+! exists ../unpushed-force
+assert_branch deleted unpushed-force
+
+-- another.txt --
+more local

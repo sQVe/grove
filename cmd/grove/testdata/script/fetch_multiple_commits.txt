@@ -1,0 +1,60 @@
+# grove fetch: multiple commits shown with count
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+
+# Add multiple commits on origin
+cd $WORK/source
+cp $WORK/readme-line1.md README.md
+exec git add .
+exec git commit -m 'commit 1'
+cp $WORK/readme-line2.md README.md
+exec git add .
+exec git commit -m 'commit 2'
+cp $WORK/readme-line3.md README.md
+exec git add .
+exec git commit -m 'commit 3'
+exec git push origin main
+
+cd $WORK/workspace/main
+exec grove fetch
+stdout 'origin:'
+stdout '\* main'
+stdout '\+3 commits'
+
+-- README.md --
+# Test
+
+-- readme-line1.md --
+# Test
+line1
+
+-- readme-line2.md --
+# Test
+line1
+line2
+
+-- readme-line3.md --
+# Test
+line1
+line2
+line3

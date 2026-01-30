@@ -1,0 +1,42 @@
+# Test: grove add --from specifies source worktree for preservation
+setup_workspace
+
+# Add a unique preserve pattern and gitignore
+cp $WORK/gitignore-from .gitignore
+exec git add .gitignore
+exec git commit -m 'add from-test gitignore'
+exec git config --add grove.preserve .env.from-test
+
+# Create another worktree to use as source
+exec grove add --base main feature/alt-source-2
+
+# Create unique content in alt-source worktree
+cp $WORK/env-alt ../feature-alt-source-2/.env.from-test
+
+# Create different content in main worktree
+cp $WORK/env-main .env.from-test
+
+# Create worktree from workspace root with --from pointing to alt-source
+cd $WORK/workspace
+exec grove add --from feature-alt-source-2 feature/from-flag-test
+stderr 'Created worktree at .*[/\\]feature-from-flag-test'
+stderr 'preserved'
+stderr '.env.from-test'
+
+# Verify file came from alt-source (not main)
+exists feature-from-flag-test/.env.from-test
+exec cat feature-from-flag-test/.env.from-test
+stdout 'from-alt'
+
+# Cleanup git config
+cd $WORK/workspace/main
+exec git config --unset grove.preserve
+
+-- gitignore-from --
+.env.from-test
+
+-- env-alt --
+FROM_FLAG_TEST=from-alt
+
+-- env-main --
+FROM_FLAG_TEST=from-main

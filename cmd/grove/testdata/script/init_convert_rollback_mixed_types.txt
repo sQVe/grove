@@ -1,0 +1,37 @@
+# grove init convert - rollback with mixed file types
+# Tests rollback with regular and hidden files
+
+mkdir convert-mixed-files-test
+cd convert-mixed-files-test
+exec git init
+cp ../test-file.txt .
+cp $WORK/hidden-file .hidden-file
+cp $WORK/script-sh script.sh
+exec git add .
+exec git commit -m 'initial commit with mixed file types'
+# Create blocking directory to force rollback
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+! exec grove init convert
+stderr '✗ failed to create worktree'
+# Verify all file types were restored
+exists test-file.txt
+exists .hidden-file
+exists script.sh
+exists .git
+! exists .bare
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- hidden-file --
+hidden content
+
+-- script-sh --
+script content
+
+-- blocker --
+blocking file

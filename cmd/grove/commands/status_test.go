@@ -2,10 +2,10 @@ package commands
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -62,11 +62,10 @@ func TestNewStatusCmd_ValidArgsFunction(t *testing.T) {
 }
 
 func TestRunStatus_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tmpDir := t.TempDir()
-	_ = os.Chdir(tmpDir)
+	tmpDir := testutil.TempDir(t)
+	testutil.Chdir(t, tmpDir)
 
 	err := runStatus(false, false)
 	if err == nil {

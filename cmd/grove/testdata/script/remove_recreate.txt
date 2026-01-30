@@ -1,0 +1,9 @@
+# Test: grove remove allows recreating worktree
+setup_workspace recreate-test
+
+exec grove add recreate-test
+exec grove remove recreate-test
+! exists ../recreate-test
+
+exec grove add recreate-test
+exists ../recreate-test

@@ -26,11 +26,11 @@ stdout '--plain'
 
 # Unknown command shows error
 ! exec grove invalid
-stderr '^✗ unknown command "invalid" for "grove"'
+stderr '✗ unknown command "invalid" for "grove"'
 
 # Unknown flag shows error
 ! exec grove --invalid
-stderr '^✗ unknown flag: --invalid'
+stderr '✗ unknown flag: --invalid'
 
 ## Global flags
 

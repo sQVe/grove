@@ -1,0 +1,11 @@
+# Test: grove list shows no sync indicator when no upstream is configured
+setup_workspace feature/test
+
+exec grove add feature/test
+# feature-test has no upstream configured
+exec grove list --plain
+stdout 'feature-test.*\[feature/test\]'
+! stdout 'feature-test.*\+[0-9]'
+! stdout 'feature-test.*\-[0-9]'
+! stdout 'feature-test.*gone'
+stderr 'Gathering worktree status'

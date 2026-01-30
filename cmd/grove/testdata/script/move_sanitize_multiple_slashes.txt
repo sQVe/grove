@@ -1,0 +1,7 @@
+# Test: grove move sanitizes multiple slashes
+setup_workspace
+
+exec grove add multi-slash
+exec grove move multi-slash release/v1/patch/fix
+stderr 'dir: release-v1-patch-fix'
+exists ../release-v1-patch-fix

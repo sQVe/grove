@@ -1,0 +1,12 @@
+# Test: grove remove errors on modified tracked files
+setup_workspace dirty-modified
+
+exec grove add dirty-modified
+cp $WORK/modified-readme.md ../dirty-modified/README.md
+
+! exec grove remove dirty-modified
+stderr '✗ .*uncommitted changes'
+
+-- modified-readme.md --
+# Test
+modified

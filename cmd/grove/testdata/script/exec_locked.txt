@@ -1,0 +1,10 @@
+# Test: grove exec runs in locked worktrees
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature --reason 'Testing'
+
+exec grove exec feature -- echo "locked but executed"
+stdout 'locked but executed'
+
+exec grove unlock feature

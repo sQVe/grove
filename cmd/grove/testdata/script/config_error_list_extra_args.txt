@@ -1,0 +1,3 @@
+# Test: grove config list rejects extra arguments
+! exec grove config list extra
+stderr '✗ unknown command "extra" for "grove config list"'

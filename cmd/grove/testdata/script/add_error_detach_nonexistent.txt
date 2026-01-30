@@ -1,0 +1,5 @@
+# Test: grove add --detach errors with nonexistent ref
+setup_workspace
+
+! exec grove add --detach nonexistent-ref-12345
+stderr '✗ .*does not exist'

@@ -15,15 +15,15 @@ stdout '<new-branch>'
 
 # No arguments → error
 ! exec grove move
-stderr 'accepts 2 arg'
+stderr '✗ accepts 2 arg'
 
 # One argument → error
 ! exec grove move single-arg
-stderr 'accepts 2 arg'
+stderr '✗ accepts 2 arg'
 
 # Three+ arguments → error
 ! exec grove move one two three
-stderr 'accepts 2 arg'
+stderr '✗ accepts 2 arg'
 
 ## Workspace validation
 
@@ -31,7 +31,7 @@ stderr 'accepts 2 arg'
 mkdir not-a-workspace
 cd not-a-workspace
 ! exec grove move old new
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..
 
 # Regular git repo → error
@@ -39,5 +39,5 @@ mkdir git-repo
 cd git-repo
 exec git init
 ! exec grove move old new
-stderr 'not in a grove workspace'
+stderr '✗ not in a grove workspace'
 cd ..

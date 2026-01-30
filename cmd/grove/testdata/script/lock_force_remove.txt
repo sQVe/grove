@@ -1,0 +1,9 @@
+# Test: grove remove --force auto-unlocks and removes
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+exec grove remove --force feature
+stderr 'Removed worktree'
+! exists ../feature

@@ -1,0 +1,10 @@
+# Test: grove list sorts worktrees alphabetically after current
+setup_workspace develop feature/test
+
+exec grove add develop
+exec grove add feature/test
+exec grove list --plain
+# develop should come before feature-test alphabetically
+stdout 'develop'
+stdout 'feature-test'
+stderr 'Gathering worktree status'

@@ -1,0 +1,7 @@
+# Test: grove add --base errors when branch already exists (no worktree)
+setup_workspace
+
+exec git branch no-worktree-branch
+
+! exec grove add --base main no-worktree-branch
+stderr '✗ .*cannot be used with existing branch'

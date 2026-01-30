@@ -1,0 +1,13 @@
+# Test: grove remove shows dirty error before locked error
+setup_workspace dirty-plus-locked
+
+exec grove add dirty-plus-locked
+cp $WORK/dirty.txt ../dirty-plus-locked/untracked.txt
+exec git -C $WORK/workspace/.bare worktree lock ../dirty-plus-locked
+
+! exec grove remove dirty-plus-locked
+stderr '✗ .*uncommitted changes'
+! stderr 'is locked'
+
+-- dirty.txt --
+dirty

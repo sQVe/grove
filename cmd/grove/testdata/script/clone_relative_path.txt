@@ -1,0 +1,21 @@
+# grove clone: relative path creates absolute path
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+mkdir clone-rel-path-parent
+exec grove clone file://$WORK/testrepo clone-rel-path-parent/myrepo --branches main
+exists clone-rel-path-parent/myrepo/.bare
+exists clone-rel-path-parent/myrepo/main
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

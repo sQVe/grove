@@ -1,0 +1,7 @@
+# Test: grove move shows dir suffix when branch != directory
+setup_workspace
+
+exec grove add output-test
+exec grove move output-test feat/output/test
+stderr 'Renamed output-test to'
+stderr 'dir: feat-output-test'

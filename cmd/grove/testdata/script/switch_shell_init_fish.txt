@@ -1,0 +1,9 @@
+# Test: grove switch shell-init --shell fish generates fish function
+setup_workspace
+
+exec grove switch shell-init --shell fish
+stdout 'function grove'
+stdout 'command grove switch'
+stdout 'cd "\$target"'
+stdout 'set -l target'
+! stderr .

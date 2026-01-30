@@ -3,11 +3,11 @@ package commands
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -60,11 +60,10 @@ func TestFetchCmdValidArgsFunction(t *testing.T) {
 }
 
 func TestRunFetch_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tmpDir := t.TempDir()
-	_ = os.Chdir(tmpDir)
+	tmpDir := testutil.TempDir(t)
+	testutil.Chdir(t, tmpDir)
 
 	err := runFetch(false, false)
 	if err == nil {

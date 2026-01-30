@@ -1,0 +1,27 @@
+# grove clone: worktrees are configured with upstream tracking
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-tracking
+exec grove clone file://$WORK/testrepo clone-tracking --branches main,develop
+cd clone-tracking/main
+exec git rev-parse --abbrev-ref @{u}
+stdout '^origin/main$'
+cd ../develop
+exec git rev-parse --abbrev-ref @{u}
+stdout '^origin/develop$'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

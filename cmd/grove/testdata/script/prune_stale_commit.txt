@@ -1,0 +1,18 @@
+# Test: grove prune --stale --commit removes stale worktree but keeps branch
+setup_workspace
+
+# Create branch with old commit on remote (bypassing setup_workspace)
+# Using sh -c to set both GIT_COMMITTER_DATE and GIT_AUTHOR_DATE
+exec git -C $WORK/testrepo checkout -b feature-stale
+exec sh -c 'cd $WORK/testrepo && GIT_COMMITTER_DATE="2024-01-01T00:00:00" GIT_AUTHOR_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-stale
+exec grove prune --stale 30d --commit
+stderr 'Pruned 1 worktree'
+stderr 'feature-stale'
+# Should NOT delete branch for --stale (only for gone)
+! stderr 'deleted.*local branch'
+! exists ../feature-stale
+# Branch should still exist
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-stale

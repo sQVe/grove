@@ -1,0 +1,12 @@
+# Test: grove remove matches exact name only
+setup_workspace task task-extra task-more
+
+exec grove add task
+exec grove add task-extra
+exec grove add task-more
+
+# Remove 'task' should only remove 'task', not 'task-extra' or 'task-more'
+exec grove remove task
+! exists ../task
+exists ../task-extra
+exists ../task-more

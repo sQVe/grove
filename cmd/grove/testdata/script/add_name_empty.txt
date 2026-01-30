@@ -1,0 +1,6 @@
+# Test: grove add with empty --name falls back to default naming
+setup_workspace
+
+exec grove add --name '' feature/empty-name-test
+stderr 'Created worktree at .*[/\\]feature-empty-name-test'
+exists ../feature-empty-name-test

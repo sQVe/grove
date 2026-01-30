@@ -1,0 +1,7 @@
+# Test: grove status --json takes precedence over --verbose
+setup_workspace
+
+exec grove status --json --verbose
+stdout '"branch":'
+! stdout '> path:'
+! stderr .

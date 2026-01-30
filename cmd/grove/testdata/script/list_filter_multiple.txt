@@ -1,0 +1,15 @@
+# Test: grove list --filter dirty,locked uses OR logic
+setup_workspace develop feature/test
+
+exec grove add develop
+exec grove add feature/test
+# make develop dirty - main is already locked (auto-lock)
+cp $WORK/dirty.txt ../develop/dirty.txt
+exec grove list --filter dirty,locked --plain
+stdout 'develop'
+stdout 'main'
+! stdout 'feature-test'
+stderr 'Gathering worktree status'
+
+-- dirty.txt --
+dirty

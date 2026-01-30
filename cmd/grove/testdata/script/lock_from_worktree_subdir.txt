@@ -1,0 +1,12 @@
+# Test: grove lock/unlock works from worktree subdirectory
+setup_workspace subdir-test
+
+exec grove add subdir-test
+mkdir ../subdir-test/deep/nested
+cd ../subdir-test/deep/nested
+
+exec grove lock subdir-test
+stderr 'Locked worktree'
+
+exec grove unlock subdir-test
+stderr 'Unlocked worktree'

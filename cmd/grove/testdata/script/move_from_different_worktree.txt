@@ -1,0 +1,7 @@
+# Test: grove move succeeds when CWD is different worktree
+setup_workspace
+
+exec grove add other-worktree
+exec grove move other-worktree moved-worktree
+stderr 'Renamed other-worktree to moved-worktree'
+exists ../moved-worktree

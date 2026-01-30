@@ -1,0 +1,18 @@
+# Test: grove remove matches directory name before branch name
+setup_workspace other-branch feature-branch
+
+# Create worktree 'ambiguous' on branch 'other-branch'
+exec grove add --name ambiguous other-branch
+exists ../ambiguous
+
+# Also have a worktree 'feature-branch' from setup
+exec grove add feature-branch
+exists ../feature-branch
+
+# Removing 'ambiguous' should match directory name, not search branches
+exec grove remove ambiguous
+stderr 'Removed worktree'
+! exists ../ambiguous
+
+# Verify feature-branch still exists (wasn't confused by name matching)
+exists ../feature-branch

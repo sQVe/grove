@@ -1,0 +1,7 @@
+# Add non-default branch is not auto-locked
+setup_workspace feature
+
+exec grove add feature
+cd ../feature
+exec grove status --json
+stdout '"locked": false'

@@ -1,0 +1,14 @@
+# Test: grove add --detach creates detached HEAD worktree from tag
+setup_workspace
+
+# Create tag in remote and fetch
+exec git -C $WORK/testrepo tag v1.0.0
+exec git -C $WORK/workspace/.bare fetch --tags
+
+exec grove add --detach v1.0.0
+stderr 'Created detached worktree at .*[/\\]v1.0.0'
+exists ../v1.0.0
+
+# Verify worktree is in detached HEAD state
+exec git -C ../v1.0.0 rev-parse --abbrev-ref HEAD
+stdout '^HEAD$'

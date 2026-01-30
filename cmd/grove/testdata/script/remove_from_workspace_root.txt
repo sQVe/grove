@@ -1,0 +1,9 @@
+# Test: grove remove works from workspace root
+setup_workspace from-root-test
+
+exec grove add from-root-test
+cd $WORK/workspace
+
+exec grove remove from-root-test
+stderr 'Removed worktree'
+! exists from-root-test

@@ -1,0 +1,8 @@
+# Test: grove status --json includes sync status fields
+setup_workspace
+
+exec grove status --json
+stdout '"ahead":'
+stdout '"behind":'
+stdout '"no_upstream":'
+! stderr .

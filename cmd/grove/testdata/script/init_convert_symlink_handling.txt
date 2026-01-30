@@ -1,0 +1,21 @@
+# grove init convert - symlink handling
+# Tests symlink handling during conversion
+# Skip on Windows: ln -s and readlink are Unix-specific
+
+[!windows] mkdir convert-symlink-test
+[!windows] cd convert-symlink-test
+[!windows] exec git init
+[!windows] cp ../test-file.txt .
+[!windows] exec ln -s test-file.txt link-to-file.txt
+[!windows] exec git add .
+[!windows] exec git commit -m 'initial commit with symlink'
+
+[!windows] exec grove init convert
+
+[!windows] exists main/test-file.txt
+[!windows] exists main/link-to-file.txt
+[!windows] exec readlink main/link-to-file.txt
+[!windows] stdout '^test-file.txt$'
+
+-- test-file.txt --
+This is a test file

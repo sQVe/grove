@@ -1,0 +1,10 @@
+# Test: grove list marks current worktree and sorts it first
+setup_workspace develop
+
+exec grove add develop
+exec grove list --plain
+# Current marker should appear
+stdout '^\*'
+# Main should be first (current)
+stdout '^.*main'
+stderr 'Gathering worktree status'

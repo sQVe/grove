@@ -1,0 +1,9 @@
+# Test: grove move prefers directory name over branch name
+setup_workspace
+
+exec grove add --name dir-precedence some-branch-name
+exists ../dir-precedence
+exec grove move dir-precedence new-dir-precedence
+stderr 'Renamed dir-precedence to new-dir-precedence'
+! exists ../dir-precedence
+exists ../new-dir-precedence

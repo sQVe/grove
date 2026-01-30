@@ -1,0 +1,18 @@
+# Test: grove prune prioritizes gone over stale
+setup_workspace feature-gone-stale
+
+# Create old commit on remote
+# Using sh -c to set both GIT_COMMITTER_DATE and GIT_AUTHOR_DATE
+exec git -C $WORK/testrepo checkout feature-gone-stale
+exec sh -c 'cd $WORK/testrepo && GIT_COMMITTER_DATE="2024-01-01T00:00:00" GIT_AUTHOR_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old gone commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-gone-stale
+# Delete from remote - now both gone AND stale
+exec git -C $WORK/testrepo branch -D feature-gone-stale
+# With --stale, branch should be listed once (as gone, not both)
+exec grove prune --stale 30d
+stderr 'Would prune 1 worktree'
+stderr 'feature-gone-stale'
+exec grove prune --commit
+! exists ../feature-gone-stale

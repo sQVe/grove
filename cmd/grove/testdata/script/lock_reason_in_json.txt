@@ -1,0 +1,10 @@
+# Test: grove list --json shows lock status and reason
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature --reason 'Do not delete'
+
+exec grove list --json
+stdout '"name": "feature"'
+stdout '"locked": true'
+stdout '"lock_reason": "Do not delete"'

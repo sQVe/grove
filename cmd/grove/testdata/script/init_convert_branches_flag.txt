@@ -1,0 +1,32 @@
+# grove init convert - branches flag
+# Tests --branches flag creates worktrees for specified branches
+
+mkdir convert-branches
+cd convert-branches
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout -b 'feat/user-auth'
+exec git checkout main
+exec grove init convert --branches main,develop,feat/user-auth
+stderr 'Converted repository to grove workspace'
+stderr 'convert-branches'
+stderr 'Creating worktrees'
+# Worktrees created in order specified in --branches flag
+stderr '✓ main'
+stderr '✓ develop'
+stderr '✓ feat-user-auth'
+exists .bare
+exists .git
+exists main/test-file.txt
+exists develop
+exists feat-user-auth
+# All worktrees get checked out with their respective branch content
+exists develop/test-file.txt
+exists feat-user-auth/test-file.txt
+cd ..
+
+-- test-file.txt --
+This is a test file

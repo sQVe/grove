@@ -1,0 +1,5 @@
+# Test: grove move fails when worktree not found
+setup_workspace
+
+! exec grove move nonexistent-worktree new-name
+stderr '✗ worktree not found'

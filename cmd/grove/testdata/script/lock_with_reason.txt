@@ -1,0 +1,6 @@
+# Test: grove lock accepts --reason flag
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature --reason 'Do not delete'
+stderr 'Locked worktree'

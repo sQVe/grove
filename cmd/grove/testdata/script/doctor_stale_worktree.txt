@@ -1,0 +1,13 @@
+# grove doctor: detect stale worktree entry
+setup_workspace
+
+mkdir ../.bare/worktrees/orphan-branch
+cp $WORK/orphan-gitdir ../.bare/worktrees/orphan-branch/gitdir
+
+! exec grove doctor
+stdout 'Git Issues'
+stdout '✗ Stale worktree entry'
+stdout 'orphan-branch'
+
+-- orphan-gitdir --
+/nonexistent/path

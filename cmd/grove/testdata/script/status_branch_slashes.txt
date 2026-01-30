@@ -1,0 +1,11 @@
+# Test: grove status displays branch with slashes correctly
+setup_workspace feature/with-slash
+
+exec grove add feature/with-slash
+cd ../feature-with-slash
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec grove status --plain
+stdout '\* feature-with-slash'
+stdout '\[feature/with-slash\]'
+! stderr .

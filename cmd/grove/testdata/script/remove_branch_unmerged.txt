@@ -1,0 +1,21 @@
+# Test: grove remove --branch fails for unmerged commits
+setup_workspace branch-unmerged
+
+exec grove add branch-unmerged
+cd ../branch-unmerged
+cp $WORK/newfile.txt newfile.txt
+exec git add newfile.txt
+exec git commit -m 'unmerged commit'
+cd ../main
+
+# Branch has commits not merged to main, so git branch -d fails
+! exec grove remove --branch branch-unmerged
+stderr '✗ .*not fully merged'
+
+# Worktree was removed but branch deletion failed
+! exists ../branch-unmerged
+exec git branch --list branch-unmerged
+stdout 'branch-unmerged'
+
+-- newfile.txt --
+new content

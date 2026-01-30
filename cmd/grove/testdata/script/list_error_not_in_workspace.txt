@@ -1,0 +1,4 @@
+# Test: grove list fails outside workspace
+setup_workspace
+
+assert_outside_error grove list

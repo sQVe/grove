@@ -16,7 +16,7 @@ stdout '\-\-perf'
 
 # No unknown subcommands
 ! exec grove doctor extra-arg
-stderr 'unknown command "extra-arg"'
+stderr '✗ unknown command "extra-arg"'
 
 ## Workspace validation
 

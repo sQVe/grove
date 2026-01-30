@@ -1,0 +1,13 @@
+# Test: grove prune skips locked worktree
+setup_workspace feature-locked
+
+exec grove add feature-locked
+exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'Important work'
+exec git -C $WORK/testrepo branch -D feature-locked
+exec grove prune
+stderr 'Would skip 1 worktree'
+stderr 'feature-locked'
+stderr 'locked, use --force'
+exec grove prune --commit
+stderr 'Skipped 1 worktree'
+exists ../feature-locked

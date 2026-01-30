@@ -6,11 +6,15 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/testutil"
 )
 
 func TestAcquireWorkspaceLock(t *testing.T) {
+	t.Parallel()
+
 	t.Run("acquires lock on fresh file", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		handle, err := AcquireWorkspaceLock(lockFile)
@@ -29,7 +33,9 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 	})
 
 	t.Run("fails when lock already held by running process", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		// Acquire first lock
@@ -50,7 +56,9 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 	})
 
 	t.Run("removes stale lock with invalid PID", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		// Create lock file with invalid PID
@@ -70,7 +78,9 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 	})
 
 	t.Run("removes stale lock from dead process", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		// Create lock file with PID that doesn't exist (use very high PID)
@@ -91,7 +101,9 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 	})
 
 	t.Run("respects max retry limit", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		// Create a lock file that we'll keep recreating
@@ -113,8 +125,11 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 }
 
 func TestTryAcquireLock(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns done=true on success", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		handle, done, err := tryAcquireLock(lockFile, 0)
@@ -136,7 +151,9 @@ func TestTryAcquireLock(t *testing.T) {
 	})
 
 	t.Run("returns done=false for stale lock retry", func(t *testing.T) {
-		tmpDir := t.TempDir()
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
 		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
 
 		// Create lock file with invalid PID
@@ -155,7 +172,10 @@ func TestTryAcquireLock(t *testing.T) {
 }
 
 func TestIsProcessRunning(t *testing.T) {
+	t.Parallel()
+
 	t.Run("returns true for current process", func(t *testing.T) {
+		t.Parallel()
 		pid := os.Getpid()
 		if !isProcessRunning(pid) {
 			t.Error("expected current process to be running")
@@ -163,6 +183,8 @@ func TestIsProcessRunning(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existent PID", func(t *testing.T) {
+		t.Parallel()
+
 		// Use a very high PID that's unlikely to exist
 		if isProcessRunning(99999999) {
 			t.Error("expected non-existent PID to return false")

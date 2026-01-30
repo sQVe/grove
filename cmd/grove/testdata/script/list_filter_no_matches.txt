@@ -1,0 +1,6 @@
+# Test: grove list --filter with no matches returns empty
+setup_workspace
+
+exec grove list --filter dirty --plain
+! stdout 'main'
+stderr 'Gathering worktree status'

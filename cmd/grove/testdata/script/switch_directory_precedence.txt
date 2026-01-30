@@ -1,0 +1,7 @@
+# Test: grove switch directory name takes precedence over branch name
+setup_workspace other-branch
+
+exec grove add --name ambiguous other-branch
+exec grove switch ambiguous
+stdout '[/\\]workspace[/\\]ambiguous$'
+! stderr .

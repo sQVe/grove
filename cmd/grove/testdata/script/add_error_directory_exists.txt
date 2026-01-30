@@ -1,0 +1,7 @@
+# Test: grove add errors when directory already exists
+setup_workspace
+
+mkdir ../test-dir
+
+! exec grove add test-dir
+stderr '✗ directory already exists:.*test-dir'

@@ -1,0 +1,5 @@
+# grove doctor: clean workspace reports no issues
+setup_workspace
+
+exec grove doctor
+stderr '✓ No issues found'

@@ -1,0 +1,8 @@
+# Test: grove lock fails when worktree is already locked
+setup_workspace feature
+
+exec grove add feature
+exec grove lock feature
+
+! exec grove lock feature
+stderr 'already locked'

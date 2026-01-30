@@ -1,0 +1,29 @@
+# grove fetch: works from subdirectory
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init source
+cd source
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+cd workspace/main
+
+mkdir subdir
+cd subdir
+exec grove fetch
+stderr 'All remotes up to date'
+
+-- README.md --
+# Test

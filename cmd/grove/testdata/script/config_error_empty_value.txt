@@ -1,0 +1,3 @@
+# Test: grove config set rejects empty value
+! exec grove config set --global grove.plain ""
+stderr 'invalid boolean value'

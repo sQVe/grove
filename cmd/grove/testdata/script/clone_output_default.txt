@@ -1,0 +1,30 @@
+# grove clone: default mode shows progress
+
+mkdir testrepo
+exec git init testrepo
+cd testrepo
+exec git config user.name "Test"
+exec git config user.email "test@example.com"
+exec git config commit.gpgsign false
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b develop
+exec git checkout main
+cd ..
+
+mkdir clone-quiet-output
+exec grove clone file://$WORK/testrepo clone-quiet-output --branches main,develop
+stderr 'Repository cloned'
+stderr 'Creating worktrees'
+stderr '✓ main'
+stderr '✓ develop'
+stderr 'Cloned repository to.*clone-quiet-output'
+! stdout 'Enumerating objects'
+! stdout 'Counting objects'
+! stdout 'Compressing objects'
+! stdout 'Receiving objects'
+
+-- README.md --
+# Test Repository
+This is a test repository for grove.

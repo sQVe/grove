@@ -1,0 +1,30 @@
+# Test: grove remove detects dirty state during merge conflict
+setup_workspace merge-test
+
+exec grove add merge-test
+cd ../merge-test
+
+# Create conflicting branches
+exec git checkout -b merge-source
+cp $WORK/source.txt conflict.txt
+exec git add conflict.txt
+exec git commit -m 'source commit'
+exec git checkout -b merge-target main
+cp $WORK/target.txt conflict.txt
+exec git add conflict.txt
+exec git commit -m 'target commit'
+
+# Start merge that will conflict
+! exec git merge merge-source
+exec git status
+stdout 'Unmerged'
+
+cd ../main
+! exec grove remove merge-test
+stderr '✗ .*uncommitted changes'
+
+-- source.txt --
+source
+
+-- target.txt --
+target

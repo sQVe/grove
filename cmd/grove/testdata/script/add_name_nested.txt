@@ -1,0 +1,8 @@
+# Test: grove add --name with path separators creates nested directories
+setup_workspace
+
+exec grove add --name 'nested/dir' feature/slash-name-test
+stderr 'Created worktree at .*[/\\]nested[/\\]dir'
+exists ../nested/dir
+exec git -C ../nested/dir rev-parse --abbrev-ref HEAD
+stdout '^feature/slash-name-test$'

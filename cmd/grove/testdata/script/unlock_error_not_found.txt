@@ -1,0 +1,5 @@
+# Test: grove unlock fails when worktree does not exist
+setup_workspace
+
+! exec grove unlock nonexistent
+stderr '✗ worktree not found: nonexistent'

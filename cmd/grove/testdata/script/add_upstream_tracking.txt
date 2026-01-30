@@ -1,0 +1,17 @@
+# Test: grove add configures upstream tracking for existing remote branch
+setup_workspace
+
+# Create branch on remote
+exec git -C $WORK/testrepo checkout -b tracking-test-branch
+exec git -C $WORK/testrepo checkout main
+
+# Fetch from remote
+exec git -C $WORK/workspace/.bare fetch origin
+
+exec grove add tracking-test-branch
+stderr 'Created worktree at .*[/\\]tracking-test-branch'
+exists ../tracking-test-branch
+
+# Verify upstream tracking is configured
+exec git -C ../tracking-test-branch rev-parse --abbrev-ref @{u}
+stdout '^origin/tracking-test-branch$'

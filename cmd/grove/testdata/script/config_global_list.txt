@@ -1,0 +1,9 @@
+# Test: grove config list --global shows all settings
+exec grove config set --global grove.plain true
+exec grove config set --global grove.debug false
+exec grove config list --global
+stdout 'grove.plain=true'
+stdout 'grove.debug=false'
+
+exec grove config unset --global grove.plain
+exec grove config unset --global grove.debug

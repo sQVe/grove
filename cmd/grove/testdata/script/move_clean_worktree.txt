@@ -1,0 +1,7 @@
+# Test: grove move succeeds with clean worktree
+setup_workspace
+
+exec grove add clean-test
+exec grove move clean-test clean-renamed
+stderr 'Renamed clean-test to clean-renamed'
+exists ../clean-renamed

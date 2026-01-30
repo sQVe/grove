@@ -1,0 +1,6 @@
+# Test: grove add handles very long branch names (200+ chars)
+# Skip on Windows: temp directory path + branch name exceeds Windows MAX_PATH (260 chars)
+[!windows] setup_workspace
+[!windows] exec grove add feature/this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows
+[!windows] stderr 'Created worktree at'
+[!windows] exists ../feature-this-is-a-very-long-branch-name-that-tests-how-grove-handles-extremely-lengthy-branch-names-which-might-approach-filesystem-limits-on-some-systems-especially-windows

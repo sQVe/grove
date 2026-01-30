@@ -1,0 +1,8 @@
+# Test: grove config unset --shared removes from .grove.toml
+setup_workspace
+
+exec grove config init
+exec grove config set --shared grove.debug true
+exec grove config unset --shared grove.debug
+exec grove config list --shared
+! stdout 'debug='

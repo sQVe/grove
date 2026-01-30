@@ -1,0 +1,15 @@
+# Test: grove add shows warning when hook fails
+# Skip on Windows: uses Unix shell commands (exit)
+[!windows] skip
+setup_workspace
+
+cp $WORK/grove-hooks-exit.toml .grove.toml
+
+exec grove add feature/hook-fail
+stderr 'Created worktree at .*[/\\]feature-hook-fail'
+stderr 'Hook failed.*exit 1.*exit code 1'
+exists ../feature-hook-fail
+
+-- grove-hooks-exit.toml --
+[hooks]
+add = ["exit 1"]

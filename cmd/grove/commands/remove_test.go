@@ -13,6 +13,7 @@ import (
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -38,11 +39,10 @@ func TestNewRemoveCmd(t *testing.T) {
 }
 
 func TestRunRemove_NotInWorkspace(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tmpDir := t.TempDir()
-	_ = os.Chdir(tmpDir)
+	tmpDir := testutil.TempDir(t)
+	testutil.Chdir(t, tmpDir)
 
 	err := runRemove([]string{"some-branch"}, false, false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
@@ -51,11 +51,10 @@ func TestRunRemove_NotInWorkspace(t *testing.T) {
 }
 
 func TestRunRemove_BranchNotFound(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -73,7 +72,7 @@ func TestRunRemove_BranchNotFound(t *testing.T) {
 	}
 
 	// Change to workspace
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runRemove([]string{"nonexistent"}, false, false)
 	if err == nil {
@@ -85,11 +84,10 @@ func TestRunRemove_BranchNotFound(t *testing.T) {
 }
 
 func TestRunRemove_CurrentWorktree(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -107,7 +105,7 @@ func TestRunRemove_CurrentWorktree(t *testing.T) {
 	}
 
 	// Change to workspace (the worktree we'll try to remove)
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runRemove([]string{"main"}, false, false)
 	if err == nil {
@@ -120,10 +118,9 @@ func TestRunRemove_CurrentWorktree(t *testing.T) {
 }
 
 func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -139,7 +136,7 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 		t.Fatalf("failed to create worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	var buf bytes.Buffer
 	logger.SetOutput(&buf)
@@ -158,11 +155,10 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 }
 
 func TestRunRemove_DirtyWorktree(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -194,7 +190,7 @@ func TestRunRemove_DirtyWorktree(t *testing.T) {
 	}
 
 	// Change to main worktree (not the one we're removing)
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runRemove([]string{"feature"}, false, false)
 	if err == nil {
@@ -207,11 +203,10 @@ func TestRunRemove_DirtyWorktree(t *testing.T) {
 }
 
 func TestRunRemove_LockedWorktree(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -244,7 +239,7 @@ func TestRunRemove_LockedWorktree(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	err := runRemove([]string{"feature"}, false, false)
 	if err == nil {
@@ -257,11 +252,10 @@ func TestRunRemove_LockedWorktree(t *testing.T) {
 }
 
 func TestRunRemove_Success(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -314,7 +308,7 @@ func TestRunRemove_Success(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Verify worktree exists
 	if _, err := os.Stat(featurePath); os.IsNotExist(err) {
@@ -342,11 +336,10 @@ func TestRunRemove_Success(t *testing.T) {
 }
 
 func TestRunRemove_ForceDirty(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -378,7 +371,7 @@ func TestRunRemove_ForceDirty(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Force remove dirty worktree
 	err := runRemove([]string{"feature"}, true, false)
@@ -393,11 +386,10 @@ func TestRunRemove_ForceDirty(t *testing.T) {
 }
 
 func TestRunRemove_ForceLocked(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -430,7 +422,7 @@ func TestRunRemove_ForceLocked(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Force remove locked worktree
 	err := runRemove([]string{"feature"}, true, false)
@@ -445,11 +437,10 @@ func TestRunRemove_ForceLocked(t *testing.T) {
 }
 
 func TestRunRemove_WithBranchFlag(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -502,7 +493,7 @@ func TestRunRemove_WithBranchFlag(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove with --branch flag
 	err := runRemove([]string{"feature"}, false, true)
@@ -526,10 +517,9 @@ func TestRunRemove_WithBranchFlag(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWorktrees(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -559,7 +549,7 @@ func TestRunRemove_MultipleWorktrees(t *testing.T) {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove multiple worktrees at once
 	err := runRemove([]string{"feature", "bugfix"}, false, false)
@@ -577,10 +567,9 @@ func TestRunRemove_MultipleWorktrees(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWithForce(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -620,7 +609,7 @@ func TestRunRemove_MultipleWithForce(t *testing.T) {
 		t.Fatalf("failed to lock worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Force remove both dirty and locked worktrees
 	err := runRemove([]string{"feature", "bugfix"}, true, false)
@@ -638,10 +627,9 @@ func TestRunRemove_MultipleWithForce(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWithOneDirty(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -676,7 +664,7 @@ func TestRunRemove_MultipleWithOneDirty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove both without force - bugfix should fail, feature should succeed
 	err := runRemove([]string{"feature", "bugfix"}, false, false)
@@ -698,10 +686,9 @@ func TestRunRemove_MultipleWithOneDirty(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWithOneLocked(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -738,7 +725,7 @@ func TestRunRemove_MultipleWithOneLocked(t *testing.T) {
 		t.Fatalf("failed to lock worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove both without force - bugfix should fail, feature should succeed
 	err := runRemove([]string{"feature", "bugfix"}, false, false)
@@ -760,10 +747,9 @@ func TestRunRemove_MultipleWithOneLocked(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWithOneCurrent(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -787,7 +773,7 @@ func TestRunRemove_MultipleWithOneCurrent(t *testing.T) {
 	}
 
 	// Change to feature worktree (current)
-	_ = os.Chdir(featurePath)
+	testutil.Chdir(t, featurePath)
 
 	// Try to remove both current (feature) and main
 	err := runRemove([]string{"feature", "main"}, false, false)
@@ -809,10 +795,9 @@ func TestRunRemove_MultipleWithOneCurrent(t *testing.T) {
 }
 
 func TestRunRemove_MultipleWithDeleteBranch(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -869,7 +854,7 @@ func TestRunRemove_MultipleWithDeleteBranch(t *testing.T) {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove with --branch flag
 	err := runRemove([]string{"feature", "bugfix"}, false, true)
@@ -904,10 +889,9 @@ func TestRunRemove_MultipleWithDeleteBranch(t *testing.T) {
 }
 
 func TestRunRemove_DuplicateArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -930,7 +914,7 @@ func TestRunRemove_DuplicateArgs(t *testing.T) {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Remove with duplicate args (same worktree specified twice)
 	err := runRemove([]string{"feature", "feature"}, false, false)
@@ -945,10 +929,9 @@ func TestRunRemove_DuplicateArgs(t *testing.T) {
 }
 
 func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -978,7 +961,7 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
 
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	removeCmd := NewRemoveCmd()
 
@@ -1008,11 +991,10 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 }
 
 func TestCompleteRemoveArgs(t *testing.T) {
-	origDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(origDir) }()
+	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
-	tempDir := t.TempDir()
+	tempDir := testutil.TempDir(t)
 	bareDir := filepath.Join(tempDir, ".bare")
 	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
 		t.Fatal(err)
@@ -1046,7 +1028,7 @@ func TestCompleteRemoveArgs(t *testing.T) {
 	}
 
 	// Change to main worktree
-	_ = os.Chdir(mainPath)
+	testutil.Chdir(t, mainPath)
 
 	// Get completions
 	removeCmd := NewRemoveCmd()

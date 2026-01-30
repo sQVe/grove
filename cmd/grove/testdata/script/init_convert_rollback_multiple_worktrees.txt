@@ -1,0 +1,42 @@
+# grove init convert - rollback with multiple worktrees
+# Tests rollback behavior when multiple worktrees are created during conversion
+
+mkdir convert-multiple-worktrees-test
+cd convert-multiple-worktrees-test
+exec git init
+cp ../test-file.txt .
+exec git add .
+exec git commit -m 'initial commit'
+# Create additional branch for multiple worktree test
+exec git checkout -b feature
+cp $WORK/feature-content feature.txt
+exec git add .
+exec git commit -m 'feature commit'
+exec git checkout main
+# Create blocking directory to force rollback after worktrees are created
+mkdir main
+cp $WORK/blocker main/blocker.txt
+exec git add .
+exec git commit -m 'add blocker'
+# Attempt conversion with multiple branches - should fail and rollback
+! exec grove init convert --branches feature,main
+stderr '✗ failed to create worktree'
+# Verify rollback cleaned up created worktrees (main directory should still exist as it was part of original repo)
+! exists feature
+exists main
+exists main/blocker.txt
+# Verify .git directory restored and repository works
+exists .git
+! exists .bare
+exec git status
+exec git branch
+cd ..
+
+-- test-file.txt --
+This is a test file
+
+-- blocker --
+blocking file
+
+-- feature-content --
+feature content

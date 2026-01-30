@@ -1,0 +1,11 @@
+# grove doctor: fix stale worktree entry with --fix
+setup_workspace
+
+mkdir ../.bare/worktrees/orphan-fix-test
+cp $WORK/orphan-gitdir ../.bare/worktrees/orphan-fix-test/gitdir
+exec grove doctor --fix
+stderr 'Fixed: Stale worktree entry'
+! exists ../.bare/worktrees/orphan-fix-test
+
+-- orphan-gitdir --
+/nonexistent/path
