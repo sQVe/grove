@@ -6,7 +6,7 @@ cd $WORK
 mkdir submod-repo
 exec git init submod-repo
 cd submod-repo
-exec sh -c 'echo "submodule content" > submod-file.txt'
+cp $WORK/submod-file.txt submod-file.txt
 exec git add submod-file.txt
 exec git commit -m 'submodule initial'
 
@@ -34,3 +34,6 @@ exists ../submod-worktree
 
 # Clean up global config
 exec git config --global --unset protocol.file.allow
+
+-- submod-file.txt --
+submodule content

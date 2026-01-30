@@ -1,12 +1,14 @@
 # Test: grove add does not auto-lock feature branches
 setup_workspace
 
-# Create .grove.toml with auto-lock for main
-exec sh -c 'echo "[auto-lock]" > .grove.toml'
-exec sh -c 'echo "patterns = [\"main\", \"release/*\"]" >> .grove.toml'
+cp $WORK/grove-autolock.toml .grove.toml
 
 exec grove add feature/autolock-test
 
 # Feature branch should NOT be locked - locking it should succeed
 exec grove lock feature-autolock-test --reason 'manual lock'
 stderr 'Locked worktree'
+
+-- grove-autolock.toml --
+[auto-lock]
+patterns = ["main", "release/*"]

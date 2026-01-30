@@ -14,7 +14,7 @@ cd ../unpushed-force
 exec git push -u upstream unpushed-force
 
 # Add local commits that aren't pushed
-exec sh -c 'echo "more local" > another.txt'
+cp $WORK/another.txt another.txt
 exec git add another.txt
 exec git commit -m 'another unpushed'
 cd ../main
@@ -25,3 +25,6 @@ stderr 'Removed worktree.*unpushed-force'
 stderr 'deleted branch'
 ! exists ../unpushed-force
 assert_branch deleted unpushed-force
+
+-- another.txt --
+more local

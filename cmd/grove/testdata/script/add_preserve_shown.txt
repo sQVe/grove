@@ -2,13 +2,19 @@
 setup_workspace
 
 # Create .gitignore with .env pattern (required for preservation)
-exec sh -c 'echo ".env" > .gitignore'
+cp $WORK/gitignore-env .gitignore
 exec git add .gitignore
 exec git commit -m 'add gitignore'
 
 # Create .env file to be preserved
-exec sh -c 'echo "SECRET=value" > .env'
+cp $WORK/dot-env .env
 exec grove add feature/preserve-test
 stderr 'Created worktree at .*[/\\]feature-preserve-test'
 stderr 'preserved'
 exists ../feature-preserve-test/.env
+
+-- gitignore-env --
+.env
+
+-- dot-env --
+SECRET=value

@@ -5,9 +5,7 @@ setup_workspace
 exec git -C $WORK/testrepo tag v1.0.0
 exec git -C $WORK/workspace/.bare fetch --tags
 
-# Configure auto-lock for all branches
-exec sh -c 'echo "[auto-lock]" > .grove.toml'
-exec sh -c 'echo "patterns = [\"*\"]" >> .grove.toml'
+cp $WORK/grove-autolock-all.toml .grove.toml
 
 exec grove add --detach v1.0.0 --name detached-lock-test
 stderr 'Created detached worktree at .*[/\\]detached-lock-test'
@@ -15,3 +13,7 @@ stderr 'Created detached worktree at .*[/\\]detached-lock-test'
 # Detached worktrees should NOT be locked - locking it should succeed
 exec grove lock detached-lock-test --reason 'manual lock'
 stderr 'Locked worktree'
+
+-- grove-autolock-all.toml --
+[auto-lock]
+patterns = ["*"]

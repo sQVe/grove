@@ -2,7 +2,7 @@
 setup_workspace feature-detached
 
 exec git -C $WORK/testrepo checkout feature-detached
-exec sh -c 'echo "detached content" > $WORK/testrepo/detached-feature.txt'
+cp $WORK/detached-feature.txt $WORK/testrepo/detached-feature.txt
 exec git -C $WORK/testrepo add detached-feature.txt
 exec git -C $WORK/testrepo commit -m 'detached commit'
 exec git -C $WORK/testrepo checkout main
@@ -20,3 +20,6 @@ stderr 'Would prune 1 worktree'
 stderr 'feature-detached'
 ! stderr '\(detached\)'
 stderr 'Run with --commit to remove'
+
+-- detached-feature.txt --
+detached content

@@ -2,7 +2,7 @@
 setup_workspace feature-gone-detached
 
 exec git -C $WORK/testrepo checkout feature-gone-detached
-exec sh -c 'echo "gone detached" > $WORK/testrepo/gone-detached.txt'
+cp $WORK/gone-detached.txt $WORK/testrepo/gone-detached.txt
 exec git -C $WORK/testrepo add gone-detached.txt
 exec git -C $WORK/testrepo commit -m 'gone detached commit'
 exec git -C $WORK/testrepo checkout main
@@ -18,3 +18,6 @@ stderr 'Would prune 1 worktree'
 stderr 'feature-gone-detached'
 exec grove prune --detached --commit
 ! exists ../feature-gone-detached
+
+-- gone-detached.txt --
+gone detached

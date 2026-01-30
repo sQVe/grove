@@ -3,7 +3,7 @@ setup_workspace
 
 # Create branch with unmerged commit (bypassing setup_workspace)
 exec git -C $WORK/testrepo checkout -b feature-unmerged
-exec sh -c 'echo "unmerged content" > $WORK/testrepo/unmerged-feature.txt'
+cp $WORK/unmerged-feature.txt $WORK/testrepo/unmerged-feature.txt
 exec git -C $WORK/testrepo add unmerged-feature.txt
 exec git -C $WORK/testrepo commit -m 'unmerged commit'
 exec git -C $WORK/testrepo checkout main
@@ -12,3 +12,6 @@ exec grove add feature-unmerged
 # With --merged, should NOT detect feature-unmerged
 exec grove prune --merged
 stderr 'No worktrees to prune'
+
+-- unmerged-feature.txt --
+unmerged content

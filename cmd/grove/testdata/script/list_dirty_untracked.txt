@@ -1,7 +1,10 @@
 # Test: grove list shows dirty indicator for untracked files
 setup_workspace
 
-exec sh -c 'echo "new" > untracked.txt'
+cp $WORK/untracked.txt untracked.txt
 exec grove list --plain
 stdout '\[dirty\]'
 stderr 'Gathering worktree status'
+
+-- untracked.txt --
+new

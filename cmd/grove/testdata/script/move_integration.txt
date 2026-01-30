@@ -110,7 +110,7 @@ exec grove remove local-to-remote
 
 # Modified tracked files → error
 exec grove add dirty-modified
-exec sh -c 'echo "modified" >> ../dirty-modified/README.md'
+cp $WORK/modified.txt ../dirty-modified/README.md
 ! exec grove move dirty-modified dirty-renamed
 stderr '✗ .*uncommitted changes'
 # Force remove to clean up
@@ -118,7 +118,7 @@ exec grove remove -f dirty-modified
 
 # Staged but not committed → error
 exec grove add dirty-staged
-exec sh -c 'echo "staged" >> ../dirty-staged/README.md'
+cp $WORK/staged.txt ../dirty-staged/README.md
 exec git -C ../dirty-staged add README.md
 ! exec grove move dirty-staged staged-renamed
 stderr '✗ .*uncommitted changes'
@@ -127,7 +127,7 @@ exec grove remove -f dirty-staged
 
 # Untracked files → also treated as dirty (consistent with remove)
 exec grove add dirty-untracked
-exec sh -c 'echo "untracked" > ../dirty-untracked/untracked.txt'
+cp $WORK/untracked.txt ../dirty-untracked/untracked.txt
 ! exec grove move dirty-untracked untracked-renamed
 stderr '✗ .*uncommitted changes'
 exec grove remove -f dirty-untracked
@@ -241,3 +241,14 @@ exec grove remove verified-branch
 
 -- README.md --
 # Test Repository
+
+-- modified.txt --
+# Test Repository
+modified
+
+-- staged.txt --
+# Test Repository
+staged
+
+-- untracked.txt --
+untracked

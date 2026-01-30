@@ -5,8 +5,8 @@ setup_workspace
 exec rm -f .grove.toml
 
 # Create file and add to gitignore
-exec sh -c 'echo "GIT_CONFIG_TEST=value" > .env-gitconfig'
-exec sh -c 'echo ".env-gitconfig" >> .gitignore'
+cp $WORK/env-gitconfig .env-gitconfig
+cp $WORK/gitignore-append .gitignore
 exec git add .gitignore
 exec git commit -m 'gitignore env-gitconfig' --allow-empty
 
@@ -24,3 +24,9 @@ exists ../feature-git-config-preserve/.env-gitconfig
 
 # Clean up git config
 exec git config --unset grove.preserve
+
+-- env-gitconfig --
+GIT_CONFIG_TEST=value
+
+-- gitignore-append --
+.env-gitconfig

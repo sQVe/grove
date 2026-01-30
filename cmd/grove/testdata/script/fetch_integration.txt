@@ -53,7 +53,7 @@ stderr 'All remotes up to date'
 
 # Add commit to main on origin
 cd $WORK/source
-exec sh -c 'echo "update" >> README.md'
+cp $WORK/readme-update.md README.md
 exec git add .
 exec git commit -m 'update main'
 exec git push origin main
@@ -94,13 +94,13 @@ stderr 'All remotes up to date'
 ## Test: Multiple commits shown with count
 
 cd $WORK/source
-exec sh -c 'echo "line1" >> README.md'
+cp $WORK/readme-line1.md README.md
 exec git add .
 exec git commit -m 'commit 1'
-exec sh -c 'echo "line2" >> README.md'
+cp $WORK/readme-line2.md README.md
 exec git add .
 exec git commit -m 'commit 2'
-exec sh -c 'echo "line3" >> README.md'
+cp $WORK/readme-line3.md README.md
 exec git add .
 exec git commit -m 'commit 3'
 exec git push origin main
@@ -125,7 +125,7 @@ stdout '\+ main'
 
 # Make a change on origin
 cd $WORK/source
-exec sh -c 'echo "multi" >> README.md'
+cp $WORK/readme-multi.md README.md
 exec git add .
 exec git commit -m 'multi-remote test'
 exec git push origin main
@@ -145,7 +145,7 @@ exec git remote remove upstream
 cd $WORK/source
 exec git checkout --orphan orphan-test
 exec git rm -rf .
-exec sh -c 'echo "orphan1" > orphan.txt'
+cp $WORK/orphan1.txt orphan.txt
 exec git add .
 exec git commit -m 'orphan commit 1'
 exec git push origin orphan-test
@@ -159,7 +159,7 @@ stdout '\+ orphan-test'
 cd $WORK/source
 exec git checkout --orphan temp-orphan
 exec git rm -rf .
-exec sh -c 'echo "orphan2" > orphan.txt'
+cp $WORK/orphan2.txt orphan.txt
 exec git add .
 exec git commit -m 'orphan commit 2'
 exec git branch -D orphan-test
@@ -182,10 +182,10 @@ exec git checkout main
 # Add multiple commits to a branch
 cd $WORK/source
 exec git checkout main
-exec sh -c 'echo "a" >> README.md'
+cp $WORK/readme-a.md README.md
 exec git add .
 exec git commit -m 'commit a'
-exec sh -c 'echo "b" >> README.md'
+cp $WORK/readme-b.md README.md
 exec git add .
 exec git commit -m 'commit b'
 exec git push origin main
@@ -211,7 +211,7 @@ stdout '-2 commits'
 
 # First make a change on origin so we can verify it still fetches
 cd $WORK/source
-exec sh -c 'echo "error test" >> README.md'
+cp $WORK/readme-error.md README.md
 exec git add .
 exec git commit -m 'error test commit'
 exec git push origin main
@@ -241,3 +241,67 @@ stderr 'No remotes configured'
 
 -- README.md --
 # Test
+
+-- readme-update.md --
+# Test
+update
+
+-- readme-line1.md --
+# Test
+update
+line1
+
+-- readme-line2.md --
+# Test
+update
+line1
+line2
+
+-- readme-line3.md --
+# Test
+update
+line1
+line2
+line3
+
+-- readme-multi.md --
+# Test
+update
+line1
+line2
+line3
+multi
+
+-- readme-a.md --
+# Test
+update
+line1
+line2
+line3
+multi
+a
+
+-- readme-b.md --
+# Test
+update
+line1
+line2
+line3
+multi
+a
+b
+
+-- readme-error.md --
+# Test
+update
+line1
+line2
+line3
+multi
+error test
+
+-- orphan1.txt --
+orphan1
+
+-- orphan2.txt --
+orphan2

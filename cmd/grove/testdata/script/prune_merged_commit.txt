@@ -3,7 +3,7 @@ setup_workspace feature-merged
 
 # Create commit and merge into main on remote
 exec git -C $WORK/testrepo checkout feature-merged
-exec sh -c 'echo "feature content" > $WORK/testrepo/merged-feature.txt'
+cp $WORK/merged-feature.txt $WORK/testrepo/merged-feature.txt
 exec git -C $WORK/testrepo add merged-feature.txt
 exec git -C $WORK/testrepo commit -m 'feature commit'
 exec git -C $WORK/testrepo checkout main
@@ -19,3 +19,6 @@ stderr 'feature-merged'
 ! exists ../feature-merged
 # Branch should still exist
 exec git -C $WORK/workspace/.bare rev-parse --verify feature-merged
+
+-- merged-feature.txt --
+feature content

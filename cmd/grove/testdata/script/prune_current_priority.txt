@@ -2,10 +2,13 @@
 setup_workspace feature-priority
 
 exec grove add feature-priority
-exec sh -c 'echo "dirty" > ../feature-priority/dirty-file.txt'
+cp $WORK/dirty.txt ../feature-priority/dirty-file.txt
 exec git -C $WORK/testrepo branch -D feature-priority
 cd ../feature-priority
 exec grove prune
 stderr 'Would skip 1 worktree'
 stderr 'current worktree'
 ! stdout 'dirty'
+
+-- dirty.txt --
+dirty

@@ -7,7 +7,7 @@ setup_workspace feature-pr-squashed
 
 # Create commit on feature branch
 exec git -C $WORK/testrepo checkout feature-pr-squashed
-exec sh -c 'echo "squash content" > $WORK/testrepo/squash-pr.txt'
+cp $WORK/squash-pr.txt $WORK/testrepo/squash-pr.txt
 exec git -C $WORK/testrepo add squash-pr.txt
 exec git -C $WORK/testrepo commit -m 'feature commit'
 # Squash merge into main (simulating GitHub squash-and-merge)
@@ -26,3 +26,6 @@ stderr 'deleted 1 local branch'
 ! exists ../feature-pr-squashed
 # Local branch should be deleted (was squash-merged into default)
 assert_branch deleted feature-pr-squashed
+
+-- squash-pr.txt --
+squash content

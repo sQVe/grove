@@ -2,7 +2,7 @@
 setup_workspace feature-dirty
 
 exec grove add feature-dirty
-exec sh -c 'echo "dirty content" > ../feature-dirty/dirty.txt'
+cp $WORK/dirty.txt ../feature-dirty/dirty.txt
 exec git -C $WORK/testrepo branch -D feature-dirty
 exec grove prune
 stderr 'Would skip 1 worktree'
@@ -12,3 +12,6 @@ exec grove prune --commit
 stderr 'Skipped 1 worktree'
 stderr 'feature-dirty'
 exists ../feature-dirty
+
+-- dirty.txt --
+dirty content

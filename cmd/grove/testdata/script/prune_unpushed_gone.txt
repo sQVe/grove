@@ -5,7 +5,7 @@ setup_workspace feature-unpushed
 
 exec grove add feature-unpushed
 cd ../feature-unpushed
-exec sh -c 'echo "unpushed change" > unpushed.txt'
+cp $WORK/unpushed.txt unpushed.txt
 exec git add unpushed.txt
 exec git commit -m 'unpushed commit'
 exec git -C $WORK/testrepo branch -D feature-unpushed
@@ -20,3 +20,6 @@ stderr 'unmerged commits'
 ! exists ../feature-unpushed
 # Branch should still exist (not deleted due to unmerged commits)
 exec git -C $WORK/workspace/.bare rev-parse --verify feature-unpushed
+
+-- unpushed.txt --
+unpushed change

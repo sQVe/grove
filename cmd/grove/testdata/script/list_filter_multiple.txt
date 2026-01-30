@@ -4,9 +4,12 @@ setup_workspace develop feature/test
 exec grove add develop
 exec grove add feature/test
 # make develop dirty - main is already locked (auto-lock)
-exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+cp $WORK/dirty.txt ../develop/dirty.txt
 exec grove list --filter dirty,locked --plain
 stdout 'develop'
 stdout 'main'
 ! stdout 'feature-test'
 stderr 'Gathering worktree status'
+
+-- dirty.txt --
+dirty

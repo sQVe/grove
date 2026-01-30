@@ -2,7 +2,10 @@
 setup_workspace develop
 
 exec grove add develop
-exec sh -c 'echo "dirty" > ../develop/dirty.txt'
+cp $WORK/dirty.txt ../develop/dirty.txt
 exec grove list --filter ' dirty ' --plain
 stdout 'develop'
 stderr 'Gathering worktree status'
+
+-- dirty.txt --
+dirty

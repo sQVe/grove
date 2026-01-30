@@ -2,6 +2,7 @@
 setup_workspace feature-fresh
 
 # Create fresh commit on remote (recent, not stale)
+# Using sh -c for consistency with other stale tests
 exec git -C $WORK/testrepo checkout feature-fresh
 exec sh -c 'cd $WORK/testrepo && git commit --allow-empty -m "fresh commit"'
 exec git -C $WORK/testrepo checkout main

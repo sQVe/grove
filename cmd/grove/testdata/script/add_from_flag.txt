@@ -2,7 +2,7 @@
 setup_workspace
 
 # Add a unique preserve pattern and gitignore
-exec sh -c 'echo ".env.from-test" >> .gitignore'
+cp $WORK/gitignore-from .gitignore
 exec git add .gitignore
 exec git commit -m 'add from-test gitignore'
 exec git config --add grove.preserve .env.from-test
@@ -11,10 +11,10 @@ exec git config --add grove.preserve .env.from-test
 exec grove add --base main feature/alt-source-2
 
 # Create unique content in alt-source worktree
-exec sh -c 'echo "FROM_FLAG_TEST=from-alt" > ../feature-alt-source-2/.env.from-test'
+cp $WORK/env-alt ../feature-alt-source-2/.env.from-test
 
 # Create different content in main worktree
-exec sh -c 'echo "FROM_FLAG_TEST=from-main" > .env.from-test'
+cp $WORK/env-main .env.from-test
 
 # Create worktree from workspace root with --from pointing to alt-source
 cd $WORK/workspace
@@ -25,9 +25,18 @@ stderr '.env.from-test'
 
 # Verify file came from alt-source (not main)
 exists feature-from-flag-test/.env.from-test
-exec sh -c 'cat feature-from-flag-test/.env.from-test'
+exec cat feature-from-flag-test/.env.from-test
 stdout 'from-alt'
 
 # Cleanup git config
 cd $WORK/workspace/main
 exec git config --unset grove.preserve
+
+-- gitignore-from --
+.env.from-test
+
+-- env-alt --
+FROM_FLAG_TEST=from-alt
+
+-- env-main --
+FROM_FLAG_TEST=from-main

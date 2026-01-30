@@ -1,11 +1,14 @@
 # Test: grove add runs multiple hooks successfully
 setup_workspace
 
-exec sh -c 'echo "[hooks]" > .grove.toml'
-exec sh -c 'echo "add = [\"touch .hook1\", \"touch .hook2\"]" >> .grove.toml'
+cp $WORK/grove-hooks-multi.toml .grove.toml
 
 exec grove add feature/multi-hook
 stderr 'Running 2 hook'
 stderr 'Created worktree at .*[/\\]feature-multi-hook'
 exists ../feature-multi-hook/.hook1
 exists ../feature-multi-hook/.hook2
+
+-- grove-hooks-multi.toml --
+[hooks]
+add = ["touch .hook1", "touch .hook2"]

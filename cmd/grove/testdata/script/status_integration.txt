@@ -147,7 +147,7 @@ exec grove unlock feature-with-slash
 ## More dirty states
 
 # Modified tracked file → dirty
-exec sh -c 'echo "modified" >> README.md'
+cp $WORK/modified-readme.md README.md
 exec grove status --plain
 stdout '\[dirty\]'
 ! stderr .
@@ -161,7 +161,7 @@ stdout '"dirty": true'
 exec git checkout README.md
 
 # Staged changes → dirty
-exec sh -c 'echo "staged" >> README.md'
+cp $WORK/staged-readme.md README.md
 exec git add README.md
 exec grove status --plain
 stdout '\[dirty\]'
@@ -191,7 +191,7 @@ stdout '"branch":'
 ## Detached HEAD
 
 # First create a second commit so we can detach to a previous one
-exec sh -c 'echo "second" >> README.md'
+cp $WORK/second-readme.md README.md
 exec git add README.md
 exec git commit -m 'second commit'
 
@@ -213,3 +213,15 @@ exec grove remove feature-with-slash
 
 -- README.md --
 # Test
+
+-- modified-readme.md --
+# Test
+modified
+
+-- staged-readme.md --
+# Test
+staged
+
+-- second-readme.md --
+# Test
+second

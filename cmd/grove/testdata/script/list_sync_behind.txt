@@ -14,7 +14,7 @@ cd $WORK
 exec git clone remote-repo temp-clone
 cd temp-clone
 exec git checkout main
-exec sh -c 'echo "remote commit" > remote.txt'
+cp $WORK/remote.txt remote.txt
 exec git add remote.txt
 exec git commit -m 'remote commit'
 exec git push origin main
@@ -25,3 +25,6 @@ exec git fetch upstream
 exec grove list --plain
 stdout '\-1'
 stderr 'Gathering worktree status'
+
+-- remote.txt --
+remote commit

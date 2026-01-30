@@ -2,9 +2,12 @@
 setup_workspace dirty-plus-locked
 
 exec grove add dirty-plus-locked
-exec sh -c 'echo "dirty" > ../dirty-plus-locked/untracked.txt'
+cp $WORK/dirty.txt ../dirty-plus-locked/untracked.txt
 exec git -C $WORK/workspace/.bare worktree lock ../dirty-plus-locked
 
 ! exec grove remove dirty-plus-locked
 stderr '✗ .*uncommitted changes'
 ! stderr 'is locked'
+
+-- dirty.txt --
+dirty

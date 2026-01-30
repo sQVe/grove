@@ -75,7 +75,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'echo "staged content" > staged-file.txt'
+cp $WORK/staged-file.txt staged-file.txt
 exec git add staged-file.txt
 ! exec grove init convert
 stderr '✗ cannot convert: repository has uncommitted changes'
@@ -88,7 +88,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'echo "this file should not be deleted" > untracked.txt'
+cp $WORK/untracked.txt untracked.txt
 ! exec grove init convert
 stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
@@ -100,7 +100,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'echo "modified content" >> test-file.txt'
+cp $WORK/modified-content.txt test-file.txt
 ! exec grove init convert
 stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
@@ -126,7 +126,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'touch .git/index.lock'
+exec touch .git/index.lock
 ! exec grove init convert
 stderr '✗ cannot convert: repository has active lock files'
 cd ..
@@ -150,7 +150,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'touch .git/MERGE_HEAD'
+exec touch .git/MERGE_HEAD
 ! exec grove init convert
 stderr '✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
@@ -162,7 +162,7 @@ exec git init
 cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
-exec sh -c 'touch .git/MERGE_HEAD'
+exec touch .git/MERGE_HEAD
 ! exec grove init convert
 stderr '✗ cannot convert: repository has ongoing merge/rebase/cherry-pick'
 cd ..
@@ -200,3 +200,10 @@ This is another test file
 [submodule "sub"]
 	path = sub
 	url = ../sub
+
+-- staged-file.txt --
+staged content
+
+-- modified-content.txt --
+This is a test file
+modified content

@@ -21,10 +21,10 @@ mkdir convert-realistic
 cd convert-realistic
 exec git init
 mkdir -p .github/workflows docs/api src/components
-exec sh -c 'echo "name: CI" > .github/workflows/ci.yml'
-exec sh -c 'echo "API docs" > docs/api/README.md'
-exec sh -c 'echo "package main" > src/main.go'
-exec sh -c 'echo "export default {}" > src/components/Button.tsx'
+cp $WORK/ci-yml .github/workflows/ci.yml
+cp $WORK/api-readme docs/api/README.md
+cp $WORK/main-go src/main.go
+cp $WORK/button-tsx src/components/Button.tsx
 exec git add .
 exec git commit -m 'initial commit'
 exec grove init convert
@@ -82,10 +82,9 @@ exec git commit -m 'initial commit'
 exec git checkout -b develop
 exec git checkout main
 # Create ignored files that match default preserve patterns
-exec sh -c 'echo "NODE_ENV=development" > .env'
-exec sh -c 'echo "LOCAL=true" > .env.local'
-exec sh -c 'echo "logs/" > .gitignore'
-exec sh -c 'echo ".env*" >> .gitignore'
+cp $WORK/env-dev .env
+cp $WORK/env-local .env.local
+cp $WORK/gitignore-preserve .gitignore
 exec git add .gitignore
 exec git commit -m 'add gitignore'
 exec grove init convert --branches main,develop
@@ -119,11 +118,9 @@ exec git checkout main
 exec git config grove.preserve '*.secret'
 exec git config --add grove.preserve 'custom.*'
 # Create files that match custom patterns
-exec sh -c 'echo "secret data" > api.secret'
-exec sh -c 'echo "custom config" > custom.config'
-exec sh -c 'echo "logs/" > .gitignore'
-exec sh -c 'echo "*.secret" >> .gitignore'
-exec sh -c 'echo "custom.*" >> .gitignore'
+cp $WORK/secret-data api.secret
+cp $WORK/custom-config custom.config
+cp $WORK/gitignore-custom .gitignore
 exec git add .gitignore
 exec git commit -m 'add gitignore'
 exec grove init convert --branches main,develop
@@ -149,14 +146,14 @@ mkdir convert-mixed-files
 cd convert-mixed-files
 exec git init
 mkdir src build
-exec sh -c 'echo "tracked code" > src/main.go'
-exec sh -c 'echo "tracked test" > src/main_test.go'
+cp $WORK/main-go src/main.go
+cp $WORK/main-test-go src/main_test.go
 exec git add src/
 exec git commit -m 'tracked files'
-exec sh -c 'echo "NODE_ENV=development" > .env'
-exec sh -c 'echo "output" > build/main.js'
+cp $WORK/env-dev .env
+cp $WORK/build-output build/main.js
 mkdir -p node_modules/package
-exec sh -c 'echo "{}" > node_modules/package/package.json'
+cp $WORK/package-json node_modules/package/package.json
 ! exec grove init convert
 stderr '✗ cannot convert: repository has uncommitted changes'
 cd ..
@@ -166,10 +163,10 @@ mkdir convert-integrity
 cd convert-integrity
 exec git init
 mkdir -p deep/nested/structure
-exec sh -c 'echo "level1" > file1.txt'
-exec sh -c 'echo "level2" > deep/file2.txt'
-exec sh -c 'echo "level3" > deep/nested/file3.txt'
-exec sh -c 'echo "level4" > deep/nested/structure/file4.txt'
+cp $WORK/level1 file1.txt
+cp $WORK/level2 deep/file2.txt
+cp $WORK/level3 deep/nested/file3.txt
+cp $WORK/level4 deep/nested/structure/file4.txt
 exec git add .
 exec git commit -m 'nested structure'
 # We have exactly 4 files in the nested structure
@@ -195,11 +192,11 @@ cp ../test-file.txt .
 exec git add .
 exec git commit -m 'initial commit'
 exec git checkout -b branch2
-exec sh -c 'echo "conflict" > test-file.txt'
+cp $WORK/conflict test-file.txt
 exec git add .
 exec git commit -m 'conflict'
 exec git checkout main
-exec sh -c 'echo "other" > test-file.txt'
+cp $WORK/other test-file.txt
 exec git add .
 exec git commit -m 'other'
 ! exec git merge branch2
@@ -249,7 +246,7 @@ exec git checkout -b develop
 exec git checkout main
 # Create a directory that will block the main worktree creation
 mkdir main
-exec sh -c 'echo "blocking file" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocking directory'
 ! exec grove init convert --branches main,develop
@@ -266,7 +263,7 @@ exec rm -rf main
 cd ..
 
 # Test early validation prevents conversion with nonexistent branch
-mkdir convert-invalid-branch-test  
+mkdir convert-invalid-branch-test
 cd convert-invalid-branch-test
 exec git init
 cp ../test-file.txt .
@@ -305,7 +302,7 @@ exec git add .
 exec git commit -m 'initial commit'
 # Create blocking directory to force conversion failure
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
@@ -341,7 +338,7 @@ cd ..
 [!windows] exec git add .
 [!windows] exec git commit -m 'initial commit with symlink'
 [!windows] mkdir main
-[!windows] exec sh -c 'echo "blocker" > main/blocker.txt'
+[!windows] cp $WORK/blocker main/blocker.txt
 [!windows] exec git add .
 [!windows] exec git commit -m 'add blocker'
 [!windows] ! exec grove init convert
@@ -362,7 +359,7 @@ exec git add .
 exec git commit -m 'initial commit with multiple files'
 # Create blocking directory to force rollback
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 # Verify files exist before conversion attempt
@@ -390,7 +387,7 @@ exec git add .
 exec git commit -m 'initial commit with directory hierarchy'
 # Create blocking directory to force rollback
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
@@ -414,7 +411,7 @@ exec git commit -m 'initial commit'
 exec sh -c 'test "$(git config --bool core.bare)" = "false" || test -z "$(git config --bool core.bare)"'
 # Create blocking directory to force rollback
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
@@ -432,13 +429,13 @@ mkdir convert-mixed-files-test
 cd convert-mixed-files-test
 exec git init
 cp ../test-file.txt .
-exec sh -c 'echo "hidden content" > .hidden-file'
-exec sh -c 'echo "script content" > script.sh'
+cp $WORK/hidden-file .hidden-file
+cp $WORK/script-sh script.sh
 exec git add .
 exec git commit -m 'initial commit with mixed file types'
 # Create blocking directory to force rollback
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 ! exec grove init convert
@@ -460,13 +457,13 @@ exec git add .
 exec git commit -m 'initial commit'
 # Create additional branch for multiple worktree test
 exec git checkout -b feature
-exec sh -c 'echo "feature content" > feature.txt'
+cp $WORK/feature-content feature.txt
 exec git add .
 exec git commit -m 'feature commit'
 exec git checkout main
 # Create blocking directory to force rollback after worktrees are created
 mkdir main
-exec sh -c 'echo "blocker" > main/blocker.txt'
+cp $WORK/blocker main/blocker.txt
 exec git add .
 exec git commit -m 'add blocker'
 # Attempt conversion with multiple branches - should fail and rollback
@@ -492,3 +489,75 @@ This is a test file
 
 -- untracked.txt --
 This file is untracked
+
+-- ci-yml --
+name: CI
+
+-- api-readme --
+API docs
+
+-- main-go --
+package main
+
+-- button-tsx --
+export default {}
+
+-- env-dev --
+NODE_ENV=development
+
+-- env-local --
+LOCAL=true
+
+-- gitignore-preserve --
+logs/
+.env*
+
+-- secret-data --
+secret data
+
+-- custom-config --
+custom config
+
+-- gitignore-custom --
+logs/
+*.secret
+custom.*
+
+-- main-test-go --
+tracked test
+
+-- build-output --
+output
+
+-- package-json --
+{}
+
+-- level1 --
+level1
+
+-- level2 --
+level2
+
+-- level3 --
+level3
+
+-- level4 --
+level4
+
+-- conflict --
+conflict
+
+-- other --
+other
+
+-- blocker --
+blocking file
+
+-- hidden-file --
+hidden content
+
+-- script-sh --
+script content
+
+-- feature-content --
+feature content

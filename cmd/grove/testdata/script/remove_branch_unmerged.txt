@@ -3,7 +3,7 @@ setup_workspace branch-unmerged
 
 exec grove add branch-unmerged
 cd ../branch-unmerged
-exec sh -c 'echo "new content" > newfile.txt'
+cp $WORK/newfile.txt newfile.txt
 exec git add newfile.txt
 exec git commit -m 'unmerged commit'
 cd ../main
@@ -16,3 +16,6 @@ stderr '✗ .*not fully merged'
 ! exists ../branch-unmerged
 exec git branch --list branch-unmerged
 stdout 'branch-unmerged'
+
+-- newfile.txt --
+new content

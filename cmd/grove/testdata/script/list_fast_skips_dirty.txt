@@ -1,7 +1,10 @@
 # Test: grove list --fast skips dirty status
 setup_workspace
 
-exec sh -c 'echo "dirty" > dirty.txt'
+cp $WORK/dirty.txt dirty.txt
 exec grove list --fast --plain
 ! stdout '\[dirty\]'
 stderr 'Gathering worktree status'
+
+-- dirty.txt --
+dirty

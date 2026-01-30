@@ -2,6 +2,7 @@
 setup_workspace feature-merged-stale
 
 # Create old branch that's also merged
+# Using sh -c to set both GIT_COMMITTER_DATE and GIT_AUTHOR_DATE
 exec git -C $WORK/testrepo checkout feature-merged-stale
 exec sh -c 'cd $WORK/testrepo && GIT_COMMITTER_DATE="2024-01-01T00:00:00" GIT_AUTHOR_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old merged commit"'
 exec git -C $WORK/testrepo checkout main

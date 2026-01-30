@@ -14,7 +14,7 @@ cd ../unpushed-test
 exec git push -u upstream unpushed-test
 
 # Add local commits that aren't pushed
-exec sh -c 'echo "local only" > local-change.txt'
+cp $WORK/local-change.txt local-change.txt
 exec git add local-change.txt
 exec git commit -m 'unpushed local commit'
 cd ../main
@@ -30,3 +30,6 @@ stderr '✗ .*not fully merged'
 # Branch still exists
 exec git branch --list unpushed-test
 stdout 'unpushed-test'
+
+-- local-change.txt --
+local only

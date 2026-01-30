@@ -2,7 +2,11 @@
 setup_workspace dirty-modified
 
 exec grove add dirty-modified
-exec sh -c 'echo "modified" >> ../dirty-modified/README.md'
+cp $WORK/modified-readme.md ../dirty-modified/README.md
 
 ! exec grove remove dirty-modified
 stderr '✗ .*uncommitted changes'
+
+-- modified-readme.md --
+# Test
+modified

@@ -10,9 +10,12 @@ exec git remote add upstream file://$WORK/remote-repo
 exec git push -u upstream main
 
 # Create local commit ahead of upstream
-exec sh -c 'echo "ahead" > ahead.txt'
+cp $WORK/ahead.txt ahead.txt
 exec git add ahead.txt
 exec git commit -m 'ahead commit'
 exec grove list --plain
 stdout '\+1'
 stderr 'Gathering worktree status'
+
+-- ahead.txt --
+ahead

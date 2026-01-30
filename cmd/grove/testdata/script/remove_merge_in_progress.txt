@@ -6,11 +6,11 @@ cd ../merge-test
 
 # Create conflicting branches
 exec git checkout -b merge-source
-exec sh -c 'echo "source" > conflict.txt'
+cp $WORK/source.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'source commit'
 exec git checkout -b merge-target main
-exec sh -c 'echo "target" > conflict.txt'
+cp $WORK/target.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'target commit'
 
@@ -22,3 +22,9 @@ stdout 'Unmerged'
 cd ../main
 ! exec grove remove merge-test
 stderr '✗ .*uncommitted changes'
+
+-- source.txt --
+source
+
+-- target.txt --
+target

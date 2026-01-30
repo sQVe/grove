@@ -1,11 +1,13 @@
 # Test: grove add shows hook success in output
 setup_workspace
 
-# Configure a simple hook that creates a marker file
-exec sh -c 'echo "[hooks]" > .grove.toml'
-exec sh -c 'echo "add = [\"touch .hook-ran\"]" >> .grove.toml'
+cp $WORK/grove-hooks-touch.toml .grove.toml
 
 exec grove add feature/hook-success
 stderr 'Running 1 hook'
 stderr 'Created worktree at .*[/\\]feature-hook-success'
 exists ../feature-hook-success/.hook-ran
+
+-- grove-hooks-touch.toml --
+[hooks]
+add = ["touch .hook-ran"]

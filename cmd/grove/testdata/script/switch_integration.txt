@@ -130,7 +130,7 @@ exec git -C $WORK/workspace/.bare worktree unlock ../feature-auth
 
 ## Dirty worktree → switch succeeds
 
-exec sh -c 'echo "modified" >> ../develop/README.md'
+cp $WORK/modified-readme.md ../develop/README.md
 exec grove switch develop
 stdout '[/\\\\]workspace[/\\\\]develop$'
 ! stderr .
@@ -141,11 +141,11 @@ exec git -C ../develop checkout README.md
 
 cd $WORK/workspace/develop
 exec git checkout -b merge-source
-exec sh -c 'echo "source" > conflict.txt'
+cp $WORK/source.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'source commit'
 exec git checkout develop
-exec sh -c 'echo "target" > conflict.txt'
+cp $WORK/target.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'target commit'
 ! exec git merge merge-source
@@ -239,3 +239,13 @@ stderr '✗ unsupported shell: tcsh'
 
 -- README.md --
 # Test
+
+-- modified-readme.md --
+# Test
+modified
+
+-- source.txt --
+source
+
+-- target.txt --
+target

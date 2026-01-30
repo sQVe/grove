@@ -3,12 +3,12 @@ setup_workspace
 
 # Create a branch with conflicting changes
 exec git checkout -b merge-source
-exec sh -c 'echo "source content" > conflict.txt'
+cp $WORK/source.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'add conflict file on merge-source'
 exec git checkout main
 exec git checkout -b merge-target
-exec sh -c 'echo "target content" > conflict.txt'
+cp $WORK/target.txt conflict.txt
 exec git add conflict.txt
 exec git commit -m 'add conflict file on merge-target'
 
@@ -26,3 +26,9 @@ exists ../feature-during-merge
 
 # Clean up merge state
 exec git merge --abort
+
+-- source.txt --
+source content
+
+-- target.txt --
+target content

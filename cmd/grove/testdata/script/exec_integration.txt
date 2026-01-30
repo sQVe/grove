@@ -113,7 +113,7 @@ stdout 'shell command'
 ## Partial success/failure
 
 # Create a file in main only, then test command that succeeds only there
-exec sh -c 'echo "exists" > only-in-main.txt'
+cp $WORK/exists.txt only-in-main.txt
 # cat will fail in feature/bugfix (file doesn't exist) but succeed in main
 ! exec grove exec --all -- cat only-in-main.txt
 # Should show partial failure
@@ -129,3 +129,6 @@ stderr '✗ not in a grove workspace'
 
 -- README.md --
 # Test
+
+-- exists.txt --
+exists

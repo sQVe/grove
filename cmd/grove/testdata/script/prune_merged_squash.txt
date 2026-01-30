@@ -3,7 +3,7 @@ setup_workspace feature-squashed
 
 # Create commit and squash merge into main on remote
 exec git -C $WORK/testrepo checkout feature-squashed
-exec sh -c 'echo "squash content" > $WORK/testrepo/squash-feature.txt'
+cp $WORK/squash-feature.txt $WORK/testrepo/squash-feature.txt
 exec git -C $WORK/testrepo add squash-feature.txt
 exec git -C $WORK/testrepo commit -m 'squash commit'
 exec git -C $WORK/testrepo checkout main
@@ -16,3 +16,6 @@ exec grove add feature-squashed
 exec grove prune --merged
 stderr 'Would prune 1 worktree'
 stderr 'feature-squashed'
+
+-- squash-feature.txt --
+squash content
