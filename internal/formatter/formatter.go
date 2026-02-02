@@ -175,6 +175,15 @@ func WorktreeRow(info *git.WorktreeInfo, isCurrent bool, namePadWidth, branchPad
 	return strings.Join(parts, " ")
 }
 
+// WorktreeLabel returns a simple label for a worktree: "directory [branch]"
+func WorktreeLabel(info *git.WorktreeInfo) string {
+	dir := filepath.Base(info.Path)
+	if dir == "" || dir == "." {
+		dir = info.Path
+	}
+	return fmt.Sprintf("%s [%s]", dir, info.Branch)
+}
+
 // VerboseSubItems returns the verbose sub-items for a worktree
 func VerboseSubItems(info *git.WorktreeInfo) []string {
 	prefix := SubItemPrefix()

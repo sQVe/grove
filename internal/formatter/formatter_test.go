@@ -323,6 +323,57 @@ func TestWorktreeRow(t *testing.T) {
 	}
 }
 
+func TestWorktreeLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     *git.WorktreeInfo
+		expected string
+	}{
+		{
+			name: "formats directory and branch",
+			info: &git.WorktreeInfo{
+				Path:   "/workspace/pr-1729",
+				Branch: "hup-1566-new-training-wizard-page",
+			},
+			expected: "pr-1729 [hup-1566-new-training-wizard-page]",
+		},
+		{
+			name: "handles detached worktree",
+			info: &git.WorktreeInfo{
+				Path:     "/workspace/experiment",
+				Branch:   "abc1234",
+				Detached: true,
+			},
+			expected: "experiment [abc1234]",
+		},
+		{
+			name: "handles nested path",
+			info: &git.WorktreeInfo{
+				Path:   "/home/user/projects/grove/worktrees/feature-auth",
+				Branch: "feat/authentication",
+			},
+			expected: "feature-auth [feat/authentication]",
+		},
+		{
+			name: "handles empty path gracefully",
+			info: &git.WorktreeInfo{
+				Path:   "",
+				Branch: "main",
+			},
+			expected: " [main]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := WorktreeLabel(tt.info)
+			if got != tt.expected {
+				t.Errorf("WorktreeLabel() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestVerboseSubItems(t *testing.T) {
 	t.Run("includes path", func(t *testing.T) {
 		config.Global.Plain = true
