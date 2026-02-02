@@ -154,12 +154,12 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	if from != "" {
 		infos, err := git.ListWorktreesWithInfo(bareDir, true)
 		if err != nil {
-			spin.Stop()
+			spin.StopWithError("Failed to list worktrees")
 			return fmt.Errorf("failed to list worktrees: %w", err)
 		}
 		info := git.FindWorktree(infos, from)
 		if info == nil {
-			spin.Stop()
+			spin.StopWithError("Worktree not found")
 			return fmt.Errorf("worktree %q not found", from)
 		}
 		sourceWorktree = info.Path
