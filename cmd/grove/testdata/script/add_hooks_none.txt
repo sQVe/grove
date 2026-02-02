@@ -1,6 +1,6 @@
 # Test: grove add has no hook output when none configured
 # Skip on Windows: hooks system uses sh -c which may behave differently
-[!windows] skip
+[windows] skip
 setup_workspace
 
 cp $WORK/grove-hooks-empty.toml .grove.toml

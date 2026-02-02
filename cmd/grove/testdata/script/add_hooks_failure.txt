@@ -1,6 +1,6 @@
 # Test: grove add shows warning when hook fails
 # Skip on Windows: uses Unix shell commands (exit)
-[!windows] skip
+[windows] skip
 setup_workspace
 
 cp $WORK/grove-hooks-exit.toml .grove.toml

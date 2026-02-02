@@ -1,0 +1,4 @@
+kind: Added
+body: Fallback worktree selection by directory name when branch doesn't match, enabling file preservation when primary worktree is on a feature branch
+custom:
+  Issue: 79
