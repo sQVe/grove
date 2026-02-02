@@ -458,6 +458,157 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 			t.Errorf("expected empty string, got %q", result)
 		}
 	})
+
+	t.Run("falls back to directory named main when branch differs", func(t *testing.T) {
+		tempDir, bareDir := setupBareRepo(t, "develop")
+
+		// Create feature branch
+		cmd := exec.Command("git", "branch", "feature-working", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature branch: %v", err)
+		}
+
+		// Create worktree in directory named "main" but checked out on feature-working
+		mainDir := filepath.Join(tempDir, "main")
+		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-working") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add worktree: %v", err)
+		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
+		result := findFallbackSourceWorktree(bareDir)
+		if result != mainDir {
+			t.Errorf("expected %q (directory-name fallback), got %q", mainDir, result)
+		}
+	})
+
+	t.Run("avoids duplicate when default branch is main", func(t *testing.T) {
+		tempDir, bareDir := setupBareRepo(t, "main")
+
+		// Create worktree for main branch
+		mainDir := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add main worktree: %v", err)
+		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
+		// Should find main worktree without issue (no duplicate candidate bug)
+		result := findFallbackSourceWorktree(bareDir)
+		if result != mainDir {
+			t.Errorf("expected %q, got %q", mainDir, result)
+		}
+	})
+
+	t.Run("branch match takes priority over directory match", func(t *testing.T) {
+		tempDir, bareDir := setupBareRepo(t, "develop")
+
+		// Create main branch
+		cmd := exec.Command("git", "branch", "main", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create main branch: %v", err)
+		}
+
+		// Create feature branch
+		cmd = exec.Command("git", "branch", "feature-x", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature branch: %v", err)
+		}
+
+		// Create worktree checked out on main branch, but in directory named "other"
+		mainBranchDir := filepath.Join(tempDir, "other")
+		cmd = exec.Command("git", "worktree", "add", mainBranchDir, "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add main branch worktree: %v", err)
+		}
+
+		// Create worktree in directory named "main" but checked out on feature-x
+		mainNameDir := filepath.Join(tempDir, "main")
+		cmd = exec.Command("git", "worktree", "add", mainNameDir, "feature-x") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add main-named worktree: %v", err)
+		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainNameDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+			cmd = exec.Command("git", "worktree", "remove", "--force", mainBranchDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
+		// Should return worktree on main BRANCH, not directory named "main"
+		result := findFallbackSourceWorktree(bareDir)
+		if result != mainBranchDir {
+			t.Errorf("expected %q (branch match), got %q", mainBranchDir, result)
+		}
+	})
+
+	t.Run("prefers main directory over master directory in fallback", func(t *testing.T) {
+		tempDir, bareDir := setupBareRepo(t, "develop")
+
+		// Create two feature branches
+		cmd := exec.Command("git", "branch", "feature-a", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature-a branch: %v", err)
+		}
+
+		cmd = exec.Command("git", "branch", "feature-b", "develop") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create feature-b branch: %v", err)
+		}
+
+		// Create worktree in directory named "master" on feature-a
+		masterDir := filepath.Join(tempDir, "master")
+		cmd = exec.Command("git", "worktree", "add", masterDir, "feature-a") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add master-named worktree: %v", err)
+		}
+
+		// Create worktree in directory named "main" on feature-b
+		mainDir := filepath.Join(tempDir, "main")
+		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-b") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to add main-named worktree: %v", err)
+		}
+
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+			cmd = exec.Command("git", "worktree", "remove", "--force", masterDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+
+		// Should prefer "main" directory over "master" directory
+		result := findFallbackSourceWorktree(bareDir)
+		if result != mainDir {
+			t.Errorf("expected %q (main directory), got %q", mainDir, result)
+		}
+	})
 }
 
 func TestRunAdd_FromValidation(t *testing.T) {
