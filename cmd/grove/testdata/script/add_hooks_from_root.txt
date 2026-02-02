@@ -1,0 +1,20 @@
+# Test: grove add runs hooks when invoked from workspace root
+# Skip on Windows: uses Unix shell commands (touch)
+[windows] skip
+setup_workspace
+
+# Configure hooks in main worktree
+cp $WORK/grove-hooks-touch.toml .grove.toml
+
+# Go to workspace root (not inside any worktree)
+cd $WORK/workspace
+
+# Run grove add from workspace root - hooks should still run
+exec grove add feature/from-root
+stderr 'Running 1 hook'
+stderr 'Created worktree at .*[/\\]feature-from-root'
+exists feature-from-root/.hook-ran
+
+-- grove-hooks-touch.toml --
+[hooks]
+add = ["touch .hook-ran"]

@@ -1,0 +1,23 @@
+# Test: grove add runs hooks when main worktree is on different branch
+# When user checks out a feature branch in main worktree, hooks should still work
+[windows] skip
+setup_workspace
+
+# Configure hooks in main worktree
+cp $WORK/grove-hooks-touch.toml .grove.toml
+
+# Switch main worktree to a feature branch
+exec git checkout -b feature/working
+
+# Go to workspace root (not inside any worktree)
+cd $WORK/workspace
+
+# Run grove add from workspace root - hooks should still run
+exec grove add feature/test
+stderr 'Running 1 hook'
+stderr 'Created worktree at .*[/\\]feature-test'
+exists feature-test/.hook-ran
+
+-- grove-hooks-touch.toml --
+[hooks]
+add = ["touch .hook-ran"]
