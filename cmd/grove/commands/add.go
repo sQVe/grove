@@ -149,14 +149,17 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 		_ = os.Remove(lockFile)
 	}()
 
+	spin := logger.StartSpinner("Preparing workspace...")
 	var sourceWorktree string
 	if from != "" {
 		infos, err := git.ListWorktreesWithInfo(bareDir, true)
 		if err != nil {
+			spin.Stop()
 			return fmt.Errorf("failed to list worktrees: %w", err)
 		}
 		info := git.FindWorktree(infos, from)
 		if info == nil {
+			spin.Stop()
 			return fmt.Errorf("worktree %q not found", from)
 		}
 		sourceWorktree = info.Path
@@ -170,6 +173,7 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 			}
 		}
 	}
+	spin.Stop()
 
 	// Handle PR via --pr flag
 	if prFlag {
@@ -258,7 +262,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		}
 	}
 
+	spin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
@@ -294,7 +300,9 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 	// Note: Auto-lock not applied for detached worktrees (no branch to lock)
 
+	spin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
@@ -472,7 +480,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		}
 	}
 
+	setupSpin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	setupSpin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
@@ -515,20 +525,31 @@ func findSourceWorktree(cwd, workspaceRoot string) string {
 }
 
 // findFallbackSourceWorktree returns a worktree to use as source for file
-// preservation when the user isn't inside a worktree. Priority: configured
-// default branch → main → master.
+// preservation when the user isn't inside a worktree.
+//
+// Priority:
+//  1. Worktree checked out on default/main/master branch
+//  2. Worktree in directory named main/master (handles case where primary
+//     worktree is temporarily checked out on a feature branch)
 func findFallbackSourceWorktree(bareDir string) string {
 	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil || len(infos) == 0 {
 		return ""
 	}
 
+	// Build candidate list: configured default branch, then common defaults
+	// Avoid duplicates if default branch is main or master
 	candidates := []string{}
 	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil && defaultBranch != "" {
 		candidates = append(candidates, defaultBranch)
 	}
-	candidates = append(candidates, "main", "master")
+	for _, branch := range []string{"main", "master"} {
+		if len(candidates) == 0 || candidates[0] != branch {
+			candidates = append(candidates, branch)
+		}
+	}
 
+	// First, try to find worktree by branch name
 	for _, branch := range candidates {
 		for _, info := range infos {
 			if info.Branch == branch {
@@ -536,6 +557,17 @@ func findFallbackSourceWorktree(bareDir string) string {
 			}
 		}
 	}
+
+	// Fall back to finding worktree by directory name (handles case where the
+	// primary worktree is checked out on a feature branch)
+	for _, dirName := range candidates {
+		for _, info := range infos {
+			if filepath.Base(info.Path) == dirName {
+				return info.Path
+			}
+		}
+	}
+
 	return ""
 }
 
