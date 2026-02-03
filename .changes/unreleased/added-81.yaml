@@ -1,4 +1,0 @@
-kind: Added
-body: Show worktree directory alongside branch name in prune output for easier identification
-custom:
-  Issue: 81
