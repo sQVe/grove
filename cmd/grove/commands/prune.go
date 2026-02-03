@@ -3,13 +3,13 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/config"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
@@ -233,11 +233,9 @@ func displayDryRun(candidates []pruneCandidate) error {
 	var toSkip []string
 
 	for _, candidate := range candidates {
-		label := candidate.info.Branch
-		if candidate.pruneType == pruneDetached {
-			label = filepath.Base(candidate.info.Path)
-		} else if candidate.pruneType == pruneStale && candidate.staleAge != "" {
-			label = fmt.Sprintf("%s (%s)", candidate.info.Branch, candidate.staleAge)
+		label := formatter.WorktreeLabel(candidate.info)
+		if candidate.pruneType == pruneStale && candidate.staleAge != "" {
+			label = fmt.Sprintf("%s (%s)", label, candidate.staleAge)
 		}
 
 		if candidate.reason == skipNone {
@@ -304,10 +302,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 	var keptBranches []string
 
 	for _, candidate := range candidates {
-		label := candidate.info.Branch
-		if candidate.pruneType == pruneDetached {
-			label = filepath.Base(candidate.info.Path)
-		}
+		label := formatter.WorktreeLabel(candidate.info)
 
 		if candidate.reason != skipNone {
 			skipped = append(skipped, fmt.Sprintf("%s (%s)", label, candidate.reason))
