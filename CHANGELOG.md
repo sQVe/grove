@@ -1,3 +1,9 @@
+## [v1.6.0](https://github.com/sQVe/grove/releases/tag/v1.6.0) - 2026-02-03
+
+### Added
+- Fallback worktree selection by directory name when branch doesn't match, enabling file preservation when primary worktree is on a feature branch ([#79](https://github.com/sQVe/grove/issues/79))
+- Show worktree directory alongside branch name in prune output for easier identification ([#81](https://github.com/sQVe/grove/issues/81))
+
 ## [v1.5.0](https://github.com/sQVe/grove/releases/tag/v1.5.0) - 2026-01-27
 
 ### Added
