@@ -1,3 +1,8 @@
+## [v1.6.1](https://github.com/sQVe/grove/releases/tag/v1.6.1) - 2026-02-16
+
+### Fixed
+- Use directory as worktree identifier in exec, lock, remove, and unlock commands
+
 ## [v1.6.0](https://github.com/sQVe/grove/releases/tag/v1.6.0) - 2026-02-03
 
 ### Added
