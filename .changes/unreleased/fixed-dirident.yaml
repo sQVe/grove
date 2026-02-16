@@ -1,0 +1,2 @@
+kind: Fixed
+body: Use directory as worktree identifier in exec, lock, remove, and unlock commands
