@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -81,19 +82,22 @@ func runUnlock(targets []string) error {
 	// Process each target, accumulate failures
 	var failed []string
 	for _, info := range unique {
+		label := formatter.WorktreeLabel(info)
+		dirName := filepath.Base(info.Path)
+
 		if !git.IsWorktreeLocked(info.Path) {
-			logger.Error("%s: worktree is not locked", info.Branch)
-			failed = append(failed, info.Branch)
+			logger.Error("%s: worktree is not locked", label)
+			failed = append(failed, dirName)
 			continue
 		}
 
 		if err := git.UnlockWorktree(bareDir, info.Path); err != nil {
-			logger.Error("%s: %v", info.Branch, err)
-			failed = append(failed, info.Branch)
+			logger.Error("%s: %v", label, err)
+			failed = append(failed, dirName)
 			continue
 		}
 
-		logger.Success("Unlocked worktree %s", info.Branch)
+		logger.Success("Unlocked worktree %s", label)
 	}
 
 	if len(failed) > 0 {

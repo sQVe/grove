@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
 )
@@ -38,7 +40,7 @@ func TestRunUnlock_NotInWorkspace(t *testing.T) {
 	}
 }
 
-func TestRunUnlock_BranchNotFound(t *testing.T) {
+func TestRunUnlock_WorktreeNotFound(t *testing.T) {
 	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
@@ -393,6 +395,59 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 	// Feature should be unlocked
 	if git.IsWorktreeLocked(featurePath) {
 		t.Error("feature should be unlocked")
+	}
+}
+
+func TestRunUnlock_OutputShowsWorktreeLabel(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir := testutil.TempDir(t)
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.InitBare(bareDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mainPath := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	// Create worktree where directory name differs from branch name
+	featurePath := filepath.Join(tempDir, "feat-auth")
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	// Lock the feature worktree
+	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to lock worktree: %v", err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
+	err := runUnlock([]string{"feat-auth"})
+	if err != nil {
+		t.Fatalf("runUnlock failed: %v", err)
+	}
+
+	output := buf.String()
+	// Success message should show directory name as primary with branch in brackets
+	if !strings.Contains(output, "feat-auth [feature/auth]") {
+		t.Errorf("expected success output to show worktree label 'feat-auth [feature/auth]', got: %s", output)
 	}
 }
 

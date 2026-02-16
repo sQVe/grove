@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
@@ -90,27 +91,30 @@ func runLock(targets []string, reason string) error {
 	// Process each target, accumulate failures
 	var failed []string
 	for _, info := range unique {
+		label := formatter.WorktreeLabel(info)
+		dirName := filepath.Base(info.Path)
+
 		if git.IsWorktreeLocked(info.Path) {
 			existingReason := git.GetWorktreeLockReason(info.Path)
 			if existingReason != "" {
-				logger.Error("%s: already locked (%q)\n\nHint: Use 'grove unlock %s' to remove the lock", info.Branch, existingReason, info.Branch)
+				logger.Error("%s: already locked (%q)\n\nHint: Use 'grove unlock %s' to remove the lock", label, existingReason, dirName)
 			} else {
-				logger.Error("%s: already locked\n\nHint: Use 'grove unlock %s' to remove the lock", info.Branch, info.Branch)
+				logger.Error("%s: already locked\n\nHint: Use 'grove unlock %s' to remove the lock", label, dirName)
 			}
-			failed = append(failed, info.Branch)
+			failed = append(failed, dirName)
 			continue
 		}
 
 		if err := git.LockWorktree(bareDir, info.Path, reason); err != nil {
-			logger.Error("%s: %v", info.Branch, err)
-			failed = append(failed, info.Branch)
+			logger.Error("%s: %v", label, err)
+			failed = append(failed, dirName)
 			continue
 		}
 
 		if reason != "" {
-			logger.Success("Locked worktree %s (%s)", info.Branch, reason)
+			logger.Success("Locked worktree %s (%s)", label, reason)
 		} else {
-			logger.Success("Locked worktree %s", info.Branch)
+			logger.Success("Locked worktree %s", label)
 		}
 	}
 

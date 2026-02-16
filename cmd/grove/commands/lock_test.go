@@ -45,7 +45,7 @@ func TestRunLock_NotInWorkspace(t *testing.T) {
 	}
 }
 
-func TestRunLock_BranchNotFound(t *testing.T) {
+func TestRunLock_WorktreeNotFound(t *testing.T) {
 	defer testutil.SaveCwd(t)()
 
 	ws := testgit.NewGroveWorkspace(t, "main")
@@ -231,6 +231,39 @@ func TestRunLock_DuplicateViaBranchAndDirName(t *testing.T) {
 
 	if !git.IsWorktreeLocked(featurePath) {
 		t.Error("feature-auth should be locked")
+	}
+}
+
+func TestRunLock_OutputShowsWorktreeLabel(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	ws := testgit.NewGroveWorkspace(t, "main")
+
+	// Create worktree where directory name differs from branch name
+	featurePath := ws.Dir + "/feat-auth"
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd.Dir = ws.BareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+	testgit.CleanupWorktree(t, ws.BareDir, featurePath)
+
+	testutil.Chdir(t, ws.WorktreePath("main"))
+
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
+	err := runLock([]string{"feat-auth"}, "")
+	if err != nil {
+		t.Fatalf("runLock failed: %v", err)
+	}
+
+	output := buf.String()
+	// Success message should show directory name as primary with branch in brackets
+	if !strings.Contains(output, "feat-auth [feature/auth]") {
+		t.Errorf("expected success output to show worktree label 'feat-auth [feature/auth]', got: %s", output)
 	}
 }
 
