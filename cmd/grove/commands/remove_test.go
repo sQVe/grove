@@ -50,7 +50,7 @@ func TestRunRemove_NotInWorkspace(t *testing.T) {
 	}
 }
 
-func TestRunRemove_BranchNotFound(t *testing.T) {
+func TestRunRemove_WorktreeNotFound(t *testing.T) {
 	defer testutil.SaveCwd(t)()
 
 	// Setup a Grove workspace
@@ -928,6 +928,55 @@ func TestRunRemove_DuplicateArgs(t *testing.T) {
 	}
 }
 
+func TestRunRemove_ErrorShowsWorktreeLabel(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir := testutil.TempDir(t)
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.InitBare(bareDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mainPath := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	// Create worktree where directory name differs from branch name
+	featurePath := filepath.Join(tempDir, "feat-auth")
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	// Make feature worktree dirty
+	dirtyFile := filepath.Join(featurePath, "dirty.txt")
+	if err := os.WriteFile(dirtyFile, []byte("dirty"), fs.FileStrict); err != nil {
+		t.Fatal(err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	var buf bytes.Buffer
+	logger.SetOutput(&buf)
+	defer logger.SetOutput(nil)
+	logger.Init(true, false)
+
+	_ = runRemove([]string{"feat-auth"}, false, false)
+
+	output := buf.String()
+	// Error should show directory name as primary identifier with branch in brackets
+	if !strings.Contains(output, "feat-auth [feature/auth]") {
+		t.Errorf("expected error to show worktree label 'feat-auth [feature/auth]', got: %s", output)
+	}
+}
+
 func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 	defer testutil.SaveCwd(t)()
 
@@ -1062,5 +1111,52 @@ func TestCompleteRemoveArgs(t *testing.T) {
 	// Should disable file completion
 	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected ShellCompDirectiveNoFileComp, got %v", directive)
+	}
+}
+
+func TestRunRemove_CurrentWorktreeSubdirectory(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir := testutil.TempDir(t)
+	bareDir := filepath.Join(tempDir, ".bare")
+	if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.InitBare(bareDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mainPath := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create worktree: %v", err)
+	}
+
+	featurePath := filepath.Join(tempDir, "feature")
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	// Create a subdirectory within the feature worktree and cd into it
+	subDir := filepath.Join(featurePath, "src", "pkg")
+	if err := os.MkdirAll(subDir, fs.DirStrict); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, subDir)
+
+	err := runRemove([]string{"feature"}, false, false)
+	if err == nil {
+		t.Error("expected error when removing worktree from subdirectory within it")
+	}
+	if !strings.Contains(err.Error(), "feature") {
+		t.Errorf("expected error to mention 'feature', got: %v", err)
+	}
+
+	// Worktree should still exist
+	if _, statErr := os.Stat(featurePath); os.IsNotExist(statErr) {
+		t.Error("feature worktree should still exist (protected from subdirectory)")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
@@ -105,15 +106,13 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			spin.Update(fmt.Sprintf("Removing worktrees (%d/%d)...", i+1, len(unique)))
 		}
 
-		displayName := info.Branch
-		if displayName == "" {
-			displayName = filepath.Base(info.Path)
-		}
+		displayName := formatter.WorktreeLabel(info)
+		dirName := filepath.Base(info.Path)
 
 		// Check if user is inside the worktree being deleted
 		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
 			logger.Error("%s: cannot delete current worktree\n\nHint: Switch to a different worktree first with 'grove switch <worktree>'", displayName)
-			failed = append(failed, displayName)
+			failed = append(failed, dirName)
 			continue
 		}
 
@@ -122,18 +121,18 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			hasChanges, _, err := git.CheckGitChanges(info.Path)
 			if err != nil {
 				logger.Error("%s: failed to check worktree status: %v", displayName, err)
-				failed = append(failed, displayName)
+				failed = append(failed, dirName)
 				continue
 			}
 			if hasChanges {
 				logger.Error("%s: worktree has uncommitted changes; use --force to remove anyway", displayName)
-				failed = append(failed, displayName)
+				failed = append(failed, dirName)
 				continue
 			}
 
 			if git.IsWorktreeLocked(info.Path) {
 				logger.Error("%s: worktree is locked; use --force to remove anyway", displayName)
-				failed = append(failed, displayName)
+				failed = append(failed, dirName)
 				continue
 			}
 		} else if git.IsWorktreeLocked(info.Path) {
@@ -153,7 +152,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		// Remove the worktree
 		if err := git.RemoveWorktree(bareDir, info.Path, force); err != nil {
 			logger.Error("%s: failed to remove worktree: %v", displayName, err)
-			failed = append(failed, displayName)
+			failed = append(failed, dirName)
 			continue
 		}
 
@@ -165,7 +164,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 			if err := git.DeleteBranch(bareDir, info.Branch, force); err != nil {
 				logger.Error("%s: worktree removed but failed to delete branch: %v", displayName, err)
-				failed = append(failed, displayName)
+				failed = append(failed, dirName)
 				continue
 			}
 		}

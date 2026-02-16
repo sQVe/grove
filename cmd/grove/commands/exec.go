@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/workspace"
 )
 
-// execTarget represents a worktree to execute in
 type execTarget struct {
-	branch string
-	path   string
+	label string
+	name  string
+	path  string
 }
 
 // NewExecCmd creates the exec command
@@ -90,26 +93,24 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Build map of branch name -> info
-	worktreeMap := make(map[string]*git.WorktreeInfo)
-	for _, info := range infos {
-		worktreeMap[info.Branch] = info
-	}
-
 	// Determine which worktrees to execute in
 	var targets []execTarget
 	if all {
 		for _, info := range infos {
-			targets = append(targets, execTarget{branch: info.Branch, path: info.Path})
+			targets = append(targets, execTarget{label: formatter.WorktreeLabel(info), name: filepath.Base(info.Path), path: info.Path})
 		}
 	} else {
-		// Validate specified worktrees exist
+		seen := make(map[string]bool)
 		for _, name := range worktrees {
-			info, ok := worktreeMap[name]
-			if !ok {
+			info := git.FindWorktree(infos, name)
+			if info == nil {
 				return fmt.Errorf("worktree not found: %s", name)
 			}
-			targets = append(targets, execTarget{branch: info.Branch, path: info.Path})
+			if seen[info.Path] {
+				continue
+			}
+			seen[info.Path] = true
+			targets = append(targets, execTarget{label: formatter.WorktreeLabel(info), name: filepath.Base(info.Path), path: info.Path})
 		}
 	}
 
@@ -117,8 +118,7 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 	var failed []string
 	succeeded := 0
 	for _, target := range targets {
-		// Print header
-		logger.Info("%s", target.branch)
+		logger.Info("%s", target.label)
 
 		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
 		cmd.Dir = target.path
@@ -126,9 +126,9 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			failed = append(failed, target.branch)
+			failed = append(failed, target.name)
 			if failFast {
-				return fmt.Errorf("command failed in %s: %w", target.branch, err)
+				return fmt.Errorf("command failed in %s: %w", target.name, err)
 			}
 		} else {
 			succeeded++
@@ -155,12 +155,8 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 }
 
 func completeExecArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// After --, use default shell completion (files)
-	// Cobra doesn't support command completion - would need custom zsh script
-	for _, arg := range os.Args {
-		if arg == "--" {
-			return nil, cobra.ShellCompDirectiveDefault
-		}
+	if slices.Contains(os.Args, "--") {
+		return nil, cobra.ShellCompDirectiveDefault
 	}
 
 	cwd, err := os.Getwd()
@@ -184,11 +180,12 @@ func completeExecArgs(cmd *cobra.Command, args []string, toComplete string) ([]s
 		alreadyUsed[arg] = true
 	}
 
-	// Return worktrees not already specified
+	// Return worktrees not already specified (by directory name)
 	var completions []string
 	for _, info := range infos {
-		if !alreadyUsed[info.Branch] {
-			completions = append(completions, info.Branch)
+		name := filepath.Base(info.Path)
+		if !alreadyUsed[name] && !alreadyUsed[info.Branch] {
+			completions = append(completions, name)
 		}
 	}
 

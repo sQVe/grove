@@ -273,7 +273,7 @@ func TestRunExec_FailFast(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Run a command that creates a marker then fails, with --fail-fast.
-	// Worktrees are processed in alphabetical order by directory name.
+	// Worktrees are processed in alphabetical order by branch name.
 	err := runExec(true, true, nil, []string{"sh", "-c", "touch failfast-marker.txt && exit 1"})
 
 	// Should return error
@@ -288,6 +288,66 @@ func TestRunExec_FailFast(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(mainPath, "failfast-marker.txt")); !os.IsNotExist(statErr) {
 		t.Error("marker should NOT exist in 'main' worktree (fail-fast stops after first failure)")
+	}
+}
+
+func TestRunExec_FindsByDirectoryName(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
+
+	// Create worktree where directory name differs from branch name
+	featurePath := filepath.Join(tempDir, "feat-auth")
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	// Run command using directory name (not branch name)
+	err := runExec(false, false, []string{"feat-auth"}, []string{"touch", "found-by-dir.txt"})
+	if err != nil {
+		t.Fatalf("runExec should find worktree by directory name: %v", err)
+	}
+
+	// Verify command ran in the correct worktree
+	if _, statErr := os.Stat(filepath.Join(featurePath, "found-by-dir.txt")); os.IsNotExist(statErr) {
+		t.Error("marker file should exist in feature worktree")
+	}
+}
+
+func TestCompleteExecArgs_ReturnsDirectoryNames(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
+
+	// Create worktree where directory name differs from branch name
+	featurePath := filepath.Join(tempDir, "feat-auth")
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	execCmd := NewExecCmd()
+	completions, _ := completeExecArgs(execCmd, nil, "")
+
+	// Should contain directory name, not branch name
+	hasDirName := false
+	for _, c := range completions {
+		if c == "feat-auth" {
+			hasDirName = true
+		}
+		if c == "feature/auth" {
+			t.Error("completions should return directory names, not branch names")
+		}
+	}
+	if !hasDirName {
+		t.Errorf("completions should include directory name 'feat-auth', got: %v", completions)
 	}
 }
 
@@ -335,4 +395,76 @@ func TestCompleteExecArgs(t *testing.T) {
 			t.Errorf("expected 2 completions (feature, bugfix), got %d", len(completions))
 		}
 	})
+}
+
+func TestRunExec_PartialFailure(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
+
+	// Create feature worktree
+	featurePath := filepath.Join(tempDir, "feature")
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	// Create bugfix worktree
+	bugfixPath := filepath.Join(tempDir, "bugfix")
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create bugfix worktree: %v", err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	// Create a marker file only in main and bugfix, not in feature.
+	// Running "test -f marker.txt" will succeed in main/bugfix but fail in feature.
+	for _, p := range []string{mainPath, bugfixPath} {
+		if err := os.WriteFile(filepath.Join(p, "marker.txt"), []byte("ok"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err := runExec(true, false, nil, []string{"test", "-f", "marker.txt"})
+	if err == nil {
+		t.Fatal("expected error for partial failure")
+	}
+	if err.Error() != "some executions failed" {
+		t.Errorf("expected 'some executions failed', got: %v", err)
+	}
+}
+
+func TestRunExec_DuplicateWorktrees(t *testing.T) {
+	defer testutil.SaveCwd(t)()
+
+	tempDir, bareDir, mainPath := setupExecTestWorkspace(t)
+
+	// Create feature worktree
+	featurePath := filepath.Join(tempDir, "feature")
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature worktree: %v", err)
+	}
+
+	testutil.Chdir(t, mainPath)
+
+	// Run command with same worktree specified twice. The command appends to a file,
+	// so we can check it ran only once by verifying the file content.
+	err := runExec(false, false, []string{"feature", "feature"}, []string{"sh", "-c", "echo x >> dedup-marker.txt"})
+	if err != nil {
+		t.Fatalf("runExec failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(featurePath, "dedup-marker.txt")) //nolint:gosec
+	if err != nil {
+		t.Fatalf("failed to read marker file: %v", err)
+	}
+
+	if strings.Count(string(content), "x") != 1 {
+		t.Errorf("expected command to run once (deduplication), but ran %d times", strings.Count(string(content), "x"))
+	}
 }
