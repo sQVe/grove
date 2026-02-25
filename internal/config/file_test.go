@@ -127,6 +127,32 @@ debug = false
 		}
 	})
 
+	t.Run("parses link patterns from TOML", func(t *testing.T) {
+		tmpDir := testutil.TempDir(t)
+		tomlContent := `[link]
+patterns = [".beads", ".cursor"]
+`
+		tomlPath := filepath.Join(tmpDir, ".grove.toml")
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+			t.Fatal(err)
+		}
+
+		cfg, err := LoadFromFile(tmpDir)
+		if err != nil {
+			t.Fatalf("LoadFromFile failed: %v", err)
+		}
+
+		expected := []string{".beads", ".cursor"}
+		if len(cfg.Link.Patterns) != len(expected) {
+			t.Errorf("Expected %d patterns, got %d", len(expected), len(cfg.Link.Patterns))
+		}
+		for i, exp := range expected {
+			if i >= len(cfg.Link.Patterns) || cfg.Link.Patterns[i] != exp {
+				t.Errorf("Expected pattern %d to be %q, got %q", i, exp, cfg.Link.Patterns[i])
+			}
+		}
+	})
+
 	t.Run("returns error on invalid TOML", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		tomlContent := `[preserve
@@ -384,6 +410,45 @@ exclude = ["vendor", ".cache"]
 
 		if len(patterns) != 2 || patterns[0] != "vendor" || patterns[1] != ".cache" {
 			t.Errorf("Expected TOML patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("defaults to empty when no link config", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		patterns := GetMergedLinkPatterns(tmpDir)
+		if len(patterns) != 0 {
+			t.Errorf("Expected empty link patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("git config used when no TOML link patterns", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run() //nolint:gosec
+
+		patterns := GetMergedLinkPatterns(tmpDir)
+
+		if len(patterns) != 1 || patterns[0] != ".gitconfig-link" {
+			t.Errorf("Expected git config link patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("TOML takes precedence for link patterns", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run() //nolint:gosec
+		tomlContent := `[link]
+patterns = [".toml-link"]
+`
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+
+		patterns := GetMergedLinkPatterns(tmpDir)
+		if len(patterns) != 1 || patterns[0] != ".toml-link" {
+			t.Errorf("Expected TOML link patterns, got %v", patterns)
 		}
 	})
 

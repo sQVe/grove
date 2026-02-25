@@ -36,6 +36,13 @@ exclude = [
   "venv",
 ]
 
+[link]
+# Directories to symlink from the source worktree when creating a new one.
+# Useful for sharing tool state (e.g., .beads) across worktrees.
+# Matched against directory names in the worktree root.
+# Creates relative symlinks so the workspace remains portable.
+patterns = []
+
 [hooks]
 # Shell commands to run after creating a worktree.
 # Runs sequentially, stops on first failure.

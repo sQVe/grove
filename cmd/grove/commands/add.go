@@ -264,6 +264,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 
 	spin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
 	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -272,6 +273,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	} else {
 		logger.Success("Created worktree at %s", styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
+		logLinkResult(linkResult)
 		logHookResult(hookResult)
 	}
 	return nil
@@ -302,6 +304,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 	spin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
 	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -310,6 +313,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	} else {
 		logger.Success("Created detached worktree at %s", styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
+		logLinkResult(linkResult)
 		logHookResult(hookResult)
 	}
 	return nil
@@ -482,6 +486,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 	setupSpin := logger.StartSpinner("Setting up worktree...")
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
 	setupSpin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -490,6 +495,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	} else {
 		logger.Success("Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 		logPreserveResult(preserveResult)
+		logLinkResult(linkResult)
 		logHookResult(hookResult)
 	}
 	return nil
@@ -621,6 +627,49 @@ func logPreserveResult(result *workspace.PreserveResult) {
 			logger.Warning("Skipped 1 file (already exists): %s", result.Skipped[0])
 		} else {
 			header := fmt.Sprintf("skipped %d files (already exist):", len(result.Skipped))
+			logger.ListSubItem("%s", header)
+			for _, f := range result.Skipped {
+				logger.Dimmed("        %s", f)
+			}
+		}
+	}
+}
+
+func linkDirectoriesFromSource(sourceWorktree, destWorktree string) *workspace.LinkResult {
+	if sourceWorktree == "" {
+		logger.Debug("No source worktree, skipping directory linking")
+		return nil
+	}
+	patterns := config.GetMergedLinkPatterns(sourceWorktree)
+	if len(patterns) == 0 {
+		return nil
+	}
+	result, err := workspace.LinkDirectoriesToWorktree(sourceWorktree, destWorktree, patterns)
+	if err != nil {
+		logger.Debug("Failed to link directories: %v", err)
+		return result
+	}
+	return result
+}
+
+func logLinkResult(result *workspace.LinkResult) {
+	if result == nil {
+		return
+	}
+
+	if len(result.Linked) > 0 {
+		header := fmt.Sprintf("linked %d directories:", len(result.Linked))
+		if len(result.Linked) == 1 {
+			header = "linked 1 directory:"
+		}
+		logger.ListItemGroup(header, result.Linked)
+	}
+
+	if len(result.Skipped) > 0 {
+		if len(result.Skipped) == 1 {
+			logger.Warning("Skipped 1 link (already exists): %s", result.Skipped[0])
+		} else {
+			header := fmt.Sprintf("skipped %d links (already exist):", len(result.Skipped))
 			logger.ListSubItem("%s", header)
 			for _, f := range result.Skipped {
 				logger.Dimmed("        %s", f)

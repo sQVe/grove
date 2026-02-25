@@ -21,6 +21,7 @@ var Global struct {
 	NerdFonts               bool          // Use Nerd Font icons (when not in plain mode)
 	PreservePatterns        []string      // Patterns for ignored files to preserve in new worktrees
 	PreserveExcludePatterns []string      // Path segments to exclude from preservation (e.g., "node_modules")
+	LinkPatterns            []string      // Directory names to symlink from source to new worktrees
 	StaleThreshold          string        // Default threshold for stale worktree detection (e.g., "30d")
 	AutoLockPatterns        []string      // Patterns for branches to auto-lock when creating worktrees
 	Timeout                 time.Duration // Command timeout (0 = no timeout)
@@ -33,6 +34,7 @@ var DefaultConfig = struct {
 	NerdFonts               bool
 	PreservePatterns        []string
 	PreserveExcludePatterns []string
+	LinkPatterns            []string
 	StaleThreshold          string
 	AutoLockPatterns        []string
 	Timeout                 time.Duration
@@ -64,6 +66,7 @@ var DefaultConfig = struct {
 		"vendor",
 		"venv",
 	},
+	LinkPatterns: []string{},
 	AutoLockPatterns: []string{
 		"develop",
 		"main",
@@ -167,6 +170,8 @@ func LoadFromGitConfig() {
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
 	Global.PreserveExcludePatterns = make([]string, len(DefaultConfig.PreserveExcludePatterns))
 	copy(Global.PreserveExcludePatterns, DefaultConfig.PreserveExcludePatterns)
+	Global.LinkPatterns = make([]string, len(DefaultConfig.LinkPatterns))
+	copy(Global.LinkPatterns, DefaultConfig.LinkPatterns)
 	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
 	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
 
@@ -198,6 +203,11 @@ func LoadFromGitConfig() {
 	patterns := getGitConfigs("grove.preserve")
 	if len(patterns) > 0 {
 		Global.PreservePatterns = patterns
+	}
+
+	linkPatterns := getGitConfigs("grove.link")
+	if len(linkPatterns) > 0 {
+		Global.LinkPatterns = linkPatterns
 	}
 
 	excludePatterns := getGitConfigs("grove.preserveExclude")

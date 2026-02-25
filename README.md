@@ -12,8 +12,8 @@ git clone --bare git@github.com:org/repo.git .bare
 echo "gitdir: ./.bare" > .git
 git worktree add main
 cd main
-cp ../other-worktree/.env .  # Don't forget this
-npm install                  # Or this
+cp ../other-worktree/.env . # Don't forget this
+npm install                 # Or this
 # Later: cd ../feat-auth to switch
 ```
 
@@ -21,8 +21,8 @@ npm install                  # Or this
 
 ```bash
 grove clone git@github.com:org/repo
-grove add feat/auth --switch  # .env copied, hooks run automatically
-grove switch main             # Just like git checkout, but each branch keeps its own directory
+grove add feat/auth --switch # .env copied, hooks run automatically
+grove switch main            # Just like git checkout, but each branch keeps its own directory
 ```
 
 https://github.com/user-attachments/assets/27f3c1f4-ff58-471e-87a3-8fd0c32ad474
@@ -382,8 +382,8 @@ When removing worktrees whose upstream was deleted on remote, local branches are
 **Examples:**
 
 ```bash
-grove prune             # Dry-run
-grove prune --commit    # Actually remove
+grove prune          # Dry-run
+grove prune --commit # Actually remove
 grove prune --stale 30d --commit
 grove prune --merged --commit
 grove prune --detached --commit
@@ -532,6 +532,13 @@ exclude = [
   "venv",
 ]
 
+[link]
+# Directories to symlink from the source worktree when creating a new one.
+# Useful for sharing tool state (e.g., .beads) across worktrees.
+# Matched against directory names in the worktree root.
+# Creates relative symlinks so the workspace remains portable.
+patterns = []
+
 [hooks]
 # Shell commands to run after creating a worktree.
 # Runs sequentially, stops on first failure.
@@ -559,6 +566,120 @@ debug = false
 ```
 
 </details>
+
+## Recipes
+
+### Beads
+
+[Beads](https://beads.sh) stores its state in a `.beads` directory at the worktree root. By default, each worktree gets its own isolated `.beads` directory. Use one of these approaches to share a single Beads state across all worktrees.
+
+<details>
+<summary>Approach 1 — Symlink via <code>[link]</code></summary>
+
+<br>
+
+Configure Grove to symlink `.beads` from the source worktree into each new one:
+
+```toml
+[link]
+patterns = [".beads"]
+```
+
+When you run `grove add`, Grove creates a relative symlink in the new worktree pointing back to the source worktree's `.beads` directory. All worktrees share the same Beads state automatically.
+
+</details>
+
+<details>
+<summary>Approach 2 — Pointer file via <code>[hooks]</code></summary>
+
+<br>
+
+Use an add hook to create a `.beads/redirect` file pointing to the main worktree's `.beads` directory:
+
+```toml
+[hooks]
+add = ["mkdir -p .beads && printf '%s' '../main/.beads' > .beads/redirect"]
+```
+
+Hooks run inside the newly created worktree. Since Grove worktrees are siblings under the same workspace root, `../main/.beads` resolves to the main worktree's Beads directory. Beads resolves relative paths from the project root. This approach assumes the main worktree is named `main`.
+
+</details>
+
+### Git hooks managers
+
+[Husky](https://typicode.github.io/husky/), [lefthook](https://github.com/evilmartians/lefthook), and [pre-commit](https://pre-commit.com/) rely on `core.hooksPath`, which doesn't resolve correctly in worktrees. Re-running the installer after worktree creation fixes this.
+
+<details>
+<summary>Husky</summary>
+
+<br>
+
+```toml
+[hooks]
+add = ["npm install", "npx husky"]
+```
+
+</details>
+
+<details>
+<summary>lefthook</summary>
+
+<br>
+
+```toml
+[hooks]
+add = ["lefthook install"]
+```
+
+</details>
+
+<details>
+<summary>pre-commit</summary>
+
+<br>
+
+```toml
+[hooks]
+add = ["pre-commit install"]
+```
+
+</details>
+
+### Next.js shared build caches
+
+Next.js build output (`.next`) and Turborepo cache (`.turbo`) can be shared across worktrees to avoid redundant rebuilds. Never symlink `node_modules/` — it contains absolute paths and branch-specific dependency versions.
+
+```toml
+[link]
+patterns = [".next", ".turbo"]
+```
+
+### Rust shared target directory
+
+Rust `target/` directories consume significant disk space. Sharing via symlink avoids duplicate compilation across worktrees.
+
+```toml
+[link]
+patterns = ["target"]
+```
+
+Parallel `cargo build` across worktrees sharing the same target directory will serialize on file locks.
+
+### AI coding tools
+
+AI coding tools store local configuration in git-ignored files that are lost in new worktrees. Preserve them to carry project context and settings across worktrees.
+
+```toml
+[preserve]
+patterns = [
+  "CLAUDE.local.md",
+  ".claude/settings.local.json",
+  ".aider.conf.yml",
+  ".copilot/config.json",
+]
+```
+
+These patterns are additive — they extend the default preserve patterns, not replace them.
 
 ## 🤝 Contributing
 
