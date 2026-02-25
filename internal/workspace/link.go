@@ -25,7 +25,7 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("reading source dir %s: %w", sourceDir, err)
 	}
 
 	for _, entry := range entries {
@@ -59,6 +59,10 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		}
 
 		if err := os.Symlink(relTarget, destPath); err != nil {
+			if errors.Is(err, os.ErrExist) {
+				result.Skipped = append(result.Skipped, name)
+				continue
+			}
 			return result, fmt.Errorf("symlink %s: %w", name, err)
 		}
 
