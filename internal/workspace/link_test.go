@@ -99,7 +99,6 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected [.beads] in Skipped, got %v", result.Skipped)
 		}
 
-		// Verify the existing directory was not replaced with a symlink
 		info, err := os.Lstat(filepath.Join(destDir, ".beads"))
 		if err != nil {
 			t.Fatal(err)

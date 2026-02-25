@@ -9,8 +9,8 @@ import (
 
 // LinkResult holds the outcome of a directory linking operation.
 type LinkResult struct {
-	Linked  []string // Directories successfully symlinked
-	Skipped []string // Directories skipped because target path already exists
+	Linked  []string
+	Skipped []string
 }
 
 // LinkDirectoriesToWorktree creates relative symlinks in destDir for directories
