@@ -1,0 +1,8 @@
+[link]
+patterns = [".mulch"]
+
+[hooks]
+add = ["go mod download"]
+
+[autolock]
+patterns = ["main"]
