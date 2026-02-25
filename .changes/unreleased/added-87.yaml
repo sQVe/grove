@@ -1,4 +1,0 @@
-kind: Added
-body: Symlink directories from source worktree on grove add via new [link] config section
-custom:
-  Issue: 87
