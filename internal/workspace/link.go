@@ -1,6 +1,8 @@
 package workspace
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -27,7 +29,14 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		isDir := entry.IsDir()
+		if !isDir && entry.Type()&os.ModeSymlink != 0 {
+			target, err := os.Stat(filepath.Join(sourceDir, entry.Name()))
+			if err == nil && target.IsDir() {
+				isDir = true
+			}
+		}
+		if !isDir {
 			continue
 		}
 
@@ -40,6 +49,8 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		if _, err := os.Lstat(destPath); err == nil {
 			result.Skipped = append(result.Skipped, name)
 			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return result, fmt.Errorf("checking dest path %s: %w", destPath, err)
 		}
 
 		relTarget, err := filepath.Rel(destDir, filepath.Join(sourceDir, name))
@@ -48,7 +59,7 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		}
 
 		if err := os.Symlink(relTarget, destPath); err != nil {
-			return result, err
+			return result, fmt.Errorf("symlink %s: %w", name, err)
 		}
 
 		result.Linked = append(result.Linked, name)

@@ -423,6 +423,19 @@ exclude = ["vendor", ".cache"]
 		}
 	})
 
+	t.Run("git config used when no TOML link patterns", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run() //nolint:gosec
+
+		patterns := GetMergedLinkPatterns(tmpDir)
+
+		if len(patterns) != 1 || patterns[0] != ".gitconfig-link" {
+			t.Errorf("Expected git config link patterns, got %v", patterns)
+		}
+	})
+
 	t.Run("TOML takes precedence for link patterns", func(t *testing.T) {
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()

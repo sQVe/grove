@@ -175,6 +175,28 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("follows symlinks to directories in source", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		targetDir := testutil.TempDir(t)
+
+		if err := os.MkdirAll(filepath.Join(targetDir, "data"), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(targetDir, "data"), filepath.Join(sourceDir, ".beads")); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		if err != nil {
+			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
+		}
+		if len(result.Linked) != 1 || result.Linked[0] != ".beads" {
+			t.Errorf("Expected [.beads] in Linked, got %v", result.Linked)
+		}
+	})
+
 	t.Run("matches wildcard patterns", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)

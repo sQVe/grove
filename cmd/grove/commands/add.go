@@ -647,7 +647,7 @@ func linkDirectoriesFromSource(sourceWorktree, destWorktree string) *workspace.L
 	result, err := workspace.LinkDirectoriesToWorktree(sourceWorktree, destWorktree, patterns)
 	if err != nil {
 		logger.Debug("Failed to link directories: %v", err)
-		return nil
+		return result
 	}
 	return result
 }
