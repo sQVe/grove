@@ -571,43 +571,43 @@ debug = false
 
 ### Beads
 
-[Beads](https://beads.sh) stores its state in a `.beads` directory at the worktree root. By default, each worktree gets its own isolated `.beads` directory. Use one of these approaches to share a single Beads state across all worktrees.
+[Beads](https://beads.sh) auto-discovers its `.beads` database by walking up the directory tree. Initialize Beads at the workspace root and all worktrees share the same state automatically:
+
+```bash
+cd my-project # workspace root (where .bare/ lives)
+bd init --skip-hooks
+```
+
+Since all worktrees are siblings under the workspace root, `bd` finds `.beads/` in the parent directory from any worktree. No symlinks or configuration needed.
+
+`bd init` installs git hooks with a relative `core.hooksPath` that doesn't resolve correctly from worktrees, so use `--skip-hooks` and set up sync hooks separately.
 
 <details>
-<summary>Approach 1 — Symlink via <code>[link]</code></summary>
+<summary>Manual <code>core.hooksPath</code></summary>
 
 <br>
 
-Configure Grove to symlink `.beads` from the source worktree into each new one:
+Install hooks to `.beads/hooks/` and set an absolute path from any worktree:
 
-```toml
-[link]
-patterns = [".beads"]
+```bash
+bd hooks install --beads
+git config core.hooksPath "$(cd "$(git rev-parse --show-toplevel)/.." && pwd)/.beads/hooks"
 ```
-
-When you run `grove add`, Grove creates a relative symlink in the new worktree pointing back to the source worktree's `.beads` directory. All worktrees share the same Beads state automatically.
 
 </details>
 
 <details>
-<summary>Approach 2 — Pointer file via <code>[hooks]</code></summary>
+<summary>Hook framework integration</summary>
 
 <br>
 
-Use an add hook to create a `.beads/redirect` file pointing to the main worktree's `.beads` directory:
-
-```toml
-[hooks]
-add = ["mkdir -p .beads && printf '%s' '../main/.beads' > .beads/redirect"]
-```
-
-Hooks run inside the newly created worktree. Since Grove worktrees are siblings under the same workspace root, `../main/.beads` resolves to the main worktree's Beads directory. Beads resolves relative paths from the project root. This approach assumes the main worktree is named `main`.
+If you use a hook framework, register `bd hook <stage>` as a local hook for the `pre-commit`, `post-merge`, and `post-checkout` stages. This avoids `core.hooksPath` entirely. See the [Beads hooks documentation](https://beads.sh) for the supported stages.
 
 </details>
 
 ### Git hooks managers
 
-[Husky](https://typicode.github.io/husky/), [lefthook](https://github.com/evilmartians/lefthook), and [pre-commit](https://pre-commit.com/) rely on `core.hooksPath`, which doesn't resolve correctly in worktrees. Re-running the installer after worktree creation fixes this.
+[Husky](https://typicode.github.io/husky/) and [lefthook](https://github.com/evilmartians/lefthook) set `core.hooksPath` to a relative path (`.husky` or `.lefthook`). In a bare worktree setup, this config is shared across all worktrees via `.bare/config`. The relative path resolves correctly from any worktree because the directory exists in every checkout. Re-run the installer after worktree creation to ensure the path is set:
 
 <details>
 <summary>Husky</summary>
@@ -633,17 +633,7 @@ add = ["lefthook install"]
 
 </details>
 
-<details>
-<summary>pre-commit</summary>
-
-<br>
-
-```toml
-[hooks]
-add = ["pre-commit install"]
-```
-
-</details>
+[pre-commit](https://pre-commit.com/) writes hook scripts directly into the git hooks directory (`.bare/hooks/`), which is shared by all worktrees. Run `pre-commit install` once from any worktree — no Grove hook needed.
 
 ### Next.js shared build caches
 
