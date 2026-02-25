@@ -897,9 +897,9 @@ func Convert(targetDir, branches string, verbose bool) error {
 			recoveryFile := filepath.Join(targetDir, ".grove-recovery.txt")
 			var recoveryInstructions strings.Builder
 			recoveryInstructions.WriteString("Grove conversion failed. Manual recovery steps:\n\n")
-			recoveryInstructions.WriteString(fmt.Sprintf("Failed to restore: %v\n\n", restoreErrors))
+			fmt.Fprintf(&recoveryInstructions, "Failed to restore: %v\n\n", restoreErrors)
 			if len(createdWorktrees) > 0 {
-				recoveryInstructions.WriteString(fmt.Sprintf("1. Check for files in: %s\n", createdWorktrees[0]))
+				fmt.Fprintf(&recoveryInstructions, "1. Check for files in: %s\n", createdWorktrees[0])
 			}
 			recoveryInstructions.WriteString("2. Ensure .git directory exists and is not bare\n")
 			recoveryInstructions.WriteString("3. Run: git config --bool core.bare false\n")
