@@ -21,6 +21,9 @@ type FileConfig struct {
 		Patterns []string `toml:"patterns"`
 		Exclude  []string `toml:"exclude"`
 	} `toml:"preserve"`
+	Link struct {
+		Patterns []string `toml:"patterns"`
+	} `toml:"link"`
 	Hooks struct {
 		Add []string `toml:"add"`
 	} `toml:"hooks"`
@@ -90,6 +93,13 @@ func getMergedPatterns(worktreeDir, gitKey string, tomlExtract func(FileConfig) 
 		return patterns
 	}
 	return defaultValue
+}
+
+// GetMergedLinkPatterns: TOML > git config > defaults
+func GetMergedLinkPatterns(worktreeDir string) []string {
+	return getMergedPatterns(worktreeDir, "grove.link",
+		func(cfg FileConfig) []string { return cfg.Link.Patterns },
+		DefaultConfig.LinkPatterns)
 }
 
 // GetMergedPreservePatterns: TOML > git config > defaults
