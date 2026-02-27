@@ -36,6 +36,10 @@ exclude = [
   "venv",
 ]
 
+# Directories to recursively copy when creating a new worktree.
+# Use for directories that cannot be matched with single-segment glob patterns.
+# directories = []
+
 [link]
 # Directories to symlink from the source worktree when creating a new one.
 # Useful for sharing tool state (e.g., .beads) across worktrees.
