@@ -11,27 +11,3 @@ repos:
         entry: npx prettier --write --ignore-unknown
         language: system
         types_or: [markdown, json, yaml]
-
-      - id: beads-pre-commit
-        name: beads sync (pre-commit)
-        entry: bd hooks run pre-commit
-        language: system
-        always_run: true
-        pass_filenames: false
-        stages: [pre-commit]
-
-      - id: beads-post-merge
-        name: beads sync (post-merge)
-        entry: bd hooks run post-merge
-        language: system
-        always_run: true
-        pass_filenames: false
-        stages: [post-merge]
-
-      - id: beads-post-checkout
-        name: beads sync (post-checkout)
-        entry: bd hooks run post-checkout
-        language: system
-        always_run: true
-        pass_filenames: false
-        stages: [post-checkout]
