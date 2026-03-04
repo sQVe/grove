@@ -1,0 +1,21 @@
+# Test: grove add --switch shows preserved files on stderr
+setup_workspace
+
+# Create .gitignore with .env pattern (required for preservation)
+cp $WORK/gitignore-env .gitignore
+exec git add .gitignore
+exec git commit -m 'add gitignore'
+
+# Create .env file to be preserved
+cp $WORK/dot-env .env
+exec grove add --switch feature/preserve-switch-test
+stdout '^.*[/\\]feature-preserve-switch-test$'
+! stderr 'Created worktree'
+stderr 'preserved'
+exists ../feature-preserve-switch-test/.env
+
+-- gitignore-env --
+.env
+
+-- dot-env --
+SECRET=value
