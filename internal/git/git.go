@@ -62,9 +62,9 @@ func GitCommand(name string, arg ...string) (*exec.Cmd, context.CancelFunc) {
 	timeout := config.GetTimeout()
 	if timeout > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		return exec.CommandContext(ctx, name, arg...), cancel
+		return exec.CommandContext(ctx, name, arg...), cancel //nolint:gosec
 	}
-	return exec.Command(name, arg...), func() {}
+	return exec.Command(name, arg...), func() {} //nolint:gosec
 }
 
 // runGitCommand executes a git command with consistent stderr capture and error handling

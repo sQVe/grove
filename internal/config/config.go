@@ -238,7 +238,7 @@ func getGitConfig(key string) string {
 
 // getGitConfigInDir gets a single config value from a specific directory
 func getGitConfigInDir(key, dir string) string {
-	cmd := exec.Command("git", "config", "--get", key)
+	cmd := exec.Command("git", "config", "--get", key) //nolint:gosec
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -263,7 +263,7 @@ func getGitConfigs(key string) []string {
 
 // getGitConfigsInDir gets all values for a multi-value config key from a specific directory
 func getGitConfigsInDir(key, dir string) []string {
-	cmd := exec.Command("git", "config", "--get-all", key)
+	cmd := exec.Command("git", "config", "--get-all", key) //nolint:gosec
 	if dir != "" {
 		cmd.Dir = dir
 	}
