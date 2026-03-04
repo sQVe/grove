@@ -1,9 +1,3 @@
-## Unreleased
-
-### Added
-
-- Recursive directory preservation via `preserve.directories` config for copying entire directory trees to new worktrees
-
 ## [v1.7.0](https://github.com/sQVe/grove/releases/tag/v1.7.0) - 2026-02-25
 
 ### Added
