@@ -272,10 +272,10 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
 	} else {
 		logger.Success("Created worktree at %s", styles.RenderPath(worktreePath))
-		logPreserveResult(preserveResult)
-		logLinkResult(linkResult)
-		logHookResult(hookResult)
 	}
+	logPreserveResult(preserveResult)
+	logLinkResult(linkResult)
+	logHookResult(hookResult)
 	return nil
 }
 
@@ -312,10 +312,10 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 		fmt.Println(worktreePath)
 	} else {
 		logger.Success("Created detached worktree at %s", styles.RenderPath(worktreePath))
-		logPreserveResult(preserveResult)
-		logLinkResult(linkResult)
-		logHookResult(hookResult)
 	}
+	logPreserveResult(preserveResult)
+	logLinkResult(linkResult)
+	logHookResult(hookResult)
 	return nil
 }
 
@@ -494,10 +494,10 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		fmt.Println(worktreePath)
 	} else {
 		logger.Success("Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
-		logPreserveResult(preserveResult)
-		logLinkResult(linkResult)
-		logHookResult(hookResult)
 	}
+	logPreserveResult(preserveResult)
+	logLinkResult(linkResult)
+	logHookResult(hookResult)
 	return nil
 }
 
