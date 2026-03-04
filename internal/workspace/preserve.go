@@ -86,7 +86,7 @@ func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []stri
 
 	for _, dir := range directories {
 		cleaned := filepath.Clean(dir)
-		if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
 			logger.Debug("Skipping invalid preserve directory (path traversal): %s", dir)
 			continue
 		}

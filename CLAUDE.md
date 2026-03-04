@@ -17,13 +17,13 @@
 
 This project uses **br (beads_rust)** for issue tracking. Run `br prime` for workflow context.
 
-**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add -f .beads/ && git commit`.
 
 - `br ready` - Find unblocked work
 - `br list` - All open issues
 - `br create "Title" --type task --priority 2` - Create issue
 - `br close <id>` - Complete work
-- `br sync --flush-only` - Flush to disk (then run `git add .beads/ && git commit`)
+- `br sync --flush-only` - Flush to disk (then run `git add -f .beads/ && git commit`)
 
 ## Project expertise
 

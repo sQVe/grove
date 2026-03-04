@@ -507,6 +507,22 @@ func TestPreserveDirectoriesToWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects dot directory", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		for _, dir := range []string{".", "", "config/./."} {
+			result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{dir})
+			if err != nil {
+				t.Fatalf("PreserveDirectoriesToWorktree(%q) failed: %v", dir, err)
+			}
+			if len(result.Copied) != 0 {
+				t.Errorf("PreserveDirectoriesToWorktree(%q): expected no copies, got %d", dir, len(result.Copied))
+			}
+		}
+	})
+
 	t.Run("rejects absolute paths", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)

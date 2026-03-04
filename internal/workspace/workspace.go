@@ -652,7 +652,7 @@ func createWorktreesForConversion(opts *conversionOpts) (*conversionResult, erro
 		return result, err
 	}
 
-	if err := preserveDirectoriesToWorktrees(targetDir, cleanedBranches, opts.PreserveDirectories); err != nil {
+	if err := preserveDirectoriesToWorktrees(targetDir, cleanedBranches[1:], opts.PreserveDirectories); err != nil {
 		return result, err
 	}
 
