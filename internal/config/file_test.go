@@ -62,6 +62,32 @@ exclude = ["node_modules", "vendor", ".cache"]
 		}
 	})
 
+	t.Run("parses preserve directories from TOML", func(t *testing.T) {
+		tmpDir := testutil.TempDir(t)
+		tomlContent := `[preserve]
+directories = ["config", ".run", "scripts"]
+`
+		tomlPath := filepath.Join(tmpDir, ".grove.toml")
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+			t.Fatal(err)
+		}
+
+		cfg, err := LoadFromFile(tmpDir)
+		if err != nil {
+			t.Fatalf("LoadFromFile failed: %v", err)
+		}
+
+		expected := []string{"config", ".run", "scripts"}
+		if len(cfg.Preserve.Directories) != len(expected) {
+			t.Errorf("Expected %d directories, got %d", len(expected), len(cfg.Preserve.Directories))
+		}
+		for i, exp := range expected {
+			if i >= len(cfg.Preserve.Directories) || cfg.Preserve.Directories[i] != exp {
+				t.Errorf("Expected directory %d to be %q, got %q", i, exp, cfg.Preserve.Directories[i])
+			}
+		}
+	})
+
 	t.Run("parses hooks from TOML", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		tomlContent := `[hooks]
@@ -449,6 +475,47 @@ patterns = [".toml-link"]
 		patterns := GetMergedLinkPatterns(tmpDir)
 		if len(patterns) != 1 || patterns[0] != ".toml-link" {
 			t.Errorf("Expected TOML link patterns, got %v", patterns)
+		}
+	})
+
+	t.Run("TOML takes precedence for preserve directories", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run() //nolint:gosec
+		tomlContent := `[preserve]
+directories = ["toml-dir"]
+`
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+
+		dirs := GetMergedPreserveDirectories(tmpDir)
+
+		if len(dirs) != 1 || dirs[0] != "toml-dir" {
+			t.Errorf("Expected TOML directories to take precedence, got %v", dirs)
+		}
+	})
+
+	t.Run("git config used when no TOML preserve directories", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run() //nolint:gosec
+
+		dirs := GetMergedPreserveDirectories(tmpDir)
+
+		if len(dirs) != 1 || dirs[0] != "gitconfig-dir" {
+			t.Errorf("Expected git config directories, got %v", dirs)
+		}
+	})
+
+	t.Run("defaults to empty when no preserve directories config", func(t *testing.T) {
+		tmpDir, cleanup := setupGitRepoForFileTests(t)
+		defer cleanup()
+
+		dirs := GetMergedPreserveDirectories(tmpDir)
+
+		if len(dirs) != 0 {
+			t.Errorf("Expected empty directories, got %v", dirs)
 		}
 	})
 

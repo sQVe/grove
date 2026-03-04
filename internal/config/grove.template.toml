@@ -36,6 +36,11 @@ exclude = [
   "venv",
 ]
 
+# Directories to recursively copy when creating a new worktree.
+# Unlike preserve.patterns (which matches individual ignored files by glob),
+# this copies entire directory trees regardless of git ignore status.
+directories = []
+
 [link]
 # Directories to symlink from the source worktree when creating a new one.
 # Useful for sharing tool state (e.g., .beads) across worktrees.

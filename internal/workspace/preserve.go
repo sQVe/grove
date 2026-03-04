@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,6 +69,73 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles, 
 		}
 
 		result.Copied = append(result.Copied, file)
+	}
+
+	return result, nil
+}
+
+// PreserveDirectoriesToWorktree recursively copies named directories from source to dest.
+// Skips directories that don't exist in source. Skips individual files that already exist in dest.
+// Rejects directory names with path traversal (absolute paths or ".." components).
+func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []string) (*PreserveResult, error) {
+	result := &PreserveResult{}
+
+	if len(directories) == 0 {
+		return result, nil
+	}
+
+	for _, dir := range directories {
+		cleaned := filepath.Clean(dir)
+		if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+			logger.Debug("Skipping invalid preserve directory (path traversal): %s", dir)
+			continue
+		}
+
+		srcPath := filepath.Join(sourceDir, cleaned)
+		srcInfo, err := os.Lstat(srcPath)
+		if err != nil || !srcInfo.IsDir() {
+			logger.Debug("Preserve directory does not exist or is not a directory: %s", srcPath)
+			continue
+		}
+
+		err = filepath.WalkDir(srcPath, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+
+			if d.Type()&os.ModeSymlink != 0 {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(sourceDir, path)
+			if err != nil {
+				return err
+			}
+
+			destPath := filepath.Join(destDir, relPath)
+
+			if d.IsDir() {
+				return os.MkdirAll(destPath, fs.DirGit)
+			}
+
+			if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
+				return err
+			}
+
+			if err := fs.CopyFileExclusive(path, destPath, fs.FileGit); err != nil {
+				if errors.Is(err, os.ErrExist) {
+					result.Skipped = append(result.Skipped, relPath)
+					return nil
+				}
+				return err
+			}
+
+			result.Copied = append(result.Copied, relPath)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to preserve directory %s: %w", dir, err)
+		}
 	}
 
 	return result, nil

@@ -18,8 +18,9 @@ var initTemplate string
 
 type FileConfig struct {
 	Preserve struct {
-		Patterns []string `toml:"patterns"`
-		Exclude  []string `toml:"exclude"`
+		Patterns    []string `toml:"patterns"`
+		Exclude     []string `toml:"exclude"`
+		Directories []string `toml:"directories"`
 	} `toml:"preserve"`
 	Link struct {
 		Patterns []string `toml:"patterns"`
@@ -107,6 +108,13 @@ func GetMergedPreservePatterns(worktreeDir string) []string {
 	return getMergedPatterns(worktreeDir, "grove.preserve",
 		func(cfg FileConfig) []string { return cfg.Preserve.Patterns },
 		DefaultConfig.PreservePatterns)
+}
+
+// GetMergedPreserveDirectories: TOML > git config > defaults
+func GetMergedPreserveDirectories(worktreeDir string) []string {
+	return getMergedPatterns(worktreeDir, "grove.preserveDirectory",
+		func(cfg FileConfig) []string { return cfg.Preserve.Directories },
+		DefaultConfig.PreserveDirectories)
 }
 
 // GetMergedPreserveExcludePatterns: TOML > git config > defaults

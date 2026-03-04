@@ -36,7 +36,7 @@ stdout '^integration-test-pr-branch$'
 
 ## PR URL creates worktree (using same test PR)
 
-exec grove remove pr-7
+exec grove remove pr-7 --force
 exec grove add 'https://github.com/sqve/grove/pull/7/files'
 stderr 'Fetching PR #7'
 stderr 'Created worktree for PR #7'
@@ -54,7 +54,7 @@ stderr '✗ worktree already exists'
 
 ## PR with --switch outputs only path
 
-exec grove remove pr-7
+exec grove remove pr-7 --force
 exec grove add --switch --pr 7
 stdout '^.*[/\\\\]pr-7$'
 stderr 'Fetching PR #7'

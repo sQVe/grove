@@ -21,6 +21,7 @@ var Global struct {
 	NerdFonts               bool          // Use Nerd Font icons (when not in plain mode)
 	PreservePatterns        []string      // Patterns for ignored files to preserve in new worktrees
 	PreserveExcludePatterns []string      // Path segments to exclude from preservation (e.g., "node_modules")
+	PreserveDirectories     []string      // Directories to recursively preserve in new worktrees
 	LinkPatterns            []string      // Directory names to symlink from source to new worktrees
 	StaleThreshold          string        // Default threshold for stale worktree detection (e.g., "30d")
 	AutoLockPatterns        []string      // Patterns for branches to auto-lock when creating worktrees
@@ -34,6 +35,7 @@ var DefaultConfig = struct {
 	NerdFonts               bool
 	PreservePatterns        []string
 	PreserveExcludePatterns []string
+	PreserveDirectories     []string
 	LinkPatterns            []string
 	StaleThreshold          string
 	AutoLockPatterns        []string
@@ -66,7 +68,8 @@ var DefaultConfig = struct {
 		"vendor",
 		"venv",
 	},
-	LinkPatterns: []string{},
+	PreserveDirectories: []string{},
+	LinkPatterns:        []string{},
 	AutoLockPatterns: []string{
 		"develop",
 		"main",
@@ -170,6 +173,8 @@ func LoadFromGitConfig() {
 	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
 	Global.PreserveExcludePatterns = make([]string, len(DefaultConfig.PreserveExcludePatterns))
 	copy(Global.PreserveExcludePatterns, DefaultConfig.PreserveExcludePatterns)
+	Global.PreserveDirectories = make([]string, len(DefaultConfig.PreserveDirectories))
+	copy(Global.PreserveDirectories, DefaultConfig.PreserveDirectories)
 	Global.LinkPatterns = make([]string, len(DefaultConfig.LinkPatterns))
 	copy(Global.LinkPatterns, DefaultConfig.LinkPatterns)
 	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
@@ -215,6 +220,11 @@ func LoadFromGitConfig() {
 		Global.PreserveExcludePatterns = excludePatterns
 	}
 
+	directories := getGitConfigs("grove.preserveDirectory")
+	if len(directories) > 0 {
+		Global.PreserveDirectories = directories
+	}
+
 	autoLockPatterns := getGitConfigs("grove.autoLock")
 	if len(autoLockPatterns) > 0 {
 		Global.AutoLockPatterns = autoLockPatterns
@@ -228,7 +238,7 @@ func getGitConfig(key string) string {
 
 // getGitConfigInDir gets a single config value from a specific directory
 func getGitConfigInDir(key, dir string) string {
-	cmd := exec.Command("git", "config", "--get", key)
+	cmd := exec.Command("git", "config", "--get", key) //nolint:gosec
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -253,7 +263,7 @@ func getGitConfigs(key string) []string {
 
 // getGitConfigsInDir gets all values for a multi-value config key from a specific directory
 func getGitConfigsInDir(key, dir string) []string {
-	cmd := exec.Command("git", "config", "--get-all", key)
+	cmd := exec.Command("git", "config", "--get-all", key) //nolint:gosec
 	if dir != "" {
 		cmd.Dir = dir
 	}

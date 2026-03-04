@@ -1,0 +1,4 @@
+kind: Added
+body:
+  Recursive directory preservation via `preserve.directories` config for copying
+  entire directory trees to new worktrees

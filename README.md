@@ -575,35 +575,10 @@ debug = false
 
 ```bash
 cd my-project # workspace root (where .bare/ lives)
-bd init --skip-hooks
+br init
 ```
 
-Since all worktrees are siblings under the workspace root, `bd` finds `.beads/` in the parent directory from any worktree. No symlinks or configuration needed.
-
-`bd init` installs git hooks with a relative `core.hooksPath` that doesn't resolve correctly from worktrees, so use `--skip-hooks` and set up sync hooks separately.
-
-<details>
-<summary>Manual <code>core.hooksPath</code></summary>
-
-<br>
-
-Install hooks to `.beads/hooks/` and set an absolute path from any worktree:
-
-```bash
-bd hooks install --beads
-git config core.hooksPath "$(cd "$(git rev-parse --show-toplevel)/.." && pwd)/.beads/hooks"
-```
-
-</details>
-
-<details>
-<summary>Hook framework integration</summary>
-
-<br>
-
-If you use a hook framework, register `bd hook <stage>` as a local hook for the `pre-commit`, `post-merge`, and `post-checkout` stages. This avoids `core.hooksPath` entirely. See the [Beads hooks documentation](https://beads.sh) for the supported stages.
-
-</details>
+Since all worktrees are siblings under the workspace root, `br` finds `.beads/` in the parent directory from any worktree. No symlinks or configuration needed.
 
 ### Git hooks managers
 

@@ -583,29 +583,37 @@ func preserveFilesFromSource(sourceWorktree, destWorktree string) *workspace.Pre
 		return nil
 	}
 
-	// Find ignored files in source worktree
+	result := &workspace.PreserveResult{}
+
 	ignoredFiles, err := workspace.FindIgnoredFilesInWorktree(sourceWorktree)
 	if err != nil {
 		logger.Debug("Failed to find ignored files: %v", err)
-		return nil
+	} else if len(ignoredFiles) > 0 {
+		patterns := config.GetMergedPreservePatterns(sourceWorktree)
+		excludePatterns := config.GetMergedPreserveExcludePatterns(sourceWorktree)
+		fileResult, err := workspace.PreserveFilesToWorktree(sourceWorktree, destWorktree, patterns, ignoredFiles, excludePatterns)
+		if err != nil {
+			logger.Debug("Failed to preserve files: %v", err)
+		} else {
+			result.Copied = append(result.Copied, fileResult.Copied...)
+			result.Skipped = append(result.Skipped, fileResult.Skipped...)
+		}
 	}
 
-	if len(ignoredFiles) == 0 {
-		logger.Debug("No ignored files found in source worktree")
-		return nil
+	directories := config.GetMergedPreserveDirectories(sourceWorktree)
+	if len(directories) > 0 {
+		dirResult, err := workspace.PreserveDirectoriesToWorktree(sourceWorktree, destWorktree, directories)
+		if err != nil {
+			logger.Debug("Failed to preserve directories: %v", err)
+		} else {
+			result.Copied = append(result.Copied, dirResult.Copied...)
+			result.Skipped = append(result.Skipped, dirResult.Skipped...)
+		}
 	}
 
-	// Get preserve patterns (uses merged config: TOML > git config > defaults)
-	patterns := config.GetMergedPreservePatterns(sourceWorktree)
-	excludePatterns := config.GetMergedPreserveExcludePatterns(sourceWorktree)
-
-	// Copy preserved files
-	result, err := workspace.PreserveFilesToWorktree(sourceWorktree, destWorktree, patterns, ignoredFiles, excludePatterns)
-	if err != nil {
-		logger.Debug("Failed to preserve files: %v", err)
+	if len(result.Copied) == 0 && len(result.Skipped) == 0 {
 		return nil
 	}
-
 	return result
 }
 
