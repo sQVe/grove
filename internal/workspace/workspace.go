@@ -596,12 +596,13 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 
 // conversionOpts holds options for worktree creation during conversion.
 type conversionOpts struct {
-	TargetDir        string
-	CurrentBranch    string
-	Branches         string
-	Verbose          bool
-	IgnoredFiles     []string
-	PreservePatterns []string
+	TargetDir           string
+	CurrentBranch       string
+	Branches            string
+	Verbose             bool
+	IgnoredFiles        []string
+	PreservePatterns    []string
+	PreserveDirectories []string
 }
 
 // conversionResult holds the results of worktree creation during conversion.
@@ -648,6 +649,10 @@ func createWorktreesForConversion(opts *conversionOpts) (*conversionResult, erro
 
 	preservedCount, matchedPatterns, err := preserveIgnoredFilesFromList(targetDir, cleanedBranches, ignoredFiles, preservePatterns)
 	if err != nil {
+		return result, err
+	}
+
+	if err := preserveDirectoriesToWorktrees(targetDir, cleanedBranches, opts.PreserveDirectories); err != nil {
 		return result, err
 	}
 
@@ -774,6 +779,28 @@ func preserveIgnoredFilesFromList(sourceDir string, branches, ignoredFiles, patt
 	return len(filesToCopy), matchedPatterns, nil
 }
 
+// preserveDirectoriesToWorktrees copies preserved directories to all worktrees during conversion.
+func preserveDirectoriesToWorktrees(sourceDir string, branches, directories []string) error {
+	if len(directories) == 0 {
+		return nil
+	}
+
+	for _, branch := range branches {
+		sanitizedName := SanitizeBranchName(branch)
+		worktreeDir := filepath.Join(sourceDir, sanitizedName)
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, worktreeDir, directories)
+		if err != nil {
+			return fmt.Errorf("failed to preserve directories to %s: %w", sanitizedName, err)
+		}
+
+		if len(result.Copied) > 0 {
+			logger.Debug("Preserved %d directory files to %s", len(result.Copied), sanitizedName)
+		}
+	}
+	return nil
+}
+
 // validateBranchesForConvert validates that all specified branches exist before conversion
 func validateBranchesForConvert(targetDir, branches string) error {
 	cleanedBranches := parseBranches(branches, "")
@@ -818,6 +845,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 
 	var ignoredFiles []string
 	var preservePatterns []string
+	var preserveDirectories []string
 	if branches != "" {
 		files, err := findIgnoredFiles(targetDir)
 		if err != nil {
@@ -825,8 +853,9 @@ func Convert(targetDir, branches string, verbose bool) error {
 		} else {
 			ignoredFiles = files
 		}
-		// Get preserve patterns BEFORE moving .git to .bare (git config needs .git)
+		// Get preserve config BEFORE moving .git to .bare (git config needs .git)
 		preservePatterns = config.GetMergedPreservePatterns(targetDir)
+		preserveDirectories = config.GetMergedPreserveDirectories(targetDir)
 	}
 
 	currentBranch, err := setupBareRepo(targetDir)
@@ -929,12 +958,13 @@ func Convert(targetDir, branches string, verbose bool) error {
 
 	if branches != "" {
 		result, err := createWorktreesForConversion(&conversionOpts{
-			TargetDir:        targetDir,
-			CurrentBranch:    currentBranch,
-			Branches:         branches,
-			Verbose:          verbose,
-			IgnoredFiles:     ignoredFiles,
-			PreservePatterns: preservePatterns,
+			TargetDir:           targetDir,
+			CurrentBranch:       currentBranch,
+			Branches:            branches,
+			Verbose:             verbose,
+			IgnoredFiles:        ignoredFiles,
+			PreservePatterns:    preservePatterns,
+			PreserveDirectories: preserveDirectories,
 		})
 		if err != nil {
 			if result != nil {

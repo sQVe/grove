@@ -90,6 +90,7 @@ func resetGlobal() {
 	Global.PreservePatterns = nil
 	Global.PreserveExcludePatterns = nil
 	Global.PreserveDirectories = nil
+	Global.LinkPatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
 	Global.Timeout = 0
@@ -284,7 +285,7 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
 		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
-		_ = exec.Command("git", "config", "--unset-all", "grove.convert.preserve").Run()
+		_ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run()
 
 		LoadFromGitConfig()
 

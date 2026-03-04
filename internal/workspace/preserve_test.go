@@ -378,3 +378,187 @@ patterns = [".custom", "*.secret"]
 		}
 	})
 }
+
+func TestPreserveDirectoriesToWorktree(t *testing.T) {
+	t.Parallel()
+
+	t.Run("copies directory tree to destination", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		configDir := filepath.Join(sourceDir, "config")
+		if err := os.MkdirAll(configDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(configDir, "app.toml"), []byte("key=value"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"config"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 1 {
+			t.Errorf("Expected 1 copied file, got %d: %v", len(result.Copied), result.Copied)
+		}
+
+		content, err := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		if err != nil {
+			t.Fatalf("Failed to read copied file: %v", err)
+		}
+		if string(content) != "key=value" {
+			t.Errorf("File content mismatch: got %q", string(content))
+		}
+	})
+
+	t.Run("copies nested directories recursively", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		nestedDir := filepath.Join(sourceDir, ".run", "configs", "dev")
+		if err := os.MkdirAll(nestedDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(nestedDir, "run.xml"), []byte("<config/>"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{".run"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 1 {
+			t.Errorf("Expected 1 copied file, got %d: %v", len(result.Copied), result.Copied)
+		}
+
+		destFile := filepath.Join(destDir, ".run", "configs", "dev", "run.xml")
+		if _, err := os.Stat(destFile); err != nil {
+			t.Errorf("Expected nested file to exist: %v", err)
+		}
+	})
+
+	t.Run("skips files that already exist in destination", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		srcConfigDir := filepath.Join(sourceDir, "config")
+		if err := os.MkdirAll(srcConfigDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(srcConfigDir, "app.toml"), []byte("source"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		dstConfigDir := filepath.Join(destDir, "config")
+		if err := os.MkdirAll(dstConfigDir, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dstConfigDir, "app.toml"), []byte("existing"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"config"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Skipped) != 1 {
+			t.Errorf("Expected 1 skipped file, got %d: %v", len(result.Skipped), result.Skipped)
+		}
+
+		content, _ := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		if string(content) != "existing" {
+			t.Errorf("Existing file was overwritten: got %q", string(content))
+		}
+	})
+
+	t.Run("skips nonexistent source directories", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"nonexistent"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 0 || len(result.Skipped) != 0 {
+			t.Errorf("Expected empty result, got copied=%d skipped=%d", len(result.Copied), len(result.Skipped))
+		}
+	})
+
+	t.Run("rejects path traversal with dot-dot", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"../etc"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 0 {
+			t.Errorf("Expected no copies for path traversal, got %d", len(result.Copied))
+		}
+	})
+
+	t.Run("rejects absolute paths", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"/etc"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 0 {
+			t.Errorf("Expected no copies for absolute path, got %d", len(result.Copied))
+		}
+	})
+
+	t.Run("returns empty result for empty directories list", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 0 || len(result.Skipped) != 0 {
+			t.Errorf("Expected empty result, got copied=%d skipped=%d", len(result.Copied), len(result.Skipped))
+		}
+	})
+
+	t.Run("handles multiple directories", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		for _, dir := range []string{"config", ".run"} {
+			dirPath := filepath.Join(sourceDir, dir)
+			if err := os.MkdirAll(dirPath, fs.DirGit); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dirPath, "file.txt"), []byte(dir), fs.FileGit); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		result, err := PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"config", ".run"})
+		if err != nil {
+			t.Fatalf("PreserveDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Copied) != 2 {
+			t.Errorf("Expected 2 copied files, got %d: %v", len(result.Copied), result.Copied)
+		}
+	})
+}
