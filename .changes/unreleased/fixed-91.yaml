@@ -1,0 +1,4 @@
+kind: Fixed
+body: Show preserve, link, and hook output when using `grove add --switch`
+custom:
+  Issue: 91
