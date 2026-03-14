@@ -569,17 +569,6 @@ debug = false
 
 ## Recipes
 
-### Beads
-
-[Beads](https://beads.sh) auto-discovers its `.beads` database by walking up the directory tree. Initialize Beads at the workspace root and all worktrees share the same state automatically:
-
-```bash
-cd my-project # workspace root (where .bare/ lives)
-br init
-```
-
-Since all worktrees are siblings under the workspace root, `br` finds `.beads/` in the parent directory from any worktree. No symlinks or configuration needed.
-
 ### Git hooks managers
 
 [Husky](https://typicode.github.io/husky/) and [lefthook](https://github.com/evilmartians/lefthook) set `core.hooksPath` to a relative path (`.husky` or `.lefthook`). In a bare worktree setup, this config is shared across all worktrees via `.bare/config`. The relative path resolves correctly from any worktree because the directory exists in every checkout. Re-run the installer after worktree creation to ensure the path is set:
