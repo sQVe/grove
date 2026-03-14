@@ -1,4 +1,4 @@
-# Test: grove add --switch shows preserved files on stderr
+# Test: grove add --switch --detach shows preserved files
 setup_workspace
 
 # Create .gitignore with .env pattern (required for preservation)
@@ -6,14 +6,18 @@ cp $WORK/gitignore-env .gitignore
 exec git add .gitignore
 exec git commit -m 'add gitignore'
 
+# Create tag to detach at
+exec git -C $WORK/testrepo tag v1.0.0
+exec git -C $WORK/workspace/.bare fetch --tags
+
 # Create .env file to be preserved
 cp $WORK/dot-env .env
-exec grove add --switch feature/preserve-switch-test
-stdout '^.*[/\\]feature-preserve-switch-test$'
-! stderr 'Created worktree'
+exec grove add --switch --detach v1.0.0
+stdout '^.*[/\\]v1.0.0$'
+! stderr 'Created detached worktree'
 stderr 'preserved'
 stderr '.env'
-exists ../feature-preserve-switch-test/.env
+exists ../v1.0.0/.env
 
 -- gitignore-env --
 .env

@@ -309,7 +309,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
-		fmt.Println(worktreePath)
+		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
 	} else {
 		logger.Success("Created detached worktree at %s", styles.RenderPath(worktreePath))
 	}
@@ -491,7 +491,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
 	if switchTo {
-		fmt.Println(worktreePath)
+		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
 	} else {
 		logger.Success("Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 	}
