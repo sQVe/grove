@@ -43,7 +43,7 @@ directories = []
 
 [link]
 # Directories to symlink from the source worktree when creating a new one.
-# Useful for sharing tool state (e.g., .beads) across worktrees.
+# Useful for sharing tool state across worktrees.
 # Matched against directory names in the worktree root.
 # Creates relative symlinks so the workspace remains portable.
 patterns = []
