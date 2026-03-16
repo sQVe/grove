@@ -1,0 +1,35 @@
+language: 'en-US'
+tone_instructions: 'Be concise and direct. Flag real issues; skip nitpicks on style already enforced by golangci-lint and prettier.'
+
+reviews:
+  profile: 'assertive'
+  high_level_summary: false
+  review_status: true
+  abort_on_close: true
+
+  path_filters:
+    - '!.beads/**'
+    - '!.mulch/**'
+    - '!.changes/**'
+    - '!coverage/**'
+    - '!bin/**'
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    ignore_title_keywords: ['WIP', 'wip']
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+  learnings:
+    scope: 'local'
+  pull_requests:
+    scope: 'local'
