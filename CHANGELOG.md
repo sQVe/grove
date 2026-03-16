@@ -1,3 +1,8 @@
+## [v1.8.1](https://github.com/sQVe/grove/releases/tag/v1.8.1) - 2026-03-16
+
+### Fixed
+- Show preserve, link, and hook output when using `grove add --switch` ([#91](https://github.com/sQVe/grove/issues/91))
+
 ## [v1.8.0](https://github.com/sQVe/grove/releases/tag/v1.8.0) - 2026-03-04
 
 ### Added
