@@ -11,3 +11,10 @@ repos:
         entry: npx prettier --write --ignore-unknown
         language: system
         types_or: [markdown, json, yaml]
+
+      - id: beads
+        name: beads sync
+        entry: bash scripts/beads-sync.sh
+        language: system
+        pass_filenames: false
+        always_run: true

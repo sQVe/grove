@@ -1,5 +1,5 @@
 [link]
-patterns = [".mulch"]
+patterns = [".beads"]
 
 [hooks]
 add = ["go mod download"]
