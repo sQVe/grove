@@ -649,6 +649,7 @@ func TestFindConfigWorktree(t *testing.T) {
 			t.Fatalf("mkdir: %v", err)
 		}
 		run := func(dir, name string, args ...string) {
+			t.Helper()
 			cmd := exec.Command(name, args...) //nolint:gosec
 			cmd.Dir = dir
 			if err := cmd.Run(); err != nil {
