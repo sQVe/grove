@@ -1,0 +1,2 @@
+kind: Fixed
+body: Apply `[link]` and `[preserve]` patterns when `grove add` runs outside the main worktree, by loading `.grove.toml` from any worktree containing it (preferring the default branch)

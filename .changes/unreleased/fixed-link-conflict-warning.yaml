@@ -1,0 +1,2 @@
+kind: Fixed
+body: Warn when a `[link]` target conflicts with git-tracked content in the destination worktree instead of silently skipping
