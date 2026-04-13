@@ -590,6 +590,9 @@ func findConfigWorktree(bareDir string) string {
 		return ""
 	}
 
+	// Build candidate list: default branch first, then main/master as fallbacks.
+	// The candidates[0] check only deduplicates against the default branch entry;
+	// "main" and "master" are intentionally both kept when default differs.
 	candidates := []string{}
 	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil && defaultBranch != "" {
 		candidates = append(candidates, defaultBranch)
@@ -631,6 +634,7 @@ func preserveFilesFromSource(sourceWorktree, destWorktree, configWorktree string
 		return nil
 	}
 	if configWorktree == "" {
+		logger.Debug("No worktree with .grove.toml found, falling back to source worktree for preserve config")
 		configWorktree = sourceWorktree
 	}
 
@@ -700,6 +704,7 @@ func linkDirectoriesFromSource(sourceWorktree, destWorktree, configWorktree stri
 		return nil
 	}
 	if configWorktree == "" {
+		logger.Debug("No worktree with .grove.toml found, falling back to source worktree for link config")
 		configWorktree = sourceWorktree
 	}
 	patterns := config.GetMergedLinkPatterns(configWorktree)
