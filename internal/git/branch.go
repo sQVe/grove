@@ -210,7 +210,7 @@ func IsUnbornHead(path string) (bool, error) {
 	refPath := strings.TrimPrefix(line, "ref: ")
 
 	looseRef := filepath.Join(gitDir, refPath)
-	if _, err := os.Stat(looseRef); err == nil {
+	if _, err := os.Stat(looseRef); err == nil { //nolint:gosec // refPath read from git's HEAD
 		return false, nil
 	}
 

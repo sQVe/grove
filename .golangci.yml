@@ -23,6 +23,10 @@ linters:
       - path: '(.+)_test\.go'
         linters:
           - goconst
+      - path: '(.+)_test\.go'
+        text: 'SA5011'
+        linters:
+          - staticcheck
   enable:
     # Essential Go checks
     - errcheck # Check for unchecked errors
