@@ -611,6 +611,111 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 	})
 }
 
+func TestLinkDirectoriesFromSource_LoadsConfigFromConfigWorktree(t *testing.T) {
+	tempDir := testutil.TempDir(t)
+
+	configDir := filepath.Join(tempDir, "main")
+	if err := os.MkdirAll(configDir, fs.DirStrict); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	tomlBody := "[link]\npatterns = [\".beads\"]\n"
+	if err := os.WriteFile(filepath.Join(configDir, ".grove.toml"), []byte(tomlBody), fs.FileStrict); err != nil {
+		t.Fatalf("write toml: %v", err)
+	}
+
+	sourceDir := filepath.Join(tempDir, "feature")
+	if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+		t.Fatalf("mkdir source/.beads: %v", err)
+	}
+
+	destDir := filepath.Join(tempDir, "dest")
+	if err := os.MkdirAll(destDir, fs.DirStrict); err != nil {
+		t.Fatalf("mkdir dest: %v", err)
+	}
+
+	result := linkDirectoriesFromSource(sourceDir, destDir, configDir)
+	if result == nil || len(result.Linked) != 1 || result.Linked[0] != ".beads" {
+		t.Fatalf("expected .beads linked, got %+v", result)
+	}
+}
+
+func TestFindConfigWorktree(t *testing.T) {
+	setupBare := func(t *testing.T) (tempDir, bareDir string) {
+		t.Helper()
+		tempDir = testutil.TempDir(t)
+		bareDir = filepath.Join(tempDir, ".bare")
+		srcDir := filepath.Join(tempDir, "src")
+		if err := os.MkdirAll(srcDir, fs.DirStrict); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		run := func(dir, name string, args ...string) {
+			cmd := exec.Command(name, args...) //nolint:gosec
+			cmd.Dir = dir
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("%s %v: %v", name, args, err)
+			}
+		}
+		run(srcDir, "git", "init", "-b", "main")
+		run(srcDir, "git", "config", "user.email", "a@a")
+		run(srcDir, "git", "config", "user.name", "a")
+		run(srcDir, "git", "config", "commit.gpgsign", "false")
+		if err := os.WriteFile(filepath.Join(srcDir, "f.txt"), []byte("x"), fs.FileStrict); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		run(srcDir, "git", "add", ".")
+		run(srcDir, "git", "commit", "-m", "init")
+		run("", "git", "clone", "--bare", srcDir, bareDir)
+		return tempDir, bareDir
+	}
+
+	t.Run("returns main worktree with .grove.toml", func(t *testing.T) {
+		tempDir, bareDir := setupBare(t)
+		mainDir := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("worktree add: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\n"), fs.FileStrict); err != nil {
+			t.Fatalf("write toml: %v", err)
+		}
+		got := findConfigWorktree(bareDir)
+		if got != mainDir {
+			t.Errorf("expected %q, got %q", mainDir, got)
+		}
+	})
+
+	t.Run("falls back to any worktree with .grove.toml", func(t *testing.T) {
+		tempDir, bareDir := setupBare(t)
+		featDir := filepath.Join(tempDir, "feat")
+		cmd := exec.Command("git", "worktree", "add", "-b", "feat", featDir) //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("worktree add: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(featDir, ".grove.toml"), []byte("[link]\n"), fs.FileStrict); err != nil {
+			t.Fatalf("write toml: %v", err)
+		}
+		got := findConfigWorktree(bareDir)
+		if got != featDir {
+			t.Errorf("expected %q, got %q", featDir, got)
+		}
+	})
+
+	t.Run("returns empty when no worktree has .grove.toml", func(t *testing.T) {
+		tempDir, bareDir := setupBare(t)
+		mainDir := filepath.Join(tempDir, "main")
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd.Dir = bareDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("worktree add: %v", err)
+		}
+		if got := findConfigWorktree(bareDir); got != "" {
+			t.Errorf("expected empty, got %q", got)
+		}
+	})
+}
+
 func TestRunAdd_FromValidation(t *testing.T) {
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -830,6 +935,77 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--name") {
 		t.Errorf("expected error to contain '--name' hint, got: %v", err)
+	}
+}
+
+func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	tempDir := testutil.TempDir(t)
+	bareDir := filepath.Join(tempDir, ".bare")
+	srcDir := filepath.Join(tempDir, "src")
+	if err := os.MkdirAll(srcDir, fs.DirStrict); err != nil {
+		t.Fatalf("mkdir src: %v", err)
+	}
+
+	run := func(dir, name string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(name, args...) //nolint:gosec
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("%s %v: %v", name, args, err)
+		}
+	}
+	run(srcDir, "git", "init", "-b", "main")
+	run(srcDir, "git", "config", "user.email", "a@a")
+	run(srcDir, "git", "config", "user.name", "a")
+	run(srcDir, "git", "config", "commit.gpgsign", "false")
+	if err := os.WriteFile(filepath.Join(srcDir, "f.txt"), []byte("x"), fs.FileStrict); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	run(srcDir, "git", "add", ".")
+	run(srcDir, "git", "commit", "-m", "init")
+	run("", "git", "clone", "--bare", srcDir, bareDir)
+	if err := os.RemoveAll(srcDir); err != nil {
+		t.Fatalf("rm src: %v", err)
+	}
+
+	mainDir := filepath.Join(tempDir, "main")
+	cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+	cmd.Dir = bareDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("worktree add main: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(origDir)
+	})
+
+	if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\npatterns = [\".beads\"]\n"), fs.FileStrict); err != nil {
+		t.Fatalf("write toml: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(mainDir, ".beads"), fs.DirStrict); err != nil {
+		t.Fatalf("mkdir .beads: %v", err)
+	}
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runAdd([]string{"feat"}, false, "", "", false, 0, false, ""); err != nil {
+		t.Fatalf("runAdd: %v", err)
+	}
+
+	linkPath := filepath.Join(tempDir, "feat", ".beads")
+	info, err := os.Lstat(linkPath)
+	if err != nil {
+		t.Fatalf("expected symlink at %s: %v", linkPath, err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("expected %s to be a symlink, got mode %v", linkPath, info.Mode())
 	}
 }
 

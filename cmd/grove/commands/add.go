@@ -263,8 +263,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	}
 
 	spin := logger.StartSpinner("Setting up worktree...")
-	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
+	configWorktree := findConfigWorktree(bareDir)
+	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -303,8 +304,9 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	// Note: Auto-lock not applied for detached worktrees (no branch to lock)
 
 	spin := logger.StartSpinner("Setting up worktree...")
-	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
+	configWorktree := findConfigWorktree(bareDir)
+	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	spin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -485,8 +487,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 
 	setupSpin := logger.StartSpinner("Setting up worktree...")
-	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath)
-	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath)
+	configWorktree := findConfigWorktree(bareDir)
+	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
+	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	setupSpin.Stop()
 	hookResult := runAddHooks(sourceWorktree, worktreePath)
 
@@ -577,10 +580,58 @@ func findFallbackSourceWorktree(bareDir string) string {
 	return ""
 }
 
-func preserveFilesFromSource(sourceWorktree, destWorktree string) *workspace.PreserveResult {
+// findConfigWorktree returns a worktree containing .grove.toml. Prefers the
+// configured default branch worktree, then main/master by branch, then a
+// worktree with a directory named main/master. Falls back to any worktree
+// containing .grove.toml. Returns "" when no worktree has the file.
+func findConfigWorktree(bareDir string) string {
+	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	if err != nil || len(infos) == 0 {
+		return ""
+	}
+
+	candidates := []string{}
+	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil && defaultBranch != "" {
+		candidates = append(candidates, defaultBranch)
+	}
+	for _, branch := range []string{"main", "master"} {
+		if len(candidates) == 0 || candidates[0] != branch {
+			candidates = append(candidates, branch)
+		}
+	}
+
+	for _, branch := range candidates {
+		for _, info := range infos {
+			if info.Branch == branch && config.FileConfigExists(info.Path) {
+				return info.Path
+			}
+		}
+	}
+
+	for _, dirName := range candidates {
+		for _, info := range infos {
+			if filepath.Base(info.Path) == dirName && config.FileConfigExists(info.Path) {
+				return info.Path
+			}
+		}
+	}
+
+	for _, info := range infos {
+		if config.FileConfigExists(info.Path) {
+			return info.Path
+		}
+	}
+
+	return ""
+}
+
+func preserveFilesFromSource(sourceWorktree, destWorktree, configWorktree string) *workspace.PreserveResult {
 	if sourceWorktree == "" {
 		logger.Debug("No source worktree, skipping file preservation")
 		return nil
+	}
+	if configWorktree == "" {
+		configWorktree = sourceWorktree
 	}
 
 	result := &workspace.PreserveResult{}
@@ -589,8 +640,8 @@ func preserveFilesFromSource(sourceWorktree, destWorktree string) *workspace.Pre
 	if err != nil {
 		logger.Debug("Failed to find ignored files: %v", err)
 	} else if len(ignoredFiles) > 0 {
-		patterns := config.GetMergedPreservePatterns(sourceWorktree)
-		excludePatterns := config.GetMergedPreserveExcludePatterns(sourceWorktree)
+		patterns := config.GetMergedPreservePatterns(configWorktree)
+		excludePatterns := config.GetMergedPreserveExcludePatterns(configWorktree)
 		fileResult, err := workspace.PreserveFilesToWorktree(sourceWorktree, destWorktree, patterns, ignoredFiles, excludePatterns)
 		if err != nil {
 			logger.Debug("Failed to preserve files: %v", err)
@@ -600,7 +651,7 @@ func preserveFilesFromSource(sourceWorktree, destWorktree string) *workspace.Pre
 		}
 	}
 
-	directories := config.GetMergedPreserveDirectories(sourceWorktree)
+	directories := config.GetMergedPreserveDirectories(configWorktree)
 	if len(directories) > 0 {
 		dirResult, err := workspace.PreserveDirectoriesToWorktree(sourceWorktree, destWorktree, directories)
 		if err != nil {
@@ -643,12 +694,15 @@ func logPreserveResult(result *workspace.PreserveResult) {
 	}
 }
 
-func linkDirectoriesFromSource(sourceWorktree, destWorktree string) *workspace.LinkResult {
+func linkDirectoriesFromSource(sourceWorktree, destWorktree, configWorktree string) *workspace.LinkResult {
 	if sourceWorktree == "" {
 		logger.Debug("No source worktree, skipping directory linking")
 		return nil
 	}
-	patterns := config.GetMergedLinkPatterns(sourceWorktree)
+	if configWorktree == "" {
+		configWorktree = sourceWorktree
+	}
+	patterns := config.GetMergedLinkPatterns(configWorktree)
 	if len(patterns) == 0 {
 		return nil
 	}
