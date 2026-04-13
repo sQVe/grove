@@ -505,7 +505,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			gitFilePath = filepath.Clean(filepath.Join(worktreesDir, worktreeName, gitFilePath))
 		}
 		worktreeDir := filepath.Dir(gitFilePath)
-		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
+		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) { //nolint:gosec // path derived from git's gitdir file
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,

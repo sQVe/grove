@@ -75,7 +75,35 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("skips existing paths", func(t *testing.T) {
+	t.Run("skips when dest is already a symlink", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("../source/.beads", filepath.Join(destDir, ".beads")); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		if err != nil {
+			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
+		}
+
+		if len(result.Linked) != 0 {
+			t.Errorf("Expected nothing linked, got %v", result.Linked)
+		}
+		if len(result.Skipped) != 1 || result.Skipped[0] != ".beads" {
+			t.Errorf("Expected [.beads] in Skipped, got %v", result.Skipped)
+		}
+		if len(result.Conflicts) != 0 {
+			t.Errorf("Expected no conflicts for existing symlink, got %v", result.Conflicts)
+		}
+	})
+
+	t.Run("reports conflict when dest exists as real directory", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
@@ -92,19 +120,11 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
 
-		if len(result.Linked) != 0 {
-			t.Errorf("Expected nothing linked, got %v", result.Linked)
+		if len(result.Conflicts) != 1 || result.Conflicts[0] != ".beads" {
+			t.Errorf("Expected [.beads] in Conflicts, got %v", result.Conflicts)
 		}
-		if len(result.Skipped) != 1 || result.Skipped[0] != ".beads" {
-			t.Errorf("Expected [.beads] in Skipped, got %v", result.Skipped)
-		}
-
-		info, err := os.Lstat(filepath.Join(destDir, ".beads"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			t.Error("Existing directory should not have been replaced with symlink")
+		if len(result.Skipped) != 0 {
+			t.Errorf("Expected Skipped empty when dest is real dir, got %v", result.Skipped)
 		}
 	})
 

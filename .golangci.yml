@@ -23,6 +23,17 @@ linters:
       - path: '(.+)_test\.go'
         linters:
           - goconst
+      # SA5011 false positives: t.Fatal terminates the test, but staticcheck's
+      # flow analysis doesn't know that. Scope narrowly to files where the
+      # "if x == nil { t.Fatal }; x.Field" pattern is used.
+      - path: 'cmd/grove/commands/(clone|exec|fetch|list|lock|prune|remove|status)_test\.go'
+        text: 'SA5011'
+        linters:
+          - staticcheck
+      - path: 'internal/git/worktree_test\.go'
+        text: 'SA5011'
+        linters:
+          - staticcheck
   enable:
     # Essential Go checks
     - errcheck # Check for unchecked errors
