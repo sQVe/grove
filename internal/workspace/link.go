@@ -9,8 +9,9 @@ import (
 
 // LinkResult holds the outcome of a directory linking operation.
 type LinkResult struct {
-	Linked  []string
-	Skipped []string
+	Linked    []string
+	Skipped   []string
+	Conflicts []string
 }
 
 // LinkDirectoriesToWorktree creates relative symlinks in destDir for directories
@@ -46,8 +47,12 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		}
 
 		destPath := filepath.Join(destDir, name)
-		if _, err := os.Lstat(destPath); err == nil {
-			result.Skipped = append(result.Skipped, name)
+		if info, err := os.Lstat(destPath); err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				result.Skipped = append(result.Skipped, name)
+			} else {
+				result.Conflicts = append(result.Conflicts, name)
+			}
 			continue
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return result, fmt.Errorf("checking dest path %s: %w", destPath, err)

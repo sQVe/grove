@@ -684,6 +684,11 @@ func logLinkResult(result *workspace.LinkResult) {
 			}
 		}
 	}
+
+	for _, name := range result.Conflicts {
+		logger.Warning("Cannot link %s: directory exists with git-tracked content. "+
+			"Remove tracked files (or untrack them) so [link] can create a symlink for shared state.", name)
+	}
 }
 
 func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
