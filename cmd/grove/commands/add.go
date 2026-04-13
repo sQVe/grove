@@ -172,6 +172,12 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 				logger.Debug("Using %s as source for file preservation", sourceWorktree)
 			}
 		}
+		if sourceWorktree == "" {
+			if cfg := findConfigWorktree(bareDir); cfg != "" {
+				sourceWorktree = cfg
+				logger.Debug("Using %s (worktree with .grove.toml) as source for file preservation", sourceWorktree)
+			}
+		}
 	}
 	spin.Stop()
 
@@ -745,8 +751,8 @@ func logLinkResult(result *workspace.LinkResult) {
 	}
 
 	for _, name := range result.Conflicts {
-		logger.Warning("Cannot link %s: directory exists with git-tracked content. "+
-			"Remove tracked files (or untrack them) so [link] can create a symlink for shared state.", name)
+		logger.Warning("Cannot link %s: path exists and is not a symlink. "+
+			"Remove or rename it so [link] can create a symlink for shared state.", name)
 	}
 }
 
