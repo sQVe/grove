@@ -669,6 +669,15 @@ func TestFindConfigWorktree(t *testing.T) {
 		return tempDir, bareDir
 	}
 
+	removeWorktree := func(t *testing.T, bareDir, wtDir string) {
+		t.Helper()
+		t.Cleanup(func() {
+			cmd := exec.Command("git", "worktree", "remove", "--force", wtDir) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		})
+	}
+
 	t.Run("returns main worktree with .grove.toml", func(t *testing.T) {
 		tempDir, bareDir := setupBare(t)
 		mainDir := filepath.Join(tempDir, "main")
@@ -677,6 +686,7 @@ func TestFindConfigWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
 		}
+		removeWorktree(t, bareDir, mainDir)
 		if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\n"), fs.FileStrict); err != nil {
 			t.Fatalf("write toml: %v", err)
 		}
@@ -694,6 +704,7 @@ func TestFindConfigWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
 		}
+		removeWorktree(t, bareDir, featDir)
 		if err := os.WriteFile(filepath.Join(featDir, ".grove.toml"), []byte("[link]\n"), fs.FileStrict); err != nil {
 			t.Fatalf("write toml: %v", err)
 		}
@@ -711,6 +722,7 @@ func TestFindConfigWorktree(t *testing.T) {
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
 		}
+		removeWorktree(t, bareDir, mainDir)
 		if got := findConfigWorktree(bareDir); got != "" {
 			t.Errorf("expected empty, got %q", got)
 		}
@@ -983,6 +995,12 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		_ = os.Chdir(origDir)
+		featDir := filepath.Join(tempDir, "feat")
+		for _, wt := range []string{featDir, mainDir} {
+			cmd := exec.Command("git", "worktree", "remove", "--force", wt) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		}
 	})
 
 	if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\npatterns = [\".beads\"]\n"), fs.FileStrict); err != nil {
@@ -1057,7 +1075,15 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("worktree add feat-x: %v", err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
+	t.Cleanup(func() {
+		_ = os.Chdir(origDir)
+		newworkDir := filepath.Join(tempDir, "newwork")
+		for _, wt := range []string{newworkDir, featDir} {
+			cmd := exec.Command("git", "worktree", "remove", "--force", wt) //nolint:gosec
+			cmd.Dir = bareDir
+			_ = cmd.Run()
+		}
+	})
 
 	if err := os.WriteFile(filepath.Join(featDir, ".grove.toml"), []byte("[link]\npatterns = [\".beads\"]\n"), fs.FileStrict); err != nil {
 		t.Fatalf("write toml: %v", err)
