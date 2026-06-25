@@ -1,0 +1,2 @@
+kind: Fixed
+body: Prune now re-points the bare repo's HEAD when it would otherwise dangle on a deleted branch, keeping subsequent `grove add` invocations working.

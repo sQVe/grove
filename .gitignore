@@ -34,9 +34,6 @@ node_modules/
 .env.*
 !.env*.example
 
-# Beads local backup
-.beads/
-
 # AI related files
 .claude.backup-*/
 .claude/tdd-guard/

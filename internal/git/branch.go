@@ -195,39 +195,124 @@ func IsUnbornHead(path string) (bool, error) {
 		return false, err
 	}
 
+	return isHeadDangling(gitDir)
+}
+
+// isHeadDangling reports whether HEAD in gitDir points to a non-existent ref.
+// gitDir must be the actual git directory (e.g., .bare/, or .git/).
+func isHeadDangling(gitDir string) (bool, error) {
 	headFile := filepath.Join(gitDir, "HEAD")
 	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
 	if err != nil {
 		return false, err
 	}
 
-	line := strings.TrimSpace(string(content))
-
-	if !strings.HasPrefix(line, "ref: ") {
+	refPath, ok := strings.CutPrefix(strings.TrimSpace(string(content)), "ref: ")
+	if !ok {
+		// Detached HEAD (raw commit hash) is not dangling.
 		return false, nil
 	}
 
-	refPath := strings.TrimPrefix(line, "ref: ")
+	// Resolve the ref through git so linked worktrees (whose refs live in the
+	// common dir) and packed refs are handled correctly. A non-existent ref
+	// means HEAD dangles; show-ref --quiet exits non-zero in that case.
+	cmd, cancel := GitCommand("git", "--git-dir", gitDir, "show-ref", "--verify", "--quiet", refPath) //nolint:gosec // refPath read from git's HEAD
+	defer cancel()
+	return runGitCommand(cmd, true) != nil, nil
+}
 
-	looseRef := filepath.Join(gitDir, refPath)
-	if _, err := os.Stat(looseRef); err == nil { //nolint:gosec // refPath read from git's HEAD
-		return false, nil
+// SetSymbolicRef updates a symbolic reference (e.g., HEAD) to point at target.
+func SetSymbolicRef(repoPath, name, target string) error {
+	if repoPath == "" || name == "" || target == "" {
+		return errors.New("repository path, name, and target cannot be empty")
 	}
 
-	packedRefsPath := filepath.Join(gitDir, "packed-refs")
-	if packedRefs, err := os.ReadFile(packedRefsPath); err == nil { // nolint:gosec
-		for _, packedLine := range strings.Split(string(packedRefs), "\n") {
-			if strings.HasPrefix(packedLine, "#") || strings.HasPrefix(packedLine, "^") {
-				continue
-			}
-			fields := strings.Fields(packedLine)
-			if len(fields) >= 2 && fields[1] == refPath {
-				return false, nil
+	logger.Debug("Executing: git symbolic-ref %s %s in %s", name, target, repoPath)
+	cmd, cancel := GitCommand("git", "symbolic-ref", name, target) //nolint:gosec // refs validated by git
+	defer cancel()
+	cmd.Dir = repoPath
+	return runGitCommand(cmd, true)
+}
+
+// RestoreBareHeadIfDangling re-points the bare repo's HEAD to a surviving
+// branch when it dangles (points at a deleted ref). Returns the new target
+// branch, or empty if HEAD was already valid or no surviving branch was found.
+//
+// Preference order: origin/HEAD's target, "main", "master", first local branch.
+func RestoreBareHeadIfDangling(bareDir string) (string, error) {
+	if bareDir == "" {
+		return "", errors.New("bare directory cannot be empty")
+	}
+
+	dangling, err := isHeadDangling(bareDir)
+	if err != nil {
+		return "", err
+	}
+	if !dangling {
+		return "", nil
+	}
+
+	branches, err := listLocalBranches(bareDir)
+	if err != nil {
+		return "", err
+	}
+	if len(branches) == 0 {
+		return "", nil
+	}
+
+	target := chooseBareHeadTarget(bareDir, branches)
+	if target == "" {
+		return "", nil
+	}
+
+	if err := SetSymbolicRef(bareDir, "HEAD", "refs/heads/"+target); err != nil {
+		return "", err
+	}
+	return target, nil
+}
+
+func listLocalBranches(repoPath string) ([]string, error) {
+	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname:short)", "refs/heads/")
+	defer cancel()
+	cmd.Dir = repoPath
+
+	out, err := executeWithOutputBuffer(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	var branches []string
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		if line := strings.TrimSpace(scanner.Text()); line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches, scanner.Err()
+}
+
+func chooseBareHeadTarget(bareDir string, branches []string) string {
+	cmd, cancel := GitCommand("git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	defer cancel()
+	cmd.Dir = bareDir
+	if out, err := cmd.Output(); err == nil {
+		if upstream, ok := strings.CutPrefix(strings.TrimSpace(string(out)), "origin/"); ok {
+			for _, b := range branches {
+				if b == upstream {
+					return b
+				}
 			}
 		}
 	}
 
-	return true, nil
+	for _, preferred := range []string{"main", "master"} {
+		for _, b := range branches {
+			if b == preferred {
+				return b
+			}
+		}
+	}
+	return branches[0]
 }
 
 // DeleteBranch deletes a local branch
