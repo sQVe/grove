@@ -1,6 +1,3 @@
-[link]
-patterns = [".beads"]
-
 [hooks]
 add = ["go mod download"]
 

@@ -156,7 +156,7 @@ debug = false
 	t.Run("parses link patterns from TOML", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		tomlContent := `[link]
-patterns = [".beads", ".cursor"]
+patterns = [".claude", ".cursor"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
@@ -168,7 +168,7 @@ patterns = [".beads", ".cursor"]
 			t.Fatalf("LoadFromFile failed: %v", err)
 		}
 
-		expected := []string{".beads", ".cursor"}
+		expected := []string{".claude", ".cursor"}
 		if len(cfg.Link.Patterns) != len(expected) {
 			t.Errorf("Expected %d patterns, got %d", len(expected), len(cfg.Link.Patterns))
 		}

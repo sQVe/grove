@@ -8,7 +8,6 @@ reviews:
   abort_on_close: true
 
   path_filters:
-    - '!.beads/**'
     - '!.mulch/**'
     - '!.changes/**'
     - '!coverage/**'

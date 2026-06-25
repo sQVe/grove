@@ -618,14 +618,14 @@ func TestLinkDirectoriesFromSource_LoadsConfigFromConfigWorktree(t *testing.T) {
 	if err := os.MkdirAll(configDir, fs.DirStrict); err != nil {
 		t.Fatalf("mkdir config: %v", err)
 	}
-	tomlBody := "[link]\npatterns = [\".beads\"]\n"
+	tomlBody := "[link]\npatterns = [\".claude\"]\n"
 	if err := os.WriteFile(filepath.Join(configDir, ".grove.toml"), []byte(tomlBody), fs.FileStrict); err != nil {
 		t.Fatalf("write toml: %v", err)
 	}
 
 	sourceDir := filepath.Join(tempDir, "feature")
-	if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
-		t.Fatalf("mkdir source/.beads: %v", err)
+	if err := os.MkdirAll(filepath.Join(sourceDir, ".claude"), fs.DirStrict); err != nil {
+		t.Fatalf("mkdir source/.claude: %v", err)
 	}
 
 	destDir := filepath.Join(tempDir, "dest")
@@ -634,8 +634,8 @@ func TestLinkDirectoriesFromSource_LoadsConfigFromConfigWorktree(t *testing.T) {
 	}
 
 	result := linkDirectoriesFromSource(sourceDir, destDir, configDir)
-	if result == nil || len(result.Linked) != 1 || result.Linked[0] != ".beads" {
-		t.Fatalf("expected .beads linked, got %+v", result)
+	if result == nil || len(result.Linked) != 1 || result.Linked[0] != ".claude" {
+		t.Fatalf("expected .claude linked, got %+v", result)
 	}
 }
 
@@ -1003,11 +1003,11 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		}
 	})
 
-	if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\npatterns = [\".beads\"]\n"), fs.FileStrict); err != nil {
+	if err := os.WriteFile(filepath.Join(mainDir, ".grove.toml"), []byte("[link]\npatterns = [\".claude\"]\n"), fs.FileStrict); err != nil {
 		t.Fatalf("write toml: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(mainDir, ".beads"), fs.DirStrict); err != nil {
-		t.Fatalf("mkdir .beads: %v", err)
+	if err := os.MkdirAll(filepath.Join(mainDir, ".claude"), fs.DirStrict); err != nil {
+		t.Fatalf("mkdir .claude: %v", err)
 	}
 
 	if err := os.Chdir(tempDir); err != nil {
@@ -1018,7 +1018,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		t.Fatalf("runAdd: %v", err)
 	}
 
-	linkPath := filepath.Join(tempDir, "feat", ".beads")
+	linkPath := filepath.Join(tempDir, "feat", ".claude")
 	info, err := os.Lstat(linkPath)
 	if err != nil {
 		t.Fatalf("expected symlink at %s: %v", linkPath, err)
@@ -1085,11 +1085,11 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		}
 	})
 
-	if err := os.WriteFile(filepath.Join(featDir, ".grove.toml"), []byte("[link]\npatterns = [\".beads\"]\n"), fs.FileStrict); err != nil {
+	if err := os.WriteFile(filepath.Join(featDir, ".grove.toml"), []byte("[link]\npatterns = [\".claude\"]\n"), fs.FileStrict); err != nil {
 		t.Fatalf("write toml: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(featDir, ".beads"), fs.DirStrict); err != nil {
-		t.Fatalf("mkdir .beads: %v", err)
+	if err := os.MkdirAll(filepath.Join(featDir, ".claude"), fs.DirStrict); err != nil {
+		t.Fatalf("mkdir .claude: %v", err)
 	}
 
 	if err := os.Chdir(tempDir); err != nil {
@@ -1100,7 +1100,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		t.Fatalf("runAdd: %v", err)
 	}
 
-	linkPath := filepath.Join(tempDir, "newwork", ".beads")
+	linkPath := filepath.Join(tempDir, "newwork", ".claude")
 	info, err := os.Lstat(linkPath)
 	if err != nil {
 		t.Fatalf("expected symlink at %s: %v", linkPath, err)

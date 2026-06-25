@@ -17,20 +17,20 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".claude"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
 
-		if len(result.Linked) != 1 || result.Linked[0] != ".beads" {
-			t.Errorf("Expected [.beads] in Linked, got %v", result.Linked)
+		if len(result.Linked) != 1 || result.Linked[0] != ".claude" {
+			t.Errorf("Expected [.claude] in Linked, got %v", result.Linked)
 		}
 
-		destPath := filepath.Join(destDir, ".beads")
+		destPath := filepath.Join(destDir, ".claude")
 		info, err := os.Lstat(destPath)
 		if err != nil {
 			t.Fatalf("Symlink not created: %v", err)
@@ -45,16 +45,16 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".claude"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
 
-		_, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		_, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
 
-		target, err := os.Readlink(filepath.Join(destDir, ".beads"))
+		target, err := os.Readlink(filepath.Join(destDir, ".claude"))
 		if err != nil {
 			t.Fatalf("Readlink failed: %v", err)
 		}
@@ -62,11 +62,11 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected relative symlink target, got %q", target)
 		}
 
-		resolved, err := filepath.EvalSymlinks(filepath.Join(destDir, ".beads"))
+		resolved, err := filepath.EvalSymlinks(filepath.Join(destDir, ".claude"))
 		if err != nil {
 			t.Fatalf("EvalSymlinks failed: %v", err)
 		}
-		expected, err := filepath.EvalSymlinks(filepath.Join(sourceDir, ".beads"))
+		expected, err := filepath.EvalSymlinks(filepath.Join(sourceDir, ".claude"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,14 +80,14 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".claude"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink("../source/.beads", filepath.Join(destDir, ".beads")); err != nil {
+		if err := os.Symlink("../source/.claude", filepath.Join(destDir, ".claude")); err != nil {
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
@@ -95,8 +95,8 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		if len(result.Linked) != 0 {
 			t.Errorf("Expected nothing linked, got %v", result.Linked)
 		}
-		if len(result.Skipped) != 1 || result.Skipped[0] != ".beads" {
-			t.Errorf("Expected [.beads] in Skipped, got %v", result.Skipped)
+		if len(result.Skipped) != 1 || result.Skipped[0] != ".claude" {
+			t.Errorf("Expected [.claude] in Skipped, got %v", result.Skipped)
 		}
 		if len(result.Conflicts) != 0 {
 			t.Errorf("Expected no conflicts for existing symlink, got %v", result.Conflicts)
@@ -108,20 +108,20 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".claude"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.MkdirAll(filepath.Join(destDir, ".beads"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(destDir, ".claude"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
 
-		if len(result.Conflicts) != 1 || result.Conflicts[0] != ".beads" {
-			t.Errorf("Expected [.beads] in Conflicts, got %v", result.Conflicts)
+		if len(result.Conflicts) != 1 || result.Conflicts[0] != ".claude" {
+			t.Errorf("Expected [.claude] in Conflicts, got %v", result.Conflicts)
 		}
 		if len(result.Skipped) != 0 {
 			t.Errorf("Expected Skipped empty when dest is real dir, got %v", result.Skipped)
@@ -161,11 +161,11 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.WriteFile(filepath.Join(sourceDir, ".beads"), []byte("file"), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(filepath.Join(sourceDir, ".claude"), []byte("file"), 0o644); err != nil { //nolint:gosec
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
@@ -179,13 +179,13 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		for _, name := range []string{".beads", ".cursor"} {
+		for _, name := range []string{".claude", ".cursor"} {
 			if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
 				t.Fatal(err)
 			}
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads", ".cursor"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude", ".cursor"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
@@ -203,16 +203,16 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(targetDir, "data"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink(filepath.Join(targetDir, "data"), filepath.Join(sourceDir, ".beads")); err != nil {
+		if err := os.Symlink(filepath.Join(targetDir, "data"), filepath.Join(sourceDir, ".claude")); err != nil {
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
-		if len(result.Linked) != 1 || result.Linked[0] != ".beads" {
-			t.Errorf("Expected [.beads] in Linked, got %v", result.Linked)
+		if len(result.Linked) != 1 || result.Linked[0] != ".claude" {
+			t.Errorf("Expected [.claude] in Linked, got %v", result.Linked)
 		}
 	})
 
@@ -221,16 +221,16 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.MkdirAll(filepath.Join(sourceDir, ".beads-data"), fs.DirStrict); err != nil {
+		if err := os.MkdirAll(filepath.Join(sourceDir, ".claude-data"), fs.DirStrict); err != nil {
 			t.Fatal(err)
 		}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".beads*"})
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{".claude*"})
 		if err != nil {
 			t.Fatalf("LinkDirectoriesToWorktree failed: %v", err)
 		}
-		if len(result.Linked) != 1 || result.Linked[0] != ".beads-data" {
-			t.Errorf("Expected [.beads-data] in Linked, got %v", result.Linked)
+		if len(result.Linked) != 1 || result.Linked[0] != ".claude-data" {
+			t.Errorf("Expected [.claude-data] in Linked, got %v", result.Linked)
 		}
 	})
 }
