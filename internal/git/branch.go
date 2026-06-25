@@ -207,33 +207,18 @@ func isHeadDangling(gitDir string) (bool, error) {
 		return false, err
 	}
 
-	line := strings.TrimSpace(string(content))
-
-	if !strings.HasPrefix(line, "ref: ") {
+	refPath, ok := strings.CutPrefix(strings.TrimSpace(string(content)), "ref: ")
+	if !ok {
+		// Detached HEAD (raw commit hash) is not dangling.
 		return false, nil
 	}
 
-	refPath := strings.TrimPrefix(line, "ref: ")
-
-	looseRef := filepath.Join(gitDir, refPath)
-	if _, err := os.Stat(looseRef); err == nil { //nolint:gosec // refPath read from git's HEAD
-		return false, nil
-	}
-
-	packedRefsPath := filepath.Join(gitDir, "packed-refs")
-	if packedRefs, err := os.ReadFile(packedRefsPath); err == nil { // nolint:gosec
-		for _, packedLine := range strings.Split(string(packedRefs), "\n") {
-			if strings.HasPrefix(packedLine, "#") || strings.HasPrefix(packedLine, "^") {
-				continue
-			}
-			fields := strings.Fields(packedLine)
-			if len(fields) >= 2 && fields[1] == refPath {
-				return false, nil
-			}
-		}
-	}
-
-	return true, nil
+	// Resolve the ref through git so linked worktrees (whose refs live in the
+	// common dir) and packed refs are handled correctly. A non-existent ref
+	// means HEAD dangles; show-ref --quiet exits non-zero in that case.
+	cmd, cancel := GitCommand("git", "--git-dir", gitDir, "show-ref", "--verify", "--quiet", refPath) //nolint:gosec // refPath read from git's HEAD
+	defer cancel()
+	return runGitCommand(cmd, true) != nil, nil
 }
 
 // SetSymbolicRef updates a symbolic reference (e.g., HEAD) to point at target.

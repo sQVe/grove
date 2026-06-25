@@ -1183,6 +1183,21 @@ func TestIsUnbornHead(t *testing.T) {
 			t.Error("expected unborn to be false for detached HEAD")
 		}
 	})
+
+	t.Run("returns false for linked worktree on a valid branch", func(t *testing.T) {
+		t.Parallel()
+		// Linked worktree: refs live in the common dir, not the worktree's
+		// own git dir. A file-based ref lookup would misreport this as unborn.
+		w := testgit.NewGroveWorkspace(t, "main", "feature")
+
+		unborn, err := IsUnbornHead(w.WorktreePath("feature"))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if unborn {
+			t.Error("expected unborn to be false for linked worktree on a valid branch")
+		}
+	})
 }
 
 func TestSetSymbolicRef(t *testing.T) {
