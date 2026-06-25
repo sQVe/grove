@@ -1184,3 +1184,124 @@ func TestIsUnbornHead(t *testing.T) {
 		}
 	})
 }
+
+func TestSetSymbolicRef(t *testing.T) {
+	t.Parallel()
+
+	t.Run("re-points HEAD to an existing branch", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t, "main", "feature")
+
+		if err := SetSymbolicRef(w.BareDir, "HEAD", "refs/heads/feature"); err != nil {
+			t.Fatalf("SetSymbolicRef failed: %v", err)
+		}
+
+		branch, err := GetDefaultBranch(w.BareDir)
+		if err != nil {
+			t.Fatalf("GetDefaultBranch failed: %v", err)
+		}
+		if branch != "feature" {
+			t.Errorf("expected HEAD to point to feature, got %q", branch)
+		}
+	})
+
+	t.Run("returns error for empty arguments", func(t *testing.T) {
+		t.Parallel()
+		if err := SetSymbolicRef("", "HEAD", "refs/heads/main"); err == nil {
+			t.Error("expected error for empty repo path")
+		}
+		if err := SetSymbolicRef("/tmp", "", "refs/heads/main"); err == nil {
+			t.Error("expected error for empty name")
+		}
+		if err := SetSymbolicRef("/tmp", "HEAD", ""); err == nil {
+			t.Error("expected error for empty target")
+		}
+	})
+}
+
+func TestRestoreBareHeadIfDangling(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no-op when HEAD is valid", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t, "main", "feature")
+
+		target, err := RestoreBareHeadIfDangling(w.BareDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if target != "" {
+			t.Errorf("expected empty target for valid HEAD, got %q", target)
+		}
+
+		branch, err := GetDefaultBranch(w.BareDir)
+		if err != nil {
+			t.Fatalf("GetDefaultBranch failed: %v", err)
+		}
+		if branch != "main" {
+			t.Errorf("expected HEAD unchanged at main, got %q", branch)
+		}
+	})
+
+	t.Run("re-points HEAD when it dangles after branch deletion", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t, "feature", "main")
+		// HEAD points to "feature" (first branch creates bare HEAD).
+		// Remove the feature worktree and delete the branch behind HEAD's back.
+		w.RunOutput("worktree", "remove", "--force", w.WorktreePath("feature"))
+		w.RunOutput("branch", "-D", "feature")
+
+		target, err := RestoreBareHeadIfDangling(w.BareDir)
+		if err != nil {
+			t.Fatalf("RestoreBareHeadIfDangling failed: %v", err)
+		}
+		if target != "main" {
+			t.Errorf("expected target main, got %q", target)
+		}
+
+		branch, err := GetDefaultBranch(w.BareDir)
+		if err != nil {
+			t.Fatalf("GetDefaultBranch failed: %v", err)
+		}
+		if branch != "main" {
+			t.Errorf("expected HEAD updated to main, got %q", branch)
+		}
+	})
+
+	t.Run("prefers origin/HEAD target when available", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t, "feature", "main", "develop")
+
+		// Fake an origin remote pointing back at the bare so origin/HEAD resolves.
+		w.RunOutput("remote", "add", "origin", w.BareDir)
+		w.RunOutput("fetch", "origin")
+		w.RunOutput("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+
+		// Now break HEAD.
+		w.RunOutput("worktree", "remove", "--force", w.WorktreePath("feature"))
+		w.RunOutput("branch", "-D", "feature")
+
+		target, err := RestoreBareHeadIfDangling(w.BareDir)
+		if err != nil {
+			t.Fatalf("RestoreBareHeadIfDangling failed: %v", err)
+		}
+		if target != "develop" {
+			t.Errorf("expected target develop (from origin/HEAD), got %q", target)
+		}
+	})
+
+	t.Run("returns empty when no branches remain", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t, "only")
+		w.RunOutput("worktree", "remove", "--force", w.WorktreePath("only"))
+		w.RunOutput("branch", "-D", "only")
+
+		target, err := RestoreBareHeadIfDangling(w.BareDir)
+		if err != nil {
+			t.Fatalf("RestoreBareHeadIfDangling failed: %v", err)
+		}
+		if target != "" {
+			t.Errorf("expected empty target when no branches remain, got %q", target)
+		}
+	})
+}

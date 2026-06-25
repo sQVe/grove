@@ -351,6 +351,18 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		}
 	}
 
+	// Branch deletion can leave the bare repo's HEAD pointing at a deleted
+	// ref, which breaks future `git worktree add` invocations.
+	var restoredHead string
+	if deletedBranches > 0 {
+		newHead, err := git.RestoreBareHeadIfDangling(bareDir)
+		if err != nil {
+			logger.Warning("Could not restore bare HEAD: %v", err)
+		} else {
+			restoredHead = newHead
+		}
+	}
+
 	// Display results
 	if len(pruned) > 0 {
 		if len(pruned) == 1 {
@@ -367,6 +379,9 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 			} else {
 				logger.Dimmed("    ↳ deleted %d local branches", deletedBranches)
 			}
+		}
+		if restoredHead != "" {
+			logger.Dimmed("    ↳ updated bare HEAD to %s", restoredHead)
 		}
 		if len(keptBranches) > 0 {
 			if len(keptBranches) == 1 {
