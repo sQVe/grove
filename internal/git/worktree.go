@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,7 +28,19 @@ type WorktreeInfo struct {
 	LockReason     string // Reason for lock (empty if not locked)
 	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
 	Detached       bool   // Worktree is in detached HEAD state
+	Prunable       bool   // Git marks the worktree metadata as prunable
 }
+
+type worktreeListEntry struct {
+	Path       string
+	Branch     string
+	Detached   bool
+	Locked     bool
+	LockReason string
+	Prunable   bool
+}
+
+const gitWorktreeSubcommand = "worktree"
 
 // CreateWorktree creates a new worktree from a bare repository
 func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
@@ -42,7 +55,7 @@ func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
 	}
 
 	logger.Debug("Executing: git worktree add --relative-paths %s %s", worktreePath, branch)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", worktreePath, branch)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", worktreePath, branch)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -63,7 +76,7 @@ func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bo
 	}
 
 	logger.Debug("Executing: git worktree add --relative-paths -b %s %s", branch, worktreePath)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "-b", branch, worktreePath)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -87,7 +100,7 @@ func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string
 	}
 
 	logger.Debug("Executing: git worktree add --relative-paths -b %s %s %s", branch, worktreePath, base)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "-b", branch, worktreePath, base)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath, base)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -108,7 +121,7 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 	}
 
 	logger.Debug("Executing: git worktree add --relative-paths --detach %s %s", worktreePath, ref)
-	cmd, cancel := GitCommand("git", "worktree", "add", "--relative-paths", "--detach", worktreePath, ref)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "--detach", worktreePath, ref)
 	defer cancel()
 	cmd.Dir = bareRepo
 
@@ -117,12 +130,25 @@ func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) erro
 
 // RemoveWorktree removes a worktree directory
 func RemoveWorktree(bareDir, worktreePath string, force bool) error {
-	args := []string{"worktree", "remove", worktreePath}
+	args := []string{gitWorktreeSubcommand, "remove", worktreePath}
 	if force {
 		args = append(args, "--force")
 	}
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
 	cmd, cancel := GitCommand("git", args...) // nolint:gosec // Worktree path comes from git worktree list
+	defer cancel()
+	cmd.Dir = bareDir
+	return runGitCommand(cmd, true)
+}
+
+// PruneWorktrees removes git-prunable worktree metadata.
+func PruneWorktrees(bareDir string) error {
+	if bareDir == "" {
+		return errors.New("bare directory path cannot be empty")
+	}
+
+	logger.Debug("Executing: git worktree prune in %s", bareDir)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "prune")
 	defer cancel()
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
@@ -134,7 +160,7 @@ func RepairWorktree(bareDir, worktreePath string) error {
 		return errors.New("bare directory path cannot be empty")
 	}
 
-	args := []string{"worktree", "repair"}
+	args := []string{gitWorktreeSubcommand, "repair"}
 	if worktreePath != "" {
 		args = append(args, worktreePath)
 	}
@@ -149,8 +175,21 @@ func RepairWorktree(bareDir, worktreePath string) error {
 
 // ListWorktrees returns paths to existing worktrees, excluding the main repository
 func ListWorktrees(repoPath string) ([]string, error) {
+	entries, err := listWorktreeEntries(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	worktrees := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		worktrees = append(worktrees, entry.Path)
+	}
+	return worktrees, nil
+}
+
+func listWorktreeEntries(repoPath string) ([]worktreeListEntry, error) {
 	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
-	cmd, cancel := GitCommand("git", "worktree", "list", "--porcelain")
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "list", "--porcelain")
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -159,91 +198,130 @@ func ListWorktrees(repoPath string) ([]string, error) {
 		return nil, err
 	}
 
+	return parseWorktreeListPorcelain(out, repoPath)
+}
+
+func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEntry, error) {
 	absRepoPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var worktrees []string
-	scanner := bufio.NewScanner(out)
-	for scanner.Scan() {
-		line := scanner.Text()
+	var entries []worktreeListEntry
+	var entry worktreeListEntry
 
-		// Porcelain format: "worktree /path/to/worktree" on its own line
-		if !strings.HasPrefix(line, "worktree ") {
-			continue
+	flush := func() error {
+		if entry.Path == "" {
+			return nil
 		}
 
-		worktreePath := strings.TrimPrefix(line, "worktree ")
-		// Normalize path separators (git on Windows uses forward slashes)
-		worktreePath = filepath.FromSlash(worktreePath)
-
+		worktreePath := filepath.FromSlash(entry.Path)
 		absWorktreePath, err := filepath.Abs(worktreePath)
 		if err != nil {
-			return nil, err
+			return err
 		}
+		if !fs.PathsEqual(absWorktreePath, absRepoPath) {
+			entry.Path = absWorktreePath
+			entries = append(entries, entry)
+		}
+		entry = worktreeListEntry{}
+		return nil
+	}
 
-		// Skip the main worktree (same as repo path)
-		// Use fs.PathsEqual for cross-platform comparison (case-insensitive on Windows)
-		if fs.PathsEqual(absWorktreePath, absRepoPath) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			if err := flush(); err != nil {
+				return nil, err
+			}
 			continue
 		}
 
-		worktrees = append(worktrees, absWorktreePath)
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			entry.Path = strings.TrimPrefix(line, "worktree ")
+		case strings.HasPrefix(line, "branch "):
+			entry.Branch = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
+		case line == "detached":
+			entry.Detached = true
+			entry.Branch = "(detached)"
+		case line == "locked" || strings.HasPrefix(line, "locked "):
+			entry.Locked = true
+			entry.LockReason = strings.TrimSpace(strings.TrimPrefix(line, "locked"))
+		case line == "prunable" || strings.HasPrefix(line, "prunable "):
+			entry.Prunable = true
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	if err := flush(); err != nil {
+		return nil, err
 	}
 
-	return worktrees, scanner.Err()
+	return entries, nil
 }
 
 // ListWorktreesWithInfo returns info for all worktrees in a grove workspace.
 func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
-	paths, err := ListWorktrees(bareDir)
+	entries, err := listWorktreeEntries(bareDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var infos []*WorktreeInfo
-	for _, path := range paths {
+	for _, entry := range entries {
+		path := entry.Path
 		var info *WorktreeInfo
+		if entry.Prunable {
+			info = &WorktreeInfo{
+				Path:       path,
+				Branch:     entry.Branch,
+				Detached:   entry.Detached,
+				Locked:     entry.Locked,
+				LockReason: entry.LockReason,
+				Prunable:   true,
+			}
+			infos = append(infos, info)
+			continue
+		}
+
 		if fast {
-			branch, detached, err := GetCurrentBranchOrDetached(path)
-			if err != nil {
-				if errors.Is(err, ErrDetachedHead) {
-					info = &WorktreeInfo{
-						Path:     path,
-						Branch:   "(detached)",
-						Detached: true,
-					}
-				} else {
-					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
-					continue
-				}
-			} else {
-				info = &WorktreeInfo{
-					Path:     path,
-					Branch:   branch,
-					Detached: detached,
-				}
+			info = &WorktreeInfo{
+				Path:     path,
+				Branch:   entry.Branch,
+				Detached: entry.Detached,
 			}
 		} else {
 			var err error
 			info, err = GetWorktreeInfo(path)
 			if err != nil {
-				if errors.Is(err, ErrDetachedHead) {
+				switch {
+				case errors.Is(err, ErrDetachedHead):
 					info = &WorktreeInfo{
 						Path:     path,
 						Branch:   "(detached)",
 						Detached: true,
 					}
-				} else {
+				case entry.Locked:
+					info = &WorktreeInfo{
+						Path:       path,
+						Branch:     entry.Branch,
+						Detached:   entry.Detached,
+						Locked:     true,
+						LockReason: entry.LockReason,
+						Prunable:   true,
+					}
+				default:
 					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
 					continue
 				}
 			}
 		}
 
-		info.Locked = IsWorktreeLocked(path)
-		info.LockReason = GetWorktreeLockReason(path)
+		info.Locked = entry.Locked
+		info.LockReason = entry.LockReason
 
 		infos = append(infos, info)
 	}

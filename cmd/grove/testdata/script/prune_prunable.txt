@@ -1,0 +1,30 @@
+# Test: grove prune reaps git-prunable worktrees by default
+setup_workspace feature-gone feature-live feature-locked
+
+exec grove add feature-gone
+exec grove add feature-live
+exec grove add feature-locked
+exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'keep'
+rm -rf ../feature-gone
+rm -rf ../feature-locked
+
+exec grove prune
+stderr 'Would prune 1 worktree'
+stderr 'feature-gone'
+stderr 'prunable'
+stderr 'Would skip 1 worktree'
+stderr 'feature-locked'
+stderr 'locked, use --force'
+! stderr 'corrupted'
+exists ../feature-live
+
+exec grove prune --commit
+stderr 'Pruned 1 worktree'
+stderr 'feature-gone'
+stderr 'Skipped 1 worktree'
+stderr 'feature-locked'
+! stderr 'corrupted'
+exec git -C $WORK/workspace/.bare worktree list --porcelain
+! stdout 'feature-gone'
+stdout 'feature-live'
+stdout 'feature-locked'

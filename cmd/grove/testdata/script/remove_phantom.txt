@@ -1,10 +1,9 @@
-# Test: grove remove shows warning for phantom worktree
+# Test: grove remove does not treat git-prunable worktrees as corrupted
 setup_workspace phantom-test
 
 exec grove add phantom-test
 rm -r ../phantom-test
 
-# Grove skips corrupted worktrees and then can't find it
 ! exec grove remove phantom-test
-stderr 'may be corrupted'
-stderr '✗ worktree not found'
+! stderr 'may be corrupted'
+stderr 'failed to check worktree status'

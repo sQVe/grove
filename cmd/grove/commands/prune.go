@@ -36,6 +36,7 @@ const (
 	pruneDetached pruneType = "detached"
 	pruneStale    pruneType = "stale"
 	pruneMerged   pruneType = "merged"
+	prunePrunable pruneType = "prunable"
 )
 
 // pruneCandidate represents a worktree that could be pruned
@@ -145,6 +146,16 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	// Find prune candidates
 	var candidates []pruneCandidate
 	for _, info := range infos {
+		if info.Prunable {
+			reason := determineSkipReason(info, cwd, force)
+			candidates = append(candidates, pruneCandidate{
+				info:      info,
+				reason:    reason,
+				pruneType: prunePrunable,
+			})
+			continue
+		}
+
 		// Check for gone upstream
 		if info.Gone {
 			reason := determineSkipReason(info, cwd, force)
@@ -208,11 +219,14 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 
 	// Skip reasons that can be overridden with --force
 	if !force {
-		if info.Dirty {
-			return skipDirty
-		}
 		if info.Locked {
 			return skipLocked
+		}
+		if info.Prunable {
+			return skipNone
+		}
+		if info.Dirty {
+			return skipDirty
 		}
 		if info.Ahead > 0 {
 			return skipUnpushed
@@ -234,6 +248,9 @@ func displayDryRun(candidates []pruneCandidate) error {
 
 	for _, candidate := range candidates {
 		label := formatter.WorktreeLabel(candidate.info)
+		if candidate.pruneType == prunePrunable {
+			label = fmt.Sprintf("%s (%s)", label, candidate.pruneType)
+		}
 		if candidate.pruneType == pruneStale && candidate.staleAge != "" {
 			label = fmt.Sprintf("%s (%s)", label, candidate.staleAge)
 		}
@@ -303,6 +320,9 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 
 	for _, candidate := range candidates {
 		label := formatter.WorktreeLabel(candidate.info)
+		if candidate.pruneType == prunePrunable {
+			label = fmt.Sprintf("%s (%s)", label, candidate.pruneType)
+		}
 
 		if candidate.reason != skipNone {
 			skipped = append(skipped, fmt.Sprintf("%s (%s)", label, candidate.reason))
@@ -310,7 +330,13 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		}
 
 		// Actually remove the worktree
-		if err := git.RemoveWorktree(bareDir, candidate.info.Path, force); err != nil {
+		var err error
+		if candidate.pruneType == prunePrunable {
+			err = git.PruneWorktrees(bareDir)
+		} else {
+			err = git.RemoveWorktree(bareDir, candidate.info.Path, force)
+		}
+		if err != nil {
 			failed = append(failed, fmt.Sprintf("%s: %v", label, err))
 			continue
 		}

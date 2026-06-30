@@ -143,6 +143,43 @@ func TestIsWorktree(t *testing.T) {
 }
 
 func TestListWorktrees(t *testing.T) {
+	t.Run("parses porcelain metadata for live and prunable worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		livePath := filepath.Join(repo.TempDir, "feature-worktree")
+		gonePath := filepath.Join(repo.TempDir, "gone-worktree")
+
+		input := strings.NewReader(strings.Join([]string{
+			"worktree " + repo.Path,
+			"HEAD 0000000000000000000000000000000000000000",
+			"branch refs/heads/main",
+			"",
+			"worktree " + livePath,
+			"HEAD 1111111111111111111111111111111111111111",
+			"branch refs/heads/feature",
+			"",
+			"worktree " + gonePath,
+			"HEAD 2222222222222222222222222222222222222222",
+			"branch refs/heads/gone",
+			"prunable gitdir file points to non-existent location",
+			"",
+		}, "\n"))
+
+		entries, err := parseWorktreeListPorcelain(input, repo.Path)
+		if err != nil {
+			t.Fatalf("parseWorktreeListPorcelain failed: %v", err)
+		}
+
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 worktrees, got %d: %#v", len(entries), entries)
+		}
+		if entries[0].Path != livePath || entries[0].Branch != "feature" || entries[0].Prunable {
+			t.Fatalf("live entry parsed incorrectly: %#v", entries[0])
+		}
+		if entries[1].Path != gonePath || entries[1].Branch != "gone" || !entries[1].Prunable {
+			t.Fatalf("prunable entry parsed incorrectly: %#v", entries[1])
+		}
+	})
+
 	t.Run("returns empty slice when no worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
