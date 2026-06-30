@@ -1,0 +1,2 @@
+kind: Fixed
+body: '`grove prune` now reaps git-prunable (path-gone) worktrees by default instead of skipping them with a "may be corrupted" warning. Live and locked worktrees are left untouched.'
