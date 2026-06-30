@@ -8,22 +8,22 @@ exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'keep
 rm -rf ../feature-gone
 rm -rf ../feature-locked
 
+# Path-gone worktree is reaped by default; the locked worktree is left untouched
+# (git does not mark locked worktrees prunable), with no "corrupted" warning.
 exec grove prune
 stderr 'Would prune 1 worktree'
 stderr 'feature-gone'
 stderr 'prunable'
-stderr 'Would skip 1 worktree'
-stderr 'feature-locked'
-stderr 'locked, use --force'
 ! stderr 'corrupted'
 exists ../feature-live
 
 exec grove prune --commit
 stderr 'Pruned 1 worktree'
 stderr 'feature-gone'
-stderr 'Skipped 1 worktree'
-stderr 'feature-locked'
 ! stderr 'corrupted'
+
+# feature-gone is reaped from the registry; feature-live and the locked
+# feature-locked remain registered and untouched.
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 ! stdout 'feature-gone'
 stdout 'feature-live'

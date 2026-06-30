@@ -311,7 +311,7 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 						Detached:   entry.Detached,
 						Locked:     true,
 						LockReason: entry.LockReason,
-						Prunable:   true,
+						Prunable:   entry.Prunable,
 					}
 				default:
 					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)

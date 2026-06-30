@@ -180,6 +180,41 @@ func TestListWorktrees(t *testing.T) {
 		}
 	})
 
+	t.Run("parses locked, lock reason, and detached markers", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		lockedPath := filepath.Join(repo.TempDir, "locked-worktree")
+		detachedPath := filepath.Join(repo.TempDir, "detached-worktree")
+
+		input := strings.NewReader(strings.Join([]string{
+			"worktree " + lockedPath,
+			"HEAD 1111111111111111111111111111111111111111",
+			"branch refs/heads/feature",
+			"locked keeping this around",
+			"",
+			"worktree " + detachedPath,
+			"HEAD 2222222222222222222222222222222222222222",
+			"detached",
+			"",
+		}, "\n"))
+
+		entries, err := parseWorktreeListPorcelain(input, repo.Path)
+		if err != nil {
+			t.Fatalf("parseWorktreeListPorcelain failed: %v", err)
+		}
+
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 worktrees, got %d: %#v", len(entries), entries)
+		}
+		locked := entries[0]
+		if locked.Path != lockedPath || !locked.Locked || locked.LockReason != "keeping this around" || locked.Detached {
+			t.Fatalf("locked entry parsed incorrectly: %#v", locked)
+		}
+		detached := entries[1]
+		if detached.Path != detachedPath || !detached.Detached || detached.Branch != "(detached)" || detached.Locked {
+			t.Fatalf("detached entry parsed incorrectly: %#v", detached)
+		}
+	})
+
 	t.Run("returns empty slice when no worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 

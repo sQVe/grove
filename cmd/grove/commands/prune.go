@@ -318,6 +318,19 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 	var deletedBranches int
 	var keptBranches []string
 
+	// git worktree prune is a single repository-wide operation that reaps every
+	// path-gone entry at once, so run it lazily and share its result across all
+	// prunable candidates instead of invoking it per candidate.
+	prunedRegistry := false
+	var pruneRegistryErr error
+	pruneRegistry := func() error {
+		if !prunedRegistry {
+			pruneRegistryErr = git.PruneWorktrees(bareDir)
+			prunedRegistry = true
+		}
+		return pruneRegistryErr
+	}
+
 	for _, candidate := range candidates {
 		label := formatter.WorktreeLabel(candidate.info)
 		if candidate.pruneType == prunePrunable {
@@ -332,7 +345,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		// Actually remove the worktree
 		var err error
 		if candidate.pruneType == prunePrunable {
-			err = git.PruneWorktrees(bareDir)
+			err = pruneRegistry()
 		} else {
 			err = git.RemoveWorktree(bareDir, candidate.info.Path, force)
 		}
