@@ -263,6 +263,22 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 	return entries, nil
 }
 
+// worktreeFallbackInfo builds a WorktreeInfo for an entry whose status read
+// failed. A detached HEAD or a locked entry is surfaced; anything else is a
+// genuinely corrupt admin entry (gitdir present but unreadable) and is skipped
+// with a warning. The bool is false when the caller should skip the entry.
+func worktreeFallbackInfo(path string, entry worktreeListEntry, err error) (*WorktreeInfo, bool) {
+	switch {
+	case errors.Is(err, ErrDetachedHead):
+		return &WorktreeInfo{Path: path, Branch: "(detached)", Detached: true}, true
+	case entry.Locked:
+		return &WorktreeInfo{Path: path, Branch: entry.Branch, Detached: entry.Detached}, true
+	default:
+		logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
+		return nil, false
+	}
+}
+
 // ListWorktreesWithInfo returns info for all worktrees in a grove workspace.
 func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 	entries, err := listWorktreeEntries(bareDir)
@@ -281,34 +297,25 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 			continue
 		}
 
+		// Both modes validate the worktree by reading its HEAD, so a registered
+		// entry whose gitdir is present but unreadable is skipped as corrupt
+		// rather than returned as usable. Fast mode reads only the branch;
+		// full mode also collects status.
 		if fast {
-			info = &WorktreeInfo{
-				Path:     path,
-				Branch:   entry.Branch,
-				Detached: entry.Detached,
+			branch, detached, err := GetCurrentBranchOrDetached(path)
+			if err != nil {
+				var ok bool
+				if info, ok = worktreeFallbackInfo(path, entry, err); !ok {
+					continue
+				}
+			} else {
+				info = &WorktreeInfo{Path: path, Branch: branch, Detached: detached}
 			}
 		} else {
 			var err error
-			info, err = GetWorktreeInfo(path)
-			if err != nil {
-				switch {
-				case errors.Is(err, ErrDetachedHead):
-					info = &WorktreeInfo{
-						Path:     path,
-						Branch:   "(detached)",
-						Detached: true,
-					}
-				case entry.Locked:
-					// A locked worktree whose path is unreadable: surface it as
-					// a locked entry (lock fields are set below) rather than
-					// warning "may be corrupted".
-					info = &WorktreeInfo{
-						Path:     path,
-						Branch:   entry.Branch,
-						Detached: entry.Detached,
-					}
-				default:
-					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
+			if info, err = GetWorktreeInfo(path); err != nil {
+				var ok bool
+				if info, ok = worktreeFallbackInfo(path, entry, err); !ok {
 					continue
 				}
 			}

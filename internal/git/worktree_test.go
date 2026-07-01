@@ -455,6 +455,43 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		}
 	})
 
+	t.Run("skips corrupt-but-present worktrees in both modes", func(t *testing.T) {
+		for _, fast := range []bool{false, true} {
+			repo := testgit.NewTestRepo(t)
+
+			liveDir := filepath.Join(repo.TempDir, "live-wt")
+			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create live worktree: %v", err)
+			}
+
+			// A worktree whose directory is present but whose .git pointer is
+			// unreadable: git still lists it (no prunable marker), so it must be
+			// skipped by validation, not returned as usable.
+			corruptDir := filepath.Join(repo.TempDir, "corrupt-wt")
+			cmd = exec.Command("git", "worktree", "add", corruptDir, "-b", "corrupt") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create corrupt worktree: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(corruptDir, ".git"), []byte("garbage"), fs.FileStrict); err != nil {
+				t.Fatalf("failed to corrupt .git: %v", err)
+			}
+
+			infos, err := ListWorktreesWithInfo(repo.Path, fast)
+			if err != nil {
+				t.Fatalf("ListWorktreesWithInfo(fast=%v) failed: %v", fast, err)
+			}
+
+			for _, info := range infos {
+				if filepath.Base(info.Path) == "corrupt-wt" {
+					t.Fatalf("fast=%v: corrupt worktree should be skipped, got %#v", fast, info)
+				}
+			}
+		}
+	})
+
 	t.Run("results are sorted alphabetically", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
