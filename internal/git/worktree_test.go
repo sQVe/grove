@@ -143,6 +143,78 @@ func TestIsWorktree(t *testing.T) {
 }
 
 func TestListWorktrees(t *testing.T) {
+	t.Run("parses porcelain metadata for live and prunable worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		livePath := filepath.Join(repo.TempDir, "feature-worktree")
+		gonePath := filepath.Join(repo.TempDir, "gone-worktree")
+
+		input := strings.NewReader(strings.Join([]string{
+			"worktree " + repo.Path,
+			"HEAD 0000000000000000000000000000000000000000",
+			"branch refs/heads/main",
+			"",
+			"worktree " + livePath,
+			"HEAD 1111111111111111111111111111111111111111",
+			"branch refs/heads/feature",
+			"",
+			"worktree " + gonePath,
+			"HEAD 2222222222222222222222222222222222222222",
+			"branch refs/heads/gone",
+			"prunable gitdir file points to non-existent location",
+			"",
+		}, "\n"))
+
+		entries, err := parseWorktreeListPorcelain(input, repo.Path)
+		if err != nil {
+			t.Fatalf("parseWorktreeListPorcelain failed: %v", err)
+		}
+
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 worktrees, got %d: %#v", len(entries), entries)
+		}
+		if entries[0].Path != livePath || entries[0].Branch != "feature" || entries[0].Prunable {
+			t.Fatalf("live entry parsed incorrectly: %#v", entries[0])
+		}
+		if entries[1].Path != gonePath || entries[1].Branch != "gone" || !entries[1].Prunable {
+			t.Fatalf("prunable entry parsed incorrectly: %#v", entries[1])
+		}
+	})
+
+	t.Run("parses locked, lock reason, and detached markers", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		lockedPath := filepath.Join(repo.TempDir, "locked-worktree")
+		detachedPath := filepath.Join(repo.TempDir, "detached-worktree")
+
+		input := strings.NewReader(strings.Join([]string{
+			"worktree " + lockedPath,
+			"HEAD 1111111111111111111111111111111111111111",
+			"branch refs/heads/feature",
+			"locked keeping this around",
+			"",
+			"worktree " + detachedPath,
+			"HEAD 2222222222222222222222222222222222222222",
+			"detached",
+			"",
+		}, "\n"))
+
+		entries, err := parseWorktreeListPorcelain(input, repo.Path)
+		if err != nil {
+			t.Fatalf("parseWorktreeListPorcelain failed: %v", err)
+		}
+
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 worktrees, got %d: %#v", len(entries), entries)
+		}
+		locked := entries[0]
+		if locked.Path != lockedPath || !locked.Locked || locked.LockReason != "keeping this around" || locked.Detached {
+			t.Fatalf("locked entry parsed incorrectly: %#v", locked)
+		}
+		detached := entries[1]
+		if detached.Path != detachedPath || !detached.Detached || detached.Branch != "(detached)" || detached.Locked {
+			t.Fatalf("detached entry parsed incorrectly: %#v", detached)
+		}
+	})
+
 	t.Run("returns empty slice when no worktrees", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
@@ -348,6 +420,78 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		}
 	})
 
+	t.Run("excludes git-prunable worktrees in both modes", func(t *testing.T) {
+		for _, fast := range []bool{false, true} {
+			repo := testgit.NewTestRepo(t)
+
+			liveDir := filepath.Join(repo.TempDir, "live-wt")
+			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create live worktree: %v", err)
+			}
+
+			goneDir := filepath.Join(repo.TempDir, "gone-wt")
+			cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create gone worktree: %v", err)
+			}
+			if err := os.RemoveAll(goneDir); err != nil {
+				t.Fatalf("failed to remove worktree dir: %v", err)
+			}
+
+			infos, err := ListWorktreesWithInfo(repo.Path, fast)
+			if err != nil {
+				t.Fatalf("ListWorktreesWithInfo(fast=%v) failed: %v", fast, err)
+			}
+
+			if len(infos) != 1 {
+				t.Fatalf("fast=%v: expected 1 worktree (prunable excluded), got %d: %#v", fast, len(infos), infos)
+			}
+			if filepath.Base(infos[0].Path) != "live-wt" {
+				t.Fatalf("fast=%v: expected the live worktree, got %#v", fast, infos[0])
+			}
+		}
+	})
+
+	t.Run("skips corrupt-but-present worktrees in both modes", func(t *testing.T) {
+		for _, fast := range []bool{false, true} {
+			repo := testgit.NewTestRepo(t)
+
+			liveDir := filepath.Join(repo.TempDir, "live-wt")
+			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create live worktree: %v", err)
+			}
+
+			// A worktree whose directory is present but whose .git pointer is
+			// unreadable: git still lists it (no prunable marker), so it must be
+			// skipped by validation, not returned as usable.
+			corruptDir := filepath.Join(repo.TempDir, "corrupt-wt")
+			cmd = exec.Command("git", "worktree", "add", corruptDir, "-b", "corrupt") // nolint:gosec // Test uses controlled temp directory
+			cmd.Dir = repo.Path
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("failed to create corrupt worktree: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(corruptDir, ".git"), []byte("garbage"), fs.FileStrict); err != nil {
+				t.Fatalf("failed to corrupt .git: %v", err)
+			}
+
+			infos, err := ListWorktreesWithInfo(repo.Path, fast)
+			if err != nil {
+				t.Fatalf("ListWorktreesWithInfo(fast=%v) failed: %v", fast, err)
+			}
+
+			for _, info := range infos {
+				if filepath.Base(info.Path) == "corrupt-wt" {
+					t.Fatalf("fast=%v: corrupt worktree should be skipped, got %#v", fast, info)
+				}
+			}
+		}
+	})
+
 	t.Run("results are sorted alphabetically", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
@@ -506,6 +650,66 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		if infos[0].Branch == "" {
 			t.Error("expected Branch to contain commit hash, got empty string")
+		}
+	})
+}
+
+func TestListPrunableWorktrees(t *testing.T) {
+	t.Run("returns error for empty bare directory", func(t *testing.T) {
+		if _, err := ListPrunableWorktrees(""); err == nil {
+			t.Fatal("expected error for empty bare directory")
+		}
+	})
+
+	t.Run("returns only path-gone worktrees", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		liveDir := filepath.Join(repo.TempDir, "live-wt")
+		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create live worktree: %v", err)
+		}
+
+		goneDir := filepath.Join(repo.TempDir, "gone-wt")
+		cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create gone worktree: %v", err)
+		}
+		if err := os.RemoveAll(goneDir); err != nil {
+			t.Fatalf("failed to remove worktree dir: %v", err)
+		}
+
+		infos, err := ListPrunableWorktrees(repo.Path)
+		if err != nil {
+			t.Fatalf("ListPrunableWorktrees failed: %v", err)
+		}
+
+		if len(infos) != 1 {
+			t.Fatalf("expected 1 prunable worktree, got %d: %#v", len(infos), infos)
+		}
+		if filepath.Base(infos[0].Path) != "gone-wt" || !infos[0].Prunable {
+			t.Fatalf("expected the path-gone worktree marked prunable, got %#v", infos[0])
+		}
+	})
+
+	t.Run("returns empty when nothing is prunable", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+
+		liveDir := filepath.Join(repo.TempDir, "live-wt")
+		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create live worktree: %v", err)
+		}
+
+		infos, err := ListPrunableWorktrees(repo.Path)
+		if err != nil {
+			t.Fatalf("ListPrunableWorktrees failed: %v", err)
+		}
+		if len(infos) != 0 {
+			t.Fatalf("expected no prunable worktrees, got %d: %#v", len(infos), infos)
 		}
 	})
 }
