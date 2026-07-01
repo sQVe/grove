@@ -14,8 +14,8 @@ rm -rf ../feature-locked
 # untouched (git does not mark locked worktrees prunable), no "corrupted" warning.
 exec grove prune
 stderr 'Would prune 2 worktrees'
-stderr 'feature-gone'
-stderr 'feature-gone2'
+stderr 'feature-gone\b'
+stderr 'feature-gone2\b'
 stderr 'prunable'
 ! stderr 'corrupted'
 exists ../feature-live
@@ -24,8 +24,8 @@ exists ../feature-live
 # each is verified against the registry before being reported pruned.
 exec grove prune --commit
 stderr 'Pruned 2 worktrees'
-stderr 'feature-gone'
-stderr 'feature-gone2'
+stderr 'feature-gone\b'
+stderr 'feature-gone2\b'
 ! stderr 'corrupted'
 
 # The prunable entries are gone from the registry; feature-live and the locked
