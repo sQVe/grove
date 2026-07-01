@@ -1,3 +1,12 @@
+## [v1.9.0](https://github.com/sQVe/grove/releases/tag/v1.9.0) - 2026-07-01
+
+### Changed
+- Updated Go dependencies to their latest releases.
+
+### Fixed
+- Prune now re-points the bare repo's HEAD when it would otherwise dangle on a deleted branch, keeping subsequent `grove add` invocations working.
+- `grove prune` now reaps git-prunable (path-gone) worktrees by default instead of skipping them with a "may be corrupted" warning. Live and locked worktrees are left untouched.
+
 ## [v1.8.1](https://github.com/sQVe/grove/releases/tag/v1.8.1) - 2026-04-13
 
 ### Fixed
