@@ -143,19 +143,24 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Find prune candidates
+	// Find prune candidates. git-prunable (path-gone) worktrees are listed
+	// separately: they are excluded from ListWorktreesWithInfo so they never
+	// leak into other commands, and are reaped by default here.
 	var candidates []pruneCandidate
-	for _, info := range infos {
-		if info.Prunable {
-			reason := determineSkipReason(info, cwd, force)
-			candidates = append(candidates, pruneCandidate{
-				info:      info,
-				reason:    reason,
-				pruneType: prunePrunable,
-			})
-			continue
-		}
 
+	prunables, err := git.ListPrunableWorktrees(bareDir)
+	if err != nil {
+		return fmt.Errorf("failed to list prunable worktrees: %w", err)
+	}
+	for _, info := range prunables {
+		candidates = append(candidates, pruneCandidate{
+			info:      info,
+			reason:    determineSkipReason(info, cwd, force),
+			pruneType: prunePrunable,
+		})
+	}
+
+	for _, info := range infos {
 		// Check for gone upstream
 		if info.Gone {
 			reason := determineSkipReason(info, cwd, force)
@@ -320,15 +325,31 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 
 	// git worktree prune is a single repository-wide operation that reaps every
 	// path-gone entry at once, so run it lazily and share its result across all
-	// prunable candidates instead of invoking it per candidate.
+	// prunable candidates instead of invoking it per candidate. It exits 0 even
+	// when it fails to delete an individual entry, so verify removal per
+	// candidate against the post-prune registry rather than trusting the exit.
 	prunedRegistry := false
 	var pruneRegistryErr error
+	var registeredAfterPrune []string
 	pruneRegistry := func() error {
-		if !prunedRegistry {
-			pruneRegistryErr = git.PruneWorktrees(bareDir)
-			prunedRegistry = true
+		if prunedRegistry {
+			return pruneRegistryErr
 		}
+		prunedRegistry = true
+		pruneRegistryErr = git.PruneWorktrees(bareDir)
+		if pruneRegistryErr != nil {
+			return pruneRegistryErr
+		}
+		registeredAfterPrune, pruneRegistryErr = git.ListWorktrees(bareDir)
 		return pruneRegistryErr
+	}
+	stillRegistered := func(path string) bool {
+		for _, p := range registeredAfterPrune {
+			if fs.PathsEqual(p, path) {
+				return true
+			}
+		}
+		return false
 	}
 
 	for _, candidate := range candidates {
@@ -342,14 +363,23 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 			continue
 		}
 
-		// Actually remove the worktree
-		var err error
+		// git-prunable entries are reaped by the shared prune call; confirm the
+		// entry is actually gone before reporting it pruned.
 		if candidate.pruneType == prunePrunable {
-			err = pruneRegistry()
-		} else {
-			err = git.RemoveWorktree(bareDir, candidate.info.Path, force)
+			if err := pruneRegistry(); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", label, err))
+				continue
+			}
+			if stillRegistered(candidate.info.Path) {
+				failed = append(failed, fmt.Sprintf("%s: git worktree prune did not remove it", label))
+				continue
+			}
+			pruned = append(pruned, label)
+			continue
 		}
-		if err != nil {
+
+		// Actually remove the worktree
+		if err := git.RemoveWorktree(bareDir, candidate.info.Path, force); err != nil {
 			failed = append(failed, fmt.Sprintf("%s: %v", label, err))
 			continue
 		}

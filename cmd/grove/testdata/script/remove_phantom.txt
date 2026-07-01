@@ -4,6 +4,8 @@ setup_workspace phantom-test
 exec grove add phantom-test
 rm -r ../phantom-test
 
+# The path-gone worktree is not a removable target (grove prune reaps it);
+# grove remove reports it as not found rather than mislabeling it corrupted.
 ! exec grove remove phantom-test
 ! stderr 'may be corrupted'
-stderr 'failed to check worktree status'
+stderr 'worktree not found'

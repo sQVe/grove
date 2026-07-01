@@ -274,16 +274,10 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 	for _, entry := range entries {
 		path := entry.Path
 		var info *WorktreeInfo
+		// git-prunable entries have no backing path, so they are not usable
+		// worktrees for callers that switch/exec/add against them. Only
+		// `grove prune` acts on them, via ListPrunableWorktrees.
 		if entry.Prunable {
-			info = &WorktreeInfo{
-				Path:       path,
-				Branch:     entry.Branch,
-				Detached:   entry.Detached,
-				Locked:     entry.Locked,
-				LockReason: entry.LockReason,
-				Prunable:   true,
-			}
-			infos = append(infos, info)
 			continue
 		}
 
@@ -305,13 +299,13 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 						Detached: true,
 					}
 				case entry.Locked:
+					// A locked worktree whose path is unreadable: surface it as
+					// a locked entry (lock fields are set below) rather than
+					// warning "may be corrupted".
 					info = &WorktreeInfo{
-						Path:       path,
-						Branch:     entry.Branch,
-						Detached:   entry.Detached,
-						Locked:     true,
-						LockReason: entry.LockReason,
-						Prunable:   entry.Prunable,
+						Path:     path,
+						Branch:   entry.Branch,
+						Detached: entry.Detached,
 					}
 				default:
 					logger.Warning("Skipping worktree %s (may be corrupted): %v", path, err)
@@ -330,6 +324,36 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 		return infos[i].Branch < infos[j].Branch
 	})
 
+	return infos, nil
+}
+
+// ListPrunableWorktrees returns the worktrees git has marked prunable, i.e.
+// their backing path is gone. These are excluded from ListWorktreesWithInfo
+// because they are not usable worktrees; only `grove prune` acts on them.
+func ListPrunableWorktrees(bareDir string) ([]*WorktreeInfo, error) {
+	if bareDir == "" {
+		return nil, errors.New("bare directory path cannot be empty")
+	}
+
+	entries, err := listWorktreeEntries(bareDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var infos []*WorktreeInfo
+	for _, entry := range entries {
+		if !entry.Prunable {
+			continue
+		}
+		infos = append(infos, &WorktreeInfo{
+			Path:       entry.Path,
+			Branch:     entry.Branch,
+			Detached:   entry.Detached,
+			Locked:     entry.Locked,
+			LockReason: entry.LockReason,
+			Prunable:   true,
+		})
+	}
 	return infos, nil
 }
 

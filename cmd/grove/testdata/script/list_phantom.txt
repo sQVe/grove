@@ -1,11 +1,18 @@
-# Test: grove list shows git-prunable worktrees without corrupted warning
+# Test: git-prunable worktrees are omitted from list/switch without a corrupted warning
 setup_workspace
 
 exec grove add phantom-test
 rm -r ../phantom-test
+
+# grove list omits the path-gone worktree and does not mislabel it as corrupted
 exec grove list --plain
 ! stderr 'may be corrupted'
 stdout 'main'
-stdout 'phantom-test'
+! stdout 'phantom-test'
+
+# grove switch does not resolve a path-gone worktree to its dead path
+! exec grove switch phantom-test
+stderr 'worktree not found'
+
 # Clean up phantom via git prune
 exec git -C $WORK/workspace/.bare worktree prune

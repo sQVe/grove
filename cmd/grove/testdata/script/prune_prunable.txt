@@ -1,28 +1,34 @@
 # Test: grove prune reaps git-prunable worktrees by default
-setup_workspace feature-gone feature-live feature-locked
+setup_workspace feature-gone feature-gone2 feature-live feature-locked
 
 exec grove add feature-gone
+exec grove add feature-gone2
 exec grove add feature-live
 exec grove add feature-locked
 exec git -C $WORK/workspace/.bare worktree lock ../feature-locked --reason 'keep'
 rm -rf ../feature-gone
+rm -rf ../feature-gone2
 rm -rf ../feature-locked
 
-# Path-gone worktree is reaped by default; the locked worktree is left untouched
-# (git does not mark locked worktrees prunable), with no "corrupted" warning.
+# Both path-gone worktrees are reaped by default; the locked worktree is left
+# untouched (git does not mark locked worktrees prunable), no "corrupted" warning.
 exec grove prune
-stderr 'Would prune 1 worktree'
+stderr 'Would prune 2 worktrees'
 stderr 'feature-gone'
+stderr 'feature-gone2'
 stderr 'prunable'
 ! stderr 'corrupted'
 exists ../feature-live
 
+# Committing reaps both prunable entries via a single git worktree prune, and
+# each is verified against the registry before being reported pruned.
 exec grove prune --commit
-stderr 'Pruned 1 worktree'
+stderr 'Pruned 2 worktrees'
 stderr 'feature-gone'
+stderr 'feature-gone2'
 ! stderr 'corrupted'
 
-# feature-gone is reaped from the registry; feature-live and the locked
+# The prunable entries are gone from the registry; feature-live and the locked
 # feature-locked remain registered and untouched.
 exec git -C $WORK/workspace/.bare worktree list --porcelain
 ! stdout 'feature-gone'
