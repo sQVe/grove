@@ -296,7 +296,7 @@ Remove one or more worktrees.
 
 **Flags:**
 
-- `-f, --force` — Remove even if dirty or locked
+- `-f, --force` — Remove even if dirty or locked; with `--branch`, delete unmerged and unpushed commits
 - `--branch` — Also delete the branch
 
 **Examples:**

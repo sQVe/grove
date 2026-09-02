@@ -35,6 +35,63 @@ func TestListBranches(t *testing.T) {
 	}
 }
 
+func TestCountUnreachableCommits(t *testing.T) {
+	t.Run("counts commits unique to branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
+
+	t.Run("returns zero when another ref contains the commit", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+		repo.CreateBranch("backup")
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 unreachable commits, got %d", count)
+		}
+	})
+
+	t.Run("uses the local branch when a tag has the same name", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+		if _, err := repo.Run("update-ref", "refs/tags/feature", "refs/heads/main"); err != nil {
+			t.Fatalf("failed to create tag: %v", err)
+		}
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
+}
+
 func TestGetCurrentBranch(t *testing.T) {
 	t.Run("returns branch name from HEAD file", func(t *testing.T) {
 		tempDir := testutil.TempDir(t)

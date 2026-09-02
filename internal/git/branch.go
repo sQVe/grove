@@ -7,10 +7,50 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sqve/grove/internal/logger"
 )
+
+// CountUnreachableCommits returns the number of commits reachable from branch
+// but not from any other ref.
+func CountUnreachableCommits(repoPath, branch string) (int, error) {
+	if repoPath == "" || branch == "" {
+		return 0, errors.New("repository path and branch name cannot be empty")
+	}
+
+	refsCmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname)")
+	refsCmd.Dir = repoPath
+	refs, err := executeWithOutput(refsCmd)
+	cancel()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list refs: %w", err)
+	}
+
+	targetRef := "refs/heads/" + branch
+	args := []string{"rev-list", "--count", targetRef, "--not"}
+	for _, ref := range strings.Fields(refs) {
+		if ref != targetRef {
+			args = append(args, ref)
+		}
+	}
+
+	cmd, cancel := GitCommand("git", args...) //nolint:gosec // Refs come from git
+	defer cancel()
+	cmd.Dir = repoPath
+
+	output, err := executeWithOutput(cmd)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count unreachable commits: %w", err)
+	}
+
+	count, err := strconv.Atoi(output)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse unreachable commit count: %w", err)
+	}
+	return count, nil
+}
 
 // ListBranches returns a list of all branches in a bare repository
 func ListBranches(bareRepo string) ([]string, error) {

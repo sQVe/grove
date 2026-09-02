@@ -1,0 +1,19 @@
+# Test: grove remove --force --branch warns about commits on a branch without an upstream
+setup_workspace
+
+exec grove add --base main no-upstream
+cd ../no-upstream
+cp $WORK/local.txt local.txt
+exec git add local.txt
+exec git commit -m 'local commit'
+cd ../main
+
+exec grove remove --force --branch no-upstream
+stderr 'no-upstream: 1 commit.*will be lost'
+stderr 'Removed worktree.*no-upstream'
+stderr 'deleted branch'
+! exists ../no-upstream
+assert_branch deleted no-upstream
+
+-- local.txt --
+local only

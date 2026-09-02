@@ -39,7 +39,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty or locked")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty or locked; with --branch, delete unmerged and unpushed commits")
 	cmd.Flags().BoolVar(&deleteBranch, "branch", false, "Also delete the branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for remove")
 
@@ -135,18 +135,29 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				failed = append(failed, dirName)
 				continue
 			}
-		} else if git.IsWorktreeLocked(info.Path) {
+		}
+
+		// Count commits before removing the worktree so branch deletion can warn.
+		var aheadCount, unreachableCount int
+		if deleteBranch {
+			if force {
+				unreachableCount, err = git.CountUnreachableCommits(bareDir, info.Branch)
+				if err != nil {
+					logger.Error("%s: failed to count commits: %v", displayName, err)
+					failed = append(failed, dirName)
+					continue
+				}
+			} else {
+				syncStatus := git.GetSyncStatus(info.Path)
+				aheadCount = syncStatus.Ahead
+			}
+		}
+
+		if force && git.IsWorktreeLocked(info.Path) {
 			// Unlock worktree first if locked (git requires double force otherwise)
 			if err := git.UnlockWorktree(bareDir, info.Path); err != nil {
 				logger.Debug("Failed to unlock worktree: %v", err)
 			}
-		}
-
-		// Get sync status BEFORE removing worktree if we need to warn about unpushed commits
-		var aheadCount int
-		if deleteBranch {
-			syncStatus := git.GetSyncStatus(info.Path)
-			aheadCount = syncStatus.Ahead
 		}
 
 		// Remove the worktree
@@ -158,7 +169,9 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 		// Optionally delete the branch
 		if deleteBranch {
-			if aheadCount > 0 {
+			if unreachableCount > 0 {
+				logger.Warning("%s: %d commit(s) not on any other branch will be lost", info.Branch, unreachableCount)
+			} else if aheadCount > 0 {
 				logger.Warning("%s: branch has %d unpushed commit(s)", info.Branch, aheadCount)
 			}
 

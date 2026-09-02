@@ -9,6 +9,7 @@ stdout 'Usage:'
 stdout '<worktree>...'
 stdout '--branch'
 stdout '--force'
+stdout 'with --branch, delete unmerged and unpushed commits'
 ! stderr .
 
 ## Argument validation
