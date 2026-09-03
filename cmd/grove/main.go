@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -65,8 +66,16 @@ func main() {
 	rootCmd.AddCommand(commands.NewUnlockCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.Error("%s", err)
-		logger.Dimmed("Run 'grove --help' for usage.")
-		os.Exit(1)
+		os.Exit(handleCommandError(err))
 	}
+}
+
+func handleCommandError(err error) int {
+	var exitError *commands.ExecError
+	if errors.As(err, &exitError) {
+		return exitError.ExitCode()
+	}
+	logger.Error("%s", err)
+	logger.Dimmed("Run 'grove --help' for usage.")
+	return 1
 }
