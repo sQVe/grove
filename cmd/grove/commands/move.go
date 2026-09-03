@@ -63,6 +63,9 @@ func runMove(target, newBranch string) error {
 	if worktreeInfo == nil {
 		return fmt.Errorf("worktree not found: %s", target)
 	}
+	if worktreeInfo.Detached {
+		return fmt.Errorf("cannot move detached worktree %s", filepath.Base(worktreeInfo.Path))
+	}
 
 	if worktreeInfo.Branch == newBranch {
 		return fmt.Errorf("worktree already has branch %s", newBranch)

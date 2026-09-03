@@ -1,0 +1,6 @@
+# Test: grove list preserves newlines in worktree paths
+setup_workspace
+
+exec sh -c 'path=$(printf "%s\n%s" "$WORK/workspace/newline" worktree); git -C "$WORK/workspace/.bare" worktree add "$path" -b newline-worktree'
+exec grove list --json
+stdout '"path": ".*[/\\]newline\\nworktree"'

@@ -90,10 +90,12 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 	// Process each target, accumulate successes and failures
 	type removedWorktree struct {
-		path   string
-		branch string
+		path     string
+		branch   string
+		detached bool
 	}
 	var removed []removedWorktree
+	var deletedBranches int
 	var failed []string
 
 	var spin *logger.Spinner
@@ -139,7 +141,8 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 		// Count commits before removing the worktree so branch deletion can warn.
 		var aheadCount, unreachableCount int
-		if deleteBranch {
+		deleteThisBranch := deleteBranch && !info.Detached
+		if deleteThisBranch {
 			if force {
 				unreachableCount, err = git.CountUnreachableCommits(bareDir, info.Branch)
 				if err != nil {
@@ -168,7 +171,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		}
 
 		// Optionally delete the branch
-		if deleteBranch {
+		if deleteThisBranch {
 			if unreachableCount > 0 {
 				logger.Warning("%s: %d commit(s) not on any other branch will be lost", info.Branch, unreachableCount)
 			} else if aheadCount > 0 {
@@ -180,8 +183,9 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				failed = append(failed, dirName)
 				continue
 			}
+			deletedBranches++
 		}
-		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch})
+		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch, detached: info.Detached})
 	}
 
 	if spin != nil {
@@ -192,17 +196,17 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	if len(removed) > 0 {
 		if len(removed) == 1 {
 			logger.Success("Removed worktree %s", styles.RenderPath(removed[0].path))
-			if deleteBranch {
+			if deletedBranches == 1 {
 				logger.ListSubItem("deleted branch %s", removed[0].branch)
 			}
 		} else {
-			if deleteBranch {
+			if deletedBranches == len(removed) {
 				logger.Success("Removed %d worktrees and branches:", len(removed))
 			} else {
 				logger.Success("Removed %d worktrees:", len(removed))
 			}
 			for _, r := range removed {
-				if deleteBranch {
+				if deleteBranch && !r.detached {
 					logger.ListSubItem("%s (branch %s)", styles.RenderPath(r.path), r.branch)
 				} else {
 					logger.ListSubItem("%s", styles.RenderPath(r.path))

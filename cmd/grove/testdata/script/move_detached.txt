@@ -1,0 +1,12 @@
+# Test: grove move rejects a detached worktree without changing it
+setup_workspace
+
+exec grove add --detach --name detached-move HEAD
+exists ../detached-move
+
+! exec grove move detached-move moved
+stderr 'cannot move detached worktree detached-move'
+exists ../detached-move
+! exists ../moved
+exec git -C ../detached-move rev-parse --abbrev-ref HEAD
+stdout '^HEAD$'

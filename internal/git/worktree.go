@@ -1,7 +1,7 @@
 package git
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -40,7 +40,10 @@ type worktreeListEntry struct {
 	Prunable   bool
 }
 
-const gitWorktreeSubcommand = "worktree"
+const (
+	gitWorktreeSubcommand = "worktree"
+	detachedBranch        = "(detached)"
+)
 
 // CreateWorktree creates a new worktree from a bare repository
 func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
@@ -188,8 +191,8 @@ func ListWorktrees(repoPath string) ([]string, error) {
 }
 
 func listWorktreeEntries(repoPath string) ([]worktreeListEntry, error) {
-	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "list", "--porcelain")
+	logger.Debug("Executing: git worktree list --porcelain -z in %s", repoPath)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "list", "--porcelain", "-z")
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -228,9 +231,12 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 		return nil
 	}
 
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
+	output, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range bytes.Split(output, []byte{0}) {
+		line := string(field)
 		if line == "" {
 			if err := flush(); err != nil {
 				return nil, err
@@ -245,16 +251,13 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 			entry.Branch = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
 		case line == "detached":
 			entry.Detached = true
-			entry.Branch = "(detached)"
+			entry.Branch = detachedBranch
 		case line == "locked" || strings.HasPrefix(line, "locked "):
 			entry.Locked = true
 			entry.LockReason = strings.TrimSpace(strings.TrimPrefix(line, "locked"))
 		case line == "prunable" || strings.HasPrefix(line, "prunable "):
 			entry.Prunable = true
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 	if err := flush(); err != nil {
 		return nil, err
@@ -270,7 +273,7 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 func worktreeFallbackInfo(path string, entry worktreeListEntry, err error) (*WorktreeInfo, bool) {
 	switch {
 	case errors.Is(err, ErrDetachedHead):
-		return &WorktreeInfo{Path: path, Branch: "(detached)", Detached: true}, true
+		return &WorktreeInfo{Path: path, Branch: detachedBranch, Detached: true}, true
 	case entry.Locked:
 		return &WorktreeInfo{Path: path, Branch: entry.Branch, Detached: entry.Detached}, true
 	default:

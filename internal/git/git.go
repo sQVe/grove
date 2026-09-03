@@ -394,8 +394,8 @@ func GetRemoteURL(repoPath, name string) (string, error) {
 
 // ListIgnoredFiles returns a list of git-ignored files in the given directory.
 func ListIgnoredFiles(dir string) ([]string, error) {
-	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
-	cmd, cancel := GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard -z in %s", dir)
+	cmd, cancel := GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
 	defer cancel()
 	cmd.Dir = dir
 
@@ -408,14 +408,7 @@ func ListIgnoredFiles(dir string) ([]string, error) {
 		return nil, nil
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var files []string
-	for _, line := range lines {
-		if line != "" {
-			files = append(files, line)
-		}
-	}
-	return files, nil
+	return strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00"), nil
 }
 
 // IsRemoteReachable checks if a remote is accessible.

@@ -1,0 +1,10 @@
+# Test: grove remove --branch removes a detached worktree without deleting a branch
+setup_workspace
+
+exec grove add --detach --name detached-remove HEAD
+exists ../detached-remove
+
+exec grove remove --branch detached-remove
+stderr 'Removed worktree'
+! stderr 'deleted branch'
+! exists ../detached-remove

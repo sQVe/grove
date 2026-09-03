@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -162,7 +163,7 @@ func TestListWorktrees(t *testing.T) {
 			"branch refs/heads/gone",
 			"prunable gitdir file points to non-existent location",
 			"",
-		}, "\n"))
+		}, "\x00"))
 
 		entries, err := parseWorktreeListPorcelain(input, repo.Path)
 		if err != nil {
@@ -195,7 +196,7 @@ func TestListWorktrees(t *testing.T) {
 			"HEAD 2222222222222222222222222222222222222222",
 			"detached",
 			"",
-		}, "\n"))
+		}, "\x00"))
 
 		entries, err := parseWorktreeListPorcelain(input, repo.Path)
 		if err != nil {
@@ -650,6 +651,44 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		if infos[0].Branch == "" {
 			t.Error("expected Branch to contain commit hash, got empty string")
+		}
+	})
+
+	t.Run("falls back when detached HEAD cannot be resolved", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") //nolint:gosec
+		cmd.Dir = repo.Path
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to create detached worktree: %v", err)
+		}
+
+		gitDir, err := GetWorktreeGitDir(worktreeDir)
+		if err != nil {
+			t.Fatalf("failed to find worktree git directory: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(gitDir, "HEAD"), []byte("invalid\n"), fs.FileGit); err != nil {
+			t.Fatalf("failed to corrupt detached HEAD: %v", err)
+		}
+
+		_, detached, err := GetCurrentBranchOrDetached(worktreeDir)
+		if err == nil {
+			t.Fatal("expected rev-parse error")
+		}
+		if !detached {
+			t.Fatal("expected detached state")
+		}
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			t.Fatalf("expected wrapped command error, got %v", err)
+		}
+
+		infos, err := ListWorktreesWithInfo(repo.Path, true)
+		if err != nil {
+			t.Fatalf("ListWorktreesWithInfo failed: %v", err)
+		}
+		if len(infos) != 1 || infos[0].Path != worktreeDir || infos[0].Branch != "(detached)" || !infos[0].Detached {
+			t.Fatalf("expected detached fallback info, got %#v", infos)
 		}
 	})
 }

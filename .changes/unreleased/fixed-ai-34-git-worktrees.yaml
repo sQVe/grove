@@ -1,0 +1,2 @@
+kind: Fixed
+body: 'Worktree and ignored-file paths preserve newlines, detached worktrees remove safely and cannot move, Git errors propagate, and Windows device names gain a safe suffix.'

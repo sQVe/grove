@@ -21,7 +21,7 @@ const groveGitContent = "gitdir: .bare"
 var ErrNotInWorkspace = errors.New("not in a grove workspace")
 
 // SanitizeBranchName replaces filesystem-problematic characters with dash.
-// Includes all characters that are unsafe on Windows filesystems.
+// It appends an underscore when the result is a Windows-reserved device name.
 func SanitizeBranchName(branch string) string {
 	replacer := strings.NewReplacer(
 		"/", "-",
@@ -34,7 +34,14 @@ func SanitizeBranchName(branch string) string {
 		"*", "-",
 		":", "-",
 	)
-	return replacer.Replace(branch)
+	name := replacer.Replace(branch)
+	base, _, _ := strings.Cut(strings.ToUpper(name), ".")
+	reserved := base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
+		len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9'
+	if reserved {
+		return name + "_"
+	}
+	return name
 }
 
 // FindBareDir finds the .bare directory for a grove workspace

@@ -176,7 +176,7 @@ func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err 
 	var output []byte
 	output, err = cmd.Output()
 	if err != nil {
-		return "", true, nil // detached but couldn't get hash
+		return "", true, fmt.Errorf("failed to resolve detached HEAD: %w", errors.Join(ErrDetachedHead, err))
 	}
 	return strings.TrimSpace(string(output)), true, nil
 }
