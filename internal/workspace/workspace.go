@@ -235,6 +235,7 @@ type CloneFunc func(bareDir string) error
 // CloneAndInitializeWithCloner creates a grove workspace using a custom clone function.
 // This allows different clone mechanisms (direct git, gh CLI, etc.) while sharing
 // all the workspace setup logic.
+// If createWorktrees is nil, worktrees are created from branches; otherwise it must return created paths for cleanup.
 func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool, createWorktrees func(string) ([]string, error)) error {
 	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err

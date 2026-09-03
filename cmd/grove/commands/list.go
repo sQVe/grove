@@ -13,6 +13,7 @@ import (
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
+	"github.com/sqve/grove/internal/workspace"
 )
 
 // NewListCmd creates the list command
@@ -53,11 +54,21 @@ Examples:
 }
 
 func runList(fast, jsonOutput, verbose bool, filter string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	bareDir, err := workspace.FindBareDir(cwd)
+	if err != nil {
+		return err
+	}
+
 	spin := logger.StartSpinner("Gathering worktree status...")
-	cwd, _, infos, err := loadWorkspace(fast)
+	infos, err := git.ListWorktreesWithInfo(bareDir, fast)
 	if err != nil {
 		spin.StopWithError("Failed to gather worktree status")
-		return err
+		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 	spin.Stop()
 
