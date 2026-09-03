@@ -596,18 +596,7 @@ func detectRemoteIssues(bareDir string, result *DoctorResult) {
 }
 
 func outputDoctorResult(result *DoctorResult) error {
-	// Count issues by severity
-	for _, issue := range result.Issues {
-		switch issue.Severity {
-		case SeverityError:
-			result.Errors++
-		case SeverityWarning:
-			result.Warnings++
-		}
-		if issue.AutoFixable {
-			result.AutoFixable++
-		}
-	}
+	result.Errors, result.Warnings, _, result.AutoFixable = countSeverities(result.Issues)
 
 	// If no issues, report clean
 	if len(result.Issues) == 0 {
@@ -660,8 +649,11 @@ func filterIssuesByCategory(issues []Issue, category Category) []Issue {
 	return filtered
 }
 
-func countSeverities(issues []Issue) (errors, warnings, infos int) {
+func countSeverities(issues []Issue) (errors, warnings, infos, autoFixable int) {
 	for _, issue := range issues {
+		if issue.Fixed {
+			continue
+		}
 		switch issue.Severity {
 		case SeverityError:
 			errors++
@@ -670,12 +662,15 @@ func countSeverities(issues []Issue) (errors, warnings, infos int) {
 		case SeverityInfo:
 			infos++
 		}
+		if issue.AutoFixable {
+			autoFixable++
+		}
 	}
-	return errors, warnings, infos
+	return errors, warnings, infos, autoFixable
 }
 
 func outputCategoryIssues(categoryName string, issues []Issue) {
-	errors, warnings, infos := countSeverities(issues)
+	errors, warnings, infos, _ := countSeverities(issues)
 
 	// Print category header
 	var countParts []string
@@ -967,23 +962,7 @@ type jsonResult struct {
 }
 
 func outputJSONResult(result *DoctorResult) error {
-	// Count issues by severity
-	for _, issue := range result.Issues {
-		if issue.Fixed {
-			continue
-		}
-
-		switch issue.Severity {
-		case SeverityError:
-			result.Errors++
-		case SeverityWarning:
-			result.Warnings++
-		}
-
-		if issue.AutoFixable {
-			result.AutoFixable++
-		}
-	}
+	result.Errors, result.Warnings, _, result.AutoFixable = countSeverities(result.Issues)
 
 	// Convert to JSON-friendly structure
 	jsonRes := jsonResult{

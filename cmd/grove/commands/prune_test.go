@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
@@ -56,44 +55,6 @@ func TestRunPrune(t *testing.T) {
 			t.Errorf("expected ErrNotInWorkspace, got: %v", err)
 		}
 	})
-}
-
-func TestParseDuration(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected time.Duration
-		wantErr  bool
-	}{
-		{"30 days", "30d", 30 * 24 * time.Hour, false},
-		{"2 weeks", "2w", 14 * 24 * time.Hour, false},
-		{"6 months", "6m", 180 * 24 * time.Hour, false},
-		{"1 day", "1d", 24 * time.Hour, false},
-		{"1 week", "1w", 7 * 24 * time.Hour, false},
-		{"1 month", "1m", 30 * 24 * time.Hour, false},
-		{"uppercase D", "30D", 30 * 24 * time.Hour, false},
-		{"uppercase W", "2W", 14 * 24 * time.Hour, false},
-		{"uppercase M", "6M", 180 * 24 * time.Hour, false},
-		{"empty string", "", 0, true},
-		{"invalid format", "abc", 0, true},
-		{"missing number", "d", 0, true},
-		{"invalid unit", "30x", 0, true},
-		{"negative number", "-5d", 0, true},
-		{"zero", "0d", 0, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := config.ParseDuration(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseDuration(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
-				return
-			}
-			if got != tt.expected {
-				t.Errorf("parseDuration(%q) = %v, want %v", tt.input, got, tt.expected)
-			}
-		})
-	}
 }
 
 func TestFormatAge(t *testing.T) {

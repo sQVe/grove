@@ -132,6 +132,7 @@ func TestCountSeverities(t *testing.T) {
 		wantErrors   int
 		wantWarnings int
 		wantInfos    int
+		wantAutoFix  int
 	}{
 		{
 			name:   "empty",
@@ -155,7 +156,7 @@ func TestCountSeverities(t *testing.T) {
 		{
 			name: "mixed",
 			issues: []Issue{
-				{Severity: SeverityError},
+				{Severity: SeverityError, AutoFixable: true},
 				{Severity: SeverityWarning},
 				{Severity: SeverityInfo},
 				{Severity: SeverityError},
@@ -163,12 +164,17 @@ func TestCountSeverities(t *testing.T) {
 			wantErrors:   2,
 			wantWarnings: 1,
 			wantInfos:    1,
+			wantAutoFix:  1,
+		},
+		{
+			name:   "fixed issues are excluded",
+			issues: []Issue{{Severity: SeverityError, AutoFixable: true, Fixed: true}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors, warnings, infos := countSeverities(tt.issues)
+			errors, warnings, infos, autoFixable := countSeverities(tt.issues)
 			if errors != tt.wantErrors {
 				t.Errorf("errors = %d, want %d", errors, tt.wantErrors)
 			}
@@ -177,6 +183,9 @@ func TestCountSeverities(t *testing.T) {
 			}
 			if infos != tt.wantInfos {
 				t.Errorf("infos = %d, want %d", infos, tt.wantInfos)
+			}
+			if autoFixable != tt.wantAutoFix {
+				t.Errorf("auto-fixable = %d, want %d", autoFixable, tt.wantAutoFix)
 			}
 		})
 	}
