@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/sqve/grove/internal/config"
@@ -290,6 +291,10 @@ func TestFindIgnoredFilesInWorktree(t *testing.T) {
 	})
 
 	t.Run("preserves newline in ignored filename", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows filenames cannot contain newlines")
+		}
+
 		t.Parallel()
 		tmpDir := testutil.TempDir(t)
 

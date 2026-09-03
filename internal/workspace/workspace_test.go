@@ -23,6 +23,7 @@ func TestConvert(t *testing.T) {
 		t.Parallel()
 
 		repo := testgit.NewTestRepo(t)
+		repo.RunOutput("config", "core.autocrlf", "false")
 		files := map[string]string{
 			"notes.txt":        "keep these notes\n",
 			"data/config.json": "{\"enabled\":true}\n",

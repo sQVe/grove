@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -92,6 +93,10 @@ func TestCountUnreachableCommits(t *testing.T) {
 	})
 
 	t.Run("streams exclusions through stdin", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("shell git stub is not executable on Windows")
+		}
+
 		binDir := t.TempDir()
 		testutil.WriteFileMode(t, filepath.Join(binDir, "git"), `#!/bin/sh
 set -eu
