@@ -16,6 +16,13 @@ stdout '^    ↳ path:'
 ! stdout '●'
 ! stderr '\[DEBUG\]'
 
+# autolock.patterns applies from TOML without git config
+! exec git config --get-all grove.autoLock
+exec grove add release/x
+stderr 'Created worktree at .*[/\\]release-x'
+exec git -C $WORK/workspace/.bare worktree list --porcelain
+stdout '(?s)worktree .*[/\\]release-x\nHEAD .*\nbranch refs/heads/release/x\nlocked'
+
 # stale_threshold supplies the value for --stale=
 exec git -C $WORK/testrepo checkout -b feature-stale-config
 exec sh -c 'cd $WORK/testrepo && GIT_AUTHOR_DATE="2024-01-01T00:00:00" GIT_COMMITTER_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old commit"'

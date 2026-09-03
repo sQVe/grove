@@ -339,9 +339,9 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	inWorkspace := err == nil
 
 	if inWorkspace {
-		configDir, err := workspace.ResolveConfigDir(cwd)
-		if err != nil {
-			return fmt.Errorf("failed to resolve config directory: %w", err)
+		configDir := filepath.Dir(bareDir)
+		if resolvedDir, err := workspace.ResolveConfigDir(cwd); err == nil {
+			configDir = resolvedDir
 		}
 
 		// Phase 2: Git detection

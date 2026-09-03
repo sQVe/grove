@@ -29,16 +29,19 @@ func CountUnreachableCommits(repoPath, branch string) (int, error) {
 	}
 
 	targetRef := "refs/heads/" + branch
-	args := []string{"rev-list", "--count", targetRef, "--not"}
+	var exclusions strings.Builder
 	for _, ref := range strings.Fields(refs) {
 		if ref != targetRef {
-			args = append(args, ref)
+			exclusions.WriteByte('^')
+			exclusions.WriteString(ref)
+			exclusions.WriteByte('\n')
 		}
 	}
 
-	cmd, cancel := GitCommand("git", args...) //nolint:gosec // Refs come from git
+	cmd, cancel := GitCommand("git", "rev-list", "--count", targetRef, "--stdin") //nolint:gosec // Refs come from git
 	defer cancel()
 	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader(exclusions.String())
 
 	output, err := executeWithOutput(cmd)
 	if err != nil {

@@ -90,6 +90,45 @@ func TestCountUnreachableCommits(t *testing.T) {
 			t.Errorf("expected 1 unreachable commit, got %d", count)
 		}
 	})
+
+	t.Run("streams exclusions through stdin", func(t *testing.T) {
+		binDir := t.TempDir()
+		testutil.WriteFileMode(t, filepath.Join(binDir, "git"), `#!/bin/sh
+set -eu
+
+case "$1" in
+for-each-ref)
+	printf '%s\n' refs/heads/feature refs/heads/main refs/tags/v1
+	;;
+rev-list)
+	if [ "$*" != "rev-list --count refs/heads/feature --stdin" ]; then
+		echo "unexpected rev-list args: $*" >&2
+		exit 1
+	fi
+	exclusions=$(cat)
+	expected=$(printf '%s\n' '^refs/heads/main' '^refs/tags/v1')
+	if [ "$exclusions" != "$expected" ]; then
+		echo "unexpected exclusions: $exclusions" >&2
+		exit 1
+	fi
+	printf '1\n'
+	;;
+*)
+	echo "unexpected git command: $*" >&2
+	exit 1
+	;;
+esac
+`, fs.FileExec)
+		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+		count, err := CountUnreachableCommits(t.TempDir(), "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
 }
 
 func TestGetCurrentBranch(t *testing.T) {

@@ -3,3 +3,14 @@ setup_workspace
 
 exec grove doctor
 stderr '✓ No issues found'
+
+# A new workspace with no worktrees is healthy
+cd $WORK
+exec grove init new empty-workspace
+cd empty-workspace
+
+exec grove doctor
+stderr '✓ No issues found'
+
+exec grove doctor --json
+stdout '"issues": \[\]'
