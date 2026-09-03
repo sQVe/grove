@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"slices"
@@ -138,16 +139,21 @@ func ParseDuration(s string) (time.Duration, error) {
 		return 0, fmt.Errorf("duration must be positive: %s", s)
 	}
 
+	var durationUnit time.Duration
 	switch unit := s[len(s)-1]; unit {
 	case 'd':
-		return time.Duration(num) * 24 * time.Hour, nil
+		durationUnit = 24 * time.Hour
 	case 'w':
-		return time.Duration(num) * 7 * 24 * time.Hour, nil
+		durationUnit = 7 * 24 * time.Hour
 	case 'm':
-		return time.Duration(num) * 30 * 24 * time.Hour, nil
+		durationUnit = 30 * 24 * time.Hour
 	default:
 		return 0, fmt.Errorf("unknown duration unit: %c (use d, w, or m)", unit)
 	}
+	if int64(num) > math.MaxInt64/int64(durationUnit) {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+	return time.Duration(num) * durationUnit, nil
 }
 
 // GetAutoLockPatterns returns the configured auto-lock patterns or defaults.
@@ -194,56 +200,58 @@ func LoadFromGitConfig() {
 }
 
 func loadGlobalConfig(fileConfig *FileConfig) {
-	globalMu.Lock()
-	defer globalMu.Unlock()
-	Global = DefaultConfig.settings
-	Global.AutoLockPatterns = slices.Clone(DefaultConfig.AutoLockPatterns)
+	loaded := DefaultConfig.settings
+	loaded.AutoLockPatterns = slices.Clone(DefaultConfig.AutoLockPatterns)
 
 	if fileConfig.Plain != nil {
-		Global.Plain = *fileConfig.Plain
+		loaded.Plain = *fileConfig.Plain
 	}
 	if fileConfig.Debug != nil {
-		Global.Debug = *fileConfig.Debug
+		loaded.Debug = *fileConfig.Debug
 	}
 	if fileConfig.NerdFonts != nil {
-		Global.NerdFonts = *fileConfig.NerdFonts
+		loaded.NerdFonts = *fileConfig.NerdFonts
 	}
 	if isValidStaleThreshold(fileConfig.StaleThreshold) {
-		Global.StaleThreshold = fileConfig.StaleThreshold
+		loaded.StaleThreshold = fileConfig.StaleThreshold
 	}
 	if len(fileConfig.Autolock.Patterns) > 0 {
-		Global.AutoLockPatterns = append([]string{}, fileConfig.Autolock.Patterns...)
+		loaded.AutoLockPatterns = append([]string{}, fileConfig.Autolock.Patterns...)
 	}
 
 	if value := getGitConfig("grove.plain"); value != "" {
-		Global.Plain = isTruthy(value)
+		loaded.Plain = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.debug"); value != "" {
-		Global.Debug = isTruthy(value)
+		loaded.Debug = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.nerdFonts"); value != "" {
-		Global.NerdFonts = isTruthy(value)
+		loaded.NerdFonts = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.staleThreshold"); value != "" {
 		if isValidStaleThreshold(value) {
-			Global.StaleThreshold = value
+			loaded.StaleThreshold = value
 		}
 		// Invalid values are silently ignored, using default
 	}
 
 	if value := getGitConfig("grove.timeout"); value != "" {
 		if d, err := time.ParseDuration(value); err == nil {
-			Global.Timeout = d
+			loaded.Timeout = d
 		}
 	}
 
 	autoLockPatterns := getGitConfigs("grove.autoLock")
 	if len(autoLockPatterns) > 0 {
-		Global.AutoLockPatterns = autoLockPatterns
+		loaded.AutoLockPatterns = autoLockPatterns
 	}
+
+	globalMu.Lock()
+	Global = loaded
+	globalMu.Unlock()
 }
 
 // getGitConfig gets a single config value, returns empty string if not found

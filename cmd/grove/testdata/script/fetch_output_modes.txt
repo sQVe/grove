@@ -4,7 +4,7 @@ mkdir origin
 exec git init --bare origin
 
 mkdir source
-exec git init source
+exec git init -b main source
 cd source
 cp ../README.md .
 exec git add .

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -161,7 +162,12 @@ func TestRepositoryName(t *testing.T) {
 }
 
 func TestRepositoryNameRejectsInvalid(t *testing.T) {
-	for _, source := range []string{"", ".", "/", ".git", ".."} {
+	sources := []string{"", ".", "/", ".git", ".."}
+	if runtime.GOOS == "windows" {
+		sources = append(sources, `\`, `C:\`)
+	}
+
+	for _, source := range sources {
 		t.Run(source, func(t *testing.T) {
 			_, err := repositoryName(source)
 			if !errors.Is(err, ErrCloneRepositoryName) {

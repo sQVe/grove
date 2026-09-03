@@ -162,6 +162,22 @@ func TestLoadFromGitConfig(t *testing.T) {
 	})
 }
 
+func TestLoadGlobalConfigDoesNotDeadlockOnGitError(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	done := make(chan struct{})
+	go func() {
+		loadGlobalConfig(&FileConfig{})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("loadGlobalConfig deadlocked after git config failed")
+	}
+}
+
 func TestMainLoadingSequence(t *testing.T) {
 	cleanup := setupGitRepo(t)
 	defer cleanup()
@@ -394,6 +410,7 @@ func TestParseDuration(t *testing.T) {
 		{"invalid unit", "30x", 0, true},
 		{"negative number", "-5d", 0, true},
 		{"zero", "0d", 0, true},
+		{"overflow", "106752d", 0, true},
 	}
 
 	for _, tt := range tests {

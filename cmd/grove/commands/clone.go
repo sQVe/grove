@@ -30,7 +30,7 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 
 func repositoryName(source string) (string, error) {
 	name := filepath.Base(strings.TrimSuffix(strings.TrimRight(source, "/"), ".git"))
-	if name == "" || name == "." || name == ".." {
+	if name == "" || name == "." || name == ".." || name == string(filepath.Separator) || name == "/" {
 		return "", ErrCloneRepositoryName
 	}
 	return name, nil
