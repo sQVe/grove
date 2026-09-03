@@ -11,9 +11,51 @@ import (
 
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/testutil"
+	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 const testEnvFile = ".env"
+
+func TestConvert(t *testing.T) {
+	t.Parallel()
+
+	t.Run("restores moved files when checkout fails", func(t *testing.T) {
+		t.Parallel()
+
+		repo := testgit.NewTestRepo(t)
+		files := map[string]string{
+			"notes.txt":        "keep these notes\n",
+			"data/config.json": "{\"enabled\":true}\n",
+		}
+		for name, content := range files {
+			repo.WriteFile(name, content)
+			repo.Add(name)
+		}
+		repo.Commit("add files")
+
+		hook := filepath.Join(repo.Path, ".git", "hooks", "post-checkout")
+		if err := os.WriteFile(hook, []byte("#!/bin/sh\nexit 1\n"), fs.FileExec); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := Convert(repo.Path, "", false); err == nil {
+			t.Fatal("expected conversion to fail")
+		} else if !strings.Contains(err.Error(), "failed to restore files in worktree") {
+			t.Fatalf("expected checkout failure, got: %v", err)
+		}
+
+		for name, want := range files {
+			content, err := os.ReadFile(filepath.Join(repo.Path, name)) //nolint:gosec // controlled test path
+			if err != nil {
+				t.Errorf("expected %s to be restored: %v", name, err)
+				continue
+			}
+			if string(content) != want {
+				t.Errorf("expected %s contents %q, got %q", name, want, content)
+			}
+		}
+	})
+}
 
 func TestIsInsideGroveWorkspace(t *testing.T) {
 	t.Parallel()

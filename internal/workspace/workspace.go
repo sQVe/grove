@@ -876,15 +876,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 		logger.Error("Conversion failed, attempting to restore repository...")
 		var restoreErrors []string
 
-		// Step 1: Remove created worktrees (best effort)
-		for _, worktreePath := range createdWorktrees {
-			logger.Debug("Removing worktree: %s", worktreePath)
-			if err := fs.RemoveAll(worktreePath); err != nil {
-				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
-			}
-		}
-
-		// Step 2: Move files back from first worktree (best effort, track failures)
+		// Step 1: Move files back from first worktree (best effort, track failures)
 		if len(movedFiles) > 0 && len(createdWorktrees) > 0 {
 			firstWorktree := createdWorktrees[0]
 			for i := len(movedFiles) - 1; i >= 0; i-- {
@@ -896,6 +888,14 @@ func Convert(targetDir, branches string, verbose bool) error {
 					logger.Error("Failed to move file back %s: %v", fileName, err)
 					restoreErrors = append(restoreErrors, fileName)
 				}
+			}
+		}
+
+		// Step 2: Remove created worktrees (best effort)
+		for _, worktreePath := range createdWorktrees {
+			logger.Debug("Removing worktree: %s", worktreePath)
+			if err := fs.RemoveAll(worktreePath); err != nil {
+				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
 			}
 		}
 
