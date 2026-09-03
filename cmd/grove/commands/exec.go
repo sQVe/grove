@@ -34,10 +34,12 @@ type ExecError struct {
 	exitCode int
 }
 
+// Error returns the summary message already printed by exec.
 func (e *ExecError) Error() string {
 	return e.message
 }
 
+// ExitCode returns the process exit code grove should exit with.
 func (e *ExecError) ExitCode() int {
 	return e.exitCode
 }
@@ -179,7 +181,7 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(results); err != nil {
-			return err
+			return fmt.Errorf("encode exec results: %w", err)
 		}
 	} else {
 		switch failCount {
@@ -192,6 +194,9 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 		}
 		for _, name := range failed {
 			logger.Dimmed("%s", name)
+		}
+		if skipped := len(targets) - total; skipped > 0 {
+			logger.Dimmed("Stopped early, %d worktrees skipped", skipped)
 		}
 	}
 

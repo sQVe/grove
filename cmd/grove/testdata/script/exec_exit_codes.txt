@@ -22,8 +22,9 @@ stderr 'child-output'
 exec sh -c 'grove --plain exec main feature -- test -f only-in-main.txt; test $? -eq 1'
 
 # --fail-fast stops on first failure
-! exec grove exec --all --fail-fast -- false
-stderr 'failed'
+! exec grove --plain exec --all --fail-fast -- false
+stderr 'All 1 executions failed'
+stderr 'Stopped early, 2 worktrees skipped'
 
 -- only-in-main.txt --
 exists
