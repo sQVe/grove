@@ -1,3 +1,9 @@
+## [v1.9.1](https://github.com/sQVe/grove/releases/tag/v1.9.1) - 2026-09-03
+
+### Fixed
+- Spinners now print a single plain `→ message` line instead of animating when stderr is not a terminal, so piped and CI output no longer contains cursor-control sequences. `--plain` still takes precedence.
+- `grove add` now releases the workspace lock before running hooks, and lock contention waits up to 60 seconds for the other operation instead of failing immediately.
+
 ## [v1.9.0](https://github.com/sQVe/grove/releases/tag/v1.9.0) - 2026-07-01
 
 ### Changed
