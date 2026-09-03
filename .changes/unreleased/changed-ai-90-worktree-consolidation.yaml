@@ -1,0 +1,2 @@
+kind: Changed
+body: 'Internal worktree creation now uses one Git helper, one branch loop, and one auto-lock path.'

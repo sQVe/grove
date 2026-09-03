@@ -242,7 +242,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		if baseBranch != "" {
 			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
 		}
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 		if remoteExists, _ := git.RemoteBranchExists(bareDir, "origin", branch); remoteExists {
@@ -260,24 +260,17 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 			if !baseExists {
 				return fmt.Errorf("base branch %q does not exist", baseBranch)
 			}
-			if err := git.CreateWorktreeWithNewBranchFrom(bareDir, worktreePath, branch, baseBranch, true); err != nil {
+			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true, Base: baseBranch}, true); err != nil {
 				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		} else {
-			if err := git.CreateWorktreeWithNewBranch(bareDir, worktreePath, branch, true); err != nil {
+			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true}, true); err != nil {
 				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		}
 	}
 
-	// Auto-lock if branch matches auto-lock patterns
-	if config.ShouldAutoLock(branch) {
-		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-			logger.Debug("Failed to auto-lock worktree: %v", err)
-		} else {
-			logger.Debug("Auto-locked worktree for branch %s", branch)
-		}
-	}
+	workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 
 	spin := logger.StartSpinner("Setting up worktree...")
 	configWorktree := findConfigWorktree(bareDir)
@@ -315,7 +308,7 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return fmt.Errorf("ref %q does not exist", ref)
 	}
 
-	if err := git.CreateWorktreeDetached(bareDir, worktreePath, ref, true); err != nil {
+	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: ref, Detach: true}, true); err != nil {
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
@@ -439,7 +432,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
-		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, true); err != nil {
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: trackingRef}, true); err != nil {
 			cleanupRemote()
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
@@ -488,7 +481,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 			}
 		}
 
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 		if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
@@ -496,14 +489,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		}
 	}
 
-	// Auto-lock if branch matches auto-lock patterns
-	if config.ShouldAutoLock(branch) {
-		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-			logger.Debug("Failed to auto-lock worktree: %v", err)
-		} else {
-			logger.Debug("Auto-locked worktree for branch %s", branch)
-		}
-	}
+	workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 
 	setupSpin := logger.StartSpinner("Setting up worktree...")
 	configWorktree := findConfigWorktree(bareDir)

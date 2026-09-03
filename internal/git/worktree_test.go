@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -15,11 +16,10 @@ import (
 
 // Error message constants for test assertions.
 const (
-	errBareRepoPathEmpty  = "bare repository path cannot be empty"
-	errWorktreePathEmpty  = "worktree path cannot be empty"
-	errBranchNameEmpty    = "branch name cannot be empty"
-	errBaseReferenceEmpty = "base reference cannot be empty"
-	errRefEmpty           = "ref cannot be empty"
+	errBareRepoPathEmpty = "bare repository path cannot be empty"
+	errWorktreePathEmpty = "worktree path cannot be empty"
+	errBranchNameEmpty   = "branch name cannot be empty"
+	errRefEmpty          = "ref cannot be empty"
 )
 
 func TestCreateWorktree(t *testing.T) {
@@ -36,7 +36,7 @@ func TestCreateWorktree(t *testing.T) {
 			t.Fatalf("failed to create bare repo: %v", err)
 		}
 
-		err := CreateWorktree(bareDir, worktreeDir, "main", false)
+		err := CreateWorktree(bareDir, worktreeDir, CreateWorktreeOptions{Branch: "main"}, false)
 		if err == nil {
 			t.Fatal("expected error as main branch doesn't exist in empty repo")
 		}
@@ -53,7 +53,7 @@ func TestCreateWorktree(t *testing.T) {
 			t.Fatalf("failed to create branch: %v", err)
 		}
 
-		err := CreateWorktree(repo.Path, worktreeDir, "feature", true)
+		err := CreateWorktree(repo.Path, worktreeDir, CreateWorktreeOptions{Branch: "feature"}, true)
 		if err != nil {
 			t.Fatalf("CreateWorktree failed: %v", err)
 		}
@@ -80,7 +80,7 @@ func TestCreateWorktree(t *testing.T) {
 			t.Fatalf("failed to create branch: %v", err)
 		}
 
-		err := CreateWorktree(repo.Path, worktreeDir, "feature", true)
+		err := CreateWorktree(repo.Path, worktreeDir, CreateWorktreeOptions{Branch: "feature"}, true)
 		if err != nil {
 			t.Fatalf("CreateWorktree failed: %v", err)
 		}
@@ -97,6 +97,44 @@ func TestCreateWorktree(t *testing.T) {
 			t.Errorf("expected relative path in .git file, got absolute: %s", gitdir)
 		}
 	})
+}
+
+func TestCreateWorktreeArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		opts CreateWorktreeOptions
+		want []string
+	}{
+		{
+			name: "existing branch",
+			opts: CreateWorktreeOptions{Branch: "main"},
+			want: []string{"worktree", "add", "--relative-paths", "/wt", "main"},
+		},
+		{
+			name: "new branch from base",
+			opts: CreateWorktreeOptions{Branch: "feature", NewBranch: true, Base: "main"},
+			want: []string{"worktree", "add", "--relative-paths", "-b", "feature", "/wt", "main"},
+		},
+		{
+			name: "detached",
+			opts: CreateWorktreeOptions{Branch: "v1.0.0", Detach: true},
+			want: []string{"worktree", "add", "--relative-paths", "--detach", "/wt", "v1.0.0"},
+		},
+		{
+			name: "no checkout",
+			opts: CreateWorktreeOptions{Branch: "main", NoCheckout: true},
+			want: []string{"worktree", "add", "--relative-paths", "--no-checkout", "/wt", "main"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := createWorktreeArgs("/wt", tt.opts)
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("createWorktreeArgs() = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestIsWorktree(t *testing.T) {
@@ -753,7 +791,7 @@ func TestListPrunableWorktrees(t *testing.T) {
 	})
 }
 
-func TestCreateWorktreeWithNewBranch(t *testing.T) {
+func TestCreateWorktreeNewBranch(t *testing.T) {
 	t.Run("creates worktree with new branch", func(t *testing.T) {
 		// Create a regular repo first to have something to clone
 		sourceRepo := testgit.NewTestRepo(t)
@@ -766,7 +804,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		}
 
 		worktreePath := filepath.Join(filepath.Dir(bareDir), "feature-test")
-		err := CreateWorktreeWithNewBranch(bareDir, worktreePath, "feature-test", true)
+		err := CreateWorktree(bareDir, worktreePath, CreateWorktreeOptions{Branch: "feature-test", NewBranch: true}, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -787,7 +825,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 	})
 
 	t.Run("fails with empty bare repo path", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranch("", "/tmp/wt", "branch", true)
+		err := CreateWorktree("", "/tmp/wt", CreateWorktreeOptions{Branch: "branch", NewBranch: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
@@ -797,7 +835,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 	})
 
 	t.Run("fails with empty worktree path", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranch("/some/repo", "", "branch", true)
+		err := CreateWorktree("/some/repo", "", CreateWorktreeOptions{Branch: "branch", NewBranch: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
 		}
@@ -807,7 +845,7 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 	})
 
 	t.Run("fails with empty branch name", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranch("/some/repo", "/tmp/wt", "", true)
+		err := CreateWorktree("/some/repo", "/tmp/wt", CreateWorktreeOptions{NewBranch: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty branch name")
 		}
@@ -820,9 +858,9 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreeDir := filepath.Join(repo.TempDir, "new-branch-worktree")
 
-		err := CreateWorktreeWithNewBranch(repo.Path, worktreeDir, "new-feature", true)
+		err := CreateWorktree(repo.Path, worktreeDir, CreateWorktreeOptions{Branch: "new-feature", NewBranch: true}, true)
 		if err != nil {
-			t.Fatalf("CreateWorktreeWithNewBranch failed: %v", err)
+			t.Fatalf("CreateWorktree failed: %v", err)
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")
@@ -838,19 +876,9 @@ func TestCreateWorktreeWithNewBranch(t *testing.T) {
 	})
 }
 
-func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
-	t.Run("fails with empty base", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranchFrom("/repo", "/wt", "branch", "", true)
-		if err == nil {
-			t.Fatal("expected error for empty base")
-		}
-		if err.Error() != errBaseReferenceEmpty {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
+func TestCreateWorktreeFromBase(t *testing.T) {
 	t.Run("fails with empty bare repo path", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranchFrom("", "/wt", "branch", "main", true)
+		err := CreateWorktree("", "/wt", CreateWorktreeOptions{Branch: "branch", NewBranch: true, Base: "main"}, true)
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
@@ -860,7 +888,7 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 	})
 
 	t.Run("fails with empty worktree path", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranchFrom("/repo", "", "branch", "main", true)
+		err := CreateWorktree("/repo", "", CreateWorktreeOptions{Branch: "branch", NewBranch: true, Base: "main"}, true)
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
 		}
@@ -870,7 +898,7 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 	})
 
 	t.Run("fails with empty branch name", func(t *testing.T) {
-		err := CreateWorktreeWithNewBranchFrom("/repo", "/wt", "", "main", true)
+		err := CreateWorktree("/repo", "/wt", CreateWorktreeOptions{NewBranch: true, Base: "main"}, true)
 		if err == nil {
 			t.Fatal("expected error for empty branch name")
 		}
@@ -883,9 +911,9 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreeDir := filepath.Join(repo.TempDir, "branch-from-worktree")
 
-		err := CreateWorktreeWithNewBranchFrom(repo.Path, worktreeDir, "feature-from-head", "HEAD", true)
+		err := CreateWorktree(repo.Path, worktreeDir, CreateWorktreeOptions{Branch: "feature-from-head", NewBranch: true, Base: "HEAD"}, true)
 		if err != nil {
-			t.Fatalf("CreateWorktreeWithNewBranchFrom failed: %v", err)
+			t.Fatalf("CreateWorktree failed: %v", err)
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")
@@ -901,9 +929,9 @@ func TestCreateWorktreeWithNewBranchFrom(t *testing.T) {
 	})
 }
 
-func TestCreateWorktreeDetached(t *testing.T) {
+func TestCreateWorktreeDetach(t *testing.T) {
 	t.Run("fails with empty bare repo path", func(t *testing.T) {
-		err := CreateWorktreeDetached("", "/wt", "v1.0.0", true)
+		err := CreateWorktree("", "/wt", CreateWorktreeOptions{Branch: "v1.0.0", Detach: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty bare repo path")
 		}
@@ -913,7 +941,7 @@ func TestCreateWorktreeDetached(t *testing.T) {
 	})
 
 	t.Run("fails with empty worktree path", func(t *testing.T) {
-		err := CreateWorktreeDetached("/repo", "", "v1.0.0", true)
+		err := CreateWorktree("/repo", "", CreateWorktreeOptions{Branch: "v1.0.0", Detach: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty worktree path")
 		}
@@ -923,7 +951,7 @@ func TestCreateWorktreeDetached(t *testing.T) {
 	})
 
 	t.Run("fails with empty ref", func(t *testing.T) {
-		err := CreateWorktreeDetached("/repo", "/wt", "", true)
+		err := CreateWorktree("/repo", "/wt", CreateWorktreeOptions{Detach: true}, true)
 		if err == nil {
 			t.Fatal("expected error for empty ref")
 		}
@@ -936,9 +964,9 @@ func TestCreateWorktreeDetached(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
 
-		err := CreateWorktreeDetached(repo.Path, worktreeDir, "HEAD", true)
+		err := CreateWorktree(repo.Path, worktreeDir, CreateWorktreeOptions{Branch: "HEAD", Detach: true}, true)
 		if err != nil {
-			t.Fatalf("CreateWorktreeDetached failed: %v", err)
+			t.Fatalf("CreateWorktree failed: %v", err)
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")

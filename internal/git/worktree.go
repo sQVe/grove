@@ -45,90 +45,57 @@ const (
 	detachedBranch        = "(detached)"
 )
 
-// CreateWorktree creates a new worktree from a bare repository
-func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths %s %s", worktreePath, branch)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", worktreePath, branch)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
+// CreateWorktreeOptions configures worktree creation.
+type CreateWorktreeOptions struct {
+	Branch     string
+	NewBranch  bool
+	Base       string
+	Detach     bool
+	NoCheckout bool
 }
 
-// CreateWorktreeWithNewBranch creates a new worktree with a new branch.
-// Uses: git worktree add -b <branch> <path>
-func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bool) error {
+// CreateWorktree creates a worktree from a bare repository.
+func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, quiet bool) error {
 	if bareRepo == "" {
 		return errors.New("bare repository path cannot be empty")
 	}
 	if worktreePath == "" {
 		return errors.New("worktree path cannot be empty")
 	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths -b %s %s", branch, worktreePath)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
-}
-
-// CreateWorktreeWithNewBranchFrom creates a new worktree with a new branch based on a specific commit/branch.
-// Uses: git worktree add -b <newbranch> <path> <base>
-func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-	if base == "" {
-		return errors.New("base reference cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths -b %s %s %s", branch, worktreePath, base)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath, base)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
-}
-
-// CreateWorktreeDetached creates a worktree in detached HEAD state at the specified ref.
-// Uses: git worktree add --detach <path> <ref>
-func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if ref == "" {
+	if opts.Branch == "" && opts.Detach {
 		return errors.New("ref cannot be empty")
 	}
+	if opts.Branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
 
-	logger.Debug("Executing: git worktree add --relative-paths --detach %s %s", worktreePath, ref)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "--detach", worktreePath, ref)
+	args := createWorktreeArgs(worktreePath, opts)
+	logger.Debug("Executing: git %s", strings.Join(args, " "))
+	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
 	cmd.Dir = bareRepo
 
 	return WrapGitTooOldError(runGitCommand(cmd, quiet))
+}
+
+func createWorktreeArgs(worktreePath string, opts CreateWorktreeOptions) []string {
+	args := []string{gitWorktreeSubcommand, "add", "--relative-paths"}
+	if opts.NewBranch {
+		args = append(args, "-b", opts.Branch)
+	}
+	if opts.Detach {
+		args = append(args, "--detach")
+	}
+	if opts.NoCheckout {
+		args = append(args, "--no-checkout")
+	}
+	args = append(args, worktreePath)
+	if opts.Base != "" {
+		args = append(args, opts.Base)
+	} else if !opts.NewBranch {
+		args = append(args, opts.Branch)
+	}
+	return args
 }
 
 // RemoveWorktree removes a worktree directory

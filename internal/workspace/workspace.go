@@ -182,36 +182,14 @@ func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 	}
 
 	logger.Info("Creating worktrees:")
-	var createdPaths []string
-
-	for _, branch := range filteredBranches {
-		sanitizedName := SanitizeBranchName(branch)
-		worktreePath := filepath.Join("..", sanitizedName)
-		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
-
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-			for i := len(createdPaths) - 1; i >= 0; i-- {
-				if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
-					logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
-				}
-			}
-			return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
-		}
-		createdPaths = append(createdPaths, absWorktreePath)
-
-		if exists, _ := git.RemoteBranchExists(bareDir, "origin", branch); exists {
-			if err := git.SetUpstreamBranch(absWorktreePath, "origin/"+branch); err != nil {
-				logger.Debug("Failed to set upstream for %s: %v", branch, err)
+	createdPaths, err := createWorktrees(bareDir, filteredBranches, verbose, false)
+	if err != nil {
+		for i := len(createdPaths) - 1; i >= 0; i-- {
+			if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
+				logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
 			}
 		}
-
-		if config.ShouldAutoLock(branch) {
-			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-				logger.Debug("Failed to auto-lock worktree: %v", err)
-			} else {
-				logger.Debug("Auto-locked worktree for branch %s", branch)
-			}
-		}
+		return createdPaths, err
 	}
 
 	for _, branch := range filteredBranches {
@@ -470,51 +448,46 @@ func createMainWorktree(targetDir, currentBranch string, verbose bool, movedFile
 // createWorktreesOnly creates worktrees for all specified branches
 func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]string, error) {
 	logger.Info("Creating worktrees...")
+	return createWorktrees(bareDir, branches, verbose, true)
+}
+
+func createWorktrees(bareDir string, branches []string, verbose, noCheckoutFirst bool) ([]string, error) {
 	var createdPaths []string
 
 	for i, branch := range branches {
 		sanitizedName := SanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
+		opts := git.CreateWorktreeOptions{Branch: branch, NoCheckout: noCheckoutFirst && i == 0}
 
-		if i == 0 {
-			logger.Debug("Executing: git worktree add --relative-paths --no-checkout %s %s in %s", worktreePath, branch, bareDir)
-			cmd, cancel := git.GitCommand("git", "worktree", "add", "--relative-paths", "--no-checkout", worktreePath, branch) // nolint:gosec
-			cmd.Dir = bareDir
-
-			var stderr bytes.Buffer
-			if verbose {
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-			} else {
-				cmd.Stderr = &stderr
-			}
-
-			err := cmd.Run()
-			cancel()
-			if err != nil {
-				errMsg := fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
-				if !verbose && stderr.Len() > 0 {
-					errMsg = fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
-				}
-				return createdPaths, git.HintGitTooOld(git.WrapGitTooOldError(errMsg))
-			}
-		} else {
-			if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-				return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
-			}
+		if err := git.CreateWorktree(bareDir, worktreePath, opts, !verbose); err != nil {
+			return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
-		if config.ShouldAutoLock(branch) {
-			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-				logger.Debug("Failed to auto-lock worktree: %v", err)
-			} else {
-				logger.Debug("Auto-locked worktree for branch %s", branch)
+		if !noCheckoutFirst {
+			if exists, _ := git.RemoteBranchExists(bareDir, "origin", branch); exists {
+				if err := git.SetUpstreamBranch(absWorktreePath, "origin/"+branch); err != nil {
+					logger.Debug("Failed to set upstream for %s: %v", branch, err)
+				}
 			}
 		}
+
+		AutoLockIfMatched(bareDir, absWorktreePath, branch)
 	}
 	return createdPaths, nil
+}
+
+// AutoLockIfMatched locks a worktree when its branch matches an auto-lock pattern.
+func AutoLockIfMatched(bareDir, worktreePath, branch string) {
+	if !config.ShouldAutoLock(branch) {
+		return
+	}
+	if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+		logger.Debug("Failed to auto-lock worktree: %v", err)
+	} else {
+		logger.Debug("Auto-locked worktree for branch %s", branch)
+	}
 }
 
 // moveFilesToFirstWorktree moves all files from targetDir to the first worktree
