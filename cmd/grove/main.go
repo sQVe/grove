@@ -65,6 +65,9 @@ func main() {
 	rootCmd.AddCommand(commands.NewUnlockCmd())
 
 	if err := rootCmd.Execute(); err != nil {
+		if exitError, ok := err.(interface{ ExitCode() int }); ok {
+			os.Exit(exitError.ExitCode())
+		}
 		logger.Error("%s", err)
 		logger.Dimmed("Run 'grove --help' for usage.")
 		os.Exit(1)

@@ -1,0 +1,5 @@
+kind: Added
+body: Make grove exec print failed worktree names, propagate single-target exit codes, and support JSON output.
+time: 2026-09-03T11:50:42.885491447+02:00
+custom:
+  Issue: '77'

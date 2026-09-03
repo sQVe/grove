@@ -12,6 +12,18 @@ stderr 'Executed'
 ! exec grove exec --all -- false
 stderr 'failed'
 
+# A single target propagates the child exit code without generic root errors
+exec sh -c 'grove --plain exec main -- sh -c "echo child-output >&2; exit 3"; test $? -eq 3'
+stderr 'child-output'
+! stderr 'Error: all executions failed'
+! stderr 'Run .*grove --help.*'
+
+# Multiple targets still collapse child failures to exit 1
+exec sh -c 'grove --plain exec main feature -- test -f only-in-main.txt; test $? -eq 1'
+
 # --fail-fast stops on first failure
 ! exec grove exec --all --fail-fast -- false
 stderr 'failed'
+
+-- only-in-main.txt --
+exists

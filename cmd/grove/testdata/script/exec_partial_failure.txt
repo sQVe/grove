@@ -8,8 +8,9 @@ exec grove add bugfix
 cp $WORK/exists.txt only-in-main.txt
 
 # cat succeeds in main but fails in feature/bugfix
-! exec grove exec --all -- cat only-in-main.txt
+! exec grove --plain exec --all -- cat only-in-main.txt
 stdout 'exists'
+stderr '(?s)Warning: Executed in 3 worktrees \(1 succeeded, 2 failed\)\nbugfix\nfeature\n$'
 
 rm only-in-main.txt
 
