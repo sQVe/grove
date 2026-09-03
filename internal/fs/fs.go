@@ -21,10 +21,6 @@ const (
 	FileExec = 0o755 // rwxr-xr-x - executable file
 	FileGit  = 0o644 // rw-r--r-- - git-compatible file
 
-	// MaxDirectoryIterations limits directory traversal to prevent infinite loops
-	// from symlink cycles. 100 levels is generous for any sane filesystem depth.
-	MaxDirectoryIterations = 100
-
 	// OSWindows is the GOOS value for Windows
 	OSWindows = "windows"
 )
@@ -82,7 +78,7 @@ func WalkUp(start string, match func(string) bool) (string, error) {
 		return "", err
 	}
 
-	for range MaxDirectoryIterations {
+	for {
 		if match(dir) {
 			return dir, nil
 		}
@@ -92,7 +88,6 @@ func WalkUp(start string, match func(string) bool) (string, error) {
 		}
 		dir = parent
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", MaxDirectoryIterations)
 }
 
 // RenameWithFallback renames oldpath to newpath, falling back to copy+delete for cross-filesystem moves

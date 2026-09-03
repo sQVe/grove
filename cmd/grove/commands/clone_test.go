@@ -146,6 +146,7 @@ func TestRepositoryName(t *testing.T) {
 		{name: "git suffix", source: "https://github.com/owner/repo.git", want: "repo"},
 		{name: "trailing slash", source: "https://github.com/owner/repo/", want: "repo"},
 		{name: "local path", source: "/tmp/owner/repo", want: "repo"},
+		{name: "reserved name", source: "https://example.com/CON.git", want: "CON_"},
 	}
 
 	for _, tt := range tests {

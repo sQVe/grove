@@ -1,0 +1,11 @@
+# Test: effective config list falls back to git config for invalid TOML
+setup_workspace
+
+exec git config grove.preserve fallback.txt
+cp $WORK/invalid.toml .grove.toml
+exec grove config list
+stderr -count=1 'Warning: failed to parse .grove.toml:.*using fallback'
+stdout '^preserve.patterns=fallback.txt$'
+
+-- invalid.toml --
+this is not valid toml [[[

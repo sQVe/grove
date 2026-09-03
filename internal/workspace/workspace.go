@@ -33,13 +33,17 @@ var branchNameReplacer = strings.NewReplacer(
 )
 
 // SanitizeBranchName replaces filesystem-problematic characters with dash.
-// It appends an underscore when the result is a Windows-reserved device name.
+// It adds an underscore to Windows-reserved device names.
 func SanitizeBranchName(branch string) string {
 	name := branchNameReplacer.Replace(branch)
-	base, _, _ := strings.Cut(strings.ToUpper(name), ".")
+	stem, extension, hasExtension := strings.Cut(name, ".")
+	base := strings.ToUpper(stem)
 	reserved := base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
 		len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9'
 	if reserved {
+		if hasExtension {
+			return stem + "_." + extension
+		}
 		return name + "_"
 	}
 	return name

@@ -1108,6 +1108,11 @@ func TestCompleteRemoveArgs(t *testing.T) {
 		t.Error("completions should include 'bugfix'")
 	}
 
+	completions, _ = removeCmd.ValidArgsFunction(removeCmd, nil, "fea")
+	if len(completions) != 1 || completions[0] != "feature" {
+		t.Errorf("completions for prefix %q = %v, want [feature]", "fea", completions)
+	}
+
 	// Should disable file completion
 	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected ShellCompDirectiveNoFileComp, got %v", directive)

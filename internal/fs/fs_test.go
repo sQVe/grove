@@ -177,6 +177,22 @@ func TestWalkUp(t *testing.T) {
 	if got != "" {
 		t.Fatalf("WalkUp() without a match = %q, want empty", got)
 	}
+
+	deep := root
+	for range 101 {
+		deep = filepath.Join(deep, "level")
+	}
+	if err := os.MkdirAll(deep, DirGit); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err = WalkUp(deep, func(dir string) bool { return dir == root })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != root {
+		t.Fatalf("WalkUp() from deep path = %q, want %q", got, root)
+	}
 }
 
 func TestRenameWithFallback(t *testing.T) {

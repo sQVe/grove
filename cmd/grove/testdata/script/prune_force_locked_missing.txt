@@ -1,0 +1,11 @@
+# Test: grove prune --force removes a locked worktree whose directory is gone
+setup_workspace feature-locked-missing
+
+exec grove add feature-locked-missing
+exec git -C $WORK/workspace/.bare worktree lock ../feature-locked-missing --reason keep
+rm -rf ../feature-locked-missing
+exec grove prune --merged --commit --force
+stderr 'Pruned 1 worktree'
+stderr 'feature-locked-missing'
+exec git -C $WORK/workspace/.bare worktree list --porcelain
+! stdout 'feature-locked-missing'

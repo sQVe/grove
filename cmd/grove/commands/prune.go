@@ -378,7 +378,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		}
 
 		// Actually remove the worktree
-		if force && git.IsWorktreeLocked(candidate.info.Path) {
+		if force && candidate.info.Locked {
 			if err := git.UnlockWorktree(bareDir, candidate.info.Path); err != nil {
 				logger.Debug("Failed to unlock worktree: %v", err)
 			}

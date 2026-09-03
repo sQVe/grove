@@ -33,7 +33,7 @@ func repositoryName(source string) (string, error) {
 	if name == "" || name == "." || name == ".." || name == string(filepath.Separator) || name == "/" {
 		return "", ErrCloneRepositoryName
 	}
-	return name, nil
+	return workspace.SanitizeBranchName(name), nil
 }
 
 func NewCloneCmd() *cobra.Command {

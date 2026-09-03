@@ -391,7 +391,12 @@ func runConfigListEffective() error {
 		var err error
 		cfg, err = config.LoadFromFile(worktreeDir)
 		if err != nil {
-			return err
+			// Startup already warned; merge from git without reparsing the invalid file.
+			cfg = config.FileConfig{}
+			worktreeDir, err = workspace.FindBareDir(worktreeDir)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

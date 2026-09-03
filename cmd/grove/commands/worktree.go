@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
@@ -69,7 +70,7 @@ func worktreeCompletion(maxArgs int, afterDash bool, include func(string, *git.W
 		var completions []string
 		for _, info := range infos {
 			name := filepath.Base(info.Path)
-			if !used[name] && !used[info.Branch] && (include == nil || include(cwd, info)) {
+			if strings.HasPrefix(name, toComplete) && !used[name] && !used[info.Branch] && (include == nil || include(cwd, info)) {
 				completions = append(completions, name)
 			}
 		}
