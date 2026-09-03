@@ -1,6 +1,4 @@
-# Test: grove list --filter with unknown value matches nothing
-setup_workspace
-
-exec grove list --filter invalid --plain
-! stdout 'main'
-stderr 'Gathering worktree status'
+# Test: grove list --filter rejects unknown values before listing
+! exec grove list --filter bogus --plain
+stderr '^Error: unknown filter "bogus" \(valid: dirty, ahead, behind, gone, locked\)$'
+! stdout .

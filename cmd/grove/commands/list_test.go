@@ -73,7 +73,10 @@ func TestParseFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseFilters(tt.input)
+			got, err := parseFilters(tt.input)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("parseFilters(%q) = %v, want %v", tt.input, got, tt.expected)
 			}
@@ -125,35 +128,35 @@ func TestFilterWorktrees(t *testing.T) {
 	}
 
 	t.Run("empty filter returns all", func(t *testing.T) {
-		got := filterWorktrees(infos, "")
+		got := filterWorktrees(infos, nil)
 		if len(got) != 4 {
 			t.Errorf("expected 4 worktrees, got %d", len(got))
 		}
 	})
 
 	t.Run("filter dirty", func(t *testing.T) {
-		got := filterWorktrees(infos, "dirty")
+		got := filterWorktrees(infos, []string{"dirty"})
 		if len(got) != 1 || got[0].Branch != "feature" {
 			t.Errorf("expected [feature], got %v", got)
 		}
 	})
 
 	t.Run("filter locked", func(t *testing.T) {
-		got := filterWorktrees(infos, "locked")
+		got := filterWorktrees(infos, []string{"locked"})
 		if len(got) != 1 || got[0].Branch != "main" {
 			t.Errorf("expected [main], got %v", got)
 		}
 	})
 
 	t.Run("filter gone", func(t *testing.T) {
-		got := filterWorktrees(infos, "gone")
+		got := filterWorktrees(infos, []string{"gone"})
 		if len(got) != 1 || got[0].Branch != "old" {
 			t.Errorf("expected [old], got %v", got)
 		}
 	})
 
 	t.Run("filter dirty,locked OR logic", func(t *testing.T) {
-		got := filterWorktrees(infos, "dirty,locked")
+		got := filterWorktrees(infos, []string{"dirty", "locked"})
 		if len(got) != 2 {
 			t.Errorf("expected 2 worktrees, got %d", len(got))
 		}
