@@ -5,7 +5,7 @@ setup_workspace
 cp $WORK/grove-hooks-slow.toml .grove.toml
 
 exec grove add feature/slow-hook &
-exec sh -c 'while [ ! -e "$WORK/hook-started" ]; do sleep 0.05; done'
+exec sh -c 'i=0; while [ ! -e "$WORK/hook-started" ]; do i=$((i+1)); [ "$i" -lt 200 ] || exit 1; sleep 0.05; done'
 rm .grove.toml
 exec grove add feature/concurrent
 wait
