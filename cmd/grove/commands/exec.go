@@ -28,16 +28,17 @@ type execResult struct {
 	ExitCode int    `json:"exit_code"`
 }
 
-type execCommandError struct {
+// ExecError reports an exec command failure with its process exit code.
+type ExecError struct {
 	message  string
 	exitCode int
 }
 
-func (e execCommandError) Error() string {
+func (e *ExecError) Error() string {
 	return e.message
 }
 
-func (e execCommandError) ExitCode() int {
+func (e *ExecError) ExitCode() int {
 	return e.exitCode
 }
 
@@ -56,6 +57,7 @@ Examples:
   grove exec --all -- npm install                        # All worktrees
   grove exec main feature -- npm ci                      # Named worktrees
   grove exec --all --fail-fast -- go build               # Stop on first failure
+  grove exec --all --json -- npm test                    # JSON results
   grove exec --all -- bash -c "npm install && npm test"  # Multiple commands`,
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeExecArgs,
@@ -201,9 +203,9 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 	case 0:
 		return nil
 	case total:
-		return execCommandError{message: "all executions failed", exitCode: exitCode}
+		return &ExecError{message: "all executions failed", exitCode: exitCode}
 	default:
-		return execCommandError{message: "some executions failed", exitCode: exitCode}
+		return &ExecError{message: "some executions failed", exitCode: exitCode}
 	}
 }
 
