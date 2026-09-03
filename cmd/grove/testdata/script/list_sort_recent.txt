@@ -11,28 +11,20 @@ exec grove list --plain
 cmp stdout $WORK/default-table.txt
 
 # Default JSON order remains branch-name order.
-exec sh -c 'grove list --json | grep name'
-cmp stdout $WORK/default-json.txt
+exec grove list --json
+stdout '(?s)"name": "alpha".*"name": "main".*"name": "zulu"'
 
 # Recent order ignores the current worktree in both formats.
 exec grove list --sort recent --plain
 cmp stdout $WORK/recent.txt
-exec sh -c 'grove list --sort recent --json | grep name'
-cmp stdout $WORK/recent-json.txt
+exec grove list --sort recent --json
+stdout '(?s)"name": "alpha".*"name": "zulu".*"name": "main"'
 
 -- default-table.txt --
 * main  [main]  [locked] =
   alpha [alpha] +1
   zulu  [zulu]  +1
--- default-json.txt --
-    "name": "alpha",
-    "name": "main",
-    "name": "zulu",
 -- recent.txt --
   alpha [alpha] +1
   zulu  [zulu]  +1
 * main  [main]  [locked] =
--- recent-json.txt --
-    "name": "alpha",
-    "name": "zulu",
-    "name": "main",
