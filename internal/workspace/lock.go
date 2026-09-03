@@ -73,8 +73,11 @@ func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 
 	// Lock file exists - check if it's stale
 	info, statErr := os.Stat(lockFile)
-	if statErr != nil {
+	if errors.Is(statErr, os.ErrNotExist) {
 		return nil, false, errLockReleased
+	}
+	if statErr != nil {
+		return nil, true, fmt.Errorf("failed to inspect lock: %w", statErr)
 	}
 
 	content, readErr := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
