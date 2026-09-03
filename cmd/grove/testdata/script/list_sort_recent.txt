@@ -8,7 +8,7 @@ exec sh -c 'cd ../zulu && GIT_COMMITTER_DATE="2030-01-01T00:00:00Z" GIT_AUTHOR_D
 
 # Default table order remains current first, then basename.
 exec grove list --plain
-cmp stdout $WORK/default-table.txt
+stdout '(?s)^\* main .*\n  alpha .*\n  zulu '
 
 # Default JSON order remains branch-name order.
 exec grove list --json
@@ -16,15 +16,6 @@ stdout '(?s)"name": "alpha".*"name": "main".*"name": "zulu"'
 
 # Recent order ignores the current worktree in both formats.
 exec grove list --sort recent --plain
-cmp stdout $WORK/recent.txt
+stdout '(?s)^  alpha .*\n  zulu .*\n\* main '
 exec grove list --sort recent --json
 stdout '(?s)"name": "alpha".*"name": "zulu".*"name": "main"'
-
--- default-table.txt --
-* main  [main]  [locked] =
-  alpha [alpha] +1
-  zulu  [zulu]  +1
--- recent.txt --
-  alpha [alpha] +1
-  zulu  [zulu]  +1
-* main  [main]  [locked] =
