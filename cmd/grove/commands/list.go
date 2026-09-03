@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,10 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-var validFilters = []string{"dirty", "ahead", "behind", "gone", "locked"}
+var (
+	validFilters = []string{"dirty", "ahead", "behind", "gone", "locked"}
+	validSorts   = []string{"name", "recent"}
+)
 
 // NewListCmd creates the list command
 func NewListCmd() *cobra.Command {
@@ -26,6 +30,7 @@ func NewListCmd() *cobra.Command {
 	var jsonOutput bool
 	var verbose bool
 	var filter string
+	var sortBy string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -36,13 +41,14 @@ Examples:
   grove list                  # Show all worktrees
   grove list --fast           # Skip remote sync checks
   grove list --filter dirty   # Show only dirty worktrees
+  grove list --sort recent    # Show most recently committed worktrees first
   grove list --verbose        # Include paths and upstreams`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(fast, jsonOutput, verbose, filter)
+			return runList(fast, jsonOutput, verbose, filter, sortBy)
 		},
 	}
 
@@ -50,17 +56,25 @@ Examples:
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked; comma-separated)")
+	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort by name or recent commit")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 
 	_ = cmd.RegisterFlagCompletionFunc("filter", completeFilterValues)
+	_ = cmd.RegisterFlagCompletionFunc("sort", cobra.FixedCompletions(validSorts, cobra.ShellCompDirectiveNoFileComp))
 
 	return cmd
 }
 
-func runList(fast, jsonOutput, verbose bool, filter string) error {
+func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 	filters, err := parseFilters(filter)
 	if err != nil {
 		return err
+	}
+	if !slices.Contains(validSorts, sortBy) {
+		return fmt.Errorf("unknown sort %q (valid: %s)", sortBy, strings.Join(validSorts, ", "))
+	}
+	if sortBy == "recent" && fast {
+		return errors.New("--sort recent cannot be used with --fast because recency requires commit times")
 	}
 
 	cwd, err := os.Getwd()
@@ -84,6 +98,11 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 
 	// Apply filter if specified
 	infos = filterWorktrees(infos, filters)
+	if sortBy == "recent" {
+		sort.SliceStable(infos, func(i, j int) bool {
+			return infos[i].LastCommitTime > infos[j].LastCommitTime
+		})
+	}
 
 	// Determine current worktree path (also works from subdirectories)
 	currentPath := ""
@@ -98,7 +117,7 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 		return outputJSON(infos, currentPath)
 	}
 
-	return outputTable(infos, currentPath, fast, verbose)
+	return outputTable(infos, currentPath, fast, verbose, sortBy)
 }
 
 type worktreeJSON struct {
@@ -149,17 +168,19 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 	return enc.Encode(output)
 }
 
-func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool) error {
-	// Sort: current worktree first, then alphabetically by worktree name
-	sort.SliceStable(infos, func(i, j int) bool {
-		iCurrent := fs.PathsEqual(infos[i].Path, currentPath)
-		jCurrent := fs.PathsEqual(infos[j].Path, currentPath)
-		if iCurrent != jCurrent {
-			return iCurrent // Current worktree comes first
-		}
-		// Sort by worktree name (directory basename)
-		return filepath.Base(infos[i].Path) < filepath.Base(infos[j].Path)
-	})
+func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool, sortBy string) error {
+	if sortBy == "name" {
+		// Sort: current worktree first, then alphabetically by worktree name
+		sort.SliceStable(infos, func(i, j int) bool {
+			iCurrent := fs.PathsEqual(infos[i].Path, currentPath)
+			jCurrent := fs.PathsEqual(infos[j].Path, currentPath)
+			if iCurrent != jCurrent {
+				return iCurrent // Current worktree comes first
+			}
+			// Sort by worktree name (directory basename)
+			return filepath.Base(infos[i].Path) < filepath.Base(infos[j].Path)
+		})
+	}
 
 	// Calculate max widths for padding
 	maxNameLen := 0

@@ -35,6 +35,9 @@ func TestNewListCmd(t *testing.T) {
 	if cmd.Flags().Lookup("filter") == nil {
 		t.Error("expected --filter flag")
 	}
+	if cmd.Flags().Lookup("sort") == nil {
+		t.Error("expected --sort flag")
+	}
 }
 
 func TestRunList(t *testing.T) {
@@ -45,7 +48,7 @@ func TestRunList(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		testutil.Chdir(t, tmpDir)
 
-		err := runList(false, false, false, "")
+		err := runList(false, false, false, "", "name")
 		if err == nil {
 			t.Error("expected error for non-workspace directory")
 		}
