@@ -251,7 +251,7 @@ List all worktrees with status.
 
 - `--fast` — Skip remote sync checks
 - `--filter <status>` — Filter by: `dirty`, `ahead`, `behind`, `gone`, `locked`
-- `--json` — JSON output with a `last_commit` timestamp for each worktree
+- `--json` — JSON output; includes `last_commit` when commit times are known (omitted with `--fast`)
 - `--sort name|recent` — Sort by name or latest commit
 - `-v, --verbose` — Show paths and upstreams
 
