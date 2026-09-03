@@ -1,0 +1,16 @@
+# Test: grove list validates --sort before gathering worktree status
+setup_workspace
+
+! exec grove list --sort recent --fast --plain
+stderr '^Error: --sort recent cannot be used with --fast because recency requires commit times$'
+! stderr 'Gathering worktree status'
+! stdout .
+
+! exec grove list --sort bogus --plain
+stderr '^Error: unknown sort "bogus" \(valid: name, recent\)$'
+! stderr 'Gathering worktree status'
+! stdout .
+
+exec grove __complete list --sort ''
+stdout '^name$'
+stdout '^recent$'

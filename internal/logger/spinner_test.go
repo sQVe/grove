@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sqve/grove/internal/config"
 )
@@ -76,6 +77,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		config.SetPlain(true)
 		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
+		stderrTerminal.Store(true)
 		spinner := StartSpinner("Loading data")
 		spinner.Stop()
 
@@ -99,6 +101,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		config.SetPlain(true)
 		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
+		stderrTerminal.Store(true)
 		spinner := StartSpinner("test")
 		spinner.Update("updated")
 		spinner.Stop()
@@ -116,4 +119,63 @@ func TestSpinnerPlainMode(t *testing.T) {
 			t.Error("Plain mode should not show spinner frames")
 		}
 	})
+}
+
+func TestSpinnerNonTerminal(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+
+	config.SetPlain(false)
+	Init(false, false)
+	stderrTerminal.Store(false)
+	spinner := StartSpinner("Gathering worktree status...")
+	spinner.Stop()
+
+	_ = w.Close()
+
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	if got, want := buf.String(), "→ Gathering worktree status...\n"; got != want {
+		t.Errorf("spinner output = %q, want %q", got, want)
+	}
+}
+
+func TestSpinnerTerminal(t *testing.T) {
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = oldStderr })
+
+	config.SetPlain(false)
+	Init(false, false)
+	stderrTerminal.Store(true)
+	spinner := StartSpinner("Gathering worktree status...")
+
+	var buf bytes.Buffer
+	firstFrame := make(chan struct{})
+	drained := make(chan struct{})
+	go func() {
+		chunk := make([]byte, 64)
+		n, _ := r.Read(chunk)
+		buf.Write(chunk[:n])
+		close(firstFrame)
+		_, _ = io.Copy(&buf, r)
+		close(drained)
+	}()
+
+	select {
+	case <-firstFrame:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no spinner frame written within 5s")
+	}
+	spinner.Stop()
+	_ = w.Close()
+	<-drained
+
+	output := buf.String()
+	if !strings.Contains(output, "\r") || !strings.ContainsAny(output, "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏") {
+		t.Errorf("spinner output = %q, want animation", output)
+	}
 }

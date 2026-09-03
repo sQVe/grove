@@ -1,0 +1,20 @@
+# Test: grove exec --json writes results to stdout and child output to stderr
+setup_workspace feature
+
+exec grove add feature
+cp $WORK/exists.txt only-in-main.txt
+
+! exec grove exec --all --json -- sh -c 'echo child-output; test -f only-in-main.txt'
+stdout '^\['
+stdout -count=2 '"name":'
+stdout '"name": "main"'
+stdout '"path": ".*workspace[/\\]+main"'
+stdout '"exit_code": 0'
+stdout '"name": "feature"'
+stdout '"path": ".*workspace[/\\]+feature"'
+stdout '"exit_code": 1'
+stderr -count=2 '^child-output$'
+! stderr 'Executed|executions failed|→ main|→ feature'
+
+-- exists.txt --
+exists

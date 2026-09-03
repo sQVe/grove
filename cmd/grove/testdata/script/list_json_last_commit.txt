@@ -1,0 +1,5 @@
+# Test: grove list --json includes the last commit time in RFC3339 UTC
+setup_workspace
+
+exec grove list --json
+stdout '"last_commit": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"'

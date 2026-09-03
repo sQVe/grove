@@ -147,10 +147,15 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	if err != nil {
 		return err
 	}
-	defer func() {
+	releaseLock := func() {
+		if lockHandle == nil {
+			return
+		}
 		_ = lockHandle.Close()
 		_ = os.Remove(lockFile)
-	}()
+		lockHandle = nil
+	}
+	defer releaseLock()
 
 	spin := logger.StartSpinner("Preparing workspace...")
 	var sourceWorktree string
@@ -187,24 +192,24 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset)
+		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset)
+		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree)
+		return runAddDetached(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree)
+	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
 }
 
-func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -270,11 +275,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string) error {
+func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(ref)
@@ -295,11 +300,11 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool) error {
+func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -356,7 +361,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
@@ -464,11 +469,12 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	return nil
 }
 
-func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo bool, successFormat string, successArgs ...any) error {
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo bool, releaseLock func(), successFormat string, successArgs ...any) error {
 	if branch != "" {
 		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
 
+	releaseLock()
 	spin := logger.StartSpinner("Setting up worktree...")
 	configWorktree := findConfigWorktree(bareDir)
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)

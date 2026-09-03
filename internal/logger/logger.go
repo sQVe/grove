@@ -11,9 +11,10 @@ import (
 
 // Logger state - initialized once at startup, read from goroutines
 var (
-	plainMode atomic.Bool
-	debugMode atomic.Bool
-	output    atomic.Pointer[io.Writer]
+	plainMode      atomic.Bool
+	debugMode      atomic.Bool
+	stderrTerminal atomic.Bool
+	output         atomic.Pointer[io.Writer]
 )
 
 // Init initializes the logger with the given settings.
@@ -21,6 +22,8 @@ var (
 func Init(plain, debug bool) {
 	plainMode.Store(plain)
 	debugMode.Store(debug)
+	info, err := os.Stderr.Stat()
+	stderrTerminal.Store(err == nil && info.Mode()&os.ModeCharDevice != 0)
 }
 
 // SetOutput sets the output writer for logging.
@@ -49,6 +52,10 @@ func getOutput() io.Writer {
 // isPlain returns true if plain output mode is enabled
 func isPlain() bool {
 	return plainMode.Load()
+}
+
+func stderrIsTerminal() bool {
+	return stderrTerminal.Load()
 }
 
 // isDebug returns true if debug logging is enabled
