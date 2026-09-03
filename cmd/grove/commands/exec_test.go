@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -273,6 +274,9 @@ func TestRunExec_SingleTargetExitCode(t *testing.T) {
 		{name: "signal", command: "kill -TERM $$", want: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			if test.name == "signal" && runtime.GOOS == "windows" {
+				t.Skip("Windows has no signal exit status; sh reports 3840")
+			}
 			err := runExec(false, false, false, []string{"main"}, []string{"sh", "-c", test.command})
 			exitError, ok := err.(interface{ ExitCode() int })
 			if !ok {
