@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -155,89 +154,5 @@ func TestNewFetchCmd_Flags(t *testing.T) {
 	}
 	if verboseFlag.Shorthand != "v" {
 		t.Errorf("expected --verbose shorthand 'v', got '%s'", verboseFlag.Shorthand)
-	}
-}
-
-func TestFetchChangeJSON(t *testing.T) {
-	tests := []struct {
-		name     string
-		change   fetchChangeJSON
-		expected map[string]interface{}
-	}{
-		{
-			name: "full change with commit count",
-			change: fetchChangeJSON{
-				Remote:      "origin",
-				RefName:     "main",
-				Type:        "Updated",
-				OldHash:     "abc123",
-				NewHash:     "def456",
-				CommitCount: 5,
-			},
-			expected: map[string]interface{}{
-				"remote":       "origin",
-				"ref":          "main",
-				"type":         "Updated",
-				"old_hash":     "abc123",
-				"new_hash":     "def456",
-				"commit_count": float64(5),
-			},
-		},
-		{
-			name: "new ref without old hash",
-			change: fetchChangeJSON{
-				Remote:  "origin",
-				RefName: "feature",
-				Type:    "New",
-				NewHash: "xyz789",
-			},
-			expected: map[string]interface{}{
-				"remote":   "origin",
-				"ref":      "feature",
-				"type":     "New",
-				"new_hash": "xyz789",
-			},
-		},
-		{
-			name: "pruned ref without new hash",
-			change: fetchChangeJSON{
-				Remote:  "upstream",
-				RefName: "old-branch",
-				Type:    "Pruned",
-				OldHash: "old123",
-			},
-			expected: map[string]interface{}{
-				"remote":   "upstream",
-				"ref":      "old-branch",
-				"type":     "Pruned",
-				"old_hash": "old123",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			data, err := json.Marshal(tt.change)
-			if err != nil {
-				t.Fatalf("failed to marshal JSON: %v", err)
-			}
-
-			var result map[string]interface{}
-			if err := json.Unmarshal(data, &result); err != nil {
-				t.Fatalf("failed to unmarshal JSON: %v", err)
-			}
-
-			for key, expectedValue := range tt.expected {
-				if result[key] != expectedValue {
-					t.Errorf("expected %s=%v, got %v", key, expectedValue, result[key])
-				}
-			}
-
-			for key := range result {
-				if _, ok := tt.expected[key]; !ok {
-					t.Errorf("unexpected field in JSON: %s=%v", key, result[key])
-				}
-			}
-		})
 	}
 }

@@ -1,0 +1,31 @@
+# grove clone: GitHub CLI arguments and failures are tested offline
+
+mkdir source
+exec git init source
+cd source
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd ..
+
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_REPO=file://$WORK/source
+exec grove clone --shallow https://github.com/acme/widgets workspace
+exists workspace/main/README.md
+
+env FAKE_GH_FAIL='repo clone'
+env FAKE_GH_EXIT=23
+env FAKE_GH_STDERR='fake clone failure'
+! exec grove clone https://github.com/acme/widgets failed
+stderr 'fake clone failure'
+
+cmpenv gh.log want-gh.log
+
+-- README.md --
+# Test
+
+-- want-gh.log --
+["auth","status"]
+["repo","clone","acme/widgets","$WORK/workspace/.bare","--","--bare","--depth","1"]
+["auth","status"]
+["repo","clone","acme/widgets","$WORK/failed/.bare","--","--bare"]

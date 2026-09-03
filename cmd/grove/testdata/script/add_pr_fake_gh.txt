@@ -1,0 +1,63 @@
+# grove add: PR GitHub CLI arguments and failures are tested offline
+
+setup_workspace feature-pr
+
+# A numeric PR resolves its repository from the GitHub origin.
+exec git -C $WORK/workspace/.bare remote set-url origin https://github.com/acme/widgets
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_PR_VIEW=$WORK/same-repo-pr.json
+env FAKE_GH_FAIL='pr view'
+env FAKE_GH_EXIT=25
+env FAKE_GH_STDERR='fake add PR failure'
+! exec grove add --pr 17
+stderr 'gh failed: fake add PR failure'
+
+# The URL form can fetch entirely from the local workspace remote.
+exec git -C $WORK/workspace/.bare remote set-url origin file://$WORK/testrepo
+env FAKE_GH_FAIL=
+exec grove add https://github.com/acme/widgets/pull/18
+exists ../pr-18
+
+# A fork PR asks gh for the fork URL before fetching its branch.
+mkdir $WORK/fork
+exec git -C $WORK/fork init
+cp $WORK/fork.txt $WORK/fork/fork.txt
+exec git -C $WORK/fork add .
+exec git -C $WORK/fork commit -m 'fork commit'
+exec git -C $WORK/fork branch -m fork-feature
+env FAKE_GH_PR_VIEW=$WORK/fork-pr.json
+env FAKE_GH_REPO_VIEW=$WORK/fork-url.txt
+exec grove add https://github.com/acme/widgets/pull/19
+exists ../pr-19/fork.txt
+
+env FAKE_GH_FAIL='repo view'
+env FAKE_GH_EXIT=26
+env FAKE_GH_STDERR='fake repo failure'
+! exec grove add https://github.com/acme/widgets/pull/20
+stderr 'failed to get repo URL: fake repo failure'
+
+cmpenv $WORK/gh.log $WORK/want-gh.log
+
+-- same-repo-pr.json --
+{"headRefName":"feature-pr","headRepository":{"name":"widgets"},"headRepositoryOwner":{"login":"acme"}}
+
+-- fork-pr.json --
+{"headRefName":"fork-feature","headRepository":{"name":"fork"},"headRepositoryOwner":{"login":"contrib"}}
+
+-- fork-url.txt --
+file://$WORK/fork
+
+-- fork.txt --
+fork content
+
+-- want-gh.log --
+["auth","status"]
+["pr","view","17","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["pr","view","18","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["pr","view","19","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["repo","view","contrib/fork","--json","url","-q",".url"]
+["auth","status"]
+["pr","view","20","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["repo","view","contrib/fork","--json","url","-q",".url"]

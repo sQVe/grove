@@ -3,10 +3,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -47,11 +49,6 @@ func TestScript(t *testing.T) {
 				return err
 			}
 
-			// Pass through GH_TOKEN for PR tests (gh CLI uses this for auth)
-			if token := os.Getenv("GH_TOKEN"); token != "" {
-				env.Vars = append(env.Vars, "GH_TOKEN="+token)
-			}
-
 			return nil
 		},
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
@@ -62,8 +59,6 @@ func TestScript(t *testing.T) {
 		},
 		Condition: func(cond string) (bool, error) {
 			switch cond {
-			case "ghauth":
-				return os.Getenv("GH_TOKEN") != "", nil
 			case "slow":
 				return os.Getenv("GROVE_SKIP_SLOW") == "", nil
 			}
@@ -266,6 +261,81 @@ func testEnv(ts *testscript.TestScript) []string {
 	}
 }
 
+func fakeGh() {
+	args := os.Args[1:]
+	logPath := os.Getenv("FAKE_GH_LOG")
+	if logPath == "" {
+		if len(args) == 1 && args[0] == "--version" {
+			fmt.Println("gh version 2.40.0")
+			return
+		}
+		os.Exit(1)
+	}
+
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, fs.FileGit)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	if err := json.NewEncoder(logFile).Encode(args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	if err := logFile.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "fake gh: expected a command")
+		os.Exit(2)
+	}
+	command := args[0]
+	if len(args) > 1 {
+		command = strings.Join(args[:2], " ")
+	}
+	if command == os.Getenv("FAKE_GH_FAIL") {
+		fmt.Fprintln(os.Stderr, os.Getenv("FAKE_GH_STDERR"))
+		exitCode, err := strconv.Atoi(os.Getenv("FAKE_GH_EXIT"))
+		if err != nil || exitCode == 0 {
+			exitCode = 1
+		}
+		os.Exit(exitCode)
+	}
+
+	switch command {
+	case "--version":
+		fmt.Println("gh version 2.40.0")
+		return
+	case "auth status":
+		return
+	case "repo clone":
+		if len(args) < 4 || os.Getenv("FAKE_GH_REPO") == "" {
+			fmt.Fprintln(os.Stderr, "fake gh: FAKE_GH_REPO is required")
+			os.Exit(2)
+		}
+		cmd := exec.Command("git", "clone", "--bare", os.Getenv("FAKE_GH_REPO"), args[3]) //nolint:gosec
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			os.Exit(1)
+		}
+		return
+	case "pr view", "pr list", "repo view":
+		fixtureName := "FAKE_GH_" + strings.ToUpper(strings.ReplaceAll(command, " ", "_"))
+		fixture, err := os.ReadFile(os.Getenv(fixtureName))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "fake gh: %s: %v\n", fixtureName, err)
+			os.Exit(2)
+		}
+		_, _ = fmt.Fprint(os.Stdout, os.ExpandEnv(string(fixture)))
+		return
+	default:
+		fmt.Fprintf(os.Stderr, "fake gh: unsupported arguments: %s\n", strings.Join(args, " "))
+		os.Exit(2)
+	}
+}
+
 func TestMain(m *testing.M) {
 	// Ensure grove binary is available in PATH. While testscript.Main registers
 	// "grove" as an in-process command, custom commands like cmdSetupWorkspace
@@ -277,5 +347,6 @@ func TestMain(m *testing.M) {
 
 	testscript.Main(m, map[string]func(){
 		"grove": main,
+		"gh":    fakeGh,
 	})
 }

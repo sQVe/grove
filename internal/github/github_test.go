@@ -1,8 +1,6 @@
 package github
 
 import (
-	"os/exec"
-	"strings"
 	"testing"
 )
 
@@ -383,61 +381,6 @@ func TestParsePRInfoJSON_Invalid(t *testing.T) {
 	}
 }
 
-func TestCheckGhAvailable(t *testing.T) {
-	t.Parallel()
-	// This test verifies the error messages are helpful.
-	// Note: We can't easily test the "not installed" case without
-	// modifying PATH, so we focus on testing when gh IS available.
-
-	t.Run("returns nil when gh is available and authenticated", func(t *testing.T) {
-		t.Parallel()
-
-		// Skip if gh is not installed (CI environments without gh)
-		if _, err := exec.LookPath("gh"); err != nil {
-			t.Skip("gh CLI not installed, skipping")
-		}
-
-		// Skip if not authenticated
-		cmd := exec.Command("gh", "auth", "status")
-		if err := cmd.Run(); err != nil {
-			t.Skip("gh CLI not authenticated, skipping")
-		}
-
-		err := CheckGhAvailable()
-		if err != nil {
-			t.Errorf("expected nil error when gh is available and authenticated, got: %v", err)
-		}
-	})
-}
-
-func TestGhErrorMessages(t *testing.T) {
-	t.Parallel()
-
-	// Test that error messages contain helpful information.
-	// These tests verify the error message format without needing to
-	// actually uninstall gh or log out.
-
-	t.Run("not installed error contains install URL", func(t *testing.T) {
-		t.Parallel()
-		expectedMsg := "gh CLI not found. Install from https://cli.github.com"
-		// We can't trigger this error easily, but we document the expected message
-		// This serves as documentation and will catch if someone changes the message
-		if expectedMsg == "" {
-			t.Error("install error message should contain URL")
-		}
-	})
-
-	t.Run("not authenticated error contains gh auth login", func(t *testing.T) {
-		t.Parallel()
-
-		expectedMsg := "gh not authenticated. Run 'gh auth login' first"
-		// Same as above - documents the expected message
-		if expectedMsg == "" {
-			t.Error("auth error message should contain gh auth login")
-		}
-	})
-}
-
 func TestParseMergedPRBranchesJSON(t *testing.T) {
 	t.Parallel()
 
@@ -498,71 +441,4 @@ func TestParseMergedPRBranchesJSON(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGetMergedPRBranches(t *testing.T) {
-	t.Parallel()
-
-	// Skip if gh is not available
-	if _, err := exec.LookPath("gh"); err != nil {
-		t.Skip("gh CLI not installed, skipping")
-	}
-	cmd := exec.Command("gh", "auth", "status")
-	if err := cmd.Run(); err != nil {
-		t.Skip("gh CLI not authenticated, skipping")
-	}
-
-	t.Run("returns branches for repo with merged PRs", func(t *testing.T) {
-		t.Parallel()
-
-		// This test runs against the actual Grove repo
-		// which should have merged PRs
-		branches, err := GetMergedPRBranches(".")
-		if err != nil {
-			t.Fatalf("GetMergedPRBranches failed: %v", err)
-		}
-		// We just verify it returns a map (may be empty for fresh repos)
-		if branches == nil {
-			t.Error("expected non-nil map")
-		}
-	})
-}
-
-func TestGetRepoCloneURL(t *testing.T) {
-	t.Parallel()
-
-	// Skip if gh is not available
-	if _, err := exec.LookPath("gh"); err != nil {
-		t.Skip("gh CLI not installed, skipping")
-	}
-	cmd := exec.Command("gh", "auth", "status")
-	if err := cmd.Run(); err != nil {
-		t.Skip("gh CLI not authenticated, skipping")
-	}
-
-	t.Run("returns URL for valid repo", func(t *testing.T) {
-		t.Parallel()
-
-		// Use a well-known public repo
-		url, err := GetRepoCloneURL("cli", "cli")
-		if err != nil {
-			t.Fatalf("GetRepoCloneURL failed: %v", err)
-		}
-		if url == "" {
-			t.Error("expected non-empty URL")
-		}
-		// URL should contain github.com and cli/cli
-		if !strings.Contains(url, "github.com") || !strings.Contains(url, "cli") {
-			t.Errorf("unexpected URL format: %s", url)
-		}
-	})
-
-	t.Run("returns error for non-existent repo", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := GetRepoCloneURL("nonexistent-owner-12345", "nonexistent-repo-67890")
-		if err == nil {
-			t.Error("expected error for non-existent repo")
-		}
-	})
 }

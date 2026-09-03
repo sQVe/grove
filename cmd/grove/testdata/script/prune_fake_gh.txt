@@ -1,0 +1,51 @@
+# grove prune: merged PR lookup uses fake GitHub CLI data offline
+
+setup_workspace feature-pr-merged
+
+# Give the branch a commit not in main, then make its upstream disappear.
+exec git -C $WORK/testrepo checkout feature-pr-merged
+cp $WORK/merged.txt $WORK/testrepo/merged.txt
+exec git -C $WORK/testrepo add .
+exec git -C $WORK/testrepo commit -m 'PR commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-pr-merged
+exec git -C $WORK/testrepo branch -D feature-pr-merged
+
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_PR_LIST=$WORK/merged-prs.json
+exec grove prune --commit
+assert_branch deleted feature-pr-merged
+
+# A failed optional lookup is reported in debug output and does not stop prune.
+exec git -C $WORK/testrepo checkout -b feature-pr-failure
+cp $WORK/failure.txt $WORK/testrepo/failure.txt
+exec git -C $WORK/testrepo add .
+exec git -C $WORK/testrepo commit -m 'failed lookup commit'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-pr-failure
+exec git -C $WORK/testrepo branch -D feature-pr-failure
+env FAKE_GH_FAIL='pr list'
+env FAKE_GH_EXIT=27
+env FAKE_GH_STDERR='fake list failure'
+exec grove --debug prune --commit
+stderr 'GitHub PR check unavailable: gh pr list failed: fake list failure'
+exec git -C $WORK/workspace/.bare rev-parse --verify feature-pr-failure
+
+cmpenv $WORK/gh.log $WORK/want-gh.log
+
+-- merged.txt --
+merged by PR
+
+-- failure.txt --
+not merged
+
+-- merged-prs.json --
+[{"headRefName":"feature-pr-merged"}]
+
+-- want-gh.log --
+["auth","status"]
+["pr","list","--state","merged","--json","headRefName","--limit","200"]
+["auth","status"]
+["pr","list","--state","merged","--json","headRefName","--limit","200"]
