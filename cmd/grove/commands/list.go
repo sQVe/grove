@@ -30,7 +30,7 @@ func NewListCmd() *cobra.Command {
 
 Examples:
   grove list                  # Show all worktrees
-  grove list --fast           # Skip remote sync checks
+  grove list --fast           # Skip dirty and sync status checks
   grove list --filter dirty   # Show only dirty worktrees
   grove list --verbose        # Include paths and upstreams`,
 		Args: cobra.NoArgs,
@@ -42,7 +42,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status checks")
+	cmd.Flags().BoolVar(&fast, "fast", false, "Skip dirty and sync status checks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status: dirty,ahead,behind,gone,locked (comma-separated)")

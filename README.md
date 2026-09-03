@@ -249,7 +249,7 @@ List all worktrees with status.
 
 **Flags:**
 
-- `--fast` — Skip remote sync checks
+- `--fast` — Skip dirty and sync status checks
 - `--filter <status>` — Filter by: `dirty`, `ahead`, `behind`, `gone`, `locked`
 - `--json` — JSON output
 - `-v, --verbose` — Show paths and upstreams
@@ -262,6 +262,28 @@ grove list --fast
 grove list --filter dirty
 grove list --filter ahead,behind
 grove list --json
+```
+
+</details>
+
+<details>
+<summary><code>grove fetch</code></summary>
+
+<br>
+
+Fetch all remotes and show branch changes.
+
+**Flags:**
+
+- `--json` — JSON output
+- `-v, --verbose` — Show commit hash details
+
+**Examples:**
+
+```bash
+grove fetch
+grove fetch --verbose
+grove fetch --json
 ```
 
 </details>
@@ -439,9 +461,21 @@ Manage configuration.
 ```bash
 grove config list
 grove config get preserve.patterns
-grove config set --global plain true
-grove config set --shared autolock.patterns "main,release/*"
+grove config set --global grove.plain true
 grove config init
+```
+
+Edit `.grove.toml` to set array values:
+
+```toml
+[preserve]
+patterns = [".env", ".env.local"]
+
+[link]
+patterns = [".next", ".turbo"]
+
+[autolock]
+patterns = ["main", "release/*"]
 ```
 
 </details>
@@ -545,6 +579,10 @@ exclude = [
   "venv",
 ]
 
+# Directories to recursively copy when creating a new worktree.
+# Unlike preserve.patterns, this copies the full directory tree.
+directories = []
+
 [link]
 # Directories to symlink from the source worktree when creating a new one.
 # Useful for sharing tool state (e.g., .claude) across worktrees.
@@ -633,7 +671,7 @@ patterns = [
 ]
 ```
 
-These patterns are additive — they extend the default preserve patterns, not replace them.
+These patterns replace the default preserve patterns.
 
 ## 🤝 Contributing
 
