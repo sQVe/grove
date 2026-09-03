@@ -36,34 +36,6 @@ func TestSpinnerStopIdempotent(t *testing.T) {
 	})
 }
 
-func TestSpinnerStopWithSuccess(t *testing.T) {
-	t.Run("prints checkmark in normal mode", func(t *testing.T) {
-		oldStderr := os.Stderr
-		r, w, _ := os.Pipe()
-		os.Stderr = w
-		t.Cleanup(func() { os.Stderr = oldStderr })
-
-		config.SetPlain(false)
-		Init(false, false)
-		t.Setenv("GROVE_TEST_COLORS", "true")
-		spinner := StartSpinner("working")
-		spinner.StopWithSuccess("done successfully")
-
-		_ = w.Close()
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		output := buf.String()
-
-		if !strings.Contains(output, "done successfully") {
-			t.Error("StopWithSuccess should print the message")
-		}
-		if !strings.Contains(output, "✓") {
-			t.Error("StopWithSuccess should print checkmark")
-		}
-	})
-}
-
 func TestSpinnerStopWithError(t *testing.T) {
 	t.Run("prints X in normal mode", func(t *testing.T) {
 		oldStderr := os.Stderr

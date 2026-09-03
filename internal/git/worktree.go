@@ -16,19 +16,19 @@ import (
 
 // WorktreeInfo contains status information about a worktree
 type WorktreeInfo struct {
-	Path           string // Absolute path to worktree
-	Branch         string // Branch name (or commit hash if detached)
-	Upstream       string // Upstream branch name (e.g., "origin/main")
-	Dirty          bool   // Has uncommitted changes
-	Ahead          int    // Commits ahead of upstream
-	Behind         int    // Commits behind upstream
-	Gone           bool   // Upstream branch deleted
-	NoUpstream     bool   // No upstream configured
-	Locked         bool   // Worktree is locked
-	LockReason     string // Reason for lock (empty if not locked)
-	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
-	Detached       bool   // Worktree is in detached HEAD state
-	Prunable       bool   // Git marks the worktree metadata as prunable
+	Path           string `json:"path"`                  // Absolute path to worktree
+	Branch         string `json:"branch"`                // Branch name (or commit hash if detached)
+	Upstream       string `json:"upstream,omitempty"`    // Upstream branch name (e.g., "origin/main")
+	Dirty          bool   `json:"dirty"`                 // Has uncommitted changes
+	Ahead          int    `json:"ahead"`                 // Commits ahead of upstream
+	Behind         int    `json:"behind"`                // Commits behind upstream
+	Gone           bool   `json:"gone"`                  // Upstream branch deleted
+	NoUpstream     bool   `json:"no_upstream"`           // No upstream configured
+	Locked         bool   `json:"locked"`                // Worktree is locked
+	LockReason     string `json:"lock_reason,omitempty"` // Reason for lock (empty if not locked)
+	LastCommitTime int64  `json:"-"`                     // Unix timestamp of last commit (0 if unknown)
+	Detached       bool   `json:"detached"`              // Worktree is in detached HEAD state
+	Prunable       bool   `json:"-"`                     // Git marks the worktree metadata as prunable
 }
 
 type worktreeListEntry struct {
@@ -370,31 +370,6 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	return info, nil
 }
 
-// GetWorktreeGitDir returns the gitdir path for a worktree.
-// Returns ("", nil) if the path is not a worktree (no .git file).
-// Returns an error if the .git file exists but is unreadable or malformed.
-func GetWorktreeGitDir(worktreePath string) (string, error) {
-	gitFile := filepath.Join(worktreePath, ".git")
-	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil // Not a worktree - expected case
-		}
-		return "", fmt.Errorf("failed to read .git file: %w", err)
-	}
-
-	line := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(line, "gitdir:") {
-		return "", fmt.Errorf("invalid .git file format: missing gitdir prefix")
-	}
-
-	gitdir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
-	if !filepath.IsAbs(gitdir) {
-		gitdir = filepath.Join(worktreePath, gitdir)
-	}
-	return filepath.Clean(gitdir), nil
-}
-
 // IsWorktree checks if the given path is a git worktree
 func IsWorktree(path string) bool {
 	gitPath := filepath.Join(path, ".git")
@@ -427,7 +402,10 @@ func FindWorktreeRoot(startPath string) (string, error) {
 
 // IsWorktreeLocked checks if a worktree is locked.
 func IsWorktreeLocked(worktreePath string) bool {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
+	if !IsWorktree(worktreePath) {
+		return false
+	}
+	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock check: %v", err)
 		return false
@@ -456,7 +434,10 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 
 // GetWorktreeLockReason returns the lock reason for a worktree.
 func GetWorktreeLockReason(worktreePath string) string {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
+	if !IsWorktree(worktreePath) {
+		return ""
+	}
+	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock reason: %v", err)
 		return ""

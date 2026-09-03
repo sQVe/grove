@@ -75,16 +75,6 @@ func PathExists(path string) bool {
 	return err == nil
 }
 
-// CreateDirectory creates a directory with the given permissions, including parent directories
-func CreateDirectory(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
-
-// RemoveAll removes a path and any children it contains
-func RemoveAll(path string) error {
-	return os.RemoveAll(path)
-}
-
 // RenameWithFallback renames oldpath to newpath, falling back to copy+delete for cross-filesystem moves
 func RenameWithFallback(oldpath, newpath string) error {
 	// Try direct rename first (fastest, preserves everything)

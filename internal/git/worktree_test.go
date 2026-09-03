@@ -701,7 +701,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			t.Fatalf("failed to create detached worktree: %v", err)
 		}
 
-		gitDir, err := GetWorktreeGitDir(worktreeDir)
+		gitDir, err := GetGitDir(worktreeDir)
 		if err != nil {
 			t.Fatalf("failed to find worktree git directory: %v", err)
 		}

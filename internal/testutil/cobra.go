@@ -6,9 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Ptr returns a pointer to the given string. Useful for AssertFlagExists.
-func Ptr(s string) *string { return &s }
-
 // AssertFlagExists fails if flag doesn't exist or has wrong properties.
 // Pass nil for defValue to skip default check, or pointer to string to check (including empty).
 // Pass empty string for valueType to skip type check.

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
@@ -172,11 +171,11 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 		if err := os.Remove(gitFile); err != nil && !os.IsNotExist(err) {
 			logger.Warning("Failed to remove .git file during cleanup: %v", err)
 		}
-		if err := fs.RemoveAll(bareDir); err != nil {
+		if err := os.RemoveAll(bareDir); err != nil {
 			logger.Warning("Failed to remove .bare during cleanup: %v", err)
 		}
 		if worktreePath != "" {
-			if err := fs.RemoveAll(worktreePath); err != nil {
+			if err := os.RemoveAll(worktreePath); err != nil {
 				logger.Warning("Failed to remove worktree during cleanup: %v", err)
 			}
 		}

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -16,23 +17,13 @@ import (
 
 // StatusInfo contains all status information for a worktree
 type StatusInfo struct {
-	Branch     string `json:"branch"`
-	Path       string `json:"path"`
-	Upstream   string `json:"upstream,omitempty"`
-	Ahead      int    `json:"ahead"`
-	Behind     int    `json:"behind"`
-	Dirty      bool   `json:"dirty"`
-	Staged     int    `json:"staged,omitempty"`
-	Unstaged   int    `json:"unstaged,omitempty"`
-	Stashes    int    `json:"stashes"`
-	Unpushed   int    `json:"unpushed,omitempty"`
-	Operation  string `json:"operation,omitempty"`
-	Conflicts  int    `json:"conflicts,omitempty"`
-	Locked     bool   `json:"locked"`
-	LockReason string `json:"lock_reason,omitempty"`
-	Detached   bool   `json:"detached"`
-	Gone       bool   `json:"gone"`
-	NoUpstream bool   `json:"no_upstream"`
+	git.WorktreeInfo
+	Staged    int    `json:"staged,omitempty"`
+	Unstaged  int    `json:"unstaged,omitempty"`
+	Stashes   int    `json:"stashes"`
+	Unpushed  int    `json:"unpushed,omitempty"`
+	Operation string `json:"operation,omitempty"`
+	Conflicts int    `json:"conflicts,omitempty"`
 }
 
 // NewStatusCmd creates the status command
@@ -100,23 +91,19 @@ func runStatus(verbose, jsonOutput bool) error {
 
 func gatherStatusInfo(worktreePath string) (*StatusInfo, error) {
 	info := &StatusInfo{
-		Path: worktreePath,
+		WorktreeInfo: git.WorktreeInfo{Path: worktreePath},
 	}
 
 	// Get branch (handles detached HEAD)
 	branch, err := git.GetCurrentBranch(worktreePath)
-	if err != nil {
-		// Check if detached
-		detached, detachErr := git.IsDetachedHead(worktreePath)
-		if detachErr == nil && detached {
-			info.Detached = true
-			info.Branch = "(detached)"
-		} else {
-			return nil, fmt.Errorf("failed to get branch: %w", err)
-		}
-	} else {
-		info.Branch = branch
+	if err != nil && !errors.Is(err, git.ErrDetachedHead) {
+		return nil, fmt.Errorf("failed to get branch: %w", err)
 	}
+	info.Detached = errors.Is(err, git.ErrDetachedHead)
+	if info.Detached {
+		branch = "(detached)"
+	}
+	info.Branch = branch
 
 	// Get sync status
 	syncStatus := git.GetSyncStatus(worktreePath)
@@ -171,48 +158,18 @@ func outputStatusJSON(info *StatusInfo) error {
 }
 
 func outputStatusDefault(info *StatusInfo) error {
-	// Convert StatusInfo to git.WorktreeInfo for formatter
-	wtInfo := &git.WorktreeInfo{
-		Branch:     info.Branch,
-		Path:       info.Path,
-		Upstream:   info.Upstream,
-		Ahead:      info.Ahead,
-		Behind:     info.Behind,
-		Dirty:      info.Dirty,
-		Locked:     info.Locked,
-		LockReason: info.LockReason,
-		Gone:       info.Gone,
-		NoUpstream: info.NoUpstream,
-		Detached:   info.Detached,
-	}
-
 	// Use consistent single-line format (same as list)
-	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0, 0))
+	fmt.Println(formatter.WorktreeRow(&info.WorktreeInfo, true, 0, 0))
 
 	return nil
 }
 
 func outputStatusVerbose(info *StatusInfo) error {
-	// Convert StatusInfo to git.WorktreeInfo for formatter
-	wtInfo := &git.WorktreeInfo{
-		Branch:     info.Branch,
-		Path:       info.Path,
-		Upstream:   info.Upstream,
-		Ahead:      info.Ahead,
-		Behind:     info.Behind,
-		Dirty:      info.Dirty,
-		Locked:     info.Locked,
-		LockReason: info.LockReason,
-		Gone:       info.Gone,
-		NoUpstream: info.NoUpstream,
-		Detached:   info.Detached,
-	}
-
 	// Print the worktree row (same format as default)
-	fmt.Println(formatter.WorktreeRow(wtInfo, true, 0, 0))
+	fmt.Println(formatter.WorktreeRow(&info.WorktreeInfo, true, 0, 0))
 
 	// Print standard verbose sub-items (path, upstream, lock reason)
-	subItems := formatter.VerboseSubItems(wtInfo)
+	subItems := formatter.VerboseSubItems(&info.WorktreeInfo)
 	for _, item := range subItems {
 		fmt.Println(item)
 	}

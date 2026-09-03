@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,38 +15,40 @@ import (
 // globalMu protects access to the Global struct
 var globalMu sync.RWMutex
 
-// Global holds the global configuration state for Grove
-var Global struct {
-	Plain                   bool          // Disable colors and symbols
-	Debug                   bool          // Enable debug logging
-	NerdFonts               bool          // Use Nerd Font icons (when not in plain mode)
-	PreservePatterns        []string      // Patterns for ignored files to preserve in new worktrees
-	PreserveExcludePatterns []string      // Path segments to exclude from preservation (e.g., "node_modules")
-	PreserveDirectories     []string      // Directories to recursively preserve in new worktrees
-	LinkPatterns            []string      // Directory names to symlink from source to new worktrees
-	StaleThreshold          string        // Default threshold for stale worktree detection (e.g., "30d")
-	AutoLockPatterns        []string      // Patterns for branches to auto-lock when creating worktrees
-	Timeout                 time.Duration // Command timeout (0 = no timeout)
+type settings struct {
+	Plain            bool
+	Debug            bool
+	NerdFonts        bool
+	StaleThreshold   string
+	AutoLockPatterns []string
+	Timeout          time.Duration
 }
 
-// DefaultConfig contains the default configuration values
-var DefaultConfig = struct {
-	Plain                   bool
-	Debug                   bool
-	NerdFonts               bool
+type defaultSettings struct {
+	settings
 	PreservePatterns        []string
 	PreserveExcludePatterns []string
 	PreserveDirectories     []string
 	LinkPatterns            []string
-	StaleThreshold          string
-	AutoLockPatterns        []string
-	Timeout                 time.Duration
-}{
-	Plain:          false,
-	Debug:          false,
-	NerdFonts:      true,
-	StaleThreshold: "30d",
-	Timeout:        30 * time.Second,
+}
+
+// Global holds the global configuration state for Grove
+var Global settings
+
+// DefaultConfig contains the default configuration values
+var DefaultConfig = defaultSettings{
+	settings: settings{
+		Plain:          false,
+		Debug:          false,
+		NerdFonts:      true,
+		StaleThreshold: "30d",
+		Timeout:        30 * time.Second,
+		AutoLockPatterns: []string{
+			"develop",
+			"main",
+			"master",
+		},
+	},
 	PreservePatterns: []string{
 		".env",
 		".env.keys",
@@ -70,11 +73,6 @@ var DefaultConfig = struct {
 	},
 	PreserveDirectories: []string{},
 	LinkPatterns:        []string{},
-	AutoLockPatterns: []string{
-		"develop",
-		"main",
-		"master",
-	},
 }
 
 // IsPlain returns true if plain output mode is enabled
@@ -168,21 +166,8 @@ func LoadFromGitConfig() {
 func loadGlobalConfig(fileConfig *FileConfig) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
-	Global.Plain = DefaultConfig.Plain
-	Global.Debug = DefaultConfig.Debug
-	Global.NerdFonts = DefaultConfig.NerdFonts
-	Global.StaleThreshold = DefaultConfig.StaleThreshold
-	Global.Timeout = DefaultConfig.Timeout
-	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
-	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
-	Global.PreserveExcludePatterns = make([]string, len(DefaultConfig.PreserveExcludePatterns))
-	copy(Global.PreserveExcludePatterns, DefaultConfig.PreserveExcludePatterns)
-	Global.PreserveDirectories = make([]string, len(DefaultConfig.PreserveDirectories))
-	copy(Global.PreserveDirectories, DefaultConfig.PreserveDirectories)
-	Global.LinkPatterns = make([]string, len(DefaultConfig.LinkPatterns))
-	copy(Global.LinkPatterns, DefaultConfig.LinkPatterns)
-	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
-	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
+	Global = DefaultConfig.settings
+	Global.AutoLockPatterns = slices.Clone(DefaultConfig.AutoLockPatterns)
 
 	if fileConfig.Plain != nil {
 		Global.Plain = *fileConfig.Plain
@@ -223,26 +208,6 @@ func loadGlobalConfig(fileConfig *FileConfig) {
 		if d, err := time.ParseDuration(value); err == nil {
 			Global.Timeout = d
 		}
-	}
-
-	patterns := getGitConfigs("grove.preserve")
-	if len(patterns) > 0 {
-		Global.PreservePatterns = patterns
-	}
-
-	linkPatterns := getGitConfigs("grove.link")
-	if len(linkPatterns) > 0 {
-		Global.LinkPatterns = linkPatterns
-	}
-
-	excludePatterns := getGitConfigs("grove.preserveExclude")
-	if len(excludePatterns) > 0 {
-		Global.PreserveExcludePatterns = excludePatterns
-	}
-
-	directories := getGitConfigs("grove.preserveDirectory")
-	if len(directories) > 0 {
-		Global.PreserveDirectories = directories
 	}
 
 	autoLockPatterns := getGitConfigs("grove.autoLock")

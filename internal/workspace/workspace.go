@@ -150,7 +150,7 @@ func ValidateAndPrepareDirectory(path string) error {
 			return fmt.Errorf("directory %s is not empty", path)
 		}
 	} else {
-		if err := fs.CreateDirectory(path, fs.DirGit); err != nil {
+		if err := os.MkdirAll(path, fs.DirGit); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", path, err)
 		}
 	}
@@ -185,7 +185,7 @@ func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 	createdPaths, err := createWorktrees(bareDir, filteredBranches, verbose, false)
 	if err != nil {
 		for i := len(createdPaths) - 1; i >= 0; i-- {
-			if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
+			if removeErr := os.RemoveAll(createdPaths[i]); removeErr != nil {
 				logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
 			}
 		}
@@ -207,12 +207,12 @@ func Initialize(path string) error {
 	}
 
 	bareDir := filepath.Join(path, ".bare")
-	if err := fs.CreateDirectory(bareDir, fs.DirGit); err != nil {
+	if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 		return fmt.Errorf("failed to create .bare directory: %w", err)
 	}
 
 	if err := git.InitBare(bareDir); err != nil {
-		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
 			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
 		}
 		return fmt.Errorf("failed to initialize bare git repository: %w", err)
@@ -220,7 +220,7 @@ func Initialize(path string) error {
 
 	gitFile := filepath.Join(path, ".git")
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
 			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
 		}
 		return fmt.Errorf("failed to create .git file: %w", err)
@@ -247,11 +247,11 @@ func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verb
 		if err := os.Remove(gitFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			logger.Warning("Failed to remove .git file during cleanup: %v", err)
 		}
-		if err := fs.RemoveAll(bareDir); err != nil {
+		if err := os.RemoveAll(bareDir); err != nil {
 			logger.Warning("Failed to remove .bare during cleanup: %v", err)
 		}
 		for i := len(worktrees) - 1; i >= 0; i-- {
-			if err := fs.RemoveAll(worktrees[i]); err != nil {
+			if err := os.RemoveAll(worktrees[i]); err != nil {
 				logger.Warning("Failed to remove worktree %s during cleanup: %v", worktrees[i], err)
 			}
 		}
@@ -340,11 +340,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has submodules")
 	}
 
-	hasConflicts, err := git.HasUnresolvedConflicts(targetDir)
+	conflicts, err := git.GetConflictCount(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for unresolved conflicts: %w", err)
 	}
-	if hasConflicts {
+	if conflicts > 0 {
 		return fmt.Errorf("cannot convert: repository has unresolved conflicts")
 	}
 
@@ -364,11 +364,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has unpushed commits")
 	}
 
-	detached, err := git.IsDetachedHead(targetDir)
-	if err != nil {
+	_, err = git.GetCurrentBranch(targetDir)
+	if err != nil && !errors.Is(err, git.ErrDetachedHead) {
 		return fmt.Errorf("failed to check HEAD state: %w", err)
 	}
-	if detached {
+	if errors.Is(err, git.ErrDetachedHead) {
 		return fmt.Errorf("cannot convert: repository is in detached HEAD state")
 	}
 
@@ -380,11 +380,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has no commits (unborn HEAD)")
 	}
 
-	hasOngoing, err := git.HasOngoingOperation(targetDir)
+	operation, err := git.GetOngoingOperation(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for ongoing operations: %w", err)
 	}
-	if hasOngoing {
+	if operation != "" {
 		return fmt.Errorf("cannot convert: repository has ongoing merge/rebase/cherry-pick")
 	}
 
@@ -874,7 +874,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 		// Step 2: Remove created worktrees (best effort)
 		for _, worktreePath := range createdWorktrees {
 			logger.Debug("Removing worktree: %s", worktreePath)
-			if err := fs.RemoveAll(worktreePath); err != nil {
+			if err := os.RemoveAll(worktreePath); err != nil {
 				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
 			}
 		}
@@ -884,7 +884,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 		bareDir := filepath.Join(targetDir, ".bare")
 		logger.Info("Restoring .git directory...")
 
-		_ = fs.RemoveAll(gitDir) // Remove any partial .git file
+		_ = os.RemoveAll(gitDir) // Remove any partial .git file
 
 		if err := fs.RenameWithFallback(bareDir, gitDir); err != nil {
 			logger.Error("Failed to restore .git directory: %v", err)

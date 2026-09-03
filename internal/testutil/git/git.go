@@ -106,16 +106,6 @@ func (r *TestRepo) AddRemote(name, url string) {
 	}
 }
 
-// SetSymbolicRef sets a symbolic reference
-func (r *TestRepo) SetSymbolicRef(name, target string) {
-	r.t.Helper()
-	cmd := exec.Command("git", "symbolic-ref", name, target) // nolint:gosec
-	cmd.Dir = r.Path
-	if err := cmd.Run(); err != nil {
-		r.t.Fatalf("Failed to set symbolic ref: %v", err)
-	}
-}
-
 // CreateBranch creates a new branch at the current HEAD
 func (r *TestRepo) CreateBranch(name string) {
 	r.t.Helper()
@@ -302,25 +292,6 @@ func (r *BareTestRepo) Run(args ...string) (string, error) {
 	return string(out), err
 }
 
-// RunOutput executes a git command, fails on error, returns combined output.
-func (r *BareTestRepo) RunOutput(args ...string) string {
-	r.t.Helper()
-	out, err := r.Run(args...)
-	if err != nil {
-		r.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
-	}
-	return out
-}
-
-// MustFail executes a git command and fails the test if it succeeds.
-func (r *BareTestRepo) MustFail(args ...string) {
-	r.t.Helper()
-	_, err := r.Run(args...)
-	if err == nil {
-		r.t.Fatalf("expected git %v to fail, but it succeeded", args)
-	}
-}
-
 // CleanupWorktree registers cleanup for a worktree to release Windows file locks.
 func (r *BareTestRepo) CleanupWorktree(worktreePath string) {
 	CleanupWorktree(r.t, r.Path, worktreePath)
@@ -440,13 +411,4 @@ func (w *GroveWorkspace) RunOutput(args ...string) string {
 		w.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
 	}
 	return out
-}
-
-// MustFail executes a git command in the bare repo and fails the test if it succeeds.
-func (w *GroveWorkspace) MustFail(args ...string) {
-	w.t.Helper()
-	_, err := w.Run(args...)
-	if err == nil {
-		w.t.Fatalf("expected git %v to fail, but it succeeded", args)
-	}
 }

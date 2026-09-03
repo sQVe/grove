@@ -155,113 +155,6 @@ func TestPathExists(t *testing.T) {
 	})
 }
 
-func TestCreateDirectory(t *testing.T) {
-	t.Parallel()
-
-	t.Run("creates directory with correct permissions", func(t *testing.T) {
-		t.Parallel()
-		tempDir := t.TempDir()
-		testDir := filepath.Join(tempDir, "test")
-
-		if err := CreateDirectory(testDir, DirGit); err != nil {
-			t.Fatalf("CreateDirectory should not fail: %v", err)
-		}
-
-		info, err := os.Stat(testDir)
-		if err != nil {
-			t.Fatalf("created directory should exist: %v", err)
-		}
-		if !info.IsDir() {
-			t.Error("created path should be a directory")
-		}
-	})
-
-	t.Run("creates nested directories", func(t *testing.T) {
-		t.Parallel()
-
-		tempDir := t.TempDir()
-		nestedDir := filepath.Join(tempDir, "a", "b", "c")
-
-		if err := CreateDirectory(nestedDir, DirStrict); err != nil {
-			t.Fatalf("CreateDirectory should create nested directories: %v", err)
-		}
-
-		if !DirectoryExists(nestedDir) {
-			t.Error("nested directory should be created")
-		}
-	})
-
-	t.Run("succeeds if directory already exists", func(t *testing.T) {
-		t.Parallel()
-
-		tempDir := t.TempDir()
-		testDir := filepath.Join(tempDir, "existing")
-
-		if err := os.Mkdir(testDir, DirGit); err != nil {
-			t.Fatalf("failed to create existing directory: %v", err)
-		}
-
-		if err := CreateDirectory(testDir, DirGit); err != nil {
-			t.Error("CreateDirectory should succeed for existing directory")
-		}
-	})
-}
-
-func TestRemoveAll(t *testing.T) {
-	t.Parallel()
-
-	t.Run("removes file", func(t *testing.T) {
-		t.Parallel()
-		tempDir := t.TempDir()
-		testFile := filepath.Join(tempDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		if err := RemoveAll(testFile); err != nil {
-			t.Fatalf("RemoveAll should not fail for file: %v", err)
-		}
-
-		if PathExists(testFile) {
-			t.Error("file should be removed")
-		}
-	})
-
-	t.Run("removes directory and contents", func(t *testing.T) {
-		t.Parallel()
-
-		tempDir := t.TempDir()
-		testDir := filepath.Join(tempDir, "test")
-		testFile := filepath.Join(testDir, "file.txt")
-
-		if err := os.Mkdir(testDir, DirGit); err != nil {
-			t.Fatalf("failed to create test directory: %v", err)
-		}
-		if err := os.WriteFile(testFile, []byte("content"), FileStrict); err != nil {
-			t.Fatalf("failed to create test file: %v", err)
-		}
-
-		if err := RemoveAll(testDir); err != nil {
-			t.Fatalf("RemoveAll should not fail for directory: %v", err)
-		}
-
-		if PathExists(testDir) {
-			t.Error("directory should be removed")
-		}
-	})
-
-	t.Run("succeeds for non-existent path", func(t *testing.T) {
-		t.Parallel()
-
-		tempDir := t.TempDir()
-		nonExistent := filepath.Join(tempDir, "nonexistent")
-
-		if err := RemoveAll(nonExistent); err != nil {
-			t.Error("RemoveAll should succeed for non-existent path")
-		}
-	})
-}
-
 func TestRenameWithFallback(t *testing.T) {
 	t.Parallel()
 
@@ -413,7 +306,7 @@ func TestPathsEqual(t *testing.T) {
 
 		tempDir := t.TempDir()
 		otherDir := filepath.Join(tempDir, "other")
-		if err := CreateDirectory(otherDir, DirGit); err != nil {
+		if err := os.MkdirAll(otherDir, DirGit); err != nil {
 			t.Fatalf("failed to create test directory: %v", err)
 		}
 		if PathsEqual(tempDir, otherDir) {
@@ -439,7 +332,7 @@ func TestPathHasPrefix(t *testing.T) {
 		t.Parallel()
 		tempDir := t.TempDir()
 		subDir := filepath.Join(tempDir, "sub", "dir")
-		if err := CreateDirectory(subDir, DirGit); err != nil {
+		if err := os.MkdirAll(subDir, DirGit); err != nil {
 			t.Fatalf("failed to create test directory: %v", err)
 		}
 		if !PathHasPrefix(subDir, tempDir) {
@@ -462,10 +355,10 @@ func TestPathHasPrefix(t *testing.T) {
 		tempDir := t.TempDir()
 		otherDir := filepath.Join(tempDir, "other")
 		subDir := filepath.Join(tempDir, "sub")
-		if err := CreateDirectory(otherDir, DirGit); err != nil {
+		if err := os.MkdirAll(otherDir, DirGit); err != nil {
 			t.Fatalf("failed to create other directory: %v", err)
 		}
-		if err := CreateDirectory(subDir, DirGit); err != nil {
+		if err := os.MkdirAll(subDir, DirGit); err != nil {
 			t.Fatalf("failed to create sub directory: %v", err)
 		}
 		if PathHasPrefix(otherDir, subDir) {
@@ -480,10 +373,10 @@ func TestPathHasPrefix(t *testing.T) {
 		// Create /tmp/xxx/foobar and /tmp/xxx/foo
 		fooDir := filepath.Join(tempDir, "foo")
 		foobarDir := filepath.Join(tempDir, "foobar")
-		if err := CreateDirectory(fooDir, DirGit); err != nil {
+		if err := os.MkdirAll(fooDir, DirGit); err != nil {
 			t.Fatalf("failed to create foo directory: %v", err)
 		}
-		if err := CreateDirectory(foobarDir, DirGit); err != nil {
+		if err := os.MkdirAll(foobarDir, DirGit); err != nil {
 			t.Fatalf("failed to create foobar directory: %v", err)
 		}
 		// foobar should NOT have prefix foo (even though "foobar" string starts with "foo")

@@ -437,7 +437,7 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 		}
 
 		// Read and validate .git file content
-		gitdir, err := git.GetWorktreeGitDir(worktreePath)
+		gitdir, err := git.GetGitDir(worktreePath)
 		if err != nil {
 			// Invalid .git file format
 			relPath, _ := filepath.Rel(workspaceRoot, worktreePath)

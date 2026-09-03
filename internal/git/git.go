@@ -117,35 +117,6 @@ func executeWithOutputBuffer(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	return &stdout, nil
 }
 
-// resolveGitDir returns the actual git directory for a repository or worktree.
-func resolveGitDir(path string) (string, error) {
-	gitPath := filepath.Join(path, ".git")
-
-	info, err := os.Stat(gitPath)
-	if err != nil {
-		return "", err
-	}
-
-	if info.IsDir() {
-		return gitPath, nil
-	}
-
-	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
-	if err != nil {
-		return "", err
-	}
-
-	line := strings.TrimSpace(string(content))
-	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
-		if filepath.IsAbs(after) {
-			return after, nil
-		}
-		return filepath.Join(path, after), nil
-	}
-
-	return "", fmt.Errorf("invalid .git file format")
-}
-
 // InitBare initializes a bare git repository in the specified directory
 func InitBare(path string) error {
 	if path == "" {

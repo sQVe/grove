@@ -135,7 +135,7 @@ func GetCurrentBranch(path string) (string, error) {
 		return "", errors.New("repository path cannot be empty")
 	}
 
-	gitDir, err := resolveGitDir(path)
+	gitDir, err := GetGitDir(path)
 	if err != nil {
 		return "", err
 	}
@@ -203,25 +203,6 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	return "", fmt.Errorf("could not determine default branch from HEAD")
 }
 
-// IsDetachedHead checks if the repository is in detached HEAD state
-func IsDetachedHead(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	headFile := filepath.Join(gitDir, "HEAD")
-
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return false, err
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	return !strings.HasPrefix(line, "ref: refs/heads/"), nil
-}
-
 // IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
 // An unborn HEAD occurs when HEAD points to a branch ref that doesn't exist,
 // which happens in newly initialized repos before the first commit.
@@ -230,7 +211,7 @@ func IsUnbornHead(path string) (bool, error) {
 		return false, errors.New("repository path cannot be empty")
 	}
 
-	gitDir, err := resolveGitDir(path)
+	gitDir, err := GetGitDir(path)
 	if err != nil {
 		return false, err
 	}

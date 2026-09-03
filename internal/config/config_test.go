@@ -87,10 +87,6 @@ func resetGlobal() {
 	Global.Plain = false
 	Global.Debug = false
 	Global.NerdFonts = true // Default is true
-	Global.PreservePatterns = nil
-	Global.PreserveExcludePatterns = nil
-	Global.PreserveDirectories = nil
-	Global.LinkPatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
 	Global.Timeout = 0
@@ -320,8 +316,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
 		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
-		_ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run()
-
 		LoadFromGitConfig()
 
 		if Global.Plain != DefaultConfig.Plain {
@@ -329,9 +323,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 		}
 		if Global.Debug != DefaultConfig.Debug {
 			t.Errorf("Expected Debug to be %v (default), got %v", DefaultConfig.Debug, Global.Debug)
-		}
-		if len(Global.PreservePatterns) != len(DefaultConfig.PreservePatterns) {
-			t.Errorf("Expected %d preserve patterns (default), got %d", len(DefaultConfig.PreservePatterns), len(Global.PreservePatterns))
 		}
 	})
 
@@ -356,72 +347,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 		}
 		if Global.Debug != false {
 			t.Error("Expected git config to override Debug default")
-		}
-	})
-
-	t.Run("preserve patterns replace defaults", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "grove.preserve", ".custom").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
-
-		LoadFromGitConfig()
-
-		if len(Global.PreservePatterns) != 1 || Global.PreservePatterns[0] != ".custom" {
-			t.Errorf("Expected preserve patterns to be replaced with ['.custom'], got %v", Global.PreservePatterns)
-		}
-	})
-
-	t.Run("loads preserve directories from git config", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "--add", "grove.preserveDirectory", "config").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserveDirectory", ".run").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserveDirectory").Run() }()
-
-		LoadFromGitConfig()
-
-		expected := []string{"config", ".run"}
-		if len(Global.PreserveDirectories) != len(expected) {
-			t.Errorf("Expected %d preserve directories, got %d: %v", len(expected), len(Global.PreserveDirectories), Global.PreserveDirectories)
-		}
-		for i, exp := range expected {
-			if i >= len(Global.PreserveDirectories) || Global.PreserveDirectories[i] != exp {
-				t.Errorf("Expected directory %d to be %q, got %q", i, exp, Global.PreserveDirectories[i])
-			}
-		}
-	})
-
-	t.Run("multiple preserve patterns from git config", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "--add", "grove.preserve", ".env").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserve", "*.local").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserve", ".secret").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
-
-		LoadFromGitConfig()
-
-		expected := []string{".env", "*.local", ".secret"}
-		if len(Global.PreservePatterns) != len(expected) {
-			t.Errorf("Expected %d patterns, got %d: %v", len(expected), len(Global.PreservePatterns), Global.PreservePatterns)
-		}
-		for i, exp := range expected {
-			if i >= len(Global.PreservePatterns) || Global.PreservePatterns[i] != exp {
-				t.Errorf("Expected pattern %d to be %q, got %q", i, exp, Global.PreservePatterns[i])
-			}
 		}
 	})
 }
