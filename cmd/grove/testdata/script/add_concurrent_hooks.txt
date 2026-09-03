@@ -16,4 +16,4 @@ exists $WORK/concurrent-during-hook
 
 -- grove-hooks-slow.toml --
 [hooks]
-add = ['touch "$WORK/hook-started"; sleep 2; test -d "$WORK/workspace/feature-concurrent" && touch "$WORK/concurrent-during-hook"']
+add = ['touch "$WORK/hook-started"; for i in $(seq 1 100); do if test -d "$WORK/workspace/feature-concurrent"; then touch "$WORK/concurrent-during-hook"; break; fi; sleep 0.1; done']
