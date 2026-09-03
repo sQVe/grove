@@ -26,6 +26,10 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 	return filepath.Abs(args[argIndex])
 }
 
+func repositoryName(source string) string {
+	return filepath.Base(strings.TrimSuffix(strings.TrimRight(source, "/"), ".git"))
+}
+
 func NewCloneCmd() *cobra.Command {
 	var branches string
 	var verbose bool
@@ -48,6 +52,9 @@ Examples:
 			if cmd.Flags().Changed("branches") && len(args) == 0 {
 				return fmt.Errorf("--branches requires a repository URL to be specified")
 			}
+			if cmd.Flags().Changed("branches") && github.IsPRURL(args[0]) {
+				return fmt.Errorf("--branches cannot be combined with a PR URL")
+			}
 			return nil
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -62,14 +69,22 @@ Examples:
 			}
 
 			urlOrPR := args[0]
+			isPRURL := github.IsPRURL(urlOrPR)
 
 			targetDir, err := resolveTargetDirectory(args, 1)
 			if err != nil {
 				return err
 			}
+			if len(args) == 1 {
+				if isPRURL {
+					targetDir = ""
+				} else {
+					targetDir = filepath.Join(targetDir, repositoryName(urlOrPR))
+				}
+			}
 
 			// Check if this is a PR URL (full URL only, not #N format)
-			if github.IsPRURL(urlOrPR) {
+			if isPRURL {
 				return runCloneFromPR(urlOrPR, targetDir, verbose, shallow)
 			}
 

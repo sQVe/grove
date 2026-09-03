@@ -142,3 +142,25 @@ func TestGitHubURLClassification(t *testing.T) {
 		})
 	}
 }
+
+func TestRepositoryName(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{name: "HTTPS", source: "https://github.com/owner/repo", want: "repo"},
+		{name: "SSH", source: "git@github.com:owner/repo.git", want: "repo"},
+		{name: "git suffix", source: "https://github.com/owner/repo.git", want: "repo"},
+		{name: "trailing slash", source: "https://github.com/owner/repo/", want: "repo"},
+		{name: "local path", source: "/tmp/owner/repo", want: "repo"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := repositoryName(tt.source); got != tt.want {
+				t.Errorf("repositoryName(%q) = %q, want %q", tt.source, got, tt.want)
+			}
+		})
+	}
+}

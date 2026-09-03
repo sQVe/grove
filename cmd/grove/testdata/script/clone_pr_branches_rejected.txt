@@ -1,0 +1,10 @@
+# grove clone: --branches cannot be combined with a PR URL
+
+mkdir clones
+cd clones
+! exec grove clone https://github.com/owner/repo/pull/123 --branches main
+stderr '^✗ --branches cannot be combined with a PR URL$'
+! exists .bare
+! exists .git
+! exists repo
+! exists 123
