@@ -144,6 +144,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			failed = append(failed, dirName)
 			continue
 		}
+		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch, detached: info.Detached})
 
 		// Optionally delete the branch
 		if deleteThisBranch {
@@ -160,7 +161,6 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			}
 			deletedBranches++
 		}
-		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch, detached: info.Detached})
 	}
 
 	if spin != nil {

@@ -11,6 +11,7 @@ cd ../main
 # Branch has commits not merged to main, so git branch -d fails
 ! exec grove remove --branch branch-unmerged
 stderr '✗ .*not fully merged'
+stderr 'Removed worktree.*branch-unmerged'
 
 # Worktree was removed but branch deletion failed
 ! exists ../branch-unmerged

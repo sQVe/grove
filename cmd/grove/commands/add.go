@@ -234,11 +234,21 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	if err != nil {
 		return fmt.Errorf("failed to check local branch: %w", err)
 	}
-	remoteExists, err := git.RemoteBranchExists(bareDir, "origin", branch)
+	remotes, err := git.ListRemotes(bareDir)
 	if err != nil {
-		return fmt.Errorf("failed to check origin branch: %w", err)
+		return fmt.Errorf("failed to list remotes: %w", err)
 	}
-	exists := localExists || remoteExists
+	exists := localExists
+	for _, remote := range remotes {
+		remoteExists, err := git.RemoteBranchExists(bareDir, remote, branch)
+		if err != nil {
+			return fmt.Errorf("failed to check %s branch: %w", remote, err)
+		}
+		if remoteExists {
+			exists = true
+			break
+		}
+	}
 	if !exists && git.RefExists(bareDir, branch) == nil {
 		return fmt.Errorf("ref %q is not a branch; use --detach to check it out detached", branch)
 	}
