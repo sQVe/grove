@@ -85,6 +85,17 @@ func TestParseFilters(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("returns error for unknown filter", func(t *testing.T) {
+		got, err := parseFilters("dirty,bogus")
+		if err == nil {
+			t.Fatalf("parseFilters(\"dirty,bogus\") = %v, want error", got)
+		}
+		want := `unknown filter "bogus" (valid: dirty, ahead, behind, gone, locked)`
+		if err.Error() != want {
+			t.Errorf("error = %q, want %q", err.Error(), want)
+		}
+	})
 }
 
 func TestMatchesAnyFilter(t *testing.T) {
