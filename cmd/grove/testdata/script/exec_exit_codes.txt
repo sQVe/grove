@@ -19,7 +19,14 @@ stderr 'child-output'
 ! stderr 'Run .*grove --help.*'
 
 # Multiple targets still collapse child failures to exit 1
+cp $WORK/only-in-main.txt only-in-main.txt
 exec sh -c 'grove --plain exec main feature -- test -f only-in-main.txt; test $? -eq 1'
+stderr 'Executed in 2 worktrees \(1 succeeded, 1 failed\)'
+
+# A command that cannot start reports the cause, also with --fail-fast
+! exec grove --plain exec --all --fail-fast -- grove-no-such-command-xyz
+stderr 'executable file not found'
+stderr 'All 1 executions failed'
 
 # --fail-fast stops on first failure
 ! exec grove --plain exec --all --fail-fast -- false

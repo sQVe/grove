@@ -34,7 +34,7 @@ type ExecError struct {
 	exitCode int
 }
 
-// Error returns the summary message already printed by exec.
+// Error returns the exec failure message.
 func (e *ExecError) Error() string {
 	return e.message
 }
@@ -162,6 +162,9 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 		if err := cmd.Run(); err != nil {
 			exitCode = commandExitCode(err)
 			failed = append(failed, target.name)
+			if !isExitError(err) {
+				logger.Error("%s", err)
+			}
 		} else {
 			succeeded++
 		}
@@ -220,6 +223,11 @@ func commandExitCode(err error) int {
 		return exitError.ExitCode()
 	}
 	return 1
+}
+
+func isExitError(err error) bool {
+	var exitError *exec.ExitError
+	return errors.As(err, &exitError)
 }
 
 func completeExecArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
