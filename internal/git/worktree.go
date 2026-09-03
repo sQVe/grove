@@ -393,9 +393,6 @@ func FindWorktreeRoot(startPath string) (string, error) {
 
 // IsWorktreeLocked checks if a worktree is locked.
 func IsWorktreeLocked(worktreePath string) bool {
-	if !IsWorktree(worktreePath) {
-		return false
-	}
 	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock check: %v", err)
@@ -425,9 +422,6 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 
 // GetWorktreeLockReason returns the lock reason for a worktree.
 func GetWorktreeLockReason(worktreePath string) string {
-	if !IsWorktree(worktreePath) {
-		return ""
-	}
 	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock reason: %v", err)
