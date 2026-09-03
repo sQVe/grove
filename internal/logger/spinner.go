@@ -21,8 +21,8 @@ func StartSpinner(message string) *Spinner {
 	s := &Spinner{done: make(chan struct{})}
 	s.message.Store(message)
 
-	if isPlain() {
-		fmt.Fprintf(os.Stderr, "%s %s\n", styles.Render(&styles.Info, "→"), message)
+	if isPlain() || !stderrIsTerminal() {
+		fmt.Fprintf(os.Stderr, "→ %s\n", message)
 		s.once.Do(func() { close(s.done) })
 		return s
 	}
