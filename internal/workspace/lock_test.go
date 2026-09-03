@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -223,4 +224,21 @@ func TestIsProcessRunning(t *testing.T) {
 			t.Error("expected non-existent PID to return false")
 		}
 	})
+}
+
+func TestTryAcquireLockRemovesNonPositivePID(t *testing.T) {
+	t.Parallel()
+	tmpDir := testutil.TempDir(t)
+	lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
+	if err := os.WriteFile(lockFile, []byte("0"), fs.FileStrict); err != nil {
+		t.Fatal(err)
+	}
+
+	_, done, err := tryAcquireLock(lockFile, 0)
+	if done || err != nil {
+		t.Fatalf("expected stale removal, got done=%v err=%v", done, err)
+	}
+	if _, statErr := os.Stat(lockFile); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected lock file removed, got %v", statErr)
+	}
 }

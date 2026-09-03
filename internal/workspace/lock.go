@@ -90,7 +90,7 @@ func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 
 	pidStr := strings.TrimSpace(string(content))
 	pid, parseErr := strconv.Atoi(pidStr)
-	if parseErr != nil {
+	if parseErr != nil || pid <= 0 {
 		// Invalid PID means corrupted lock file - treat as stale and retry
 		logger.Debug("Lock file contains invalid PID %q, removing stale lock (attempt %d)", pidStr, attempt+1)
 		_ = os.Remove(lockFile)
