@@ -176,13 +176,28 @@ func TestSpinnerTerminal(t *testing.T) {
 	Init(false, false)
 	stderrTerminal.Store(true)
 	spinner := StartSpinner("Gathering worktree status...")
-	time.Sleep(100 * time.Millisecond)
-	spinner.Stop()
-
-	_ = w.Close()
 
 	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
+	firstFrame := make(chan struct{})
+	drained := make(chan struct{})
+	go func() {
+		chunk := make([]byte, 64)
+		n, _ := r.Read(chunk)
+		buf.Write(chunk[:n])
+		close(firstFrame)
+		_, _ = io.Copy(&buf, r)
+		close(drained)
+	}()
+
+	select {
+	case <-firstFrame:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no spinner frame written within 5s")
+	}
+	spinner.Stop()
+	_ = w.Close()
+	<-drained
+
 	output := buf.String()
 	if !strings.Contains(output, "\r") || !strings.ContainsAny(output, "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏") {
 		t.Errorf("spinner output = %q, want animation", output)
