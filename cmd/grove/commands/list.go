@@ -2,11 +2,14 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/formatter"
@@ -16,12 +19,18 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+var (
+	validFilters = []string{"dirty", "ahead", "behind", "gone", "locked"}
+	validSorts   = []string{"name", "recent"}
+)
+
 // NewListCmd creates the list command
 func NewListCmd() *cobra.Command {
 	var fast bool
 	var jsonOutput bool
 	var verbose bool
 	var filter string
+	var sortBy string
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -32,28 +41,42 @@ Examples:
   grove list                  # Show all worktrees
   grove list --fast           # Skip remote sync checks
   grove list --filter dirty   # Show only dirty worktrees
+  grove list --sort recent    # Show most recently committed worktrees first
   grove list --verbose        # Include paths and upstreams`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runList(fast, jsonOutput, verbose, filter)
+			return runList(fast, jsonOutput, verbose, filter, sortBy)
 		},
 	}
 
 	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status checks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
-	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status: dirty,ahead,behind,gone,locked (comma-separated)")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked; comma-separated)")
+	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort order (valid: name, recent)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 
 	_ = cmd.RegisterFlagCompletionFunc("filter", completeFilterValues)
+	_ = cmd.RegisterFlagCompletionFunc("sort", cobra.FixedCompletions(validSorts, cobra.ShellCompDirectiveNoFileComp))
 
 	return cmd
 }
 
-func runList(fast, jsonOutput, verbose bool, filter string) error {
+func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
+	filters, err := parseFilters(filter)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(validSorts, sortBy) {
+		return fmt.Errorf("unknown sort %q (valid: %s)", sortBy, strings.Join(validSorts, ", "))
+	}
+	if sortBy == "recent" && fast {
+		return errors.New("--sort recent cannot be used with --fast because recency requires commit times")
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -74,7 +97,12 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 	spin.Stop()
 
 	// Apply filter if specified
-	infos = filterWorktrees(infos, filter)
+	infos = filterWorktrees(infos, filters)
+	if sortBy == "recent" {
+		sort.SliceStable(infos, func(i, j int) bool {
+			return infos[i].LastCommitTime > infos[j].LastCommitTime
+		})
+	}
 
 	// Determine current worktree path (also works from subdirectories)
 	currentPath := ""
@@ -89,7 +117,7 @@ func runList(fast, jsonOutput, verbose bool, filter string) error {
 		return outputJSON(infos, currentPath)
 	}
 
-	return outputTable(infos, currentPath, fast, verbose)
+	return outputTable(infos, currentPath, fast, verbose, sortBy)
 }
 
 type worktreeJSON struct {
@@ -106,6 +134,7 @@ type worktreeJSON struct {
 	NoUpstream bool   `json:"no_upstream,omitempty"`
 	Locked     bool   `json:"locked,omitempty"`
 	LockReason string `json:"lock_reason,omitempty"`
+	LastCommit string `json:"last_commit,omitempty"`
 }
 
 func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
@@ -128,6 +157,9 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 		if !info.Detached {
 			entry.Branch = info.Branch
 		}
+		if info.LastCommitTime != 0 {
+			entry.LastCommit = time.Unix(info.LastCommitTime, 0).UTC().Format(time.RFC3339)
+		}
 		output = append(output, entry)
 	}
 
@@ -136,17 +168,19 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 	return enc.Encode(output)
 }
 
-func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool) error {
-	// Sort: current worktree first, then alphabetically by worktree name
-	sort.SliceStable(infos, func(i, j int) bool {
-		iCurrent := fs.PathsEqual(infos[i].Path, currentPath)
-		jCurrent := fs.PathsEqual(infos[j].Path, currentPath)
-		if iCurrent != jCurrent {
-			return iCurrent // Current worktree comes first
-		}
-		// Sort by worktree name (directory basename)
-		return filepath.Base(infos[i].Path) < filepath.Base(infos[j].Path)
-	})
+func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bool, sortBy string) error {
+	if sortBy == "name" {
+		// Sort: current worktree first, then alphabetically by worktree name
+		sort.SliceStable(infos, func(i, j int) bool {
+			iCurrent := fs.PathsEqual(infos[i].Path, currentPath)
+			jCurrent := fs.PathsEqual(infos[j].Path, currentPath)
+			if iCurrent != jCurrent {
+				return iCurrent // Current worktree comes first
+			}
+			// Sort by worktree name (directory basename)
+			return filepath.Base(infos[i].Path) < filepath.Base(infos[j].Path)
+		})
+	}
 
 	// Calculate max widths for padding
 	maxNameLen := 0
@@ -197,8 +231,7 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 	return nil
 }
 
-func filterWorktrees(infos []*git.WorktreeInfo, filter string) []*git.WorktreeInfo {
-	filters := parseFilters(filter)
+func filterWorktrees(infos []*git.WorktreeInfo, filters []string) []*git.WorktreeInfo {
 	if len(filters) == 0 {
 		return infos
 	}
@@ -212,9 +245,9 @@ func filterWorktrees(infos []*git.WorktreeInfo, filter string) []*git.WorktreeIn
 	return filtered
 }
 
-func parseFilters(filter string) []string {
+func parseFilters(filter string) ([]string, error) {
 	if filter == "" {
-		return nil
+		return nil, nil
 	}
 
 	parts := strings.Split(filter, ",")
@@ -222,10 +255,13 @@ func parseFilters(filter string) []string {
 	for _, p := range parts {
 		p = strings.TrimSpace(strings.ToLower(p))
 		if p != "" {
+			if !slices.Contains(validFilters, p) {
+				return nil, fmt.Errorf("unknown filter %q (valid: %s)", p, strings.Join(validFilters, ", "))
+			}
 			filters = append(filters, p)
 		}
 	}
-	return filters
+	return filters, nil
 }
 
 func matchesAnyFilter(info *git.WorktreeInfo, filters []string) bool {
@@ -257,8 +293,6 @@ func matchesAnyFilter(info *git.WorktreeInfo, filters []string) bool {
 }
 
 func completeFilterValues(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	validFilters := []string{"dirty", "ahead", "behind", "gone", "locked"}
-
 	parts := strings.Split(toComplete, ",")
 	lastPart := parts[len(parts)-1]
 	prefix := ""

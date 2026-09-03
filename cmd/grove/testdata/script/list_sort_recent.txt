@@ -1,0 +1,21 @@
+# Test: grove list --sort recent orders table and JSON by commit time
+setup_workspace alpha zulu
+
+exec grove add alpha
+exec grove add zulu
+exec sh -c 'cd ../alpha && GIT_COMMITTER_DATE="2040-01-01T00:00:00Z" GIT_AUTHOR_DATE="2040-01-01T00:00:00Z" git commit --allow-empty -m newest'
+exec sh -c 'cd ../zulu && GIT_COMMITTER_DATE="2030-01-01T00:00:00Z" GIT_AUTHOR_DATE="2030-01-01T00:00:00Z" git commit --allow-empty -m newer'
+
+# Default table order remains current first, then basename.
+exec grove list --plain
+stdout '(?s)^\* main .*\n  alpha .*\n  zulu '
+
+# Default JSON order remains branch-name order.
+exec grove list --json
+stdout '(?s)"name": "alpha".*"name": "main".*"name": "zulu"'
+
+# Recent order ignores the current worktree in both formats.
+exec grove list --sort recent --plain
+stdout '(?s)^  alpha .*\n  zulu .*\n\* main '
+exec grove list --sort recent --json
+stdout '(?s)"name": "alpha".*"name": "zulu".*"name": "main"'
