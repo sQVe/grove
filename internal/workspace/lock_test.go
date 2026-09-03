@@ -1,9 +1,11 @@
 package workspace
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/testutil"
@@ -32,7 +34,7 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 		}
 	})
 
-	t.Run("fails when lock already held by running process", func(t *testing.T) {
+	t.Run("reports lock held by running process", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := testutil.TempDir(t)
@@ -48,11 +50,43 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 			_ = os.Remove(lockFile)
 		}()
 
-		// Try to acquire second lock - should fail
-		_, err = AcquireWorkspaceLock(lockFile)
+		// Try to acquire second lock - should report contention
+		_, done, err := tryAcquireLock(lockFile, 0)
+		if done {
+			t.Error("expected live lock to be retried")
+		}
 		if err == nil {
 			t.Error("expected error when lock already held")
 		}
+	})
+
+	t.Run("waits for lock held by running process", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := testutil.TempDir(t)
+		lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
+
+		handle1, err := AcquireWorkspaceLock(lockFile)
+		if err != nil {
+			t.Fatalf("expected to acquire first lock, got error: %v", err)
+		}
+		released := make(chan struct{})
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			_ = handle1.Close()
+			_ = os.Remove(lockFile)
+			close(released)
+		}()
+
+		handle2, err := AcquireWorkspaceLock(lockFile)
+		<-released
+		if err != nil {
+			t.Fatalf("expected to acquire lock after release, got error: %v", err)
+		}
+		defer func() {
+			_ = handle2.Close()
+			_ = os.Remove(lockFile)
+		}()
 	})
 
 	t.Run("removes stale lock with invalid PID", func(t *testing.T) {
@@ -190,4 +224,21 @@ func TestIsProcessRunning(t *testing.T) {
 			t.Error("expected non-existent PID to return false")
 		}
 	})
+}
+
+func TestTryAcquireLockRemovesNonPositivePID(t *testing.T) {
+	t.Parallel()
+	tmpDir := testutil.TempDir(t)
+	lockFile := filepath.Join(tmpDir, ".grove-worktree.lock")
+	if err := os.WriteFile(lockFile, []byte("0"), fs.FileStrict); err != nil {
+		t.Fatal(err)
+	}
+
+	_, done, err := tryAcquireLock(lockFile, 0)
+	if done || err != nil {
+		t.Fatalf("expected stale removal, got done=%v err=%v", done, err)
+	}
+	if _, statErr := os.Stat(lockFile); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected lock file removed, got %v", statErr)
+	}
 }

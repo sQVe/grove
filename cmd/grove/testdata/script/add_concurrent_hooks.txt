@@ -1,0 +1,19 @@
+# Test: concurrent adds proceed while an earlier add runs a slow hook
+[windows] skip
+setup_workspace
+
+cp $WORK/grove-hooks-slow.toml .grove.toml
+
+exec grove add feature/slow-hook &
+exec sh -c 'i=0; while [ ! -e "$WORK/hook-started" ]; do i=$((i+1)); [ "$i" -lt 200 ] || exit 1; sleep 0.05; done'
+rm .grove.toml
+exec grove add feature/concurrent
+wait
+
+exists $WORK/workspace/feature-slow-hook
+exists $WORK/workspace/feature-concurrent
+exists $WORK/concurrent-during-hook
+
+-- grove-hooks-slow.toml --
+[hooks]
+add = ['touch "$WORK/hook-started"; for i in $(seq 1 100); do if test -d "$WORK/workspace/feature-concurrent"; then touch "$WORK/concurrent-during-hook"; break; fi; sleep 0.1; done']
