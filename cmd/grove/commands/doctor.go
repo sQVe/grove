@@ -20,21 +20,25 @@ import (
 )
 
 // Severity represents the severity level of a doctor issue
-type Severity int
+type Severity string
 
 const (
-	SeverityInfo Severity = iota
-	SeverityWarning
-	SeverityError
+	SeverityInfo    Severity = "info"
+	SeverityWarning Severity = "warning"
+	SeverityError   Severity = "error"
 )
 
 // Category represents the category of a doctor issue
-type Category int
+type Category string
 
 const (
-	CategoryDeps Category = iota
-	CategoryGit
-	CategoryConfig
+	CategoryDeps   Category = "deps"
+	CategoryGit    Category = "git"
+	CategoryConfig Category = "config"
+
+	brokenGitPointerMessage   = "Broken .git pointer"
+	doctorFixHint             = "grove doctor --fix"
+	staleWorktreeEntryMessage = "Stale worktree entry"
 )
 
 // parseVersion extracts major, minor, patch from a version string like "2.48.0"
@@ -416,9 +420,9 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,
-				Message:     "Broken .git pointer",
+				Message:     brokenGitPointerMessage,
 				Path:        relPath,
-				FixHint:     "grove doctor --fix",
+				FixHint:     doctorFixHint,
 				AutoFixable: true,
 			})
 
@@ -444,10 +448,10 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,
-				Message:     "Broken .git pointer",
+				Message:     brokenGitPointerMessage,
 				Path:        relPath,
 				Details:     []string{err.Error()},
-				FixHint:     "grove doctor --fix",
+				FixHint:     doctorFixHint,
 				AutoFixable: true,
 			})
 
@@ -461,10 +465,10 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 				result.Issues = append(result.Issues, Issue{
 					Category:    CategoryGit,
 					Severity:    SeverityError,
-					Message:     "Broken .git pointer",
+					Message:     brokenGitPointerMessage,
 					Path:        relPath,
 					Details:     []string{"gitdir target does not exist"},
-					FixHint:     "grove doctor --fix",
+					FixHint:     doctorFixHint,
 					AutoFixable: true,
 				})
 			}
@@ -495,7 +499,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		worktreeName := entry.Name()
 		locked := fs.FileExists(filepath.Join(worktreesDir, worktreeName, "locked"))
 		severity := SeverityError
-		fixHint := "grove doctor --fix"
+		fixHint := doctorFixHint
 		autoFixable := true
 		if locked {
 			severity = SeverityWarning
@@ -511,7 +515,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    severity,
-				Message:     "Stale worktree entry",
+				Message:     staleWorktreeEntryMessage,
 				Path:        worktreeName,
 				Details:     []string{"missing gitdir file"},
 				FixHint:     fixHint,
@@ -535,7 +539,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    severity,
-				Message:     "Stale worktree entry",
+				Message:     staleWorktreeEntryMessage,
 				Path:        worktreeName,
 				Details:     []string{"worktree directory does not exist"},
 				FixHint:     fixHint,
@@ -887,9 +891,9 @@ func fixIssues(bareDir string, result *DoctorResult) {
 		switch issue.Message {
 		case "Stale lock file":
 			err = fixStaleLockFile(workspaceRoot, issue)
-		case "Stale worktree entry":
+		case staleWorktreeEntryMessage:
 			err = fixStaleWorktreeEntry(bareDir, issue)
-		case "Broken .git pointer":
+		case brokenGitPointerMessage:
 			err = fixBrokenGitPointer(bareDir, workspaceRoot, issue)
 		}
 
@@ -941,8 +945,8 @@ func fixBrokenGitPointer(bareDir, workspaceRoot string, issue *Issue) error {
 // Phase 5: JSON output
 
 type jsonIssue struct {
-	Category    string   `json:"category"`
-	Severity    string   `json:"severity"`
+	Category    Category `json:"category"`
+	Severity    Severity `json:"severity"`
 	Message     string   `json:"message"`
 	Path        string   `json:"path,omitempty"`
 	Details     []string `json:"details,omitempty"`
@@ -992,16 +996,7 @@ func outputJSONResult(result *DoctorResult) error {
 	}
 
 	for _, issue := range result.Issues {
-		jsonRes.Issues = append(jsonRes.Issues, jsonIssue{
-			Category:    categoryToString(issue.Category),
-			Severity:    severityToString(issue.Severity),
-			Message:     issue.Message,
-			Path:        issue.Path,
-			Details:     issue.Details,
-			FixHint:     issue.FixHint,
-			AutoFixable: issue.AutoFixable,
-			Fixed:       issue.Fixed,
-		})
+		jsonRes.Issues = append(jsonRes.Issues, jsonIssue(issue))
 	}
 
 	encoder := json.NewEncoder(os.Stdout)
@@ -1017,32 +1012,6 @@ func outputJSONResult(result *DoctorResult) error {
 	}
 
 	return nil
-}
-
-func categoryToString(c Category) string {
-	switch c {
-	case CategoryDeps:
-		return "deps"
-	case CategoryGit:
-		return "git"
-	case CategoryConfig:
-		return "config"
-	default:
-		return "unknown"
-	}
-}
-
-func severityToString(s Severity) string {
-	switch s {
-	case SeverityInfo:
-		return "info"
-	case SeverityWarning:
-		return "warning"
-	case SeverityError:
-		return "error"
-	default:
-		return "unknown"
-	}
 }
 
 // Phase 6: Performance analysis

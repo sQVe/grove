@@ -16,11 +16,34 @@ type gitConfig struct {
 	key, value string
 }
 
+type gitRunner struct {
+	t    *testing.T
+	Path string
+}
+
+// Run executes a git command and returns combined stdout/stderr and error.
+func (r *gitRunner) Run(args ...string) (string, error) {
+	r.t.Helper()
+	cmd := exec.Command("git", args...) // nolint:gosec
+	cmd.Dir = r.Path
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// RunOutput executes a git command, fails on error, returns combined output.
+func (r *gitRunner) RunOutput(args ...string) string {
+	r.t.Helper()
+	out, err := r.Run(args...)
+	if err != nil {
+		r.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
+	}
+	return out
+}
+
 // TestRepo provides a test git repository with proper configuration
 type TestRepo struct {
-	t       *testing.T
+	gitRunner
 	TempDir string
-	Path    string
 }
 
 // NewTestRepo creates a new test repository with git config set up.
@@ -73,9 +96,8 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 	}
 
 	return &TestRepo{
-		t:       t,
-		TempDir: dir,
-		Path:    repoPath,
+		gitRunner: gitRunner{t: t, Path: repoPath},
+		TempDir:   dir,
 	}
 }
 
@@ -196,25 +218,6 @@ func CleanupWorktree(t *testing.T, bareDir, worktreePath string) {
 	})
 }
 
-// Run executes a git command and returns combined stdout/stderr and error.
-func (r *TestRepo) Run(args ...string) (string, error) {
-	r.t.Helper()
-	cmd := exec.Command("git", args...) // nolint:gosec
-	cmd.Dir = r.Path
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
-
-// RunOutput executes a git command, fails on error, returns combined output.
-func (r *TestRepo) RunOutput(args ...string) string {
-	r.t.Helper()
-	out, err := r.Run(args...)
-	if err != nil {
-		r.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
-	}
-	return out
-}
-
 // MustFail executes a git command and fails the test if it succeeds.
 func (r *TestRepo) MustFail(args ...string) {
 	r.t.Helper()
@@ -253,9 +256,8 @@ func (r *TestRepo) AssertClean() {
 
 // BareTestRepo provides a bare test git repository.
 type BareTestRepo struct {
-	t    *testing.T
-	Dir  string
-	Path string
+	gitRunner
+	Dir string
 }
 
 // NewBareTestRepo creates a bare test repository with git config set up.
@@ -277,19 +279,9 @@ func NewBareTestRepo(t *testing.T) *BareTestRepo {
 	setGitConfigs(t, bareDir)
 
 	return &BareTestRepo{
-		t:    t,
-		Dir:  dir,
-		Path: bareDir,
+		gitRunner: gitRunner{t: t, Path: bareDir},
+		Dir:       dir,
 	}
-}
-
-// Run executes a git command and returns combined stdout/stderr and error.
-func (r *BareTestRepo) Run(args ...string) (string, error) {
-	r.t.Helper()
-	cmd := exec.Command("git", args...) // nolint:gosec
-	cmd.Dir = r.Path
-	out, err := cmd.CombinedOutput()
-	return string(out), err
 }
 
 // CleanupWorktree registers cleanup for a worktree to release Windows file locks.
@@ -299,7 +291,7 @@ func (r *BareTestRepo) CleanupWorktree(worktreePath string) {
 
 // GroveWorkspace represents a complete Grove workspace with bare repo and worktrees.
 type GroveWorkspace struct {
-	t         *testing.T
+	gitRunner
 	Dir       string
 	BareDir   string
 	Worktrees map[string]string
@@ -330,7 +322,7 @@ func NewGroveWorkspace(t *testing.T, branches ...string) *GroveWorkspace {
 	setGitConfigs(t, bareDir)
 
 	w := &GroveWorkspace{
-		t:         t,
+		gitRunner: gitRunner{t: t, Path: bareDir},
 		Dir:       dir,
 		BareDir:   bareDir,
 		Worktrees: make(map[string]string),
@@ -392,23 +384,4 @@ func (w *GroveWorkspace) WorktreePath(branch string) string {
 		w.t.Fatalf("worktree for branch %q not found", branch)
 	}
 	return path
-}
-
-// Run executes a git command in the bare repo and returns combined stdout/stderr and error.
-func (w *GroveWorkspace) Run(args ...string) (string, error) {
-	w.t.Helper()
-	cmd := exec.Command("git", args...) // nolint:gosec
-	cmd.Dir = w.BareDir
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
-
-// RunOutput executes a git command in the bare repo, fails on error, returns combined output.
-func (w *GroveWorkspace) RunOutput(args ...string) string {
-	w.t.Helper()
-	out, err := w.Run(args...)
-	if err != nil {
-		w.t.Fatalf("git %v failed: %v\nOutput: %s", args, err, out)
-	}
-	return out
 }

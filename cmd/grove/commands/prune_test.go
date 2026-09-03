@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
 	"github.com/sqve/grove/internal/workspace"
@@ -83,7 +84,7 @@ func TestParseDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseDuration(tt.input)
+			got, err := config.ParseDuration(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseDuration(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
 				return

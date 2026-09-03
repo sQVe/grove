@@ -155,6 +155,30 @@ func TestPathExists(t *testing.T) {
 	})
 }
 
+func TestWalkUp(t *testing.T) {
+	root := t.TempDir()
+	nested := filepath.Join(root, "one", "two")
+	if err := os.MkdirAll(nested, DirGit); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := WalkUp(nested, func(dir string) bool { return dir == root })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != root {
+		t.Fatalf("WalkUp() = %q, want %q", got, root)
+	}
+
+	got, err = WalkUp(nested, func(string) bool { return false })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatalf("WalkUp() without a match = %q, want empty", got)
+	}
+}
+
 func TestRenameWithFallback(t *testing.T) {
 	t.Parallel()
 

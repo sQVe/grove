@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +99,7 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	// Parse stale threshold if provided
 	var staleCutoff int64
 	if stale != "" {
-		duration, err := parseDuration(stale)
+		duration, err := config.ParseDuration(stale)
 		if err != nil {
 			return err
 		}
@@ -492,42 +491,6 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 	}
 
 	return nil
-}
-
-// parseDuration parses human-friendly durations like "30d", "2w", "6m"
-func parseDuration(s string) (time.Duration, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return 0, fmt.Errorf("duration cannot be empty")
-	}
-
-	s = strings.ToLower(s)
-	if len(s) < 2 {
-		return 0, fmt.Errorf("invalid duration: %s", s)
-	}
-
-	unit := s[len(s)-1]
-	numStr := s[:len(s)-1]
-
-	num, err := strconv.Atoi(numStr)
-	if err != nil {
-		return 0, fmt.Errorf("invalid duration number: %s", s)
-	}
-
-	if num <= 0 {
-		return 0, fmt.Errorf("duration must be positive: %s", s)
-	}
-
-	switch unit {
-	case 'd':
-		return time.Duration(num) * 24 * time.Hour, nil
-	case 'w':
-		return time.Duration(num) * 7 * 24 * time.Hour, nil
-	case 'm':
-		return time.Duration(num) * 30 * 24 * time.Hour, nil
-	default:
-		return 0, fmt.Errorf("unknown duration unit: %c (use d, w, or m)", unit)
-	}
 }
 
 // formatAge returns a human-readable string describing how long ago a timestamp was

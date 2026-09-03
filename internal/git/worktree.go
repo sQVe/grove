@@ -379,25 +379,16 @@ func IsWorktree(path string) bool {
 // FindWorktreeRoot walks up from the given path to find the worktree root.
 // Returns the path containing the .git file, or error if not in a worktree.
 func FindWorktreeRoot(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		return fs.FileExists(filepath.Join(dir, ".git"))
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		gitPath := filepath.Join(dir, ".git")
-		if fs.FileExists(gitPath) {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("not in a worktree")
-		}
-		dir = parent
+	if dir == "" {
+		return "", fmt.Errorf("not in a worktree")
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	return dir, nil
 }
 
 // IsWorktreeLocked checks if a worktree is locked.

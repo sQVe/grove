@@ -20,21 +20,22 @@ const groveGitContent = "gitdir: .bare"
 // ErrNotInWorkspace is returned when not inside a grove workspace
 var ErrNotInWorkspace = errors.New("not in a grove workspace")
 
+var branchNameReplacer = strings.NewReplacer(
+	"/", "-",
+	"\\", "-",
+	"<", "-",
+	">", "-",
+	"|", "-",
+	`"`, "-",
+	"?", "-",
+	"*", "-",
+	":", "-",
+)
+
 // SanitizeBranchName replaces filesystem-problematic characters with dash.
 // It appends an underscore when the result is a Windows-reserved device name.
 func SanitizeBranchName(branch string) string {
-	replacer := strings.NewReplacer(
-		"/", "-",
-		"\\", "-",
-		"<", "-",
-		">", "-",
-		"|", "-",
-		`"`, "-",
-		"?", "-",
-		"*", "-",
-		":", "-",
-	)
-	name := replacer.Replace(branch)
+	name := branchNameReplacer.Replace(branch)
 	base, _, _ := strings.Cut(strings.ToUpper(name), ".")
 	reserved := base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
 		len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9'
@@ -47,25 +48,16 @@ func SanitizeBranchName(branch string) string {
 // FindBareDir finds the .bare directory for a grove workspace
 // by walking up the directory tree from the given path
 func FindBareDir(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		return fs.DirectoryExists(filepath.Join(dir, ".bare"))
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		bareDir := filepath.Join(dir, ".bare")
-		if fs.DirectoryExists(bareDir) {
-			return bareDir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", ErrNotInWorkspace
-		}
-		dir = parent
+	if dir == "" {
+		return "", ErrNotInWorkspace
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	return filepath.Join(dir, ".bare"), nil
 }
 
 // IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
@@ -78,31 +70,24 @@ func IsInsideGroveWorkspace(path string) bool {
 // If inside a worktree, returns that worktree's root.
 // If at workspace root, returns the default branch worktree or first available worktree.
 func ResolveConfigDir(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		if fs.DirectoryExists(filepath.Join(dir, ".bare")) {
+			return true
+		}
+		info, err := os.Stat(filepath.Join(dir, ".git"))
+		return err == nil && !info.IsDir()
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		bareDir := filepath.Join(dir, ".bare")
-		if fs.DirectoryExists(bareDir) {
-			return findCanonicalConfigDir(bareDir, dir)
-		}
-
-		gitPath := filepath.Join(dir, ".git")
-		if info, err := os.Stat(gitPath); err == nil && !info.IsDir() {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", ErrNotInWorkspace
-		}
-		dir = parent
+	if dir == "" {
+		return "", ErrNotInWorkspace
 	}
-
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	bareDir := filepath.Join(dir, ".bare")
+	if fs.DirectoryExists(bareDir) {
+		return findCanonicalConfigDir(bareDir, dir)
+	}
+	return dir, nil
 }
 
 // findCanonicalConfigDir finds the config directory when at workspace root.

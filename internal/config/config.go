@@ -120,6 +120,36 @@ func GetStaleThreshold() string {
 	return DefaultConfig.StaleThreshold
 }
 
+// ParseDuration parses human-friendly durations like "30d", "2w", and "6m".
+func ParseDuration(s string) (time.Duration, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return 0, errors.New("duration cannot be empty")
+	}
+	if len(s) < 2 {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+
+	num, err := strconv.Atoi(s[:len(s)-1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration number: %s", s)
+	}
+	if num <= 0 {
+		return 0, fmt.Errorf("duration must be positive: %s", s)
+	}
+
+	switch unit := s[len(s)-1]; unit {
+	case 'd':
+		return time.Duration(num) * 24 * time.Hour, nil
+	case 'w':
+		return time.Duration(num) * 7 * 24 * time.Hour, nil
+	case 'm':
+		return time.Duration(num) * 30 * 24 * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("unknown duration unit: %c (use d, w, or m)", unit)
+	}
+}
+
 // GetAutoLockPatterns returns the configured auto-lock patterns or defaults.
 // Returns a copy to prevent callers from mutating the original slices.
 func GetAutoLockPatterns() []string {
@@ -282,14 +312,6 @@ func isTruthy(value string) bool {
 
 // isValidStaleThreshold checks if a stale threshold value has valid format (e.g., "30d", "2w", "1m")
 func isValidStaleThreshold(s string) bool {
-	s = strings.TrimSpace(strings.ToLower(s))
-	if len(s) < 2 {
-		return false
-	}
-	unit := s[len(s)-1]
-	if unit != 'd' && unit != 'w' && unit != 'm' {
-		return false
-	}
-	num, err := strconv.Atoi(s[:len(s)-1])
-	return err == nil && num > 0
+	_, err := ParseDuration(s)
+	return err == nil
 }

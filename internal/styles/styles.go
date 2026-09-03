@@ -2,6 +2,7 @@ package styles
 
 import (
 	"os"
+	"sync"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
@@ -16,6 +17,12 @@ var (
 	Success  = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // green
 	Warning  = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
 	Worktree = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
+
+	setTestColors = sync.OnceFunc(func() {
+		if os.Getenv("GROVE_TEST_COLORS") == "true" {
+			lipgloss.SetColorProfile(termenv.ANSI256)
+		}
+	})
 )
 
 // PrettyPath replaces $HOME with ~ for cleaner output (no styling).
@@ -39,11 +46,6 @@ func Render(style *lipgloss.Style, text string) string {
 		return text
 	}
 
-	// Allow us to force enable colors in certain tests, since lipgloss disables
-	// colors in test enviroments.
-	if os.Getenv("GROVE_TEST_COLORS") == "true" {
-		lipgloss.SetColorProfile(termenv.ANSI256)
-	}
-
+	setTestColors()
 	return style.Render(text)
 }
