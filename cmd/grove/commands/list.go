@@ -56,7 +56,7 @@ Examples:
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked; comma-separated)")
-	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort by name or recent commit")
+	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort order (valid: name, recent)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 
 	_ = cmd.RegisterFlagCompletionFunc("filter", completeFilterValues)
