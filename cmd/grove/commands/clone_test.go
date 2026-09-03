@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -30,16 +31,6 @@ func TestNewCloneCmd(t *testing.T) {
 }
 
 func TestNewCloneCmd_PreRunE(t *testing.T) {
-	t.Run("rejects branches flag without URL", func(t *testing.T) {
-		cmd := NewCloneCmd()
-		_ = cmd.Flags().Set("branches", "main,develop")
-
-		err := cmd.PreRunE(cmd, []string{})
-		if err == nil {
-			t.Error("expected error when --branches used without URL")
-		}
-	})
-
 	t.Run("accepts branches flag with URL", func(t *testing.T) {
 		cmd := NewCloneCmd()
 		_ = cmd.Flags().Set("branches", "main,develop")
@@ -158,8 +149,23 @@ func TestRepositoryName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := repositoryName(tt.source); got != tt.want {
+			got, err := repositoryName(tt.source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
 				t.Errorf("repositoryName(%q) = %q, want %q", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRepositoryNameRejectsInvalid(t *testing.T) {
+	for _, source := range []string{"", ".", "/", ".git", ".."} {
+		t.Run(source, func(t *testing.T) {
+			_, err := repositoryName(source)
+			if !errors.Is(err, ErrCloneRepositoryName) {
+				t.Errorf("error = %v, want %v", err, ErrCloneRepositoryName)
 			}
 		})
 	}

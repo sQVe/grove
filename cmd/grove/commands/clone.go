@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,9 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+// ErrCloneRepositoryName is returned when a repository name cannot be derived from a clone source.
+var ErrCloneRepositoryName = errors.New("cannot derive a repository name from URL; pass a directory argument")
+
 // resolveTargetDirectory resolves the target directory from command arguments
 func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 	if len(args) <= argIndex {
@@ -26,8 +30,12 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 	return filepath.Abs(args[argIndex])
 }
 
-func repositoryName(source string) string {
-	return filepath.Base(strings.TrimSuffix(strings.TrimRight(source, "/"), ".git"))
+func repositoryName(source string) (string, error) {
+	name := filepath.Base(strings.TrimSuffix(strings.TrimRight(source, "/"), ".git"))
+	if name == "" || name == "." || name == ".." {
+		return "", ErrCloneRepositoryName
+	}
+	return name, nil
 }
 
 func NewCloneCmd() *cobra.Command {
@@ -49,11 +57,8 @@ Examples:
   grove clone https://github.com/owner/repo/pull/123         # Clone and checkout PR`,
 		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("branches") && len(args) == 0 {
-				return fmt.Errorf("--branches requires a repository URL to be specified")
-			}
 			if cmd.Flags().Changed("branches") && github.IsPRURL(args[0]) {
-				return fmt.Errorf("--branches cannot be combined with a PR URL")
+				return errors.New("--branches cannot be combined with a PR URL")
 			}
 			return nil
 		},
@@ -79,7 +84,11 @@ Examples:
 				if isPRURL {
 					targetDir = ""
 				} else {
-					targetDir = filepath.Join(targetDir, repositoryName(urlOrPR))
+					name, err := repositoryName(urlOrPR)
+					if err != nil {
+						return err
+					}
+					targetDir = filepath.Join(targetDir, name)
 				}
 			}
 

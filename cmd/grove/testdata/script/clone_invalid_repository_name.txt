@@ -1,0 +1,8 @@
+# grove clone: invalid derived repository name creates nothing
+
+mkdir clones
+cd clones
+! exec grove clone .git
+stderr '^✗ cannot derive a repository name from URL; pass a directory argument$'
+! exists .bare
+! exists .git
