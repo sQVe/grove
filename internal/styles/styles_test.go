@@ -22,6 +22,8 @@ func TestRender(t *testing.T) {
 
 	t.Run("returns styled text with colors enabled", func(t *testing.T) {
 		config.Global.Plain = false
+		t.Setenv("GROVE_TEST_COLORS", "")
+		_ = Render(&Success, "before colors enabled")
 		t.Setenv("GROVE_TEST_COLORS", "true")
 
 		result := Render(&Success, "test message")

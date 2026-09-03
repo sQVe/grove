@@ -19,9 +19,7 @@ var (
 	Worktree = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
 
 	setTestColors = sync.OnceFunc(func() {
-		if os.Getenv("GROVE_TEST_COLORS") == "true" {
-			lipgloss.SetColorProfile(termenv.ANSI256)
-		}
+		lipgloss.SetColorProfile(termenv.ANSI256)
 	})
 )
 
@@ -46,6 +44,8 @@ func Render(style *lipgloss.Style, text string) string {
 		return text
 	}
 
-	setTestColors()
+	if os.Getenv("GROVE_TEST_COLORS") == "true" {
+		setTestColors()
+	}
 	return style.Render(text)
 }

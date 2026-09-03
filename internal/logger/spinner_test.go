@@ -13,6 +13,7 @@ import (
 func TestSpinnerUpdate(t *testing.T) {
 	t.Run("Update stores new message", func(t *testing.T) {
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("initial")
 		spinner.Update("updated message")
@@ -27,6 +28,7 @@ func TestSpinnerUpdate(t *testing.T) {
 func TestSpinnerStopIdempotent(t *testing.T) {
 	t.Run("Stop can be called multiple times without panic", func(t *testing.T) {
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("test")
 
@@ -72,6 +74,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		t.Cleanup(func() { os.Stderr = oldStderr })
 
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("Loading data")
 		spinner.Stop()
@@ -94,6 +97,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		t.Cleanup(func() { os.Stderr = oldStderr })
 
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("test")
 		spinner.Update("updated")

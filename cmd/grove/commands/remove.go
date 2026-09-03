@@ -148,7 +148,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		// Optionally delete the branch
 		if deleteThisBranch {
 			if unreachableCount > 0 {
-				logger.Warning("%s: %d commit(s) not on any other branch will be lost", info.Branch, unreachableCount)
+				logger.Warning("%s: %d commit(s) not on any other ref will be lost", info.Branch, unreachableCount)
 			} else if aheadCount > 0 {
 				logger.Warning("%s: branch has %d unpushed commit(s)", info.Branch, aheadCount)
 			}

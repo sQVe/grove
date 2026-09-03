@@ -9,7 +9,7 @@ exec git commit -m 'local commit'
 cd ../main
 
 exec grove remove --force --branch no-upstream
-stderr 'no-upstream: 1 commit.*will be lost'
+stderr 'no-upstream: 1 commit.*not on any other ref will be lost'
 stderr 'Removed worktree.*no-upstream'
 stderr 'deleted branch'
 ! exists ../no-upstream
