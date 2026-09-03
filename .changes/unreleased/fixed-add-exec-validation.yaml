@@ -1,0 +1,2 @@
+kind: Fixed
+body: '`grove add` now rejects invalid names and detached refs, reports failed hooks, and `grove exec` requires `--` while passing stdin to commands.'

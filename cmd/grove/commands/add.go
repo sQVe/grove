@@ -72,6 +72,9 @@ Examples:
 
 func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string) error {
 	name = strings.TrimSpace(name)
+	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("--name must be a single directory name")
+	}
 
 	// Validate --pr value if provided
 	if prNumber < 0 {
@@ -222,9 +225,17 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		return fmt.Errorf("directory already exists: %s", worktreePath)
 	}
 
-	exists, err := git.BranchExists(bareDir, branch)
+	localExists, err := git.LocalBranchExists(bareDir, branch)
 	if err != nil {
-		return fmt.Errorf("failed to check branch: %w", err)
+		return fmt.Errorf("failed to check local branch: %w", err)
+	}
+	remoteExists, err := git.RemoteBranchExists(bareDir, "origin", branch)
+	if err != nil {
+		return fmt.Errorf("failed to check origin branch: %w", err)
+	}
+	exists := localExists || remoteExists
+	if !exists && git.RefExists(bareDir, branch) == nil {
+		return fmt.Errorf("ref %q is not a branch; use --detach to check it out detached", branch)
 	}
 
 	if exists {
@@ -273,7 +284,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
 	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	spin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
+	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
+		return err
+	}
 
 	if switchTo {
 		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
@@ -282,7 +295,6 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	}
 	logPreserveResult(preserveResult)
 	logLinkResult(linkResult)
-	logHookResult(hookResult)
 	return nil
 }
 
@@ -314,7 +326,9 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
 	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	spin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
+	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
+		return err
+	}
 
 	if switchTo {
 		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
@@ -323,7 +337,6 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	logPreserveResult(preserveResult)
 	logLinkResult(linkResult)
-	logHookResult(hookResult)
 	return nil
 }
 
@@ -497,7 +510,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
 	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	setupSpin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
+	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
+		return err
+	}
 
 	if switchTo {
 		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
@@ -506,7 +521,6 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	logPreserveResult(preserveResult)
 	logLinkResult(linkResult)
-	logHookResult(hookResult)
 	return nil
 }
 
@@ -756,7 +770,7 @@ func logLinkResult(result *workspace.LinkResult) {
 	}
 }
 
-func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
+func runAddHooks(sourceWorktree, destWorktree string) error {
 	var addHooks []string
 	if sourceWorktree != "" {
 		addHooks = hooks.GetAddHooks(sourceWorktree)
@@ -768,17 +782,11 @@ func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
 	}
 
 	logger.Info("Running %d hook(s)...", len(addHooks))
-	return hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
-}
-
-func logHookResult(result *hooks.RunResult) {
-	if result == nil {
-		return
-	}
-
+	result := hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
 	if result.Failed != nil {
-		logger.Warning("Hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
+		return fmt.Errorf("hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
 	}
+	return nil
 }
 
 func completeAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

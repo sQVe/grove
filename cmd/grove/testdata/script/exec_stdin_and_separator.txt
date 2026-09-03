@@ -1,0 +1,12 @@
+# Test: grove exec requires -- and passes stdin to the child command
+setup_workspace
+
+! exec grove exec main echo hi
+stderr 'missing "--" before the command'
+
+stdin $WORK/input.txt
+exec grove exec --all -- cat
+stdout '^input from caller$'
+
+-- input.txt --
+input from caller

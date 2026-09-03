@@ -39,17 +39,11 @@ Examples:
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: completeExecArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Parse args using ArgsLenAtDash: before -- is worktrees, after is command
 			dashPos := cmd.ArgsLenAtDash()
-			var worktrees, command []string
 			if dashPos < 0 {
-				// No -- found, treat all args as command (requires --all)
-				command = args
-			} else {
-				worktrees = args[:dashPos]
-				command = args[dashPos:]
+				return errors.New("missing \"--\" before the command")
 			}
-			return runExec(all, failFast, worktrees, command)
+			return runExec(all, failFast, args[:dashPos], args[dashPos:])
 		},
 	}
 
@@ -122,6 +116,7 @@ func runExec(all, failFast bool, worktrees, command []string) error {
 
 		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
 		cmd.Dir = target.path
+		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
