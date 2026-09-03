@@ -46,6 +46,9 @@ func AcquireWorkspaceLock(lockFile string) (*os.File, error) {
 
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
+			if errors.Is(err, errLockReleased) {
+				return nil, fmt.Errorf("another grove operation is in progress; if this is wrong, remove %s", lockFile)
+			}
 			return nil, err
 		}
 		time.Sleep(min(lockPollInterval, remaining))
