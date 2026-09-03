@@ -235,7 +235,7 @@ type CloneFunc func(bareDir string) error
 // CloneAndInitializeWithCloner creates a grove workspace using a custom clone function.
 // This allows different clone mechanisms (direct git, gh CLI, etc.) while sharing
 // all the workspace setup logic.
-func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool) error {
+func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool, createWorktrees func(string) ([]string, error)) error {
 	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
@@ -279,17 +279,24 @@ func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verb
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
-	branchesToCreate := branches
-	if branchesToCreate == "" {
-		defaultBranch, err := git.GetDefaultBranch(bareDir)
-		if err != nil {
-			cleanup(nil)
-			return fmt.Errorf("failed to determine default branch: %w", err)
+	var (
+		createdWorktrees []string
+		err              error
+	)
+	if createWorktrees == nil {
+		branchesToCreate := branches
+		if branchesToCreate == "" {
+			defaultBranch, err := git.GetDefaultBranch(bareDir)
+			if err != nil {
+				cleanup(nil)
+				return fmt.Errorf("failed to determine default branch: %w", err)
+			}
+			branchesToCreate = defaultBranch
 		}
-		branchesToCreate = defaultBranch
+		createdWorktrees, err = CreateWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
+	} else {
+		createdWorktrees, err = createWorktrees(bareDir)
 	}
-
-	createdWorktrees, err := CreateWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
 	if err != nil {
 		cleanup(createdWorktrees)
 		return err
@@ -307,7 +314,7 @@ func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error
 		return nil
 	}
 
-	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose, shallow)
+	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose, shallow, nil)
 }
 
 // validateRepoForConversion performs all pre-conversion validation checks

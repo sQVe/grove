@@ -1015,7 +1015,7 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 	removeCmd := NewRemoveCmd()
 
 	// First arg already typed: "feature"
-	completions, _ := completeRemoveArgs(removeCmd, []string{"feature"}, "")
+	completions, _ := removeCmd.ValidArgsFunction(removeCmd, []string{"feature"}, "")
 
 	// Should not include feature (already used) or main (current)
 	for _, c := range completions {
@@ -1081,7 +1081,7 @@ func TestCompleteRemoveArgs(t *testing.T) {
 
 	// Get completions
 	removeCmd := NewRemoveCmd()
-	completions, directive := completeRemoveArgs(removeCmd, nil, "")
+	completions, directive := removeCmd.ValidArgsFunction(removeCmd, nil, "")
 
 	// Should not include current worktree (main)
 	for _, c := range completions {

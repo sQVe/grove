@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
-	"github.com/sqve/grove/internal/workspace"
 )
 
 // NewRemoveCmd creates the remove command
@@ -33,7 +31,7 @@ Examples:
   grove remove --force wip          # Force remove if dirty or locked
   grove remove feat-auth bugfix-123 # Remove multiple worktrees`,
 		Args:              cobra.ArbitraryArgs,
-		ValidArgsFunction: completeRemoveArgs,
+		ValidArgsFunction: worktreeCompletion(0, false, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRemove(args, force, deleteBranch)
 		},
@@ -51,41 +49,18 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		return fmt.Errorf("requires at least one worktree")
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	cwd, bareDir, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
 	}
 
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	cleaned := make([]string, len(targets))
+	for i, target := range targets {
+		cleaned[i] = strings.TrimSpace(target)
+	}
+	toRemove, err := resolveWorktrees(infos, cleaned)
 	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
-	}
-
-	// Validate all targets exist before processing
-	var toRemove []*git.WorktreeInfo
-	for _, target := range targets {
-		target = strings.TrimSpace(target)
-		info := git.FindWorktree(infos, target)
-		if info == nil {
-			return fmt.Errorf("worktree not found: %s", target)
-		}
-		toRemove = append(toRemove, info)
-	}
-
-	// Deduplicate by path
-	seen := make(map[string]bool)
-	var unique []*git.WorktreeInfo
-	for _, info := range toRemove {
-		if seen[info.Path] {
-			continue
-		}
-		seen[info.Path] = true
-		unique = append(unique, info)
+		return err
 	}
 
 	// Process each target, accumulate successes and failures
@@ -99,13 +74,13 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	var failed []string
 
 	var spin *logger.Spinner
-	if len(unique) > 1 {
-		spin = logger.StartSpinner(fmt.Sprintf("Removing worktrees (0/%d)...", len(unique)))
+	if len(toRemove) > 1 {
+		spin = logger.StartSpinner(fmt.Sprintf("Removing worktrees (0/%d)...", len(toRemove)))
 	}
 
-	for i, info := range unique {
+	for i, info := range toRemove {
 		if spin != nil {
-			spin.Update(fmt.Sprintf("Removing worktrees (%d/%d)...", i+1, len(unique)))
+			spin.Update(fmt.Sprintf("Removing worktrees (%d/%d)...", i+1, len(toRemove)))
 		}
 
 		displayName := formatter.WorktreeLabel(info)
@@ -220,44 +195,4 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 	}
 
 	return nil
-}
-
-func completeRemoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	// Build set of already-typed arguments
-	alreadyUsed := make(map[string]bool)
-	for _, arg := range args {
-		alreadyUsed[arg] = true
-	}
-
-	var completions []string
-	for _, info := range infos {
-		name := filepath.Base(info.Path)
-
-		// Skip already-used (check both path basename and branch name)
-		if alreadyUsed[name] || alreadyUsed[info.Branch] {
-			continue
-		}
-
-		// Exclude current worktree (use fs.PathsEqual for cross-platform comparison)
-		if !fs.PathsEqual(cwd, info.Path) && !fs.PathHasPrefix(cwd, info.Path) {
-			completions = append(completions, name)
-		}
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
 }

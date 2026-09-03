@@ -24,7 +24,7 @@ Accepts worktree name (directory) or branch name.
 Example:
   grove move feat/old feat/new`,
 		Args:              cobra.ExactArgs(2),
-		ValidArgsFunction: completeMoveArgs,
+		ValidArgsFunction: worktreeCompletion(1, false, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runMove(args[0], args[1])
 		},
@@ -41,28 +41,17 @@ func runMove(target, newBranch string) error {
 		return fmt.Errorf("source and destination are the same: %s", target)
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	cwd, bareDir, infos, err := loadWorkspace(false)
 	if err != nil {
 		return err
 	}
-
 	workspaceRoot := filepath.Dir(bareDir)
 
-	// Find the worktree (fast: false to get Upstream info)
-	infos, err := git.ListWorktreesWithInfo(bareDir, false)
+	resolved, err := resolveWorktrees(infos, []string{target})
 	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
+		return err
 	}
-
-	worktreeInfo := git.FindWorktree(infos, target)
-	if worktreeInfo == nil {
-		return fmt.Errorf("worktree not found: %s", target)
-	}
+	worktreeInfo := resolved[0]
 	if worktreeInfo.Detached {
 		return fmt.Errorf("cannot move detached worktree %s", filepath.Base(worktreeInfo.Path))
 	}
@@ -199,36 +188,4 @@ func runMove(target, newBranch string) error {
 	}
 
 	return nil
-}
-
-func completeMoveArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	// Only complete first argument (old branch name)
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	var completions []string
-	for _, info := range infos {
-		// Exclude current worktree
-		if !fs.PathsEqual(cwd, info.Path) && !fs.PathHasPrefix(cwd, info.Path) {
-			completions = append(completions, filepath.Base(info.Path))
-		}
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
 }

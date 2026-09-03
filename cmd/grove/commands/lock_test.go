@@ -276,13 +276,13 @@ func TestCompleteLockArgs_MultipleArgs(t *testing.T) {
 	lockCmd := NewLockCmd()
 
 	// First completion - should show all unlocked worktrees
-	completions, _ := completeLockArgs(lockCmd, nil, "")
+	completions, _ := lockCmd.ValidArgsFunction(lockCmd, nil, "")
 	if len(completions) != 3 {
 		t.Errorf("expected 3 completions, got %d: %v", len(completions), completions)
 	}
 
 	// Second completion (feature already typed) - should exclude feature
-	completions, _ = completeLockArgs(lockCmd, []string{"feature"}, "")
+	completions, _ = lockCmd.ValidArgsFunction(lockCmd, []string{"feature"}, "")
 	if len(completions) != 2 {
 		t.Errorf("expected 2 completions after 'feature', got %d: %v", len(completions), completions)
 	}
@@ -308,7 +308,7 @@ func TestCompleteLockArgs(t *testing.T) {
 	testutil.Chdir(t, ws.WorktreePath("main"))
 
 	lockCmd := NewLockCmd()
-	completions, directive := completeLockArgs(lockCmd, nil, "")
+	completions, directive := lockCmd.ValidArgsFunction(lockCmd, nil, "")
 
 	// Should include unlocked worktrees (main, feature)
 	hasMain := false

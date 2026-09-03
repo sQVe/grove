@@ -9,9 +9,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/sqve/grove/internal/fs"
-	"github.com/sqve/grove/internal/git"
-	"github.com/sqve/grove/internal/workspace"
 )
 
 //go:embed shell/grove.sh
@@ -50,7 +47,7 @@ Examples:
   grove switch feat-auth   # Switch by directory name
   grove switch feat/auth   # Switch by branch name`,
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeSwitchArgs,
+		ValidArgsFunction: worktreeCompletion(1, false, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSwitch(args[0])
 		},
@@ -138,69 +135,15 @@ func printShellIntegration(shell string) error {
 func runSwitch(target string) error {
 	target = strings.TrimSpace(target)
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	_, _, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
 	}
 
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	resolved, err := resolveWorktrees(infos, []string{target})
 	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
+		return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
 	}
-
-	// First try to match by worktree name (directory basename)
-	for _, info := range infos {
-		if filepath.Base(info.Path) == target {
-			fmt.Println(info.Path)
-			return nil
-		}
-	}
-
-	// Fall back to matching by branch name (backwards compatibility)
-	for _, info := range infos {
-		if info.Branch == target {
-			fmt.Println(info.Path)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
-}
-
-func completeSwitchArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	var completions []string
-	for _, info := range infos {
-		// Exclude current worktree (check if cwd is at root or inside this worktree)
-		inWorktree := fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path)
-		if !inWorktree {
-			// Suggest worktree name (directory basename)
-			completions = append(completions, filepath.Base(info.Path))
-		}
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
+	fmt.Println(resolved[0].Path)
+	return nil
 }
