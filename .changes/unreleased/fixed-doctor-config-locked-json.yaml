@@ -1,0 +1,2 @@
+kind: Fixed
+body: '`grove doctor` now reads worktree config, keeps locked stale entries, and marks repaired issues as fixed in JSON output.'

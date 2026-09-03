@@ -1,0 +1,15 @@
+# grove doctor --fix: keep locked stale worktree entries
+setup_workspace
+
+mkdir ../.bare/worktrees/locked-orphan
+cp $WORK/orphan-gitdir ../.bare/worktrees/locked-orphan/gitdir
+exec touch ../.bare/worktrees/locked-orphan/locked
+
+exec grove doctor --fix
+stdout 'Git Issues \(1 warning\)'
+stdout '⚠ Stale worktree entry in locked-orphan'
+exists ../.bare/worktrees/locked-orphan
+exists ../.bare/worktrees/locked-orphan/locked
+
+-- orphan-gitdir --
+/nonexistent/path/.git

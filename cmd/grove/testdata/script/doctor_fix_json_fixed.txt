@@ -1,0 +1,10 @@
+# grove doctor --fix --json: include fixed issues
+setup_workspace
+
+exec touch ../.grove-convert.lock
+exec grove doctor --fix --json
+stdout '"category": "config"'
+stdout '"message": "Stale lock file"'
+stdout '"autoFixable": true'
+stdout '"fixed": true'
+! exists ../.grove-convert.lock

@@ -1,0 +1,17 @@
+# grove doctor: validate config from the current worktree
+setup_workspace
+
+cp $WORK/invalid.toml .grove.toml
+! exec grove doctor
+stdout 'Invalid .grove.toml'
+
+cp $WORK/hooks-nonexistent.toml .grove.toml
+exec grove doctor
+stdout 'Hook command not found'
+stdout 'nonexistent-command-xyz'
+
+-- invalid.toml --
+this is not valid toml [[[
+-- hooks-nonexistent.toml --
+[hooks]
+add = ["nonexistent-command-xyz"]

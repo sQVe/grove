@@ -1,7 +1,7 @@
 # grove doctor: JSON output format
 setup_workspace
 
-cp $WORK/invalid.toml ../.grove.toml
+cp $WORK/invalid.toml .grove.toml
 ! exec grove doctor --json
 stdout '"category": "config"'
 stdout '"severity": "error"'

@@ -335,21 +335,34 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	inWorkspace := err == nil
 
 	if inWorkspace {
+		configDir, err := workspace.ResolveConfigDir(cwd)
+		if err != nil {
+			return fmt.Errorf("failed to resolve config directory: %w", err)
+		}
+
 		// Phase 2: Git detection
 		detectGitIssues(bareDir, result)
 
 		// Phase 3: Config validation
-		detectConfigIssues(bareDir, result)
+		detectConfigIssues(bareDir, configDir, result)
 
 		// Handle fix mode (Phase 4)
 		if fix {
 			fixIssues(bareDir, result)
+			fixedIssues := result.Issues
 
 			// Re-run detection after fixes to get current state
 			depsIssues := filterIssuesByCategory(result.Issues, CategoryDeps)
 			result = &DoctorResult{Issues: depsIssues}
 			detectGitIssues(bareDir, result)
-			detectConfigIssues(bareDir, result)
+			detectConfigIssues(bareDir, configDir, result)
+			if jsonOutput {
+				for _, issue := range fixedIssues {
+					if issue.Fixed {
+						result.Issues = append(result.Issues, issue)
+					}
+				}
+			}
 		}
 
 		if perf {
@@ -389,6 +402,10 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 	}
 
 	for _, worktreePath := range worktrees {
+		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+			continue
+		}
+
 		// Check if .git file exists
 		gitFile := filepath.Join(worktreePath, ".git")
 		info, err := os.Stat(gitFile)
@@ -476,6 +493,15 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		}
 
 		worktreeName := entry.Name()
+		locked := fs.FileExists(filepath.Join(worktreesDir, worktreeName, "locked"))
+		severity := SeverityError
+		fixHint := "grove doctor --fix"
+		autoFixable := true
+		if locked {
+			severity = SeverityWarning
+			fixHint = ""
+			autoFixable = false
+		}
 		gitdirFile := filepath.Join(worktreesDir, worktreeName, "gitdir")
 
 		// Read the gitdir file to find the worktree path
@@ -484,12 +510,12 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			// No gitdir file means stale entry
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
-				Severity:    SeverityError,
+				Severity:    severity,
 				Message:     "Stale worktree entry",
 				Path:        worktreeName,
 				Details:     []string{"missing gitdir file"},
-				FixHint:     "grove doctor --fix",
-				AutoFixable: true,
+				FixHint:     fixHint,
+				AutoFixable: autoFixable,
 			})
 
 			continue
@@ -508,12 +534,12 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) { //nolint:gosec // path derived from git's gitdir file
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
-				Severity:    SeverityError,
+				Severity:    severity,
 				Message:     "Stale worktree entry",
 				Path:        worktreeName,
 				Details:     []string{"worktree directory does not exist"},
-				FixHint:     "grove doctor --fix",
-				AutoFixable: true,
+				FixHint:     fixHint,
+				AutoFixable: autoFixable,
 			})
 		}
 	}
@@ -737,14 +763,14 @@ func getIssueSymbol(severity Severity) string {
 
 // Phase 3: Config validation
 
-func detectConfigIssues(bareDir string, result *DoctorResult) {
+func detectConfigIssues(bareDir, configDir string, result *DoctorResult) {
 	workspaceRoot := filepath.Dir(bareDir)
 
 	// Check .grove.toml syntax
-	detectInvalidToml(workspaceRoot, result)
+	detectInvalidToml(configDir, result)
 
 	// Check hook commands
-	detectInvalidHooks(workspaceRoot, result)
+	detectInvalidHooks(configDir, result)
 
 	// Check stale lock files
 	detectStaleLockFiles(workspaceRoot, result)
@@ -939,6 +965,10 @@ type jsonResult struct {
 func outputJSONResult(result *DoctorResult) error {
 	// Count issues by severity
 	for _, issue := range result.Issues {
+		if issue.Fixed {
+			continue
+		}
+
 		switch issue.Severity {
 		case SeverityError:
 			result.Errors++
