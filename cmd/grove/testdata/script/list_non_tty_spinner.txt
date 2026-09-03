@@ -1,0 +1,8 @@
+# Test: grove list prints one plain spinner line when stderr is not a TTY
+setup_workspace
+
+exec grove list
+stdout 'main'
+stderr -count=1 'Gathering worktree status'
+stderr '^→ Gathering worktree status\.\.\.$'
+! stderr '\x1b\['

@@ -1,0 +1,2 @@
+kind: Fixed
+body: 'Spinners now print a single plain `→ message` line instead of animating when stderr is not a terminal, so piped and CI output no longer contains cursor-control sequences. `--plain` still takes precedence.'
