@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	maxLockRetries = 3
+	maxLockRetries   = 3
+	lockWaitTimeout  = 60 * time.Second
+	lockPollInterval = 200 * time.Millisecond
 	// lockMaxAge is the maximum age of a lock file before it's considered stale.
 	// This mitigates PID reuse attacks - if the lock is older than this duration,
 	// even if a process with the same PID is running, it's not the original holder.
@@ -23,10 +25,22 @@ const (
 // If a lock file exists, checks if the owning process is still running.
 // Stale locks (from crashed processes) are automatically removed.
 func AcquireWorkspaceLock(lockFile string) (*os.File, error) {
+	deadline := time.Now().Add(lockWaitTimeout)
 	for attempt := range maxLockRetries {
-		lockHandle, done, err := tryAcquireLock(lockFile, attempt)
-		if done {
-			return lockHandle, err
+		for {
+			lockHandle, done, err := tryAcquireLock(lockFile, attempt)
+			if done {
+				return lockHandle, err
+			}
+			if err == nil {
+				break
+			}
+
+			remaining := time.Until(deadline)
+			if remaining <= 0 {
+				return nil, err
+			}
+			time.Sleep(min(lockPollInterval, remaining))
 		}
 	}
 	return nil, fmt.Errorf("failed to acquire lock after %d attempts; if no grove operation is running, remove %s", maxLockRetries, lockFile)
@@ -34,7 +48,8 @@ func AcquireWorkspaceLock(lockFile string) (*os.File, error) {
 
 // tryAcquireLock makes a single attempt to acquire the lock.
 // Returns (handle, true, nil) on success, (nil, true, err) on permanent failure,
-// or (nil, false, nil) if a stale lock was removed and retry is needed.
+// (nil, false, err) if a live process holds the lock, or (nil, false, nil) if a
+// stale lock was removed and retry is needed.
 func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
 	if err == nil {
@@ -85,5 +100,5 @@ func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 		return nil, false, nil // Retry regardless - if remove failed, next attempt will handle it
 	}
 
-	return nil, true, fmt.Errorf("another grove operation (PID %d) is in progress; if this is wrong, remove %s", pid, lockFile)
+	return nil, false, fmt.Errorf("another grove operation (PID %d) is in progress; if this is wrong, remove %s", pid, lockFile)
 }
