@@ -497,6 +497,19 @@ Run `grove config init` to create a `.grove.toml` template.
 # Grove - Git worktree management
 # https://github.com/sqve/grove
 
+# Use Nerd Font icons in output (when not in plain mode).
+nerd_fonts = true
+
+# Threshold for marking worktrees as stale (no commits within this period).
+# Format: number followed by d (days), w (weeks), or m (months).
+stale_threshold = "30d"
+
+# Disable colors and symbols in output.
+plain = false
+
+# Enable debug logging.
+debug = false
+
 [preserve]
 # Files to copy from the current worktree when creating a new one.
 # Useful for environment files and local configuration that shouldn't be in git.
@@ -550,19 +563,6 @@ add = []
 # Locked worktrees are protected from accidental deletion.
 # Supports exact matches and trailing /* wildcards (e.g., "release/*").
 patterns = ["develop", "main", "master"]
-
-# Use Nerd Font icons in output (when not in plain mode).
-nerd_fonts = true
-
-# Threshold for marking worktrees as stale (no commits within this period).
-# Format: number followed by d (days), w (weeks), or m (months).
-stale_threshold = "30d"
-
-# Disable colors and symbols in output.
-plain = false
-
-# Enable debug logging.
-debug = false
 ```
 
 </details>

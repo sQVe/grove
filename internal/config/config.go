@@ -162,6 +162,10 @@ func matchGlobPattern(pattern, name string) bool {
 
 // LoadFromGitConfig loads configuration from git config, merging with defaults
 func LoadFromGitConfig() {
+	loadGlobalConfig(&FileConfig{})
+}
+
+func loadGlobalConfig(fileConfig *FileConfig) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	Global.Plain = DefaultConfig.Plain
@@ -179,6 +183,22 @@ func LoadFromGitConfig() {
 	copy(Global.LinkPatterns, DefaultConfig.LinkPatterns)
 	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
 	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
+
+	if fileConfig.Plain != nil {
+		Global.Plain = *fileConfig.Plain
+	}
+	if fileConfig.Debug != nil {
+		Global.Debug = *fileConfig.Debug
+	}
+	if fileConfig.NerdFonts != nil {
+		Global.NerdFonts = *fileConfig.NerdFonts
+	}
+	if isValidStaleThreshold(fileConfig.StaleThreshold) {
+		Global.StaleThreshold = fileConfig.StaleThreshold
+	}
+	if len(fileConfig.Autolock.Patterns) > 0 {
+		Global.AutoLockPatterns = append([]string{}, fileConfig.Autolock.Patterns...)
+	}
 
 	if value := getGitConfig("grove.plain"); value != "" {
 		Global.Plain = isTruthy(value)

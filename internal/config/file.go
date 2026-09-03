@@ -53,6 +53,12 @@ func LoadFromFile(dir string) (FileConfig, error) {
 	return cfg, nil
 }
 
+// LoadRuntimeConfig applies defaults, file config, then git config to Global.
+func LoadRuntimeConfig(dir string) {
+	cfg, _ := loadConfigWithWarning(dir)
+	loadGlobalConfig(&cfg)
+}
+
 func FileConfigExists(dir string) bool {
 	path := filepath.Join(dir, FileName)
 	_, err := os.Stat(path)

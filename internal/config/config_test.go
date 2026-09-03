@@ -228,6 +228,41 @@ func TestMainLoadingSequence(t *testing.T) {
 	})
 }
 
+func TestLoadRuntimeConfigPrecedence(t *testing.T) {
+	cleanup := setupGitRepo(t)
+	defer cleanup()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(FileName, []byte("plain = true\ndebug = true\n"), 0o644); err != nil { //nolint:gosec
+		t.Fatal(err)
+	}
+
+	LoadRuntimeConfig(dir)
+	if !IsPlain() || !IsDebug() {
+		t.Fatal("expected TOML values to load into Global")
+	}
+
+	if err := exec.Command("git", "config", "grove.plain", "false").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "grove.debug", "false").Run(); err != nil {
+		t.Fatal(err)
+	}
+	LoadRuntimeConfig(dir)
+	if IsPlain() || IsDebug() {
+		t.Fatal("expected git config to override TOML")
+	}
+
+	SetPlain(true)
+	SetDebug(true)
+	if !IsPlain() || !IsDebug() {
+		t.Fatal("expected flags to override git config and TOML")
+	}
+}
+
 func TestDefaults(t *testing.T) {
 	t.Run("DefaultConfig has expected values", func(t *testing.T) {
 		if DefaultConfig.Plain != false {

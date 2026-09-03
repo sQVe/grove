@@ -8,10 +8,19 @@ import (
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/version"
+	"github.com/sqve/grove/internal/workspace"
 )
 
 func main() {
-	config.LoadFromGitConfig()
+	configDir := ""
+	if cwd, err := os.Getwd(); err == nil {
+		configDir, _ = workspace.ResolveConfigDir(cwd)
+	}
+	if configDir == "" {
+		config.LoadFromGitConfig()
+	} else {
+		config.LoadRuntimeConfig(configDir)
+	}
 	logger.Init(config.IsPlain(), config.IsDebug())
 
 	rootCmd := &cobra.Command{
