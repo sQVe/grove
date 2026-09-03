@@ -1,0 +1,3 @@
+kind: Fixed
+body: '`grove add` now releases the workspace lock before running hooks, and lock contention waits up to 60 seconds for the other operation instead of failing immediately.'
+time: 2026-09-03T11:50:40.490062568+02:00
