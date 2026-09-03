@@ -7,7 +7,6 @@ exec grove doctor
 stderr 'No issues found'
 
 env FAKE_GH_FAIL=--version
-env FAKE_GH_EXIT=28
 exec grove doctor
 stdout 'gh version could not be determined'
 

@@ -27,7 +27,6 @@ exec git -C $WORK/workspace/.bare fetch origin
 exec grove add feature-pr-failure
 exec git -C $WORK/testrepo branch -D feature-pr-failure
 env FAKE_GH_FAIL='pr list'
-env FAKE_GH_EXIT=27
 env FAKE_GH_STDERR='fake list failure'
 exec grove --debug prune --commit
 stderr 'GitHub PR check unavailable: gh pr list failed: fake list failure'

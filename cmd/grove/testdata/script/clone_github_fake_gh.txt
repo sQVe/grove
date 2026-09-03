@@ -14,18 +14,14 @@ exec grove clone --shallow https://github.com/acme/widgets workspace
 exists workspace/main/README.md
 
 env FAKE_GH_FAIL='repo clone'
-env FAKE_GH_EXIT=23
 env FAKE_GH_STDERR='fake clone failure'
 ! exec grove clone https://github.com/acme/widgets failed
 stderr 'fake clone failure'
 
-cmpenv gh.log want-gh.log
+grep -count=4 '^.+$' gh.log
+grep -count=2 '^\["auth","status"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+workspace[/\\\\]+\.bare","--","--bare","--depth","1"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+failed[/\\\\]+\.bare","--","--bare"\]$' gh.log
 
 -- README.md --
 # Test
-
--- want-gh.log --
-["auth","status"]
-["repo","clone","acme/widgets","$WORK/workspace/.bare","--","--bare","--depth","1"]
-["auth","status"]
-["repo","clone","acme/widgets","$WORK/failed/.bare","--","--bare"]
