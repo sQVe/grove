@@ -15,7 +15,7 @@ exec git commit -m second
 ! exec grove add 'HEAD~1'
 stderr 'ref "HEAD~1" is not a branch; use --detach to check it out detached'
 
-exec git hash-object -t commit -w $WORK/fixed-commit
+exec sh -c 'GIT_AUTHOR_DATE="2000-01-01T00:00:00Z" GIT_COMMITTER_DATE="2000-01-01T00:00:00Z" git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "fixed commit"'
 stdout '^cf201305887423c2fc295777c22e063dfc43449a$'
 ! exec grove add cf201305887423c2fc295777c22e063dfc43449a
 stderr 'ref "cf201305887423c2fc295777c22e063dfc43449a" is not a branch; use --detach to check it out detached'
@@ -23,10 +23,3 @@ stderr 'ref "cf201305887423c2fc295777c22e063dfc43449a" is not a branch; use --de
 -- second-readme --
 # Test
 second
-
--- fixed-commit --
-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
-author Test <test@example.com> 946684800 +0000
-committer Test <test@example.com> 946684800 +0000
-
-fixed commit

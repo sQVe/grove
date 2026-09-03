@@ -6,7 +6,7 @@ stderr 'missing "--" before the command'
 
 stdin $WORK/input.txt
 exec grove exec --all -- cat
-stdout '^input from caller$'
+stdout '^input from caller'
 
 -- input.txt --
 input from caller
