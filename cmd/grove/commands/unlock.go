@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/sqve/grove/internal/formatter"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
-	"github.com/sqve/grove/internal/workspace"
 )
 
 // NewUnlockCmd creates the unlock command
@@ -25,8 +23,10 @@ Accepts worktree names (directories) or branch names.
 Examples:
   grove unlock feat-auth
   grove unlock feat-auth bugfix-123`,
-		Args:              cobra.ArbitraryArgs,
-		ValidArgsFunction: completeUnlockArgs,
+		Args: cobra.ArbitraryArgs,
+		ValidArgsFunction: worktreeCompletion(0, false, func(_ string, info *git.WorktreeInfo) bool {
+			return info.Locked
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUnlock(args)
 		},
@@ -42,46 +42,23 @@ func runUnlock(targets []string) error {
 		return fmt.Errorf("requires at least one worktree")
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	_, bareDir, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
 	}
 
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	cleaned := make([]string, len(targets))
+	for i, target := range targets {
+		cleaned[i] = strings.TrimSpace(target)
+	}
+	toUnlock, err := resolveWorktrees(infos, cleaned)
 	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
-	}
-
-	// Validate all targets exist before processing
-	var toUnlock []*git.WorktreeInfo
-	for _, target := range targets {
-		target = strings.TrimSpace(target)
-		info := git.FindWorktree(infos, target)
-		if info == nil {
-			return fmt.Errorf("worktree not found: %s", target)
-		}
-		toUnlock = append(toUnlock, info)
-	}
-
-	// Deduplicate by path
-	seen := make(map[string]bool)
-	var unique []*git.WorktreeInfo
-	for _, info := range toUnlock {
-		if seen[info.Path] {
-			continue
-		}
-		seen[info.Path] = true
-		unique = append(unique, info)
+		return err
 	}
 
 	// Process each target, accumulate failures
 	var failed []string
-	for _, info := range unique {
+	for _, info := range toUnlock {
 		label := formatter.WorktreeLabel(info)
 		dirName := filepath.Base(info.Path)
 
@@ -105,44 +82,4 @@ func runUnlock(targets []string) error {
 	}
 
 	return nil
-}
-
-func completeUnlockArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	// Build set of already-typed arguments
-	alreadyUsed := make(map[string]bool)
-	for _, arg := range args {
-		alreadyUsed[arg] = true
-	}
-
-	var completions []string
-	for _, info := range infos {
-		name := filepath.Base(info.Path)
-
-		// Skip already-used (check both path basename and branch name)
-		if alreadyUsed[name] || alreadyUsed[info.Branch] {
-			continue
-		}
-
-		// Only include locked worktrees
-		if info.Locked {
-			completions = append(completions, name)
-		}
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
 }

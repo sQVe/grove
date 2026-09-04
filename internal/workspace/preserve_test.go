@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/sqve/grove/internal/config"
@@ -286,6 +287,37 @@ func TestFindIgnoredFilesInWorktree(t *testing.T) {
 
 		if len(files) != 2 {
 			t.Errorf("expected 2 ignored files, got %d: %v", len(files), files)
+		}
+	})
+
+	t.Run("preserves newline in ignored filename", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows filenames cannot contain newlines")
+		}
+
+		t.Parallel()
+		tmpDir := testutil.TempDir(t)
+
+		cmd := exec.Command("git", "init")
+		cmd.Dir = tmpDir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("git init failed: %v", err)
+		}
+
+		name := "ignored\nfile"
+		if err := os.WriteFile(filepath.Join(tmpDir, ".gitignore"), []byte("ignored*\n"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte("ignored"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		files, err := FindIgnoredFilesInWorktree(tmpDir)
+		if err != nil {
+			t.Fatalf("FindIgnoredFilesInWorktree failed: %v", err)
+		}
+		if len(files) != 1 || files[0] != name {
+			t.Fatalf("expected %q, got %q", name, files)
 		}
 	})
 

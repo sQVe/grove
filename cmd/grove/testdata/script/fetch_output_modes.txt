@@ -1,0 +1,56 @@
+# grove fetch: JSON and verbose output from a local remote
+
+mkdir origin
+exec git init --bare origin
+
+mkdir source
+exec git init -b main source
+cd source
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git remote add origin ../origin
+exec git push -u origin main
+cd ..
+
+mkdir workspace
+exec grove clone file://$WORK/origin workspace
+
+# Update the remote and assert JSON fields without depending on their order.
+cd source
+cp ../readme-json.md README.md
+exec git add .
+exec git commit -m 'JSON update'
+exec git push origin main
+cd ../workspace/main
+exec grove fetch --json
+stdout '"remote": "origin"'
+stdout '"ref": "main"'
+stdout '"type": "updated"'
+stdout '"old_hash": "[0-9a-f]{40}"'
+stdout '"new_hash": "[0-9a-f]{40}"'
+stdout '"commit_count": 1'
+
+# Update the remote again and assert both verbose hash lines.
+cd $WORK/source
+cp ../readme-verbose.md README.md
+exec git add .
+exec git commit -m 'verbose update'
+exec git push origin main
+cd $WORK/workspace/main
+exec grove fetch --verbose --plain
+stdout '^origin:$'
+stdout 'from: [0-9a-f]{7}$'
+stdout 'to:   [0-9a-f]{7}$'
+
+-- README.md --
+# Test
+
+-- readme-json.md --
+# Test
+JSON
+
+-- readme-verbose.md --
+# Test
+JSON
+verbose

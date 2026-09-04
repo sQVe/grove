@@ -36,21 +36,21 @@ stderr '✗ failed to clone repository'
 # Current directory with bad URL
 mkdir clone-current
 cd clone-current
-! exec grove clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git .
 stderr '✗ failed to clone repository'
 cd ..
 
 ## Directory validation
 
-# Non-empty directory (no arguments = current dir)
-! exec grove clone file:///nonexistent/repo.git
+# Non-empty current directory
+! exec grove clone file:///nonexistent/repo.git .
 stderr '✗ directory.*not empty'
 
 # Current directory not empty
 mkdir clone-not-empty
 cp existing.txt clone-not-empty/existing.txt
 cd clone-not-empty
-! exec grove clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git .
 stderr '✗ directory.*clone-not-empty.*not empty'
 cd ..
 
@@ -66,7 +66,7 @@ stderr '✗ directory.*clone-dir-not-empty.*not empty'
 mkdir clone-git-repo
 cd clone-git-repo
 exec git init
-! exec grove clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git .
 stderr '✗ cannot initialize grove inside existing git repository'
 cd ..
 
@@ -84,7 +84,7 @@ stderr '✗ cannot initialize grove inside existing git repository'
 mkdir clone-fails-inside-grove
 exec grove init new clone-fails-inside-grove
 cd clone-fails-inside-grove
-! exec grove clone file:///nonexistent/repo.git
+! exec grove clone file:///nonexistent/repo.git .
 stderr '✗ cannot initialize grove inside existing grove workspace'
 cd ..
 
@@ -114,7 +114,7 @@ stderr '✗ failed to clone repository'
 # --branches with current directory
 mkdir clone-branches-current
 cd clone-branches-current
-! exec grove clone file:///test/repo.git --branches "main"
+! exec grove clone file:///test/repo.git . --branches "main"
 stderr '✗ failed to clone repository'
 cd ..
 

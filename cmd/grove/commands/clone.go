@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,13 +11,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/sqve/grove/internal/fs"
-	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/styles"
 	"github.com/sqve/grove/internal/workspace"
 )
+
+// ErrCloneRepositoryName is returned when a repository name cannot be derived from a clone source.
+var ErrCloneRepositoryName = errors.New("cannot derive a repository name from URL; pass a directory argument")
 
 // resolveTargetDirectory resolves the target directory from command arguments
 func resolveTargetDirectory(args []string, argIndex int) (string, error) {
@@ -24,6 +26,14 @@ func resolveTargetDirectory(args []string, argIndex int) (string, error) {
 		return os.Getwd()
 	}
 	return filepath.Abs(args[argIndex])
+}
+
+func repositoryName(source string) (string, error) {
+	name := filepath.Base(strings.TrimSuffix(strings.TrimRight(source, "/"), ".git"))
+	if name == "" || name == "." || name == ".." || name == string(filepath.Separator) || name == "/" {
+		return "", ErrCloneRepositoryName
+	}
+	return workspace.SanitizeBranchName(name), nil
 }
 
 func NewCloneCmd() *cobra.Command {
@@ -45,8 +55,8 @@ Examples:
   grove clone https://github.com/owner/repo/pull/123         # Clone and checkout PR`,
 		Args: cobra.RangeArgs(1, 2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("branches") && len(args) == 0 {
-				return fmt.Errorf("--branches requires a repository URL to be specified")
+			if cmd.Flags().Changed("branches") && github.IsPRURL(args[0]) {
+				return errors.New("--branches cannot be combined with a PR URL")
 			}
 			return nil
 		},
@@ -62,14 +72,26 @@ Examples:
 			}
 
 			urlOrPR := args[0]
+			isPRURL := github.IsPRURL(urlOrPR)
 
 			targetDir, err := resolveTargetDirectory(args, 1)
 			if err != nil {
 				return err
 			}
+			if len(args) == 1 {
+				if isPRURL {
+					targetDir = ""
+				} else {
+					name, err := repositoryName(urlOrPR)
+					if err != nil {
+						return err
+					}
+					targetDir = filepath.Join(targetDir, name)
+				}
+			}
 
 			// Check if this is a PR URL (full URL only, not #N format)
-			if github.IsPRURL(urlOrPR) {
+			if isPRURL {
 				return runCloneFromPR(urlOrPR, targetDir, verbose, shallow)
 			}
 
@@ -135,134 +157,25 @@ func runCloneFromPR(prURL, targetDir string, verbose, shallow bool) error {
 		workspaceDir = filepath.Join(cwd, ref.Repo)
 	}
 
-	// Validate and create workspace directory
-	if err := workspace.ValidateAndPrepareDirectory(workspaceDir); err != nil {
-		return err
-	}
-
-	bareDir := filepath.Join(workspaceDir, ".bare")
-	gitFile := filepath.Join(workspaceDir, ".git")
-
-	// Cleanup function for failure cases
-	cleanup := func(worktreePath string) {
-		if err := os.Remove(gitFile); err != nil && !os.IsNotExist(err) {
-			logger.Warning("Failed to remove .git file during cleanup: %v", err)
-		}
-		if err := fs.RemoveAll(bareDir); err != nil {
-			logger.Warning("Failed to remove .bare during cleanup: %v", err)
-		}
-		if worktreePath != "" {
-			if err := fs.RemoveAll(worktreePath); err != nil {
-				logger.Warning("Failed to remove worktree during cleanup: %v", err)
-			}
-		}
-	}
-
-	// Clone using gh repo clone (respects user's protocol preference)
 	repoSpec := fmt.Sprintf("%s/%s", ref.Owner, ref.Repo)
-	spin := logger.StartSpinner(fmt.Sprintf("Cloning %s/%s...", ref.Owner, ref.Repo))
-
-	args := []string{"repo", "clone", repoSpec, bareDir, "--", "--bare"}
-	if shallow {
-		args = append(args, "--depth", "1")
+	cloneFn := func(bareDir string) error {
+		return cloneWithGh(repoSpec, bareDir, verbose, shallow)
 	}
-	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
-	var stderr bytes.Buffer
-	if verbose {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-	} else {
-		cmd.Stderr = &stderr
-	}
-
-	if err := cmd.Run(); err != nil {
-		spin.StopWithError("Clone failed")
-		cleanup("")
-		errStr := strings.TrimSpace(stderr.String())
-		if errStr != "" {
-			return fmt.Errorf("clone failed: %s", errStr)
-		}
-		return fmt.Errorf("clone failed: %w", err)
-	}
-	spin.Stop()
-
-	if err := git.ConfigureFetchRefspec(bareDir, "origin"); err != nil {
-		cleanup("")
-		return fmt.Errorf("failed to configure fetch refspec: %w", err)
-	}
-
-	if !shallow {
-		if err := git.FetchPrune(bareDir); err != nil {
-			cleanup("")
-			return fmt.Errorf("failed to fetch remote branches: %w", err)
-		}
-	}
-
-	// Create .git file pointing to .bare
-	if err := os.WriteFile(gitFile, []byte("gitdir: .bare\n"), 0o644); err != nil { //nolint:gosec // .git file needs standard permissions
-		cleanup("")
-		return fmt.Errorf("failed to create .git file: %w", err)
-	}
-
-	// Fetch PR info
-	spin = logger.StartSpinner(fmt.Sprintf("Fetching PR #%d...", ref.Number))
-	prInfo, err := github.FetchPRInfo(ref.Owner, ref.Repo, ref.Number)
-	if err != nil {
-		spin.StopWithError("Failed to fetch PR info")
-		cleanup("")
-		return err
-	}
-	spin.Stop()
-
-	branch := prInfo.HeadRef
-	dirName := fmt.Sprintf("pr-%d", ref.Number)
-	worktreePath := filepath.Join(workspaceDir, dirName)
-
-	// Handle fork PRs
-	if prInfo.IsFork {
-		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
-		remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
+	createWorktree := func(bareDir string) ([]string, error) {
+		spin := logger.StartSpinner(fmt.Sprintf("Fetching PR #%d...", ref.Number))
+		prInfo, err := github.FetchPRInfo(ref.Owner, ref.Repo, ref.Number)
 		if err != nil {
-			cleanup("")
-			return fmt.Errorf("failed to get fork URL: %w", err)
-		}
-
-		spin = logger.StartSpinner(fmt.Sprintf("Adding remote %s for fork...", remoteName))
-		if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
-			spin.StopWithError("Failed to add remote")
-			cleanup("")
-			return fmt.Errorf("failed to add fork remote: %w", err)
+			spin.StopWithError("Failed to fetch PR info")
+			return nil, err
 		}
 		spin.Stop()
 
-		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s from fork...", branch))
-		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
-			spin.StopWithError("Failed to fetch branch")
-			cleanup("")
-			return fmt.Errorf("failed to fetch fork branch: %w", err)
-		}
-		spin.Stop()
-
-		// Create worktree tracking the fork's branch
-		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
-		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, !verbose); err != nil {
-			cleanup(worktreePath)
-			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
-		}
-	} else {
-		// Same-repo PR: fetch and create worktree
-		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s...", branch))
-		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
-			spin.StopWithError("Failed to fetch branch")
-			cleanup("")
-			return fmt.Errorf("failed to fetch branch: %w", err)
-		}
-		spin.Stop()
-
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-			cleanup(worktreePath)
-			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
-		}
+		worktreePath := filepath.Join(workspaceDir, fmt.Sprintf("pr-%d", ref.Number))
+		err = checkoutPR(bareDir, worktreePath, ref, prInfo, !verbose, false, false)
+		return []string{worktreePath}, err
+	}
+	if err := workspace.CloneAndInitializeWithCloner(cloneFn, workspaceDir, "", verbose, shallow, createWorktree); err != nil {
+		return err
 	}
 
 	logger.Success("Cloned repository to %s", styles.RenderPath(workspaceDir))
@@ -277,7 +190,7 @@ func runCloneFromGitHub(owner, repo, targetDir, branches string, verbose, shallo
 		return cloneWithGh(repoSpec, bareDir, verbose, shallow)
 	}
 
-	if err := workspace.CloneAndInitializeWithCloner(cloneFn, targetDir, branches, verbose, shallow); err != nil {
+	if err := workspace.CloneAndInitializeWithCloner(cloneFn, targetDir, branches, verbose, shallow, nil); err != nil {
 		return err
 	}
 

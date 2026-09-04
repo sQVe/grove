@@ -6,22 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestPtr(t *testing.T) {
-	t.Run("returns pointer to string", func(t *testing.T) {
-		p := Ptr("test")
-		if *p != "test" {
-			t.Errorf("expected 'test', got %q", *p)
-		}
-	})
-
-	t.Run("returns pointer to empty string", func(t *testing.T) {
-		p := Ptr("")
-		if *p != "" {
-			t.Errorf("expected empty string, got %q", *p)
-		}
-	})
-}
-
 func TestAssertFlagExists(t *testing.T) {
 	makeCmd := func() *cobra.Command {
 		cmd := &cobra.Command{Use: "test"}
@@ -33,8 +17,9 @@ func TestAssertFlagExists(t *testing.T) {
 
 	t.Run("passes when flag exists with correct default and type", func(t *testing.T) {
 		cmd := makeCmd()
+		defaultValue := "default"
 
-		AssertFlagExists(t, cmd, "name", Ptr("default"), "string", "")
+		AssertFlagExists(t, cmd, "name", &defaultValue, "string", "")
 	})
 
 	t.Run("skips default check when defValue is nil", func(t *testing.T) {
@@ -45,27 +30,31 @@ func TestAssertFlagExists(t *testing.T) {
 
 	t.Run("skips type check when valueType is empty", func(t *testing.T) {
 		cmd := makeCmd()
+		defaultValue := "default"
 
-		AssertFlagExists(t, cmd, "name", Ptr("default"), "", "")
+		AssertFlagExists(t, cmd, "name", &defaultValue, "", "")
 	})
 
 	t.Run("checks empty string default value", func(t *testing.T) {
 		cmd := &cobra.Command{Use: "test"}
 		cmd.Flags().String("empty", "", "flag with empty default")
+		defaultValue := ""
 
-		AssertFlagExists(t, cmd, "empty", Ptr(""), "string", "")
+		AssertFlagExists(t, cmd, "empty", &defaultValue, "string", "")
 	})
 
 	t.Run("works with bool flag", func(t *testing.T) {
 		cmd := makeCmd()
+		defaultValue := "false"
 
-		AssertFlagExists(t, cmd, "verbose", Ptr("false"), "bool", "")
+		AssertFlagExists(t, cmd, "verbose", &defaultValue, "bool", "")
 	})
 
 	t.Run("works with int flag", func(t *testing.T) {
 		cmd := makeCmd()
+		defaultValue := "42"
 
-		AssertFlagExists(t, cmd, "count", Ptr("42"), "int", "")
+		AssertFlagExists(t, cmd, "count", &defaultValue, "int", "")
 	})
 
 	t.Run("skips all optional checks", func(t *testing.T) {

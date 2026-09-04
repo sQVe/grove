@@ -1,0 +1,42 @@
+# Runtime keys in .grove.toml affect commands without git config
+setup_workspace
+
+cp $WORK/grove.toml .grove.toml
+
+# plain and debug apply from TOML
+exec grove list --fast --verbose
+stdout '^\*'
+stdout '^    > path:'
+stderr '\[DEBUG\]'
+
+# Flags override TOML, while nerd_fonts=false keeps ASCII icons
+exec grove list --fast --verbose --plain=false --debug=false
+stdout '^\*'
+stdout '^    ↳ path:'
+! stdout '●'
+! stderr '\[DEBUG\]'
+
+# autolock.patterns applies from TOML without git config
+! exec git config --get-all grove.autoLock
+exec grove add release/x
+stderr 'Created worktree at .*[/\\]release-x'
+exec git -C $WORK/workspace/.bare worktree list --porcelain
+stdout '(?s)worktree .*[/\\]release-x\nHEAD .*\nbranch refs/heads/release/x\nlocked'
+
+# stale_threshold supplies the value for --stale=
+exec git -C $WORK/testrepo checkout -b feature-stale-config
+exec sh -c 'cd $WORK/testrepo && GIT_AUTHOR_DATE="2024-01-01T00:00:00" GIT_COMMITTER_DATE="2024-01-01T00:00:00" git commit --allow-empty -m "old commit"'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add feature-stale-config
+exec grove prune --stale=
+stderr 'No worktrees to prune'
+
+-- grove.toml --
+nerd_fonts = false
+stale_threshold = "9999d"
+plain = true
+debug = true
+
+[autolock]
+patterns = ["release/*"]

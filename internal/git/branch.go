@@ -7,10 +7,53 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sqve/grove/internal/logger"
 )
+
+// CountUnreachableCommits returns the number of commits reachable from branch
+// but not from any other ref.
+func CountUnreachableCommits(repoPath, branch string) (int, error) {
+	if repoPath == "" || branch == "" {
+		return 0, errors.New("repository path and branch name cannot be empty")
+	}
+
+	refsCmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname)")
+	refsCmd.Dir = repoPath
+	refs, err := executeWithOutput(refsCmd)
+	cancel()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list refs: %w", err)
+	}
+
+	targetRef := "refs/heads/" + branch
+	var exclusions strings.Builder
+	for _, ref := range strings.Fields(refs) {
+		if ref != targetRef {
+			exclusions.WriteByte('^')
+			exclusions.WriteString(ref)
+			exclusions.WriteByte('\n')
+		}
+	}
+
+	cmd, cancel := GitCommand("git", "rev-list", "--count", targetRef, "--stdin") //nolint:gosec // Refs come from git
+	defer cancel()
+	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader(exclusions.String())
+
+	output, err := executeWithOutput(cmd)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count unreachable commits: %w", err)
+	}
+
+	count, err := strconv.Atoi(output)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse unreachable commit count: %w", err)
+	}
+	return count, nil
+}
 
 // ListBranches returns a list of all branches in a bare repository
 func ListBranches(bareRepo string) ([]string, error) {
@@ -95,7 +138,7 @@ func GetCurrentBranch(path string) (string, error) {
 		return "", errors.New("repository path cannot be empty")
 	}
 
-	gitDir, err := resolveGitDir(path)
+	gitDir, err := GetGitDir(path)
 	if err != nil {
 		return "", err
 	}
@@ -136,7 +179,7 @@ func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err 
 	var output []byte
 	output, err = cmd.Output()
 	if err != nil {
-		return "", true, nil // detached but couldn't get hash
+		return "", true, fmt.Errorf("failed to resolve detached HEAD: %w", errors.Join(ErrDetachedHead, err))
 	}
 	return strings.TrimSpace(string(output)), true, nil
 }
@@ -163,25 +206,6 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	return "", fmt.Errorf("could not determine default branch from HEAD")
 }
 
-// IsDetachedHead checks if the repository is in detached HEAD state
-func IsDetachedHead(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	headFile := filepath.Join(gitDir, "HEAD")
-
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return false, err
-	}
-
-	line := strings.TrimSpace(string(content))
-
-	return !strings.HasPrefix(line, "ref: refs/heads/"), nil
-}
-
 // IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
 // An unborn HEAD occurs when HEAD points to a branch ref that doesn't exist,
 // which happens in newly initialized repos before the first commit.
@@ -190,7 +214,7 @@ func IsUnbornHead(path string) (bool, error) {
 		return false, errors.New("repository path cannot be empty")
 	}
 
-	gitDir, err := resolveGitDir(path)
+	gitDir, err := GetGitDir(path)
 	if err != nil {
 		return false, err
 	}

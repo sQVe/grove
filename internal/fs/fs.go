@@ -21,10 +21,6 @@ const (
 	FileExec = 0o755 // rwxr-xr-x - executable file
 	FileGit  = 0o644 // rw-r--r-- - git-compatible file
 
-	// MaxDirectoryIterations limits directory traversal to prevent infinite loops
-	// from symlink cycles. 100 levels is generous for any sane filesystem depth.
-	MaxDirectoryIterations = 100
-
 	// OSWindows is the GOOS value for Windows
 	OSWindows = "windows"
 )
@@ -75,14 +71,23 @@ func PathExists(path string) bool {
 	return err == nil
 }
 
-// CreateDirectory creates a directory with the given permissions, including parent directories
-func CreateDirectory(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
-}
+// WalkUp returns the first directory at or above start that matches.
+func WalkUp(start string, match func(string) bool) (string, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", err
+	}
 
-// RemoveAll removes a path and any children it contains
-func RemoveAll(path string) error {
-	return os.RemoveAll(path)
+	for {
+		if match(dir) {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil
+		}
+		dir = parent
+	}
 }
 
 // RenameWithFallback renames oldpath to newpath, falling back to copy+delete for cross-filesystem moves
@@ -130,35 +135,23 @@ func RenameWithFallback(oldpath, newpath string) error {
 
 // CopyFile copies content from src to dst using streaming I/O and sets given permissions
 func CopyFile(src, dst string, perm os.FileMode) error {
-	in, err := os.Open(src) // nolint:gosec // Controlled path from git ignored files
-	if err != nil {
-		return err
-	}
-	defer func() { _ = in.Close() }()
-
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm) // nolint:gosec // Controlled path for worktree files
-	if err != nil {
-		return err
-	}
-
-	if _, err := io.Copy(out, in); err != nil {
-		_ = out.Close()
-		_ = os.Remove(dst) // Clean up partial/corrupt file
-		return err
-	}
-	return out.Close()
+	return copyFile(src, dst, perm, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
 }
 
 // CopyFileExclusive copies content from src to dst, failing if dst already exists.
 // Returns os.ErrExist if destination file exists. This avoids TOCTOU races.
 func CopyFileExclusive(src, dst string, perm os.FileMode) error {
+	return copyFile(src, dst, perm, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
+}
+
+func copyFile(src, dst string, perm os.FileMode, flags int) error {
 	in, err := os.Open(src) // nolint:gosec // Controlled path from git ignored files
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // nolint:gosec // Controlled path for worktree files
+	out, err := os.OpenFile(dst, flags, perm) // nolint:gosec // Controlled path for worktree files
 	if err != nil {
 		return err
 	}

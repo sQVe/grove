@@ -7,13 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/formatter"
-	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
-	"github.com/sqve/grove/internal/workspace"
 )
 
 type execTarget struct {
@@ -62,19 +59,13 @@ Examples:
   grove exec --all --json -- npm test                    # JSON results
   grove exec --all -- bash -c "npm install && npm test"  # Multiple commands`,
 		Args:              cobra.ArbitraryArgs,
-		ValidArgsFunction: completeExecArgs,
+		ValidArgsFunction: worktreeCompletion(0, true, nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Parse args using ArgsLenAtDash: before -- is worktrees, after is command
 			dashPos := cmd.ArgsLenAtDash()
-			var worktrees, command []string
 			if dashPos < 0 {
-				// No -- found, treat all args as command (requires --all)
-				command = args
-			} else {
-				worktrees = args[:dashPos]
-				command = args[dashPos:]
+				return errors.New("missing \"--\" before the command")
 			}
-			return runExec(all, failFast, jsonOutput, worktrees, command)
+			return runExec(all, failFast, jsonOutput, args[:dashPos], args[dashPos:])
 		},
 	}
 
@@ -102,21 +93,9 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 		return errors.New("must specify --all or at least one worktree")
 	}
 
-	// Get workspace
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	_, _, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
-	}
-
-	// Get worktree info
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
 	// Determine which worktrees to execute in
@@ -126,16 +105,11 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 			targets = append(targets, execTarget{label: formatter.WorktreeLabel(info), name: filepath.Base(info.Path), path: info.Path})
 		}
 	} else {
-		seen := make(map[string]bool)
-		for _, name := range worktrees {
-			info := git.FindWorktree(infos, name)
-			if info == nil {
-				return fmt.Errorf("worktree not found: %s", name)
-			}
-			if seen[info.Path] {
-				continue
-			}
-			seen[info.Path] = true
+		resolved, err := resolveWorktrees(infos, worktrees)
+		if err != nil {
+			return err
+		}
+		for _, info := range resolved {
 			targets = append(targets, execTarget{label: formatter.WorktreeLabel(info), name: filepath.Base(info.Path), path: info.Path})
 		}
 	}
@@ -151,6 +125,7 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 
 		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
 		cmd.Dir = target.path
+		cmd.Stdin = os.Stdin
 		if jsonOutput {
 			cmd.Stdout = os.Stderr
 		} else {
@@ -228,42 +203,4 @@ func commandExitCode(err error) int {
 func isExitError(err error) bool {
 	var exitError *exec.ExitError
 	return errors.As(err, &exitError)
-}
-
-func completeExecArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if slices.Contains(os.Args, "--") {
-		return nil, cobra.ShellCompDirectiveDefault
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	// Build set of already-specified worktrees
-	alreadyUsed := make(map[string]bool)
-	for _, arg := range args {
-		alreadyUsed[arg] = true
-	}
-
-	// Return worktrees not already specified (by directory name)
-	var completions []string
-	for _, info := range infos {
-		name := filepath.Base(info.Path)
-		if !alreadyUsed[name] && !alreadyUsed[info.Branch] {
-			completions = append(completions, name)
-		}
-	}
-
-	return completions, cobra.ShellCompDirectiveNoFileComp
 }

@@ -196,6 +196,21 @@ patterns = invalid
 	})
 }
 
+func TestTemplateRuntimeConfigIsAtRoot(t *testing.T) {
+	dir := testutil.TempDir(t)
+	if err := WriteTemplateToFile(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFromFile(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.NerdFonts == nil || cfg.StaleThreshold == "" || cfg.Plain == nil || cfg.Debug == nil {
+		t.Fatal("expected template runtime keys at the TOML root")
+	}
+}
+
 func TestWriteToFile(t *testing.T) {
 	t.Run("writes valid TOML to file", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)

@@ -63,11 +63,6 @@ func (s *Spinner) Stop() {
 	s.wg.Wait()
 }
 
-func (s *Spinner) StopWithSuccess(message string) {
-	s.Stop()
-	Success("%s", message)
-}
-
 func (s *Spinner) StopWithError(message string) {
 	s.Stop()
 	Error("%s", message)

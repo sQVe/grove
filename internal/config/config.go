@@ -3,8 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,38 +16,40 @@ import (
 // globalMu protects access to the Global struct
 var globalMu sync.RWMutex
 
-// Global holds the global configuration state for Grove
-var Global struct {
-	Plain                   bool          // Disable colors and symbols
-	Debug                   bool          // Enable debug logging
-	NerdFonts               bool          // Use Nerd Font icons (when not in plain mode)
-	PreservePatterns        []string      // Patterns for ignored files to preserve in new worktrees
-	PreserveExcludePatterns []string      // Path segments to exclude from preservation (e.g., "node_modules")
-	PreserveDirectories     []string      // Directories to recursively preserve in new worktrees
-	LinkPatterns            []string      // Directory names to symlink from source to new worktrees
-	StaleThreshold          string        // Default threshold for stale worktree detection (e.g., "30d")
-	AutoLockPatterns        []string      // Patterns for branches to auto-lock when creating worktrees
-	Timeout                 time.Duration // Command timeout (0 = no timeout)
+type settings struct {
+	Plain            bool
+	Debug            bool
+	NerdFonts        bool
+	StaleThreshold   string
+	AutoLockPatterns []string
+	Timeout          time.Duration
 }
 
-// DefaultConfig contains the default configuration values
-var DefaultConfig = struct {
-	Plain                   bool
-	Debug                   bool
-	NerdFonts               bool
+type defaultSettings struct {
+	settings
 	PreservePatterns        []string
 	PreserveExcludePatterns []string
 	PreserveDirectories     []string
 	LinkPatterns            []string
-	StaleThreshold          string
-	AutoLockPatterns        []string
-	Timeout                 time.Duration
-}{
-	Plain:          false,
-	Debug:          false,
-	NerdFonts:      true,
-	StaleThreshold: "30d",
-	Timeout:        30 * time.Second,
+}
+
+// Global holds the global configuration state for Grove
+var Global settings
+
+// DefaultConfig contains the default configuration values
+var DefaultConfig = defaultSettings{
+	settings: settings{
+		Plain:          false,
+		Debug:          false,
+		NerdFonts:      true,
+		StaleThreshold: "30d",
+		Timeout:        30 * time.Second,
+		AutoLockPatterns: []string{
+			"develop",
+			"main",
+			"master",
+		},
+	},
 	PreservePatterns: []string{
 		".env",
 		".env.keys",
@@ -70,11 +74,6 @@ var DefaultConfig = struct {
 	},
 	PreserveDirectories: []string{},
 	LinkPatterns:        []string{},
-	AutoLockPatterns: []string{
-		"develop",
-		"main",
-		"master",
-	},
 }
 
 // IsPlain returns true if plain output mode is enabled
@@ -122,6 +121,41 @@ func GetStaleThreshold() string {
 	return DefaultConfig.StaleThreshold
 }
 
+// ParseDuration parses human-friendly durations like "30d", "2w", and "6m".
+func ParseDuration(s string) (time.Duration, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "" {
+		return 0, errors.New("duration cannot be empty")
+	}
+	if len(s) < 2 {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+
+	num, err := strconv.Atoi(s[:len(s)-1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration number: %s", s)
+	}
+	if num <= 0 {
+		return 0, fmt.Errorf("duration must be positive: %s", s)
+	}
+
+	var durationUnit time.Duration
+	switch unit := s[len(s)-1]; unit {
+	case 'd':
+		durationUnit = 24 * time.Hour
+	case 'w':
+		durationUnit = 7 * 24 * time.Hour
+	case 'm':
+		durationUnit = 30 * 24 * time.Hour
+	default:
+		return 0, fmt.Errorf("unknown duration unit: %c (use d, w, or m)", unit)
+	}
+	if int64(num) > math.MaxInt64/int64(durationUnit) {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+	return time.Duration(num) * durationUnit, nil
+}
+
 // GetAutoLockPatterns returns the configured auto-lock patterns or defaults.
 // Returns a copy to prevent callers from mutating the original slices.
 func GetAutoLockPatterns() []string {
@@ -162,73 +196,62 @@ func matchGlobPattern(pattern, name string) bool {
 
 // LoadFromGitConfig loads configuration from git config, merging with defaults
 func LoadFromGitConfig() {
-	globalMu.Lock()
-	defer globalMu.Unlock()
-	Global.Plain = DefaultConfig.Plain
-	Global.Debug = DefaultConfig.Debug
-	Global.NerdFonts = DefaultConfig.NerdFonts
-	Global.StaleThreshold = DefaultConfig.StaleThreshold
-	Global.Timeout = DefaultConfig.Timeout
-	Global.PreservePatterns = make([]string, len(DefaultConfig.PreservePatterns))
-	copy(Global.PreservePatterns, DefaultConfig.PreservePatterns)
-	Global.PreserveExcludePatterns = make([]string, len(DefaultConfig.PreserveExcludePatterns))
-	copy(Global.PreserveExcludePatterns, DefaultConfig.PreserveExcludePatterns)
-	Global.PreserveDirectories = make([]string, len(DefaultConfig.PreserveDirectories))
-	copy(Global.PreserveDirectories, DefaultConfig.PreserveDirectories)
-	Global.LinkPatterns = make([]string, len(DefaultConfig.LinkPatterns))
-	copy(Global.LinkPatterns, DefaultConfig.LinkPatterns)
-	Global.AutoLockPatterns = make([]string, len(DefaultConfig.AutoLockPatterns))
-	copy(Global.AutoLockPatterns, DefaultConfig.AutoLockPatterns)
+	loadGlobalConfig(&FileConfig{})
+}
+
+func loadGlobalConfig(fileConfig *FileConfig) {
+	loaded := DefaultConfig.settings
+	loaded.AutoLockPatterns = slices.Clone(DefaultConfig.AutoLockPatterns)
+
+	if fileConfig.Plain != nil {
+		loaded.Plain = *fileConfig.Plain
+	}
+	if fileConfig.Debug != nil {
+		loaded.Debug = *fileConfig.Debug
+	}
+	if fileConfig.NerdFonts != nil {
+		loaded.NerdFonts = *fileConfig.NerdFonts
+	}
+	if isValidStaleThreshold(fileConfig.StaleThreshold) {
+		loaded.StaleThreshold = fileConfig.StaleThreshold
+	}
+	if len(fileConfig.Autolock.Patterns) > 0 {
+		loaded.AutoLockPatterns = append([]string{}, fileConfig.Autolock.Patterns...)
+	}
 
 	if value := getGitConfig("grove.plain"); value != "" {
-		Global.Plain = isTruthy(value)
+		loaded.Plain = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.debug"); value != "" {
-		Global.Debug = isTruthy(value)
+		loaded.Debug = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.nerdFonts"); value != "" {
-		Global.NerdFonts = isTruthy(value)
+		loaded.NerdFonts = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.staleThreshold"); value != "" {
 		if isValidStaleThreshold(value) {
-			Global.StaleThreshold = value
+			loaded.StaleThreshold = value
 		}
 		// Invalid values are silently ignored, using default
 	}
 
 	if value := getGitConfig("grove.timeout"); value != "" {
 		if d, err := time.ParseDuration(value); err == nil {
-			Global.Timeout = d
+			loaded.Timeout = d
 		}
-	}
-
-	patterns := getGitConfigs("grove.preserve")
-	if len(patterns) > 0 {
-		Global.PreservePatterns = patterns
-	}
-
-	linkPatterns := getGitConfigs("grove.link")
-	if len(linkPatterns) > 0 {
-		Global.LinkPatterns = linkPatterns
-	}
-
-	excludePatterns := getGitConfigs("grove.preserveExclude")
-	if len(excludePatterns) > 0 {
-		Global.PreserveExcludePatterns = excludePatterns
-	}
-
-	directories := getGitConfigs("grove.preserveDirectory")
-	if len(directories) > 0 {
-		Global.PreserveDirectories = directories
 	}
 
 	autoLockPatterns := getGitConfigs("grove.autoLock")
 	if len(autoLockPatterns) > 0 {
-		Global.AutoLockPatterns = autoLockPatterns
+		loaded.AutoLockPatterns = autoLockPatterns
 	}
+
+	globalMu.Lock()
+	Global = loaded
+	globalMu.Unlock()
 }
 
 // getGitConfig gets a single config value, returns empty string if not found
@@ -297,14 +320,6 @@ func isTruthy(value string) bool {
 
 // isValidStaleThreshold checks if a stale threshold value has valid format (e.g., "30d", "2w", "1m")
 func isValidStaleThreshold(s string) bool {
-	s = strings.TrimSpace(strings.ToLower(s))
-	if len(s) < 2 {
-		return false
-	}
-	unit := s[len(s)-1]
-	if unit != 'd' && unit != 'w' && unit != 'm' {
-		return false
-	}
-	num, err := strconv.Atoi(s[:len(s)-1])
-	return err == nil && num > 0
+	_, err := ParseDuration(s)
+	return err == nil
 }

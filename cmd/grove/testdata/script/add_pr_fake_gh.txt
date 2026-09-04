@@ -1,0 +1,95 @@
+# grove add: PR GitHub CLI arguments and failures are tested offline
+
+setup_workspace feature-pr numeric-pr
+
+# A numeric fork PR resolves its base repository from the GitHub origin,
+# then fetches the branch from a local fixture.
+exec git -C $WORK/workspace/.bare remote set-url origin https://github.com/acme/widgets
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_PR_VIEW=$WORK/numeric-pr.json
+env FAKE_GH_REPO_VIEW=$WORK/numeric-url.txt
+exec grove add --pr 17
+exists ../pr-17
+
+exec grove remove pr-17 --force
+exec grove add --switch --pr 17
+stdout '^.*[/\\\\]pr-17$'
+! stderr 'Created worktree'
+exists ../pr-17
+exec grove remove pr-17 --force
+
+# gh's unresolved-PR error is mapped to Grove's not-found error.
+env FAKE_GH_FAIL='pr view'
+env FAKE_GH_STDERR='Could not resolve to a PullRequest'
+! exec grove add --pr 99999
+stderr 'PR #99999 not found in acme/widgets'
+
+# A numeric PR still requires a GitHub origin.
+env FAKE_GH_FAIL=
+exec git -C $WORK/workspace/.bare remote set-url origin file://$WORK/testrepo
+! exec grove add --pr 123
+stderr 'requires workspace context'
+
+# The URL form can fetch entirely from the local workspace remote.
+env FAKE_GH_PR_VIEW=$WORK/same-repo-pr.json
+exec grove add https://github.com/acme/widgets/pull/18
+exists ../pr-18
+! exec grove add https://github.com/acme/widgets/pull/18
+stderr 'worktree already exists for branch "feature-pr"'
+
+# A fork PR asks gh for the fork URL before fetching its branch.
+mkdir $WORK/fork
+exec git -C $WORK/fork init
+cp $WORK/fork.txt $WORK/fork/fork.txt
+exec git -C $WORK/fork add .
+exec git -C $WORK/fork commit -m 'fork commit'
+exec git -C $WORK/fork branch -m fork-feature
+env FAKE_GH_PR_VIEW=$WORK/fork-pr.json
+env FAKE_GH_REPO_VIEW=$WORK/fork-url.txt
+exec grove add https://github.com/acme/widgets/pull/19
+exists ../pr-19/fork.txt
+
+env FAKE_GH_FAIL='repo view'
+env FAKE_GH_STDERR='fake repo failure'
+! exec grove add https://github.com/acme/widgets/pull/20
+stderr 'failed to get repo URL: fake repo failure'
+
+cmpenv $WORK/gh.log $WORK/want-gh.log
+
+-- numeric-pr.json --
+{"headRefName":"numeric-pr","headRepository":{"name":"testrepo"},"headRepositoryOwner":{"login":"contrib"}}
+
+-- numeric-url.txt --
+file://$WORK/testrepo
+
+-- same-repo-pr.json --
+{"headRefName":"feature-pr","headRepository":{"name":"widgets"},"headRepositoryOwner":{"login":"acme"}}
+
+-- fork-pr.json --
+{"headRefName":"fork-feature","headRepository":{"name":"fork"},"headRepositoryOwner":{"login":"contrib"}}
+
+-- fork-url.txt --
+file://$WORK/fork
+
+-- fork.txt --
+fork content
+
+-- want-gh.log --
+["auth","status"]
+["pr","view","17","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["repo","view","contrib/testrepo","--json","url","-q",".url"]
+["auth","status"]
+["pr","view","17","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["pr","view","99999","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["auth","status"]
+["pr","view","18","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["pr","view","18","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["auth","status"]
+["pr","view","19","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["repo","view","contrib/fork","--json","url","-q",".url"]
+["auth","status"]
+["pr","view","20","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
+["repo","view","contrib/fork","--json","url","-q",".url"]

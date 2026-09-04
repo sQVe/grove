@@ -19,9 +19,11 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+const sortRecent = "recent"
+
 var (
 	validFilters = []string{"dirty", "ahead", "behind", "gone", "locked"}
-	validSorts   = []string{"name", "recent"}
+	validSorts   = []string{"name", sortRecent}
 )
 
 // NewListCmd creates the list command
@@ -39,7 +41,7 @@ func NewListCmd() *cobra.Command {
 
 Examples:
   grove list                  # Show all worktrees
-  grove list --fast           # Skip remote sync checks
+  grove list --fast           # Skip dirty and sync status checks
   grove list --filter dirty   # Show only dirty worktrees
   grove list --sort recent    # Show most recently committed worktrees first
   grove list --verbose        # Include paths and upstreams`,
@@ -52,7 +54,7 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&fast, "fast", false, "Skip sync status checks")
+	cmd.Flags().BoolVar(&fast, "fast", false, "Skip dirty and sync status checks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
 	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked; comma-separated)")
@@ -73,8 +75,15 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 	if !slices.Contains(validSorts, sortBy) {
 		return fmt.Errorf("unknown sort %q (valid: %s)", sortBy, strings.Join(validSorts, ", "))
 	}
-	if sortBy == "recent" && fast {
+	if sortBy == sortRecent && fast {
 		return errors.New("--sort recent cannot be used with --fast because recency requires commit times")
+	}
+	if fast {
+		for _, f := range filters {
+			if f != "locked" {
+				return fmt.Errorf("--filter %s cannot be used with --fast because status checks are skipped", f)
+			}
+		}
 	}
 
 	cwd, err := os.Getwd()
@@ -87,7 +96,6 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 		return err
 	}
 
-	// Get worktree info
 	spin := logger.StartSpinner("Gathering worktree status...")
 	infos, err := git.ListWorktreesWithInfo(bareDir, fast)
 	if err != nil {
@@ -98,7 +106,7 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 
 	// Apply filter if specified
 	infos = filterWorktrees(infos, filters)
-	if sortBy == "recent" {
+	if sortBy == sortRecent {
 		sort.SliceStable(infos, func(i, j int) bool {
 			return infos[i].LastCommitTime > infos[j].LastCommitTime
 		})

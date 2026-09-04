@@ -63,20 +63,6 @@ func CheckGitChanges(path string) (hasAnyChanges, hasTrackedChanges bool, err er
 	return hasAnyChanges, hasTrackedChanges, nil
 }
 
-// HasUnresolvedConflicts checks if there are unresolved merge conflicts
-func HasUnresolvedConflicts(path string) (bool, error) {
-	cmd, cancel := GitCommand("git", "ls-files", "-u")
-	defer cancel()
-	cmd.Dir = path
-
-	output, err := executeWithOutput(cmd)
-	if err != nil {
-		return false, err
-	}
-
-	return output != "", nil
-}
-
 // GetConflictCount returns the number of files with unresolved merge conflicts
 func GetConflictCount(path string) (int, error) {
 	cmd, cancel := GitCommand("git", "ls-files", "-u")
@@ -103,30 +89,6 @@ func GetConflictCount(path string) (int, error) {
 	}
 
 	return len(files), nil
-}
-
-// HasOngoingOperation checks for merge/rebase/cherry-pick operations
-func HasOngoingOperation(path string) (bool, error) {
-	gitDir, err := GetGitDir(path)
-	if err != nil {
-		return false, err
-	}
-
-	markers := []string{
-		markerCherryPickHead,
-		markerMergeHead,
-		markerRevertHead,
-		markerRebaseApply,
-		markerRebaseMerge,
-	}
-
-	for _, marker := range markers {
-		if fs.PathExists(filepath.Join(gitDir, marker)) {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 // GetOngoingOperation returns the name of any ongoing git operation, or empty string if none.

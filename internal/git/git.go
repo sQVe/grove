@@ -117,35 +117,6 @@ func executeWithOutputBuffer(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	return &stdout, nil
 }
 
-// resolveGitDir returns the actual git directory for a repository or worktree.
-func resolveGitDir(path string) (string, error) {
-	gitPath := filepath.Join(path, ".git")
-
-	info, err := os.Stat(gitPath)
-	if err != nil {
-		return "", err
-	}
-
-	if info.IsDir() {
-		return gitPath, nil
-	}
-
-	content, err := os.ReadFile(gitPath) // nolint:gosec // Reading git pointer file
-	if err != nil {
-		return "", err
-	}
-
-	line := strings.TrimSpace(string(content))
-	if after, ok := strings.CutPrefix(line, "gitdir: "); ok {
-		if filepath.IsAbs(after) {
-			return after, nil
-		}
-		return filepath.Join(path, after), nil
-	}
-
-	return "", fmt.Errorf("invalid .git file format")
-}
-
 // InitBare initializes a bare git repository in the specified directory
 func InitBare(path string) error {
 	if path == "" {
@@ -394,8 +365,8 @@ func GetRemoteURL(repoPath, name string) (string, error) {
 
 // ListIgnoredFiles returns a list of git-ignored files in the given directory.
 func ListIgnoredFiles(dir string) ([]string, error) {
-	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard in %s", dir)
-	cmd, cancel := GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard")
+	logger.Debug("Executing: git ls-files --others --ignored --exclude-standard -z in %s", dir)
+	cmd, cancel := GitCommand("git", "ls-files", "--others", "--ignored", "--exclude-standard", "-z")
 	defer cancel()
 	cmd.Dir = dir
 
@@ -408,14 +379,7 @@ func ListIgnoredFiles(dir string) ([]string, error) {
 		return nil, nil
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var files []string
-	for _, line := range lines {
-		if line != "" {
-			files = append(files, line)
-		}
-	}
-	return files, nil
+	return strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00"), nil
 }
 
 // IsRemoteReachable checks if a remote is accessible.

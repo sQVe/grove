@@ -20,21 +20,25 @@ import (
 )
 
 // Severity represents the severity level of a doctor issue
-type Severity int
+type Severity string
 
 const (
-	SeverityInfo Severity = iota
-	SeverityWarning
-	SeverityError
+	SeverityInfo    Severity = "info"
+	SeverityWarning Severity = "warning"
+	SeverityError   Severity = "error"
 )
 
 // Category represents the category of a doctor issue
-type Category int
+type Category string
 
 const (
-	CategoryDeps Category = iota
-	CategoryGit
-	CategoryConfig
+	CategoryDeps   Category = "deps"
+	CategoryGit    Category = "git"
+	CategoryConfig Category = "config"
+
+	brokenGitPointerMessage   = "Broken .git pointer"
+	doctorFixHint             = "grove doctor --fix"
+	staleWorktreeEntryMessage = "Stale worktree entry"
 )
 
 // parseVersion extracts major, minor, patch from a version string like "2.48.0"
@@ -335,21 +339,34 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	inWorkspace := err == nil
 
 	if inWorkspace {
+		configDir := filepath.Dir(bareDir)
+		if resolvedDir, err := workspace.ResolveConfigDir(cwd); err == nil {
+			configDir = resolvedDir
+		}
+
 		// Phase 2: Git detection
 		detectGitIssues(bareDir, result)
 
 		// Phase 3: Config validation
-		detectConfigIssues(bareDir, result)
+		detectConfigIssues(bareDir, configDir, result)
 
 		// Handle fix mode (Phase 4)
 		if fix {
 			fixIssues(bareDir, result)
+			fixedIssues := result.Issues
 
 			// Re-run detection after fixes to get current state
 			depsIssues := filterIssuesByCategory(result.Issues, CategoryDeps)
 			result = &DoctorResult{Issues: depsIssues}
 			detectGitIssues(bareDir, result)
-			detectConfigIssues(bareDir, result)
+			detectConfigIssues(bareDir, configDir, result)
+			if jsonOutput {
+				for _, issue := range fixedIssues {
+					if issue.Fixed {
+						result.Issues = append(result.Issues, issue)
+					}
+				}
+			}
 		}
 
 		if perf {
@@ -389,6 +406,10 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 	}
 
 	for _, worktreePath := range worktrees {
+		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+			continue
+		}
+
 		// Check if .git file exists
 		gitFile := filepath.Join(worktreePath, ".git")
 		info, err := os.Stat(gitFile)
@@ -399,9 +420,9 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,
-				Message:     "Broken .git pointer",
+				Message:     brokenGitPointerMessage,
 				Path:        relPath,
-				FixHint:     "grove doctor --fix",
+				FixHint:     doctorFixHint,
 				AutoFixable: true,
 			})
 
@@ -420,17 +441,17 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 		}
 
 		// Read and validate .git file content
-		gitdir, err := git.GetWorktreeGitDir(worktreePath)
+		gitdir, err := git.GetGitDir(worktreePath)
 		if err != nil {
 			// Invalid .git file format
 			relPath, _ := filepath.Rel(workspaceRoot, worktreePath)
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    SeverityError,
-				Message:     "Broken .git pointer",
+				Message:     brokenGitPointerMessage,
 				Path:        relPath,
 				Details:     []string{err.Error()},
-				FixHint:     "grove doctor --fix",
+				FixHint:     doctorFixHint,
 				AutoFixable: true,
 			})
 
@@ -444,10 +465,10 @@ func detectBrokenGitPointers(workspaceRoot, bareDir string, result *DoctorResult
 				result.Issues = append(result.Issues, Issue{
 					Category:    CategoryGit,
 					Severity:    SeverityError,
-					Message:     "Broken .git pointer",
+					Message:     brokenGitPointerMessage,
 					Path:        relPath,
 					Details:     []string{"gitdir target does not exist"},
-					FixHint:     "grove doctor --fix",
+					FixHint:     doctorFixHint,
 					AutoFixable: true,
 				})
 			}
@@ -476,6 +497,15 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		}
 
 		worktreeName := entry.Name()
+		locked := fs.FileExists(filepath.Join(worktreesDir, worktreeName, "locked"))
+		severity := SeverityError
+		fixHint := doctorFixHint
+		autoFixable := true
+		if locked {
+			severity = SeverityWarning
+			fixHint = ""
+			autoFixable = false
+		}
 		gitdirFile := filepath.Join(worktreesDir, worktreeName, "gitdir")
 
 		// Read the gitdir file to find the worktree path
@@ -484,12 +514,12 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			// No gitdir file means stale entry
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
-				Severity:    SeverityError,
-				Message:     "Stale worktree entry",
+				Severity:    severity,
+				Message:     staleWorktreeEntryMessage,
 				Path:        worktreeName,
 				Details:     []string{"missing gitdir file"},
-				FixHint:     "grove doctor --fix",
-				AutoFixable: true,
+				FixHint:     fixHint,
+				AutoFixable: autoFixable,
 			})
 
 			continue
@@ -508,12 +538,12 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) { //nolint:gosec // path derived from git's gitdir file
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
-				Severity:    SeverityError,
-				Message:     "Stale worktree entry",
+				Severity:    severity,
+				Message:     staleWorktreeEntryMessage,
 				Path:        worktreeName,
 				Details:     []string{"worktree directory does not exist"},
-				FixHint:     "grove doctor --fix",
-				AutoFixable: true,
+				FixHint:     fixHint,
+				AutoFixable: autoFixable,
 			})
 		}
 	}
@@ -566,18 +596,7 @@ func detectRemoteIssues(bareDir string, result *DoctorResult) {
 }
 
 func outputDoctorResult(result *DoctorResult) error {
-	// Count issues by severity
-	for _, issue := range result.Issues {
-		switch issue.Severity {
-		case SeverityError:
-			result.Errors++
-		case SeverityWarning:
-			result.Warnings++
-		}
-		if issue.AutoFixable {
-			result.AutoFixable++
-		}
-	}
+	result.Errors, result.Warnings, _, result.AutoFixable = countSeverities(result.Issues)
 
 	// If no issues, report clean
 	if len(result.Issues) == 0 {
@@ -630,8 +649,11 @@ func filterIssuesByCategory(issues []Issue, category Category) []Issue {
 	return filtered
 }
 
-func countSeverities(issues []Issue) (errors, warnings, infos int) {
+func countSeverities(issues []Issue) (errors, warnings, infos, autoFixable int) {
 	for _, issue := range issues {
+		if issue.Fixed {
+			continue
+		}
 		switch issue.Severity {
 		case SeverityError:
 			errors++
@@ -640,12 +662,15 @@ func countSeverities(issues []Issue) (errors, warnings, infos int) {
 		case SeverityInfo:
 			infos++
 		}
+		if issue.AutoFixable {
+			autoFixable++
+		}
 	}
-	return errors, warnings, infos
+	return errors, warnings, infos, autoFixable
 }
 
 func outputCategoryIssues(categoryName string, issues []Issue) {
-	errors, warnings, infos := countSeverities(issues)
+	errors, warnings, infos, _ := countSeverities(issues)
 
 	// Print category header
 	var countParts []string
@@ -737,14 +762,14 @@ func getIssueSymbol(severity Severity) string {
 
 // Phase 3: Config validation
 
-func detectConfigIssues(bareDir string, result *DoctorResult) {
+func detectConfigIssues(bareDir, configDir string, result *DoctorResult) {
 	workspaceRoot := filepath.Dir(bareDir)
 
 	// Check .grove.toml syntax
-	detectInvalidToml(workspaceRoot, result)
+	detectInvalidToml(configDir, result)
 
 	// Check hook commands
-	detectInvalidHooks(workspaceRoot, result)
+	detectInvalidHooks(configDir, result)
 
 	// Check stale lock files
 	detectStaleLockFiles(workspaceRoot, result)
@@ -861,9 +886,9 @@ func fixIssues(bareDir string, result *DoctorResult) {
 		switch issue.Message {
 		case "Stale lock file":
 			err = fixStaleLockFile(workspaceRoot, issue)
-		case "Stale worktree entry":
+		case staleWorktreeEntryMessage:
 			err = fixStaleWorktreeEntry(bareDir, issue)
-		case "Broken .git pointer":
+		case brokenGitPointerMessage:
 			err = fixBrokenGitPointer(bareDir, workspaceRoot, issue)
 		}
 
@@ -915,8 +940,8 @@ func fixBrokenGitPointer(bareDir, workspaceRoot string, issue *Issue) error {
 // Phase 5: JSON output
 
 type jsonIssue struct {
-	Category    string   `json:"category"`
-	Severity    string   `json:"severity"`
+	Category    Category `json:"category"`
+	Severity    Severity `json:"severity"`
 	Message     string   `json:"message"`
 	Path        string   `json:"path,omitempty"`
 	Details     []string `json:"details,omitempty"`
@@ -937,19 +962,7 @@ type jsonResult struct {
 }
 
 func outputJSONResult(result *DoctorResult) error {
-	// Count issues by severity
-	for _, issue := range result.Issues {
-		switch issue.Severity {
-		case SeverityError:
-			result.Errors++
-		case SeverityWarning:
-			result.Warnings++
-		}
-
-		if issue.AutoFixable {
-			result.AutoFixable++
-		}
-	}
+	result.Errors, result.Warnings, _, result.AutoFixable = countSeverities(result.Issues)
 
 	// Convert to JSON-friendly structure
 	jsonRes := jsonResult{
@@ -962,16 +975,7 @@ func outputJSONResult(result *DoctorResult) error {
 	}
 
 	for _, issue := range result.Issues {
-		jsonRes.Issues = append(jsonRes.Issues, jsonIssue{
-			Category:    categoryToString(issue.Category),
-			Severity:    severityToString(issue.Severity),
-			Message:     issue.Message,
-			Path:        issue.Path,
-			Details:     issue.Details,
-			FixHint:     issue.FixHint,
-			AutoFixable: issue.AutoFixable,
-			Fixed:       issue.Fixed,
-		})
+		jsonRes.Issues = append(jsonRes.Issues, jsonIssue(issue))
 	}
 
 	encoder := json.NewEncoder(os.Stdout)
@@ -987,32 +991,6 @@ func outputJSONResult(result *DoctorResult) error {
 	}
 
 	return nil
-}
-
-func categoryToString(c Category) string {
-	switch c {
-	case CategoryDeps:
-		return "deps"
-	case CategoryGit:
-		return "git"
-	case CategoryConfig:
-		return "config"
-	default:
-		return "unknown"
-	}
-}
-
-func severityToString(s Severity) string {
-	switch s {
-	case SeverityInfo:
-		return "info"
-	case SeverityWarning:
-		return "warning"
-	case SeverityError:
-		return "error"
-	default:
-		return "unknown"
-	}
 }
 
 // Phase 6: Performance analysis

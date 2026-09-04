@@ -87,10 +87,6 @@ func resetGlobal() {
 	Global.Plain = false
 	Global.Debug = false
 	Global.NerdFonts = true // Default is true
-	Global.PreservePatterns = nil
-	Global.PreserveExcludePatterns = nil
-	Global.PreserveDirectories = nil
-	Global.LinkPatterns = nil
 	Global.StaleThreshold = ""
 	Global.AutoLockPatterns = nil
 	Global.Timeout = 0
@@ -166,6 +162,22 @@ func TestLoadFromGitConfig(t *testing.T) {
 	})
 }
 
+func TestLoadGlobalConfigDoesNotDeadlockOnGitError(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	done := make(chan struct{})
+	go func() {
+		loadGlobalConfig(&FileConfig{})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("loadGlobalConfig deadlocked after git config failed")
+	}
+}
+
 func TestMainLoadingSequence(t *testing.T) {
 	cleanup := setupGitRepo(t)
 	defer cleanup()
@@ -228,6 +240,41 @@ func TestMainLoadingSequence(t *testing.T) {
 	})
 }
 
+func TestLoadRuntimeConfigPrecedence(t *testing.T) {
+	cleanup := setupGitRepo(t)
+	defer cleanup()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(FileName, []byte("plain = true\ndebug = true\n"), 0o644); err != nil { //nolint:gosec
+		t.Fatal(err)
+	}
+
+	LoadRuntimeConfig(dir)
+	if !IsPlain() || !IsDebug() {
+		t.Fatal("expected TOML values to load into Global")
+	}
+
+	if err := exec.Command("git", "config", "grove.plain", "false").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "config", "grove.debug", "false").Run(); err != nil {
+		t.Fatal(err)
+	}
+	LoadRuntimeConfig(dir)
+	if IsPlain() || IsDebug() {
+		t.Fatal("expected git config to override TOML")
+	}
+
+	SetPlain(true)
+	SetDebug(true)
+	if !IsPlain() || !IsDebug() {
+		t.Fatal("expected flags to override git config and TOML")
+	}
+}
+
 func TestDefaults(t *testing.T) {
 	t.Run("DefaultConfig has expected values", func(t *testing.T) {
 		if DefaultConfig.Plain != false {
@@ -285,8 +332,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 
 		_ = exec.Command("git", "config", "--unset", "grove.plain").Run()
 		_ = exec.Command("git", "config", "--unset", "grove.debug").Run()
-		_ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run()
-
 		LoadFromGitConfig()
 
 		if Global.Plain != DefaultConfig.Plain {
@@ -294,9 +339,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 		}
 		if Global.Debug != DefaultConfig.Debug {
 			t.Errorf("Expected Debug to be %v (default), got %v", DefaultConfig.Debug, Global.Debug)
-		}
-		if len(Global.PreservePatterns) != len(DefaultConfig.PreservePatterns) {
-			t.Errorf("Expected %d preserve patterns (default), got %d", len(DefaultConfig.PreservePatterns), len(Global.PreservePatterns))
 		}
 	})
 
@@ -323,72 +365,6 @@ func TestLoadFromGitConfigWithDefaults(t *testing.T) {
 			t.Error("Expected git config to override Debug default")
 		}
 	})
-
-	t.Run("preserve patterns replace defaults", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "grove.preserve", ".custom").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
-
-		LoadFromGitConfig()
-
-		if len(Global.PreservePatterns) != 1 || Global.PreservePatterns[0] != ".custom" {
-			t.Errorf("Expected preserve patterns to be replaced with ['.custom'], got %v", Global.PreservePatterns)
-		}
-	})
-
-	t.Run("loads preserve directories from git config", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "--add", "grove.preserveDirectory", "config").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserveDirectory", ".run").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserveDirectory").Run() }()
-
-		LoadFromGitConfig()
-
-		expected := []string{"config", ".run"}
-		if len(Global.PreserveDirectories) != len(expected) {
-			t.Errorf("Expected %d preserve directories, got %d: %v", len(expected), len(Global.PreserveDirectories), Global.PreserveDirectories)
-		}
-		for i, exp := range expected {
-			if i >= len(Global.PreserveDirectories) || Global.PreserveDirectories[i] != exp {
-				t.Errorf("Expected directory %d to be %q, got %q", i, exp, Global.PreserveDirectories[i])
-			}
-		}
-	})
-
-	t.Run("multiple preserve patterns from git config", func(t *testing.T) {
-		resetGlobal()
-
-		if err := exec.Command("git", "config", "--add", "grove.preserve", ".env").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserve", "*.local").Run(); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "config", "--add", "grove.preserve", ".secret").Run(); err != nil {
-			t.Fatal(err)
-		}
-		defer func() { _ = exec.Command("git", "config", "--unset-all", "grove.preserve").Run() }()
-
-		LoadFromGitConfig()
-
-		expected := []string{".env", "*.local", ".secret"}
-		if len(Global.PreservePatterns) != len(expected) {
-			t.Errorf("Expected %d patterns, got %d: %v", len(expected), len(Global.PreservePatterns), Global.PreservePatterns)
-		}
-		for i, exp := range expected {
-			if i >= len(Global.PreservePatterns) || Global.PreservePatterns[i] != exp {
-				t.Errorf("Expected pattern %d to be %q, got %q", i, exp, Global.PreservePatterns[i])
-			}
-		}
-	})
 }
 
 func TestGetStaleThreshold(t *testing.T) {
@@ -410,6 +386,45 @@ func TestGetStaleThreshold(t *testing.T) {
 			t.Errorf("Expected '90d', got %q", threshold)
 		}
 	})
+}
+
+func TestParseDuration(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected time.Duration
+		wantErr  bool
+	}{
+		{"30 days", "30d", 30 * 24 * time.Hour, false},
+		{"2 weeks", "2w", 14 * 24 * time.Hour, false},
+		{"6 months", "6m", 180 * 24 * time.Hour, false},
+		{"1 day", "1d", 24 * time.Hour, false},
+		{"1 week", "1w", 7 * 24 * time.Hour, false},
+		{"1 month", "1m", 30 * 24 * time.Hour, false},
+		{"uppercase D", "30D", 30 * 24 * time.Hour, false},
+		{"uppercase W", "2W", 14 * 24 * time.Hour, false},
+		{"uppercase M", "6M", 180 * 24 * time.Hour, false},
+		{"empty string", "", 0, true},
+		{"invalid format", "abc", 0, true},
+		{"missing number", "d", 0, true},
+		{"invalid unit", "30x", 0, true},
+		{"negative number", "-5d", 0, true},
+		{"zero", "0d", 0, true},
+		{"overflow", "106752d", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseDuration(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseDuration(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if got != tt.expected {
+				t.Errorf("ParseDuration(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
 }
 
 func TestGetAutoLockPatterns(t *testing.T) {

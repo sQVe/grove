@@ -1,0 +1,2 @@
+kind: Changed
+body: 'Internal worktree creation now uses one Git helper, one branch loop, and one auto-lock path. Dead types and duplicate helpers were removed, and status now reuses the shared worktree record. Commands now share workspace loading, target resolution, worktree completion, add finalization, and PR checkout. Remaining Git, filesystem, config, traversal, output, styling, and test-repository helpers now share their common implementations.'

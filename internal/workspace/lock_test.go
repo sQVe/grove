@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 		}
 	})
 
-	t.Run("reports lock held by running process", func(t *testing.T) {
+	t.Run("reports old lock held by running process", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := testutil.TempDir(t)
@@ -50,6 +51,11 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 			_ = os.Remove(lockFile)
 		}()
 
+		old := time.Now().Add(-lockMaxAge - time.Minute)
+		if err := os.Chtimes(lockFile, old, old); err != nil {
+			t.Fatal(err)
+		}
+
 		// Try to acquire second lock - should report contention
 		_, done, err := tryAcquireLock(lockFile, 0)
 		if done {
@@ -57,6 +63,8 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("expected error when lock already held")
+		} else if !strings.Contains(err.Error(), "another grove operation") {
+			t.Errorf("expected in-progress error, got: %v", err)
 		}
 	})
 
@@ -120,6 +128,10 @@ func TestAcquireWorkspaceLock(t *testing.T) {
 		// Create lock file with PID that doesn't exist (use very high PID)
 		// PID 99999999 is unlikely to exist on any system
 		if err := os.WriteFile(lockFile, []byte("99999999"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+		old := time.Now().Add(-lockMaxAge - time.Minute)
+		if err := os.Chtimes(lockFile, old, old); err != nil {
 			t.Fatal(err)
 		}
 

@@ -1,0 +1,17 @@
+# grove doctor: GitHub CLI version checks are tested offline
+
+setup_workspace
+
+env FAKE_GH_LOG=$WORK/gh.log
+exec grove doctor
+stderr 'No issues found'
+
+env FAKE_GH_FAIL=--version
+exec grove doctor
+stdout 'gh version could not be determined'
+
+cmp $WORK/gh.log $WORK/want-gh.log
+
+-- want-gh.log --
+["--version"]
+["--version"]

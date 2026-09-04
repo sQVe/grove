@@ -72,6 +72,9 @@ Examples:
 
 func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string) error {
 	name = strings.TrimSpace(name)
+	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
+		return fmt.Errorf("--name must be a single directory name")
+	}
 
 	// Validate --pr value if provided
 	if prNumber < 0 {
@@ -162,12 +165,12 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 			spin.StopWithError("Failed to list worktrees")
 			return fmt.Errorf("failed to list worktrees: %w", err)
 		}
-		info := git.FindWorktree(infos, from)
-		if info == nil {
+		resolved, err := resolveWorktrees(infos, []string{from})
+		if err != nil {
 			spin.StopWithError("Worktree not found")
 			return fmt.Errorf("worktree %q not found", from)
 		}
-		sourceWorktree = info.Path
+		sourceWorktree = resolved[0].Path
 		logger.Debug("Using %s as source for file preservation (--from)", sourceWorktree)
 	} else {
 		sourceWorktree = findSourceWorktree(cwd, workspaceRoot)
@@ -227,16 +230,34 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		return fmt.Errorf("directory already exists: %s", worktreePath)
 	}
 
-	exists, err := git.BranchExists(bareDir, branch)
+	localExists, err := git.LocalBranchExists(bareDir, branch)
 	if err != nil {
-		return fmt.Errorf("failed to check branch: %w", err)
+		return fmt.Errorf("failed to check local branch: %w", err)
+	}
+	remotes, err := git.ListRemotes(bareDir)
+	if err != nil {
+		return fmt.Errorf("failed to list remotes: %w", err)
+	}
+	exists := localExists
+	for _, remote := range remotes {
+		remoteExists, err := git.RemoteBranchExists(bareDir, remote, branch)
+		if err != nil {
+			return fmt.Errorf("failed to check %s branch: %w", remote, err)
+		}
+		if remoteExists {
+			exists = true
+			break
+		}
+	}
+	if !exists && git.RefExists(bareDir, branch) == nil {
+		return fmt.Errorf("ref %q is not a branch; use --detach to check it out detached", branch)
 	}
 
 	if exists {
 		if baseBranch != "" {
 			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
 		}
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 		if remoteExists, _ := git.RemoteBranchExists(bareDir, "origin", branch); remoteExists {
@@ -254,42 +275,18 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 			if !baseExists {
 				return fmt.Errorf("base branch %q does not exist", baseBranch)
 			}
-			if err := git.CreateWorktreeWithNewBranchFrom(bareDir, worktreePath, branch, baseBranch, true); err != nil {
+			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true, Base: baseBranch}, true); err != nil {
 				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		} else {
-			if err := git.CreateWorktreeWithNewBranch(bareDir, worktreePath, branch, true); err != nil {
+			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true}, true); err != nil {
 				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 			}
 		}
 	}
 
-	// Auto-lock if branch matches auto-lock patterns
-	if config.ShouldAutoLock(branch) {
-		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-			logger.Debug("Failed to auto-lock worktree: %v", err)
-		} else {
-			logger.Debug("Auto-locked worktree for branch %s", branch)
-		}
-	}
-
-	releaseLock()
-	spin := logger.StartSpinner("Setting up worktree...")
-	configWorktree := findConfigWorktree(bareDir)
-	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
-	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
-	spin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
-
-	if switchTo {
-		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
-	} else {
-		logger.Success("Created worktree at %s", styles.RenderPath(worktreePath))
-	}
-	logPreserveResult(preserveResult)
-	logLinkResult(linkResult)
-	logHookResult(hookResult)
-	return nil
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
 func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
@@ -309,29 +306,12 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return fmt.Errorf("ref %q does not exist", ref)
 	}
 
-	if err := git.CreateWorktreeDetached(bareDir, worktreePath, ref, true); err != nil {
+	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: ref, Detach: true}, true); err != nil {
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	// Note: Auto-lock not applied for detached worktrees (no branch to lock)
-
-	releaseLock()
-	spin := logger.StartSpinner("Setting up worktree...")
-	configWorktree := findConfigWorktree(bareDir)
-	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
-	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
-	spin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
-
-	if switchTo {
-		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
-	} else {
-		logger.Success("Created detached worktree at %s", styles.RenderPath(worktreePath))
-	}
-	logPreserveResult(preserveResult)
-	logLinkResult(linkResult)
-	logHookResult(hookResult)
-	return nil
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, releaseLock,
+		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
 func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
@@ -387,26 +367,35 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return fmt.Errorf("directory already exists: %s", worktreePath)
 	}
 
-	// Handle fork PRs: add remote and fetch
+	if err := checkoutPR(bareDir, worktreePath, ref, prInfo, true, reset, true); err != nil {
+		return err
+	}
+
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
+}
+
+func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.PRInfo, quiet, reset, existingWorkspace bool) error {
+	branch := prInfo.HeadRef
 	if prInfo.IsFork {
 		remoteName := fmt.Sprintf("pr-%d-%s", ref.Number, prInfo.HeadOwner)
-
-		// Check if remote already exists
-		exists, err := git.RemoteExists(bareDir, remoteName)
-		if err != nil {
-			return fmt.Errorf("failed to check remote: %w", err)
+		exists := false
+		if existingWorkspace {
+			var err error
+			exists, err = git.RemoteExists(bareDir, remoteName)
+			if err != nil {
+				return fmt.Errorf("failed to check remote: %w", err)
+			}
 		}
 
-		// Track if we added a new remote (for cleanup on failure)
 		addedRemote := false
-
 		if !exists {
 			remoteURL, err := github.GetRepoCloneURL(prInfo.HeadOwner, prInfo.HeadRepo)
 			if err != nil {
 				return fmt.Errorf("failed to get fork URL: %w", err)
 			}
 
-			spin = logger.StartSpinner(fmt.Sprintf("Adding remote %s for fork...", remoteName))
+			spin := logger.StartSpinner(fmt.Sprintf("Adding remote %s for fork...", remoteName))
 			if err := git.AddRemote(bareDir, remoteName, remoteURL); err != nil {
 				spin.StopWithError("Failed to add remote")
 				return fmt.Errorf("failed to add fork remote: %w", err)
@@ -415,15 +404,14 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 			addedRemote = true
 		}
 
-		// Cleanup helper: remove remote if we added it and something fails
 		cleanupRemote := func() {
-			if addedRemote {
+			if existingWorkspace && addedRemote {
 				logger.Debug("Cleaning up remote %s after failure", remoteName)
 				_ = git.RemoveRemote(bareDir, remoteName)
 			}
 		}
 
-		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s from fork...", branch))
+		spin := logger.StartSpinner(fmt.Sprintf("Fetching branch %s from fork...", branch))
 		if err := git.FetchBranch(bareDir, remoteName, branch); err != nil {
 			spin.StopWithError("Failed to fetch branch")
 			cleanupRemote()
@@ -431,44 +419,41 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		}
 		spin.Stop()
 
-		// Create worktree tracking the fork's branch
 		trackingRef := fmt.Sprintf("%s/%s", remoteName, branch)
-		if err := git.CreateWorktree(bareDir, worktreePath, trackingRef, true); err != nil {
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: trackingRef}, quiet); err != nil {
 			cleanupRemote()
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
-		if err := git.SetUpstreamBranch(worktreePath, trackingRef); err != nil {
-			logger.Debug("Failed to set upstream for %s: %v", branch, err)
+		if existingWorkspace {
+			if err := git.SetUpstreamBranch(worktreePath, trackingRef); err != nil {
+				logger.Debug("Failed to set upstream for %s: %v", branch, err)
+			}
 		}
-	} else {
-		// Same-repo PR: fetch and create worktree
-		spin = logger.StartSpinner(fmt.Sprintf("Fetching branch %s...", branch))
-		if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
-			spin.StopWithError("Failed to fetch branch")
-			return fmt.Errorf("failed to fetch branch: %w", err)
-		}
-		spin.Stop()
+		return nil
+	}
 
-		// Resolve FETCH_HEAD to a commit hash immediately to avoid race conditions.
-		// Another fetch could overwrite FETCH_HEAD between our fetch and comparison.
+	spin := logger.StartSpinner(fmt.Sprintf("Fetching branch %s...", branch))
+	if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+		spin.StopWithError("Failed to fetch branch")
+		return fmt.Errorf("failed to fetch branch: %w", err)
+	}
+	spin.Stop()
+
+	if existingWorkspace {
 		fetchedHash, err := git.RevParse(bareDir, "FETCH_HEAD")
 		if err != nil {
 			return fmt.Errorf("failed to resolve fetched commit: %w", err)
 		}
 
-		// Check for diverged local branch before creating worktree.
-		// If local branch exists and has commits not on remote, fail unless --reset is used.
 		localExists, err := git.LocalBranchExists(bareDir, branch)
 		if err != nil {
 			return fmt.Errorf("failed to check local branch: %w", err)
 		}
-
 		if localExists {
 			ahead, _, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
 			if err != nil {
 				return fmt.Errorf("failed to compare branches: %w", err)
 			}
-
 			if ahead > 0 {
 				if !reset {
 					return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
@@ -481,40 +466,41 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 				spin.Stop()
 			}
 		}
+	}
 
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, true); err != nil {
-			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
-		}
+	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, quiet); err != nil {
+		return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
+	}
+	if existingWorkspace {
 		if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
 			logger.Debug("Failed to set upstream for %s: %v", branch, err)
 		}
 	}
+	return nil
+}
 
-	// Auto-lock if branch matches auto-lock patterns
-	if config.ShouldAutoLock(branch) {
-		if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-			logger.Debug("Failed to auto-lock worktree: %v", err)
-		} else {
-			logger.Debug("Auto-locked worktree for branch %s", branch)
-		}
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo bool, releaseLock func(), successFormat string, successArgs ...any) error {
+	if branch != "" {
+		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
 
 	releaseLock()
-	setupSpin := logger.StartSpinner("Setting up worktree...")
+	spin := logger.StartSpinner("Setting up worktree...")
 	configWorktree := findConfigWorktree(bareDir)
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
 	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
-	setupSpin.Stop()
-	hookResult := runAddHooks(sourceWorktree, worktreePath)
+	spin.Stop()
+	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
+		return err
+	}
 
 	if switchTo {
-		fmt.Println(worktreePath) // Raw path for shell wrapper to cd into
+		fmt.Println(worktreePath)
 	} else {
-		logger.Success("Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
+		logger.Success(successFormat, successArgs...)
 	}
 	logPreserveResult(preserveResult)
 	logLinkResult(linkResult)
-	logHookResult(hookResult)
 	return nil
 }
 
@@ -764,7 +750,7 @@ func logLinkResult(result *workspace.LinkResult) {
 	}
 }
 
-func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
+func runAddHooks(sourceWorktree, destWorktree string) error {
 	var addHooks []string
 	if sourceWorktree != "" {
 		addHooks = hooks.GetAddHooks(sourceWorktree)
@@ -776,17 +762,11 @@ func runAddHooks(sourceWorktree, destWorktree string) *hooks.RunResult {
 	}
 
 	logger.Info("Running %d hook(s)...", len(addHooks))
-	return hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
-}
-
-func logHookResult(result *hooks.RunResult) {
-	if result == nil {
-		return
-	}
-
+	result := hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
 	if result.Failed != nil {
-		logger.Warning("Hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
+		return fmt.Errorf("hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
 	}
+	return nil
 }
 
 func completeAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -794,22 +774,12 @@ func completeAddArgs(cmd *cobra.Command, args []string, toComplete string) ([]st
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
+	_, bareDir, infos, err := loadWorkspace(true)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
 
 	branches, err := git.ListBranches(bareDir)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
@@ -855,17 +825,7 @@ func completeBaseBranch(cmd *cobra.Command, args []string, toComplete string) ([
 }
 
 func completeFromWorktree(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	bareDir, err := workspace.FindBareDir(cwd)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-
-	infos, err := git.ListWorktreesWithInfo(bareDir, true)
+	_, _, infos, err := loadWorkspace(true)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}

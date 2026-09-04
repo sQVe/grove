@@ -20,7 +20,7 @@ exec git commit -m 'another unpushed'
 cd ../main
 
 exec grove remove --force --branch unpushed-force
-stderr 'unpushed'
+stderr 'unpushed-force: 1 commit.*not on any other ref will be lost'
 stderr 'Removed worktree.*unpushed-force'
 stderr 'deleted branch'
 ! exists ../unpushed-force

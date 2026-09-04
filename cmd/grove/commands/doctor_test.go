@@ -132,6 +132,7 @@ func TestCountSeverities(t *testing.T) {
 		wantErrors   int
 		wantWarnings int
 		wantInfos    int
+		wantAutoFix  int
 	}{
 		{
 			name:   "empty",
@@ -155,7 +156,7 @@ func TestCountSeverities(t *testing.T) {
 		{
 			name: "mixed",
 			issues: []Issue{
-				{Severity: SeverityError},
+				{Severity: SeverityError, AutoFixable: true},
 				{Severity: SeverityWarning},
 				{Severity: SeverityInfo},
 				{Severity: SeverityError},
@@ -163,12 +164,17 @@ func TestCountSeverities(t *testing.T) {
 			wantErrors:   2,
 			wantWarnings: 1,
 			wantInfos:    1,
+			wantAutoFix:  1,
+		},
+		{
+			name:   "fixed issues are excluded",
+			issues: []Issue{{Severity: SeverityError, AutoFixable: true, Fixed: true}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors, warnings, infos := countSeverities(tt.issues)
+			errors, warnings, infos, autoFixable := countSeverities(tt.issues)
 			if errors != tt.wantErrors {
 				t.Errorf("errors = %d, want %d", errors, tt.wantErrors)
 			}
@@ -177,6 +183,9 @@ func TestCountSeverities(t *testing.T) {
 			}
 			if infos != tt.wantInfos {
 				t.Errorf("infos = %d, want %d", infos, tt.wantInfos)
+			}
+			if autoFixable != tt.wantAutoFix {
+				t.Errorf("auto-fixable = %d, want %d", autoFixable, tt.wantAutoFix)
 			}
 		})
 	}
@@ -305,48 +314,6 @@ func TestFormatSize(t *testing.T) {
 	}
 }
 
-func TestCategoryToString(t *testing.T) {
-	tests := []struct {
-		category Category
-		expected string
-	}{
-		{CategoryDeps, "deps"},
-		{CategoryGit, "git"},
-		{CategoryConfig, "config"},
-		{Category(999), "unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			got := categoryToString(tt.category)
-			if got != tt.expected {
-				t.Errorf("categoryToString(%v) = %q, want %q", tt.category, got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestSeverityToString(t *testing.T) {
-	tests := []struct {
-		severity Severity
-		expected string
-	}{
-		{SeverityInfo, "info"},
-		{SeverityWarning, "warning"},
-		{SeverityError, "error"},
-		{Severity(999), "unknown"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			got := severityToString(tt.severity)
-			if got != tt.expected {
-				t.Errorf("severityToString(%v) = %q, want %q", tt.severity, got, tt.expected)
-			}
-		})
-	}
-}
-
 func TestGetIssueSymbol(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -357,11 +324,11 @@ func TestGetIssueSymbol(t *testing.T) {
 		{"error plain", SeverityError, true, "[x]"},
 		{"warning plain", SeverityWarning, true, "[!]"},
 		{"info plain", SeverityInfo, true, "[i]"},
-		{"unknown plain", Severity(999), true, "[-]"},
+		{"unknown plain", Severity("unknown"), true, "[-]"},
 		{"error styled", SeverityError, false, "✗"},
 		{"warning styled", SeverityWarning, false, "⚠"},
 		{"info styled", SeverityInfo, false, "→"},
-		{"unknown styled", Severity(999), false, "•"},
+		{"unknown styled", Severity("unknown"), false, "•"},
 	}
 
 	for _, tt := range tests {

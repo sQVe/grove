@@ -2,9 +2,7 @@ package git
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -13,6 +11,8 @@ import (
 
 // ErrConfigNotFound is returned when a config key is not found
 var ErrConfigNotFound = errors.New("config key not found")
+
+const configCommand = "config"
 
 // IsConfigNotFoundError returns true if error indicates config not found
 func IsConfigNotFoundError(err error) bool {
@@ -23,7 +23,7 @@ func IsConfigNotFoundError(err error) bool {
 func GetConfig(key string, global bool) (string, error) {
 	logger.Debug("Getting git config: %s (global=%v)", key, global)
 
-	args := []string{"config", "--get"}
+	args := []string{configCommand, "--get"}
 	if global {
 		args = append(args, "--global")
 	}
@@ -31,28 +31,22 @@ func GetConfig(key string, global bool) (string, error) {
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	output, err := executeWithOutput(cmd)
+	if err != nil {
 		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
 			return "", ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 		return "", err
 	}
 
-	return strings.TrimSpace(stdout.String()), nil
+	return output, nil
 }
 
 // GetConfigs gets all config values for keys with a given prefix
 func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 	logger.Debug("Getting git configs with prefix: %s (global=%v)", prefix, global)
 
-	args := []string{"config", "--get-regexp"}
+	args := []string{configCommand, "--get-regexp"}
 	if global {
 		args = append(args, "--global")
 	}
@@ -61,22 +55,16 @@ func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	output, err := executeWithOutput(cmd)
+	if err != nil {
 		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
 			return make(map[string][]string), nil
-		}
-		if stderr.Len() > 0 {
-			return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 		return nil, err
 	}
 
 	configs := make(map[string][]string)
-	scanner := bufio.NewScanner(&stdout)
+	scanner := bufio.NewScanner(strings.NewReader(output))
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.SplitN(line, " ", 2)
@@ -93,7 +81,7 @@ func GetConfigs(prefix string, global bool) (map[string][]string, error) {
 func SetConfig(key, value string, global bool) error {
 	logger.Debug("Setting git config: %s=%s (global=%v)", key, value, global)
 
-	args := []string{"config"}
+	args := []string{configCommand}
 	if global {
 		args = append(args, "--global")
 	}
@@ -101,24 +89,15 @@ func SetConfig(key, value string, global bool) error {
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return err
-	}
-
-	return nil
+	_, err := executeWithOutput(cmd)
+	return err
 }
 
 // UnsetConfig removes a config key and all its values
 func UnsetConfig(key string, global bool) error {
 	logger.Debug("Unsetting git config: %s (global=%v)", key, global)
 
-	args := []string{"config", "--unset-all"}
+	args := []string{configCommand, "--unset-all"}
 	if global {
 		args = append(args, "--global")
 	}
@@ -126,15 +105,10 @@ func UnsetConfig(key string, global bool) error {
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	_, err := executeWithOutput(cmd)
+	if err != nil {
 		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
 			return ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 		return err
 	}
@@ -146,7 +120,7 @@ func UnsetConfig(key string, global bool) error {
 func UnsetConfigValue(key, valuePattern string, global bool) error {
 	logger.Debug("Unsetting git config value: %s=%s (global=%v)", key, valuePattern, global)
 
-	args := []string{"config", "--unset-all", "--fixed-value"}
+	args := []string{configCommand, "--unset-all", "--fixed-value"}
 	if global {
 		args = append(args, "--global")
 	}
@@ -154,15 +128,10 @@ func UnsetConfigValue(key, valuePattern string, global bool) error {
 
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	_, err := executeWithOutput(cmd)
+	if err != nil {
 		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 5 {
 			return ErrConfigNotFound
-		}
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 		}
 		return err
 	}

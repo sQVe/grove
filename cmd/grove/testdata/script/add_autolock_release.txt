@@ -8,8 +8,8 @@ stderr 'Created worktree at .*[/\\]release-v1.0'
 
 # Release branch SHOULD be locked
 exec git -C $WORK/workspace/.bare worktree list --porcelain
-stdout 'locked'
+stdout '(?s)worktree .*[/\\]release-v1.0\nHEAD .*\nbranch refs/heads/release/v1.0\nlocked'
 
 -- grove-autolock.toml --
-[auto-lock]
+[autolock]
 patterns = ["main", "release/*"]

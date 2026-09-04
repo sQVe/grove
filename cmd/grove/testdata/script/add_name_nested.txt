@@ -1,8 +1,15 @@
-# Test: grove add --name with path separators creates nested directories
-setup_workspace
+# Test: grove add --name rejects path separators and dot directory names before git calls
+mkdir outside
+cd outside
 
-exec grove add --name 'nested/dir' feature/slash-name-test
-stderr 'Created worktree at .*[/\\]nested[/\\]dir'
-exists ../nested/dir
-exec git -C ../nested/dir rev-parse --abbrev-ref HEAD
-stdout '^feature/slash-name-test$'
+! exec grove add --name nested/dir feature/slash-name-test
+stderr '--name must be a single directory name'
+
+! exec grove add --name 'nested\dir' feature/backslash-name-test
+stderr '--name must be a single directory name'
+
+! exec grove add --name . feature/dot-name-test
+stderr '--name must be a single directory name'
+
+! exec grove add --name .. feature/dot-dot-name-test
+stderr '--name must be a single directory name'

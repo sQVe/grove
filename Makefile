@@ -14,10 +14,6 @@ else
   RACE :=
 endif
 
-# GH_TOKEN auto-detection for integration tests
-GH_TOKEN ?= $(shell gh auth token 2>/dev/null)
-export GH_TOKEN
-
 # Platforms for release builds
 PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
 
@@ -35,7 +31,6 @@ test-integration:
 	@echo "Running integration tests..."
 	@echo "→ Installing grove binary..."
 	@go install ./cmd/grove
-	@[ -z "$(GH_TOKEN)" ] || echo "→ Using gh CLI authentication for PR tests"
 	@gotestsum -- -tags=integration -timeout=600s ./cmd/grove/...
 
 test-coverage:

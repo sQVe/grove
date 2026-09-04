@@ -321,21 +321,41 @@ func runConfigListShared() error {
 		return err
 	}
 
-	// Print TOML values
-	if cfg.Plain != nil && *cfg.Plain {
-		fmt.Println("plain=true")
+	printFileConfig(&cfg)
+	return nil
+}
+
+func printFileConfig(cfg *config.FileConfig) {
+	if cfg.Plain != nil {
+		fmt.Printf("plain=%t\n", *cfg.Plain)
 	}
-	if cfg.Debug != nil && *cfg.Debug {
-		fmt.Println("debug=true")
+	if cfg.Debug != nil {
+		fmt.Printf("debug=%t\n", *cfg.Debug)
+	}
+	if cfg.NerdFonts != nil {
+		fmt.Printf("nerd_fonts=%t\n", *cfg.NerdFonts)
+	}
+	if cfg.StaleThreshold != "" {
+		fmt.Printf("stale_threshold=%s\n", cfg.StaleThreshold)
 	}
 	for _, p := range cfg.Preserve.Patterns {
 		fmt.Printf("preserve.patterns=%s\n", p)
 	}
+	for _, p := range cfg.Preserve.Exclude {
+		fmt.Printf("preserve.exclude=%s\n", p)
+	}
+	for _, d := range cfg.Preserve.Directories {
+		fmt.Printf("preserve.directories=%s\n", d)
+	}
+	for _, p := range cfg.Link.Patterns {
+		fmt.Printf("link.patterns=%s\n", p)
+	}
 	for _, h := range cfg.Hooks.Add {
 		fmt.Printf("hooks.add=%s\n", h)
 	}
-
-	return nil
+	for _, p := range cfg.Autolock.Patterns {
+		fmt.Printf("autolock.patterns=%s\n", p)
+	}
 }
 
 func runConfigListGlobal() error {
@@ -366,35 +386,29 @@ func runConfigListGlobal() error {
 
 func runConfigListEffective() error {
 	worktreeDir := findWorktreeDir()
-
-	// Show plain
-	plain := config.GetMergedPlain(worktreeDir)
-	if plain {
-		fmt.Println("grove.plain=true")
-	}
-
-	// Show debug
-	debug := config.GetMergedDebug(worktreeDir)
-	if debug {
-		fmt.Println("grove.debug=true")
-	}
-
-	// Show preserve patterns
-	patterns := config.GetMergedPreservePatterns(worktreeDir)
-	for _, p := range patterns {
-		fmt.Printf("grove.preserve=%s\n", p)
-	}
-
-	// Show hooks (from TOML only)
+	var cfg config.FileConfig
 	if worktreeDir != "" {
-		cfg, err := config.LoadFromFile(worktreeDir)
-		if err == nil {
-			for _, h := range cfg.Hooks.Add {
-				fmt.Printf("hooks.add=%s\n", h)
+		var err error
+		cfg, err = config.LoadFromFile(worktreeDir)
+		if err != nil {
+			// Startup already warned; merge from git without reparsing the invalid file.
+			cfg = config.FileConfig{}
+			worktreeDir, err = workspace.FindBareDir(worktreeDir)
+			if err != nil {
+				return err
 			}
 		}
 	}
 
+	plain, debug, nerdFonts := config.GetMergedPlain(worktreeDir), config.GetMergedDebug(worktreeDir), config.IsNerdFonts()
+	cfg.Plain, cfg.Debug, cfg.NerdFonts = &plain, &debug, &nerdFonts
+	cfg.StaleThreshold = config.GetStaleThreshold()
+	cfg.Preserve.Patterns = config.GetMergedPreservePatterns(worktreeDir)
+	cfg.Preserve.Exclude = config.GetMergedPreserveExcludePatterns(worktreeDir)
+	cfg.Preserve.Directories = config.GetMergedPreserveDirectories(worktreeDir)
+	cfg.Link.Patterns = config.GetMergedLinkPatterns(worktreeDir)
+	cfg.Autolock.Patterns = config.GetAutoLockPatterns()
+	printFileConfig(&cfg)
 	return nil
 }
 

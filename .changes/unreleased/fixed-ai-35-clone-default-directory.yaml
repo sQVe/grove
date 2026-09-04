@@ -1,0 +1,2 @@
+kind: Fixed
+body: '`grove clone` now defaults to `<cwd>/<repo-name>` when no directory is given and rejects `--branches` with a PR URL.'

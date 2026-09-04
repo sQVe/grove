@@ -1,0 +1,31 @@
+# grove clone: no directory defaults to cwd/repo-name
+
+mkdir sources
+
+mkdir sources/dotted.git
+exec git init sources/dotted.git
+cd sources/dotted.git
+cp $WORK/README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd $WORK
+
+mkdir sources/plain
+exec git init sources/plain
+cd sources/plain
+cp $WORK/README.md .
+exec git add .
+exec git commit -m 'initial commit'
+cd $WORK
+
+mkdir clones
+cd clones
+exec grove clone $WORK/sources/dotted.git --branches main
+exists dotted/.bare
+exists dotted/main/README.md
+exec grove clone $WORK/sources/plain --branches main
+exists plain/.bare
+exists plain/main/README.md
+
+-- README.md --
+# Test Repository

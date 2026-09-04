@@ -1,0 +1,25 @@
+# Test: grove add requires --detach for refs that are not branches
+setup_workspace
+
+exec git tag v1.0.0
+! exec grove add v1.0.0
+stderr 'ref "v1\.0\.0" is not a branch; use --detach to check it out detached'
+! exists ../v1.0.0
+
+! exec grove add --base main v1.0.0
+stderr 'ref "v1\.0\.0" is not a branch; use --detach to check it out detached'
+
+cp $WORK/second-readme README.md
+exec git add README.md
+exec git commit -m second
+! exec grove add 'HEAD~1'
+stderr 'ref "HEAD~1" is not a branch; use --detach to check it out detached'
+
+exec sh -c 'GIT_AUTHOR_DATE="2000-01-01T00:00:00Z" GIT_COMMITTER_DATE="2000-01-01T00:00:00Z" git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "fixed commit"'
+stdout '^cf201305887423c2fc295777c22e063dfc43449a$'
+! exec grove add cf201305887423c2fc295777c22e063dfc43449a
+stderr 'ref "cf201305887423c2fc295777c22e063dfc43449a" is not a branch; use --detach to check it out detached'
+
+-- second-readme --
+# Test
+second

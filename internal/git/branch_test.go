@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -33,6 +34,106 @@ func TestListBranches(t *testing.T) {
 	if len(branches) != 0 {
 		t.Errorf("Expected no branches in empty repo, got: %v", branches)
 	}
+}
+
+func TestCountUnreachableCommits(t *testing.T) {
+	t.Run("counts commits unique to branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
+
+	t.Run("returns zero when another ref contains the commit", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+		repo.CreateBranch("backup")
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 unreachable commits, got %d", count)
+		}
+	})
+
+	t.Run("uses the local branch when a tag has the same name", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+		repo.WriteFile("feature.txt", "feature")
+		repo.Add("feature.txt")
+		repo.Commit("feature commit")
+		if _, err := repo.Run("update-ref", "refs/tags/feature", "refs/heads/main"); err != nil {
+			t.Fatalf("failed to create tag: %v", err)
+		}
+
+		count, err := CountUnreachableCommits(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
+
+	t.Run("streams exclusions through stdin", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("shell git stub is not executable on Windows")
+		}
+
+		binDir := t.TempDir()
+		testutil.WriteFileMode(t, filepath.Join(binDir, "git"), `#!/bin/sh
+set -eu
+
+case "$1" in
+for-each-ref)
+	printf '%s\n' refs/heads/feature refs/heads/main refs/tags/v1
+	;;
+rev-list)
+	if [ "$*" != "rev-list --count refs/heads/feature --stdin" ]; then
+		echo "unexpected rev-list args: $*" >&2
+		exit 1
+	fi
+	exclusions=$(cat)
+	expected=$(printf '%s\n' '^refs/heads/main' '^refs/tags/v1')
+	if [ "$exclusions" != "$expected" ]; then
+		echo "unexpected exclusions: $exclusions" >&2
+		exit 1
+	fi
+	printf '1\n'
+	;;
+*)
+	echo "unexpected git command: $*" >&2
+	exit 1
+	;;
+esac
+`, fs.FileExec)
+		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+		count, err := CountUnreachableCommits(t.TempDir(), "feature")
+		if err != nil {
+			t.Fatalf("CountUnreachableCommits failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 unreachable commit, got %d", count)
+		}
+	})
 }
 
 func TestGetCurrentBranch(t *testing.T) {
@@ -86,94 +187,6 @@ func TestGetCurrentBranch(t *testing.T) {
 		_, err := GetCurrentBranch(tempDir)
 		if err == nil {
 			t.Fatal("GetCurrentBranch should fail for non-git directory")
-		}
-	})
-}
-
-func TestIsDetachedHead(t *testing.T) {
-	t.Run("detects detached HEAD with commit hash", func(t *testing.T) {
-		tempDir := testutil.TempDir(t)
-		gitDir := filepath.Join(tempDir, ".git")
-
-		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-			t.Fatalf("failed to create git directory: %v", err)
-		}
-
-		// Test detached HEAD (commit hash)
-		headFile := filepath.Join(gitDir, "HEAD")
-		if err := os.WriteFile(headFile, []byte("abc1234567890abcdef1234567890abcdef123456\n"), fs.FileGit); err != nil {
-			t.Fatalf("failed to create HEAD file: %v", err)
-		}
-
-		isDetached, err := IsDetachedHead(tempDir)
-		if err != nil {
-			t.Fatalf("IsDetachedHead failed: %v", err)
-		}
-		if !isDetached {
-			t.Error("expected detached HEAD to be detected")
-		}
-	})
-
-	t.Run("does not detect normal branch as detached", func(t *testing.T) {
-		tempDir := testutil.TempDir(t)
-		gitDir := filepath.Join(tempDir, ".git")
-
-		if err := os.Mkdir(gitDir, fs.DirGit); err != nil {
-			t.Fatalf("failed to create git directory: %v", err)
-		}
-
-		headFile := filepath.Join(gitDir, "HEAD")
-		if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), fs.FileGit); err != nil {
-			t.Fatalf("failed to update HEAD file: %v", err)
-		}
-
-		isDetached, err := IsDetachedHead(tempDir)
-		if err != nil {
-			t.Fatalf("IsDetachedHead failed: %v", err)
-		}
-		if isDetached {
-			t.Error("expected branch HEAD not to be detected as detached")
-		}
-	})
-
-	t.Run("fails for non-git directory", func(t *testing.T) {
-		tempDir := testutil.TempDir(t)
-
-		_, err := IsDetachedHead(tempDir)
-		if err == nil {
-			t.Fatal("IsDetachedHead should fail for non-git directory")
-		}
-	})
-
-	t.Run("works for git worktrees", func(t *testing.T) {
-		repo := testgit.NewTestRepo(t)
-		worktreePath := filepath.Join(repo.TempDir, "wt-detached")
-
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
-		cmd.Dir = repo.Path
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to create worktree: %v", err)
-		}
-
-		isDetached, err := IsDetachedHead(worktreePath)
-		if err != nil {
-			t.Fatalf("IsDetachedHead failed for worktree: %v", err)
-		}
-		if isDetached {
-			t.Fatal("expected worktree to be attached initially")
-		}
-
-		cmd = exec.Command("git", "-C", worktreePath, "checkout", "--detach") // nolint:gosec // test-controlled path
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to detach HEAD in worktree: %v", err)
-		}
-
-		isDetached, err = IsDetachedHead(worktreePath)
-		if err != nil {
-			t.Fatalf("IsDetachedHead failed for detached worktree: %v", err)
-		}
-		if !isDetached {
-			t.Fatal("expected detached HEAD to be detected in worktree")
 		}
 	})
 }

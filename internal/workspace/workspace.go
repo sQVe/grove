@@ -20,45 +20,48 @@ const groveGitContent = "gitdir: .bare"
 // ErrNotInWorkspace is returned when not inside a grove workspace
 var ErrNotInWorkspace = errors.New("not in a grove workspace")
 
+var branchNameReplacer = strings.NewReplacer(
+	"/", "-",
+	"\\", "-",
+	"<", "-",
+	">", "-",
+	"|", "-",
+	`"`, "-",
+	"?", "-",
+	"*", "-",
+	":", "-",
+)
+
 // SanitizeBranchName replaces filesystem-problematic characters with dash.
-// Includes all characters that are unsafe on Windows filesystems.
+// It adds an underscore to Windows-reserved device names.
 func SanitizeBranchName(branch string) string {
-	replacer := strings.NewReplacer(
-		"/", "-",
-		"\\", "-",
-		"<", "-",
-		">", "-",
-		"|", "-",
-		`"`, "-",
-		"?", "-",
-		"*", "-",
-		":", "-",
-	)
-	return replacer.Replace(branch)
+	name := branchNameReplacer.Replace(branch)
+	stem, extension, hasExtension := strings.Cut(name, ".")
+	base := strings.ToUpper(stem)
+	reserved := base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
+		len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '1' && base[3] <= '9'
+	if reserved {
+		if hasExtension {
+			return stem + "_." + extension
+		}
+		return name + "_"
+	}
+	return name
 }
 
 // FindBareDir finds the .bare directory for a grove workspace
 // by walking up the directory tree from the given path
 func FindBareDir(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		return fs.DirectoryExists(filepath.Join(dir, ".bare"))
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		bareDir := filepath.Join(dir, ".bare")
-		if fs.DirectoryExists(bareDir) {
-			return bareDir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", ErrNotInWorkspace
-		}
-		dir = parent
+	if dir == "" {
+		return "", ErrNotInWorkspace
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	return filepath.Join(dir, ".bare"), nil
 }
 
 // IsInsideGroveWorkspace checks if the given path is inside an existing grove workspace
@@ -71,31 +74,24 @@ func IsInsideGroveWorkspace(path string) bool {
 // If inside a worktree, returns that worktree's root.
 // If at workspace root, returns the default branch worktree or first available worktree.
 func ResolveConfigDir(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		if fs.DirectoryExists(filepath.Join(dir, ".bare")) {
+			return true
+		}
+		info, err := os.Stat(filepath.Join(dir, ".git"))
+		return err == nil && !info.IsDir()
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		bareDir := filepath.Join(dir, ".bare")
-		if fs.DirectoryExists(bareDir) {
-			return findCanonicalConfigDir(bareDir, dir)
-		}
-
-		gitPath := filepath.Join(dir, ".git")
-		if info, err := os.Stat(gitPath); err == nil && !info.IsDir() {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", ErrNotInWorkspace
-		}
-		dir = parent
+	if dir == "" {
+		return "", ErrNotInWorkspace
 	}
-
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	bareDir := filepath.Join(dir, ".bare")
+	if fs.DirectoryExists(bareDir) {
+		return findCanonicalConfigDir(bareDir, dir)
+	}
+	return dir, nil
 }
 
 // findCanonicalConfigDir finds the config directory when at workspace root.
@@ -143,7 +139,7 @@ func ValidateAndPrepareDirectory(path string) error {
 			return fmt.Errorf("directory %s is not empty", path)
 		}
 	} else {
-		if err := fs.CreateDirectory(path, fs.DirGit); err != nil {
+		if err := os.MkdirAll(path, fs.DirGit); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", path, err)
 		}
 	}
@@ -175,36 +171,14 @@ func CreateWorktreesFromBranches(bareDir, branches string, verbose bool, skipBra
 	}
 
 	logger.Info("Creating worktrees:")
-	var createdPaths []string
-
-	for _, branch := range filteredBranches {
-		sanitizedName := SanitizeBranchName(branch)
-		worktreePath := filepath.Join("..", sanitizedName)
-		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
-
-		if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-			for i := len(createdPaths) - 1; i >= 0; i-- {
-				if removeErr := fs.RemoveAll(createdPaths[i]); removeErr != nil {
-					logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
-				}
-			}
-			return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
-		}
-		createdPaths = append(createdPaths, absWorktreePath)
-
-		if exists, _ := git.RemoteBranchExists(bareDir, "origin", branch); exists {
-			if err := git.SetUpstreamBranch(absWorktreePath, "origin/"+branch); err != nil {
-				logger.Debug("Failed to set upstream for %s: %v", branch, err)
+	createdPaths, err := createWorktrees(bareDir, filteredBranches, verbose, false)
+	if err != nil {
+		for i := len(createdPaths) - 1; i >= 0; i-- {
+			if removeErr := os.RemoveAll(createdPaths[i]); removeErr != nil {
+				logger.Warning("Failed to cleanup worktree %s: %v", createdPaths[i], removeErr)
 			}
 		}
-
-		if config.ShouldAutoLock(branch) {
-			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-				logger.Debug("Failed to auto-lock worktree: %v", err)
-			} else {
-				logger.Debug("Auto-locked worktree for branch %s", branch)
-			}
-		}
+		return createdPaths, err
 	}
 
 	for _, branch := range filteredBranches {
@@ -222,12 +196,12 @@ func Initialize(path string) error {
 	}
 
 	bareDir := filepath.Join(path, ".bare")
-	if err := fs.CreateDirectory(bareDir, fs.DirGit); err != nil {
+	if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 		return fmt.Errorf("failed to create .bare directory: %w", err)
 	}
 
 	if err := git.InitBare(bareDir); err != nil {
-		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
 			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
 		}
 		return fmt.Errorf("failed to initialize bare git repository: %w", err)
@@ -235,7 +209,7 @@ func Initialize(path string) error {
 
 	gitFile := filepath.Join(path, ".git")
 	if err := os.WriteFile(gitFile, []byte(groveGitContent), fs.FileGit); err != nil {
-		if cleanupErr := fs.RemoveAll(bareDir); cleanupErr != nil {
+		if cleanupErr := os.RemoveAll(bareDir); cleanupErr != nil {
 			logger.Warning("Failed to cleanup .bare directory after error: %v", cleanupErr)
 		}
 		return fmt.Errorf("failed to create .git file: %w", err)
@@ -250,7 +224,8 @@ type CloneFunc func(bareDir string) error
 // CloneAndInitializeWithCloner creates a grove workspace using a custom clone function.
 // This allows different clone mechanisms (direct git, gh CLI, etc.) while sharing
 // all the workspace setup logic.
-func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool) error {
+// If createWorktrees is nil, worktrees are created from branches; otherwise it must return created paths for cleanup.
+func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verbose, shallow bool, createWorktrees func(string) ([]string, error)) error {
 	if err := ValidateAndPrepareDirectory(path); err != nil {
 		return err
 	}
@@ -262,11 +237,11 @@ func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verb
 		if err := os.Remove(gitFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			logger.Warning("Failed to remove .git file during cleanup: %v", err)
 		}
-		if err := fs.RemoveAll(bareDir); err != nil {
+		if err := os.RemoveAll(bareDir); err != nil {
 			logger.Warning("Failed to remove .bare during cleanup: %v", err)
 		}
 		for i := len(worktrees) - 1; i >= 0; i-- {
-			if err := fs.RemoveAll(worktrees[i]); err != nil {
+			if err := os.RemoveAll(worktrees[i]); err != nil {
 				logger.Warning("Failed to remove worktree %s during cleanup: %v", worktrees[i], err)
 			}
 		}
@@ -294,17 +269,24 @@ func CloneAndInitializeWithCloner(cloneFn CloneFunc, path, branches string, verb
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
-	branchesToCreate := branches
-	if branchesToCreate == "" {
-		defaultBranch, err := git.GetDefaultBranch(bareDir)
-		if err != nil {
-			cleanup(nil)
-			return fmt.Errorf("failed to determine default branch: %w", err)
+	var (
+		createdWorktrees []string
+		err              error
+	)
+	if createWorktrees == nil {
+		branchesToCreate := branches
+		if branchesToCreate == "" {
+			defaultBranch, err := git.GetDefaultBranch(bareDir)
+			if err != nil {
+				cleanup(nil)
+				return fmt.Errorf("failed to determine default branch: %w", err)
+			}
+			branchesToCreate = defaultBranch
 		}
-		branchesToCreate = defaultBranch
+		createdWorktrees, err = CreateWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
+	} else {
+		createdWorktrees, err = createWorktrees(bareDir)
 	}
-
-	createdWorktrees, err := CreateWorktreesFromBranches(bareDir, branchesToCreate, verbose, "")
 	if err != nil {
 		cleanup(createdWorktrees)
 		return err
@@ -322,7 +304,7 @@ func CloneAndInitialize(url, path, branches string, verbose, shallow bool) error
 		return nil
 	}
 
-	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose, shallow)
+	return CloneAndInitializeWithCloner(cloneFn, path, branches, verbose, shallow, nil)
 }
 
 // validateRepoForConversion performs all pre-conversion validation checks
@@ -355,11 +337,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has submodules")
 	}
 
-	hasConflicts, err := git.HasUnresolvedConflicts(targetDir)
+	conflicts, err := git.GetConflictCount(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for unresolved conflicts: %w", err)
 	}
-	if hasConflicts {
+	if conflicts > 0 {
 		return fmt.Errorf("cannot convert: repository has unresolved conflicts")
 	}
 
@@ -379,11 +361,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has unpushed commits")
 	}
 
-	detached, err := git.IsDetachedHead(targetDir)
-	if err != nil {
+	_, err = git.GetCurrentBranch(targetDir)
+	if err != nil && !errors.Is(err, git.ErrDetachedHead) {
 		return fmt.Errorf("failed to check HEAD state: %w", err)
 	}
-	if detached {
+	if errors.Is(err, git.ErrDetachedHead) {
 		return fmt.Errorf("cannot convert: repository is in detached HEAD state")
 	}
 
@@ -395,11 +377,11 @@ func validateRepoForConversion(targetDir string) error {
 		return fmt.Errorf("cannot convert: repository has no commits (unborn HEAD)")
 	}
 
-	hasOngoing, err := git.HasOngoingOperation(targetDir)
+	operation, err := git.GetOngoingOperation(targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to check for ongoing operations: %w", err)
 	}
-	if hasOngoing {
+	if operation != "" {
 		return fmt.Errorf("cannot convert: repository has ongoing merge/rebase/cherry-pick")
 	}
 
@@ -463,51 +445,46 @@ func createMainWorktree(targetDir, currentBranch string, verbose bool, movedFile
 // createWorktreesOnly creates worktrees for all specified branches
 func createWorktreesOnly(bareDir string, branches []string, verbose bool) ([]string, error) {
 	logger.Info("Creating worktrees...")
+	return createWorktrees(bareDir, branches, verbose, true)
+}
+
+func createWorktrees(bareDir string, branches []string, verbose, noCheckoutFirst bool) ([]string, error) {
 	var createdPaths []string
 
 	for i, branch := range branches {
 		sanitizedName := SanitizeBranchName(branch)
 		worktreePath := filepath.Join("..", sanitizedName)
 		absWorktreePath := filepath.Join(filepath.Dir(bareDir), sanitizedName)
+		opts := git.CreateWorktreeOptions{Branch: branch, NoCheckout: noCheckoutFirst && i == 0}
 
-		if i == 0 {
-			logger.Debug("Executing: git worktree add --relative-paths --no-checkout %s %s in %s", worktreePath, branch, bareDir)
-			cmd, cancel := git.GitCommand("git", "worktree", "add", "--relative-paths", "--no-checkout", worktreePath, branch) // nolint:gosec
-			cmd.Dir = bareDir
-
-			var stderr bytes.Buffer
-			if verbose {
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-			} else {
-				cmd.Stderr = &stderr
-			}
-
-			err := cmd.Run()
-			cancel()
-			if err != nil {
-				errMsg := fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err)
-				if !verbose && stderr.Len() > 0 {
-					errMsg = fmt.Errorf("failed to create worktree for branch '%s': %w: %s", branch, err, strings.TrimSpace(stderr.String()))
-				}
-				return createdPaths, git.HintGitTooOld(git.WrapGitTooOldError(errMsg))
-			}
-		} else {
-			if err := git.CreateWorktree(bareDir, worktreePath, branch, !verbose); err != nil {
-				return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
-			}
+		if err := git.CreateWorktree(bareDir, worktreePath, opts, !verbose); err != nil {
+			return createdPaths, git.HintGitTooOld(fmt.Errorf("failed to create worktree for branch '%s': %w", branch, err))
 		}
 		createdPaths = append(createdPaths, absWorktreePath)
 
-		if config.ShouldAutoLock(branch) {
-			if err := git.LockWorktree(bareDir, absWorktreePath, "Auto-locked (grove.autoLock)"); err != nil {
-				logger.Debug("Failed to auto-lock worktree: %v", err)
-			} else {
-				logger.Debug("Auto-locked worktree for branch %s", branch)
+		if !noCheckoutFirst {
+			if exists, _ := git.RemoteBranchExists(bareDir, "origin", branch); exists {
+				if err := git.SetUpstreamBranch(absWorktreePath, "origin/"+branch); err != nil {
+					logger.Debug("Failed to set upstream for %s: %v", branch, err)
+				}
 			}
 		}
+
+		AutoLockIfMatched(bareDir, absWorktreePath, branch)
 	}
 	return createdPaths, nil
+}
+
+// AutoLockIfMatched locks a worktree when its branch matches an auto-lock pattern.
+func AutoLockIfMatched(bareDir, worktreePath, branch string) {
+	if !config.ShouldAutoLock(branch) {
+		return
+	}
+	if err := git.LockWorktree(bareDir, worktreePath, "Auto-locked (grove.autoLock)"); err != nil {
+		logger.Debug("Failed to auto-lock worktree: %v", err)
+	} else {
+		logger.Debug("Auto-locked worktree for branch %s", branch)
+	}
 }
 
 // moveFilesToFirstWorktree moves all files from targetDir to the first worktree
@@ -876,15 +853,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 		logger.Error("Conversion failed, attempting to restore repository...")
 		var restoreErrors []string
 
-		// Step 1: Remove created worktrees (best effort)
-		for _, worktreePath := range createdWorktrees {
-			logger.Debug("Removing worktree: %s", worktreePath)
-			if err := fs.RemoveAll(worktreePath); err != nil {
-				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
-			}
-		}
-
-		// Step 2: Move files back from first worktree (best effort, track failures)
+		// Step 1: Move files back from first worktree (best effort, track failures)
 		if len(movedFiles) > 0 && len(createdWorktrees) > 0 {
 			firstWorktree := createdWorktrees[0]
 			for i := len(movedFiles) - 1; i >= 0; i-- {
@@ -899,12 +868,20 @@ func Convert(targetDir, branches string, verbose bool) error {
 			}
 		}
 
+		// Step 2: Remove created worktrees (best effort)
+		for _, worktreePath := range createdWorktrees {
+			logger.Debug("Removing worktree: %s", worktreePath)
+			if err := os.RemoveAll(worktreePath); err != nil {
+				logger.Warning("Failed to remove worktree %s: %v", worktreePath, err)
+			}
+		}
+
 		// Step 3: Always attempt to restore .git directory
 		gitDir := filepath.Join(targetDir, ".git")
 		bareDir := filepath.Join(targetDir, ".bare")
 		logger.Info("Restoring .git directory...")
 
-		_ = fs.RemoveAll(gitDir) // Remove any partial .git file
+		_ = os.RemoveAll(gitDir) // Remove any partial .git file
 
 		if err := fs.RenameWithFallback(bareDir, gitDir); err != nil {
 			logger.Error("Failed to restore .git directory: %v", err)

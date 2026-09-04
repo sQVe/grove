@@ -1,0 +1,78 @@
+# grove clone: PR GitHub CLI arguments and failures are tested offline
+
+mkdir source
+exec git init source
+cd source
+cp ../README.md .
+exec git add .
+exec git commit -m 'initial commit'
+exec git checkout -b feature/pr
+cp ../feature.txt .
+exec git add .
+exec git commit -m 'PR commit'
+exec git checkout main
+cd ..
+
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_REPO=file://$WORK/source
+env FAKE_GH_PR_VIEW=$WORK/pr.json
+exec grove clone https://github.com/acme/widgets/pull/42 workspace
+exists workspace/pr-42/feature.txt
+
+env FAKE_GH_FAIL='pr view'
+env FAKE_GH_STDERR='fake PR failure'
+! exec grove clone https://github.com/acme/widgets/pull/43 failed
+stderr 'gh failed: fake PR failure'
+! exists failed/.bare
+
+# The PR clone path has its own repo clone and authentication failures.
+env FAKE_GH_FAIL='repo clone'
+env FAKE_GH_STDERR='fake PR clone failure'
+! exec grove clone https://github.com/acme/widgets/pull/44 clone-failed
+stderr 'clone failed: fake PR clone failure'
+
+env FAKE_GH_FAIL='auth status'
+! exec grove clone https://github.com/acme/widgets/pull/45 auth-failed
+stderr 'gh not authenticated'
+
+# A fork PR asks gh for the fork URL, then fetches from the local fixture.
+env FAKE_GH_FAIL=
+mkdir fork
+exec git -C fork init
+cp fork.txt fork/fork.txt
+exec git -C fork add .
+exec git -C fork commit -m 'fork commit'
+exec git -C fork branch -m fork-feature
+env FAKE_GH_PR_VIEW=$WORK/fork-pr.json
+env FAKE_GH_REPO_VIEW=$WORK/fork-url.txt
+exec grove clone https://github.com/acme/widgets/pull/46 fork-workspace
+exists fork-workspace/pr-46/fork.txt
+
+grep -count=13 '^.+$' gh.log
+grep -count=5 '^\["auth","status"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+workspace[/\\\\]+\.bare","--","--bare"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+failed[/\\\\]+\.bare","--","--bare"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+clone-failed[/\\\\]+\.bare","--","--bare"\]$' gh.log
+grep '^\["repo","clone","acme/widgets",".*[/\\\\]+fork-workspace[/\\\\]+\.bare","--","--bare"\]$' gh.log
+grep '^\["pr","view","42","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
+grep '^\["pr","view","43","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
+grep '^\["pr","view","46","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
+grep '^\["repo","view","contrib/fork","--json","url","-q","\.url"\]$' gh.log
+
+-- README.md --
+# Test
+
+-- feature.txt --
+PR content
+
+-- pr.json --
+{"headRefName":"feature/pr","headRepository":{"name":"widgets"},"headRepositoryOwner":{"login":"acme"}}
+
+-- fork-pr.json --
+{"headRefName":"fork-feature","headRepository":{"name":"fork"},"headRepositoryOwner":{"login":"contrib"}}
+
+-- fork-url.txt --
+file://$WORK/fork
+
+-- fork.txt --
+fork content

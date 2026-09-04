@@ -246,48 +246,26 @@ func printRefChangeVerbose(bareDir, remote string, change git.RefChange) {
 
 	switch change.Type {
 	case git.New:
-		if change.NewHash != "" {
-			shortHash := change.NewHash
-			if len(shortHash) > 7 {
-				shortHash = shortHash[:7]
-			}
-			if config.IsPlain() {
-				fmt.Printf("    %s at: %s\n", prefix, shortHash)
-			} else {
-				fmt.Printf("    %s at: %s\n",
-					styles.Render(&styles.Dimmed, prefix),
-					styles.Render(&styles.Dimmed, shortHash))
-			}
-		}
+		printHashLine(prefix, "at: ", change.NewHash)
 
 	case git.Updated:
-		if change.OldHash != "" {
-			shortHash := change.OldHash
-			if len(shortHash) > 7 {
-				shortHash = shortHash[:7]
-			}
-			if config.IsPlain() {
-				fmt.Printf("    %s from: %s\n", prefix, shortHash)
-			} else {
-				fmt.Printf("    %s from: %s\n",
-					styles.Render(&styles.Dimmed, prefix),
-					styles.Render(&styles.Dimmed, shortHash))
-			}
-		}
-		if change.NewHash != "" {
-			shortHash := change.NewHash
-			if len(shortHash) > 7 {
-				shortHash = shortHash[:7]
-			}
-			if config.IsPlain() {
-				fmt.Printf("    %s to:   %s\n", prefix, shortHash)
-			} else {
-				fmt.Printf("    %s to:   %s\n",
-					styles.Render(&styles.Dimmed, prefix),
-					styles.Render(&styles.Dimmed, shortHash))
-			}
-		}
+		printHashLine(prefix, "from: ", change.OldHash)
+		printHashLine(prefix, "to:   ", change.NewHash)
 	}
+}
+
+func printHashLine(prefix, label, hash string) {
+	if hash == "" {
+		return
+	}
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	if config.IsPlain() {
+		fmt.Printf("    %s %s%s\n", prefix, label, hash)
+		return
+	}
+	fmt.Printf("    %s %s%s\n", styles.Render(&styles.Dimmed, prefix), label, styles.Render(&styles.Dimmed, hash))
 }
 
 func stripRefPrefix(refName, remote string) string {

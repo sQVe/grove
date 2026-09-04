@@ -503,7 +503,7 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 	unlockCmd := NewUnlockCmd()
 
 	// First completion (no args yet) - should show both locked worktrees
-	completions, directive := completeUnlockArgs(unlockCmd, nil, "")
+	completions, directive := unlockCmd.ValidArgsFunction(unlockCmd, nil, "")
 	if directive != cobra.ShellCompDirectiveNoFileComp {
 		t.Errorf("expected ShellCompDirectiveNoFileComp, got %v", directive)
 	}
@@ -512,7 +512,7 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 	}
 
 	// Second completion (feature already typed) - should only show bugfix
-	completions, _ = completeUnlockArgs(unlockCmd, []string{"feature"}, "")
+	completions, _ = unlockCmd.ValidArgsFunction(unlockCmd, []string{"feature"}, "")
 	if len(completions) != 1 {
 		t.Errorf("expected 1 completion after 'feature', got %d: %v", len(completions), completions)
 	}
@@ -568,7 +568,7 @@ func TestCompleteUnlockArgs(t *testing.T) {
 
 	// Get completions
 	unlockCmd := NewUnlockCmd()
-	completions, directive := completeUnlockArgs(unlockCmd, nil, "")
+	completions, directive := unlockCmd.ValidArgsFunction(unlockCmd, nil, "")
 
 	// Should include locked worktrees only (bugfix)
 	hasBugfix := false

@@ -368,7 +368,7 @@ func TestCompleteExecArgs_ReturnsDirectoryNames(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	execCmd := NewExecCmd()
-	completions, _ := completeExecArgs(execCmd, nil, "")
+	completions, _ := execCmd.ValidArgsFunction(execCmd, nil, "")
 
 	// Should contain directory name, not branch name
 	hasDirName := false
@@ -411,14 +411,14 @@ func TestCompleteExecArgs(t *testing.T) {
 	execCmd := NewExecCmd()
 
 	t.Run("returns all worktrees when no args", func(t *testing.T) {
-		completions, _ := completeExecArgs(execCmd, nil, "")
+		completions, _ := execCmd.ValidArgsFunction(execCmd, nil, "")
 		if len(completions) != 3 {
 			t.Errorf("expected 3 completions, got %d", len(completions))
 		}
 	})
 
 	t.Run("excludes already specified worktrees", func(t *testing.T) {
-		completions, _ := completeExecArgs(execCmd, []string{"main"}, "")
+		completions, _ := execCmd.ValidArgsFunction(execCmd, []string{"main"}, "")
 		// Should not include "main" since it's already specified
 		for _, c := range completions {
 			if c == "main" {

@@ -1,7 +1,7 @@
 package git
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -16,19 +16,19 @@ import (
 
 // WorktreeInfo contains status information about a worktree
 type WorktreeInfo struct {
-	Path           string // Absolute path to worktree
-	Branch         string // Branch name (or commit hash if detached)
-	Upstream       string // Upstream branch name (e.g., "origin/main")
-	Dirty          bool   // Has uncommitted changes
-	Ahead          int    // Commits ahead of upstream
-	Behind         int    // Commits behind upstream
-	Gone           bool   // Upstream branch deleted
-	NoUpstream     bool   // No upstream configured
-	Locked         bool   // Worktree is locked
-	LockReason     string // Reason for lock (empty if not locked)
-	LastCommitTime int64  // Unix timestamp of last commit (0 if unknown)
-	Detached       bool   // Worktree is in detached HEAD state
-	Prunable       bool   // Git marks the worktree metadata as prunable
+	Path           string `json:"path"`                  // Absolute path to worktree
+	Branch         string `json:"branch"`                // Branch name (or commit hash if detached)
+	Upstream       string `json:"upstream,omitempty"`    // Upstream branch name (e.g., "origin/main")
+	Dirty          bool   `json:"dirty"`                 // Has uncommitted changes
+	Ahead          int    `json:"ahead"`                 // Commits ahead of upstream
+	Behind         int    `json:"behind"`                // Commits behind upstream
+	Gone           bool   `json:"gone"`                  // Upstream branch deleted
+	NoUpstream     bool   `json:"no_upstream"`           // No upstream configured
+	Locked         bool   `json:"locked"`                // Worktree is locked
+	LockReason     string `json:"lock_reason,omitempty"` // Reason for lock (empty if not locked)
+	LastCommitTime int64  `json:"-"`                     // Unix timestamp of last commit (0 if unknown)
+	Detached       bool   `json:"detached"`              // Worktree is in detached HEAD state
+	Prunable       bool   `json:"-"`                     // Git marks the worktree metadata as prunable
 }
 
 type worktreeListEntry struct {
@@ -40,92 +40,62 @@ type worktreeListEntry struct {
 	Prunable   bool
 }
 
-const gitWorktreeSubcommand = "worktree"
+const (
+	gitWorktreeSubcommand = "worktree"
+	detachedBranch        = "(detached)"
+)
 
-// CreateWorktree creates a new worktree from a bare repository
-func CreateWorktree(bareRepo, worktreePath, branch string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths %s %s", worktreePath, branch)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", worktreePath, branch)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
+// CreateWorktreeOptions configures worktree creation.
+type CreateWorktreeOptions struct {
+	Branch     string
+	NewBranch  bool
+	Base       string
+	Detach     bool
+	NoCheckout bool
 }
 
-// CreateWorktreeWithNewBranch creates a new worktree with a new branch.
-// Uses: git worktree add -b <branch> <path>
-func CreateWorktreeWithNewBranch(bareRepo, worktreePath, branch string, quiet bool) error {
+// CreateWorktree creates a worktree from a bare repository.
+func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, quiet bool) error {
 	if bareRepo == "" {
 		return errors.New("bare repository path cannot be empty")
 	}
 	if worktreePath == "" {
 		return errors.New("worktree path cannot be empty")
 	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths -b %s %s", branch, worktreePath)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
-}
-
-// CreateWorktreeWithNewBranchFrom creates a new worktree with a new branch based on a specific commit/branch.
-// Uses: git worktree add -b <newbranch> <path> <base>
-func CreateWorktreeWithNewBranchFrom(bareRepo, worktreePath, branch, base string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if branch == "" {
-		return errors.New("branch name cannot be empty")
-	}
-	if base == "" {
-		return errors.New("base reference cannot be empty")
-	}
-
-	logger.Debug("Executing: git worktree add --relative-paths -b %s %s %s", branch, worktreePath, base)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "-b", branch, worktreePath, base)
-	defer cancel()
-	cmd.Dir = bareRepo
-
-	return WrapGitTooOldError(runGitCommand(cmd, quiet))
-}
-
-// CreateWorktreeDetached creates a worktree in detached HEAD state at the specified ref.
-// Uses: git worktree add --detach <path> <ref>
-func CreateWorktreeDetached(bareRepo, worktreePath, ref string, quiet bool) error {
-	if bareRepo == "" {
-		return errors.New("bare repository path cannot be empty")
-	}
-	if worktreePath == "" {
-		return errors.New("worktree path cannot be empty")
-	}
-	if ref == "" {
+	if opts.Branch == "" && opts.Detach {
 		return errors.New("ref cannot be empty")
 	}
+	if opts.Branch == "" {
+		return errors.New("branch name cannot be empty")
+	}
 
-	logger.Debug("Executing: git worktree add --relative-paths --detach %s %s", worktreePath, ref)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "add", "--relative-paths", "--detach", worktreePath, ref)
+	args := createWorktreeArgs(worktreePath, opts)
+	logger.Debug("Executing: git %s", strings.Join(args, " "))
+	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
 	cmd.Dir = bareRepo
 
 	return WrapGitTooOldError(runGitCommand(cmd, quiet))
+}
+
+func createWorktreeArgs(worktreePath string, opts CreateWorktreeOptions) []string {
+	args := []string{gitWorktreeSubcommand, "add", "--relative-paths"}
+	if opts.NewBranch {
+		args = append(args, "-b", opts.Branch)
+	}
+	if opts.Detach {
+		args = append(args, "--detach")
+	}
+	if opts.NoCheckout {
+		args = append(args, "--no-checkout")
+	}
+	args = append(args, worktreePath)
+	if opts.Base != "" {
+		args = append(args, opts.Base)
+	} else if !opts.NewBranch {
+		args = append(args, opts.Branch)
+	}
+	return args
 }
 
 // RemoveWorktree removes a worktree directory
@@ -188,8 +158,8 @@ func ListWorktrees(repoPath string) ([]string, error) {
 }
 
 func listWorktreeEntries(repoPath string) ([]worktreeListEntry, error) {
-	logger.Debug("Executing: git worktree list --porcelain in %s", repoPath)
-	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "list", "--porcelain")
+	logger.Debug("Executing: git worktree list --porcelain -z in %s", repoPath)
+	cmd, cancel := GitCommand("git", gitWorktreeSubcommand, "list", "--porcelain", "-z")
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -228,9 +198,12 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 		return nil
 	}
 
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
+	output, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range bytes.Split(output, []byte{0}) {
+		line := string(field)
 		if line == "" {
 			if err := flush(); err != nil {
 				return nil, err
@@ -245,16 +218,13 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 			entry.Branch = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
 		case line == "detached":
 			entry.Detached = true
-			entry.Branch = "(detached)"
+			entry.Branch = detachedBranch
 		case line == "locked" || strings.HasPrefix(line, "locked "):
 			entry.Locked = true
 			entry.LockReason = strings.TrimSpace(strings.TrimPrefix(line, "locked"))
 		case line == "prunable" || strings.HasPrefix(line, "prunable "):
 			entry.Prunable = true
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 	if err := flush(); err != nil {
 		return nil, err
@@ -270,7 +240,7 @@ func parseWorktreeListPorcelain(r io.Reader, repoPath string) ([]worktreeListEnt
 func worktreeFallbackInfo(path string, entry worktreeListEntry, err error) (*WorktreeInfo, bool) {
 	switch {
 	case errors.Is(err, ErrDetachedHead):
-		return &WorktreeInfo{Path: path, Branch: "(detached)", Detached: true}, true
+		return &WorktreeInfo{Path: path, Branch: detachedBranch, Detached: true}, true
 	case entry.Locked:
 		return &WorktreeInfo{Path: path, Branch: entry.Branch, Detached: entry.Detached}, true
 	default:
@@ -400,31 +370,6 @@ func GetWorktreeInfo(path string) (*WorktreeInfo, error) {
 	return info, nil
 }
 
-// GetWorktreeGitDir returns the gitdir path for a worktree.
-// Returns ("", nil) if the path is not a worktree (no .git file).
-// Returns an error if the .git file exists but is unreadable or malformed.
-func GetWorktreeGitDir(worktreePath string) (string, error) {
-	gitFile := filepath.Join(worktreePath, ".git")
-	content, err := os.ReadFile(gitFile) //nolint:gosec // path derived from validated workspace
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil // Not a worktree - expected case
-		}
-		return "", fmt.Errorf("failed to read .git file: %w", err)
-	}
-
-	line := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(line, "gitdir:") {
-		return "", fmt.Errorf("invalid .git file format: missing gitdir prefix")
-	}
-
-	gitdir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
-	if !filepath.IsAbs(gitdir) {
-		gitdir = filepath.Join(worktreePath, gitdir)
-	}
-	return filepath.Clean(gitdir), nil
-}
-
 // IsWorktree checks if the given path is a git worktree
 func IsWorktree(path string) bool {
 	gitPath := filepath.Join(path, ".git")
@@ -434,30 +379,21 @@ func IsWorktree(path string) bool {
 // FindWorktreeRoot walks up from the given path to find the worktree root.
 // Returns the path containing the .git file, or error if not in a worktree.
 func FindWorktreeRoot(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
+	dir, err := fs.WalkUp(startPath, func(dir string) bool {
+		return fs.FileExists(filepath.Join(dir, ".git"))
+	})
 	if err != nil {
 		return "", err
 	}
-
-	dir := absPath
-	for i := 0; i < fs.MaxDirectoryIterations; i++ {
-		gitPath := filepath.Join(dir, ".git")
-		if fs.FileExists(gitPath) {
-			return dir, nil
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("not in a worktree")
-		}
-		dir = parent
+	if dir == "" {
+		return "", fmt.Errorf("not in a worktree")
 	}
-	return "", fmt.Errorf("exceeded maximum directory depth (%d): possible symlink loop", fs.MaxDirectoryIterations)
+	return dir, nil
 }
 
 // IsWorktreeLocked checks if a worktree is locked.
 func IsWorktreeLocked(worktreePath string) bool {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
+	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock check: %v", err)
 		return false
@@ -486,7 +422,7 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 
 // GetWorktreeLockReason returns the lock reason for a worktree.
 func GetWorktreeLockReason(worktreePath string) string {
-	gitdir, err := GetWorktreeGitDir(worktreePath)
+	gitdir, err := GetGitDir(worktreePath)
 	if err != nil {
 		logger.Debug("Failed to get worktree gitdir for lock reason: %v", err)
 		return ""

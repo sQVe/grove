@@ -249,7 +249,7 @@ List all worktrees with status.
 
 **Flags:**
 
-- `--fast` — Skip remote sync checks
+- `--fast` — Skip dirty and sync status checks
 - `--filter <status>` — Filter by: `dirty`, `ahead`, `behind`, `gone`, `locked`
 - `--json` — JSON output; includes `last_commit` when commit times are known (omitted with `--fast`)
 - `--sort name|recent` — Sort by name or latest commit (`recent` needs commit times, so it cannot be combined with `--fast`)
@@ -264,6 +264,28 @@ grove list --filter dirty
 grove list --filter ahead,behind
 grove list --json
 grove list --sort recent
+```
+
+</details>
+
+<details>
+<summary><code>grove fetch</code></summary>
+
+<br>
+
+Fetch all remotes and show branch changes.
+
+**Flags:**
+
+- `--json` — JSON output
+- `-v, --verbose` — Show commit hash details
+
+**Examples:**
+
+```bash
+grove fetch
+grove fetch --verbose
+grove fetch --json
 ```
 
 </details>
@@ -298,7 +320,7 @@ Remove one or more worktrees.
 
 **Flags:**
 
-- `-f, --force` — Remove even if dirty or locked
+- `-f, --force` — Remove even if dirty or locked; with `--branch`, delete unmerged and unpushed commits
 - `--branch` — Also delete the branch
 
 **Examples:**
@@ -441,9 +463,21 @@ Manage configuration.
 ```bash
 grove config list
 grove config get preserve.patterns
-grove config set --global plain true
-grove config set --shared autolock.patterns "main,release/*"
+grove config set --global grove.plain true
 grove config init
+```
+
+Edit `.grove.toml` to set array values:
+
+```toml
+[preserve]
+patterns = [".env", ".env.local"]
+
+[link]
+patterns = [".next", ".turbo"]
+
+[autolock]
+patterns = ["main", "release/*"]
 ```
 
 </details>
@@ -499,6 +533,19 @@ Run `grove config init` to create a `.grove.toml` template.
 # Grove - Git worktree management
 # https://github.com/sqve/grove
 
+# Use Nerd Font icons in output (when not in plain mode).
+nerd_fonts = true
+
+# Threshold for marking worktrees as stale (no commits within this period).
+# Format: number followed by d (days), w (weeks), or m (months).
+stale_threshold = "30d"
+
+# Disable colors and symbols in output.
+plain = false
+
+# Enable debug logging.
+debug = false
+
 [preserve]
 # Files to copy from the current worktree when creating a new one.
 # Useful for environment files and local configuration that shouldn't be in git.
@@ -534,6 +581,10 @@ exclude = [
   "venv",
 ]
 
+# Directories to recursively copy when creating a new worktree.
+# Unlike preserve.patterns, this copies the full directory tree.
+directories = []
+
 [link]
 # Directories to symlink from the source worktree when creating a new one.
 # Useful for sharing tool state (e.g., .claude) across worktrees.
@@ -552,19 +603,6 @@ add = []
 # Locked worktrees are protected from accidental deletion.
 # Supports exact matches and trailing /* wildcards (e.g., "release/*").
 patterns = ["develop", "main", "master"]
-
-# Use Nerd Font icons in output (when not in plain mode).
-nerd_fonts = true
-
-# Threshold for marking worktrees as stale (no commits within this period).
-# Format: number followed by d (days), w (weeks), or m (months).
-stale_threshold = "30d"
-
-# Disable colors and symbols in output.
-plain = false
-
-# Enable debug logging.
-debug = false
 ```
 
 </details>
@@ -635,7 +673,7 @@ patterns = [
 ]
 ```
 
-These patterns are additive — they extend the default preserve patterns, not replace them.
+These patterns replace the default preserve patterns.
 
 ## 🤝 Contributing
 

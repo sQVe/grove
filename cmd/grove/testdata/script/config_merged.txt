@@ -8,4 +8,4 @@ exec grove config get grove.plain
 stdout '^true$'
 
 exec grove config list
-stdout 'grove.plain'
+stdout 'plain=true'

@@ -1,0 +1,2 @@
+kind: Fixed
+body: 'README configuration examples now match the CLI, and `grove config list` includes every `.grove.toml` setting.'

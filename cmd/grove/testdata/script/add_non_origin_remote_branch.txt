@@ -1,0 +1,24 @@
+# Test: grove add checks out a branch that exists only on a non-origin remote
+setup_workspace
+
+cd $WORK
+exec git clone testrepo upstream-repo
+exec git -C upstream-repo checkout -b feat
+cp $WORK/feature.txt upstream-repo/feature.txt
+exec git -C upstream-repo add feature.txt
+exec git -C upstream-repo commit -m feature
+
+cd workspace/main
+exec git -C ../.bare remote add upstream file://$WORK/upstream-repo
+exec git -C ../.bare fetch upstream
+
+exec grove add feat
+stderr 'Created worktree at .*[/\\]feat'
+exists ../feat/feature.txt
+exec git -C ../feat rev-parse --abbrev-ref HEAD
+stdout '^feat$'
+exec git -C ../feat rev-parse --abbrev-ref '@{u}'
+stdout '^upstream/feat$'
+
+-- feature.txt --
+feature

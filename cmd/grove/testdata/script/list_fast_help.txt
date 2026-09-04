@@ -1,0 +1,3 @@
+# Test: grove list --fast documents every skipped status check
+exec grove list --help
+stdout 'Skip dirty and sync status checks'

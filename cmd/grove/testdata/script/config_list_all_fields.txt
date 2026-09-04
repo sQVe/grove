@@ -1,0 +1,47 @@
+# Test: config list shows every .grove.toml field in shared and effective output
+setup_workspace
+cp $WORK/all-fields.toml .grove.toml
+
+exec grove config list --shared
+stdout '^plain=false$'
+stdout '^debug=false$'
+stdout '^nerd_fonts=false$'
+stdout '^stale_threshold=45d$'
+stdout '^preserve.patterns=.env.custom$'
+stdout '^preserve.exclude=vendor$'
+stdout '^preserve.directories=.claude$'
+stdout '^link.patterns=.cache$'
+stdout '^hooks.add=make setup$'
+stdout '^autolock.patterns=release/\*$'
+
+exec grove config list
+stdout '^plain=false$'
+stdout '^debug=false$'
+stdout '^nerd_fonts=false$'
+stdout '^stale_threshold=45d$'
+stdout '^preserve.patterns=.env.custom$'
+stdout '^preserve.exclude=vendor$'
+stdout '^preserve.directories=.claude$'
+stdout '^link.patterns=.cache$'
+stdout '^hooks.add=make setup$'
+stdout '^autolock.patterns=release/\*$'
+
+-- all-fields.toml --
+plain = false
+debug = false
+nerd_fonts = false
+stale_threshold = "45d"
+
+[preserve]
+patterns = [".env.custom"]
+exclude = ["vendor"]
+directories = [".claude"]
+
+[link]
+patterns = [".cache"]
+
+[hooks]
+add = ["make setup"]
+
+[autolock]
+patterns = ["release/*"]

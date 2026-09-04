@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -30,16 +32,6 @@ func TestNewCloneCmd(t *testing.T) {
 }
 
 func TestNewCloneCmd_PreRunE(t *testing.T) {
-	t.Run("rejects branches flag without URL", func(t *testing.T) {
-		cmd := NewCloneCmd()
-		_ = cmd.Flags().Set("branches", "main,develop")
-
-		err := cmd.PreRunE(cmd, []string{})
-		if err == nil {
-			t.Error("expected error when --branches used without URL")
-		}
-	})
-
 	t.Run("accepts branches flag with URL", func(t *testing.T) {
 		cmd := NewCloneCmd()
 		_ = cmd.Flags().Set("branches", "main,develop")
@@ -138,6 +130,49 @@ func TestGitHubURLClassification(t *testing.T) {
 			}
 			if isFallback != tt.expectFallback {
 				t.Errorf("fallback for %q = %v, want %v", tt.url, isFallback, tt.expectFallback)
+			}
+		})
+	}
+}
+
+func TestRepositoryName(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{name: "HTTPS", source: "https://github.com/owner/repo", want: "repo"},
+		{name: "SSH", source: "git@github.com:owner/repo.git", want: "repo"},
+		{name: "git suffix", source: "https://github.com/owner/repo.git", want: "repo"},
+		{name: "trailing slash", source: "https://github.com/owner/repo/", want: "repo"},
+		{name: "local path", source: "/tmp/owner/repo", want: "repo"},
+		{name: "reserved name", source: "https://example.com/CON.git", want: "CON_"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := repositoryName(tt.source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("repositoryName(%q) = %q, want %q", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRepositoryNameRejectsInvalid(t *testing.T) {
+	sources := []string{"", ".", "/", ".git", ".."}
+	if runtime.GOOS == "windows" {
+		sources = append(sources, `\`, `C:\`)
+	}
+
+	for _, source := range sources {
+		t.Run(source, func(t *testing.T) {
+			_, err := repositoryName(source)
+			if !errors.Is(err, ErrCloneRepositoryName) {
+				t.Errorf("error = %v, want %v", err, ErrCloneRepositoryName)
 			}
 		})
 	}

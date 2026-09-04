@@ -14,6 +14,7 @@ import (
 func TestSpinnerUpdate(t *testing.T) {
 	t.Run("Update stores new message", func(t *testing.T) {
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("initial")
 		spinner.Update("updated message")
@@ -28,40 +29,13 @@ func TestSpinnerUpdate(t *testing.T) {
 func TestSpinnerStopIdempotent(t *testing.T) {
 	t.Run("Stop can be called multiple times without panic", func(t *testing.T) {
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		spinner := StartSpinner("test")
 
 		spinner.Stop()
 		spinner.Stop()
 		spinner.Stop()
-	})
-}
-
-func TestSpinnerStopWithSuccess(t *testing.T) {
-	t.Run("prints checkmark in normal mode", func(t *testing.T) {
-		oldStderr := os.Stderr
-		r, w, _ := os.Pipe()
-		os.Stderr = w
-		t.Cleanup(func() { os.Stderr = oldStderr })
-
-		config.SetPlain(false)
-		Init(false, false)
-		t.Setenv("GROVE_TEST_COLORS", "true")
-		spinner := StartSpinner("working")
-		spinner.StopWithSuccess("done successfully")
-
-		_ = w.Close()
-
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, r)
-		output := buf.String()
-
-		if !strings.Contains(output, "done successfully") {
-			t.Error("StopWithSuccess should print the message")
-		}
-		if !strings.Contains(output, "✓") {
-			t.Error("StopWithSuccess should print checkmark")
-		}
 	})
 }
 
@@ -101,6 +75,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		t.Cleanup(func() { os.Stderr = oldStderr })
 
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		stderrTerminal.Store(true)
 		spinner := StartSpinner("Loading data")
@@ -124,6 +99,7 @@ func TestSpinnerPlainMode(t *testing.T) {
 		t.Cleanup(func() { os.Stderr = oldStderr })
 
 		config.SetPlain(true)
+		t.Cleanup(func() { config.SetPlain(false) })
 		Init(true, false)
 		stderrTerminal.Store(true)
 		spinner := StartSpinner("test")
