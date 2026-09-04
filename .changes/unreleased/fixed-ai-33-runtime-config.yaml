@@ -1,2 +1,0 @@
-kind: Fixed
-body: '`.grove.toml` now applies `autolock.patterns`, `nerd_fonts`, `stale_threshold`, `plain`, and `debug` at startup.'

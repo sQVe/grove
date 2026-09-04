@@ -1,2 +1,0 @@
-kind: Fixed
-body: '`grove prune --force` now removes locked worktrees, and `grove remove --force --branch` warns before deleting commits not on another branch.'
