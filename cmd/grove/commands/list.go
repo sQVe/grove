@@ -78,6 +78,13 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 	if sortBy == sortRecent && fast {
 		return errors.New("--sort recent cannot be used with --fast because recency requires commit times")
 	}
+	if fast {
+		for _, f := range filters {
+			if f != "locked" {
+				return fmt.Errorf("--filter %s cannot be used with --fast because status checks are skipped", f)
+			}
+		}
+	}
 
 	cwd, err := os.Getwd()
 	if err != nil {

@@ -1,0 +1,13 @@
+# Test: grove list rejects status filters that --fast never populates
+setup_workspace
+
+! exec grove list --fast --filter dirty --plain
+stderr '^Error: --filter dirty cannot be used with --fast because status checks are skipped$'
+! stderr 'Gathering worktree status'
+! stdout .
+
+! exec grove list --fast --filter locked,ahead --plain
+stderr '^Error: --filter ahead cannot be used with --fast because status checks are skipped$'
+
+# locked is known without status checks, so it still works with --fast
+exec grove list --fast --filter locked --plain
