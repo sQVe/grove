@@ -65,9 +65,10 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 
 	// Process each target, accumulate successes and failures
 	type removedWorktree struct {
-		path     string
-		branch   string
-		detached bool
+		path          string
+		branch        string
+		detached      bool
+		branchDeleted bool
 	}
 	var removed []removedWorktree
 	var deletedBranches int
@@ -159,6 +160,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				failed = append(failed, dirName)
 				continue
 			}
+			removed[len(removed)-1].branchDeleted = true
 			deletedBranches++
 		}
 	}
@@ -181,7 +183,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				logger.Success("Removed %d worktrees:", len(removed))
 			}
 			for _, r := range removed {
-				if deleteBranch && !r.detached {
+				if r.branchDeleted {
 					logger.ListSubItem("%s (branch %s)", styles.RenderPath(r.path), r.branch)
 				} else {
 					logger.ListSubItem("%s", styles.RenderPath(r.path))

@@ -18,5 +18,20 @@ stderr 'Removed worktree.*branch-unmerged'
 exec git branch --list branch-unmerged
 stdout 'branch-unmerged'
 
+# Multi-worktree summary only claims a branch deletion that succeeded
+exec grove add branch-merged
+exec grove add branch-unmerged
+cd ../branch-unmerged
+cp $WORK/newfile.txt second.txt
+exec git add second.txt
+exec git commit -m 'second unmerged commit'
+cd ../main
+! exec grove remove --branch branch-merged branch-unmerged
+stderr 'Removed 2 worktrees:'
+stderr 'branch-merged \(branch branch-merged\)'
+! stderr 'branch-unmerged \(branch'
+exec git branch --list branch-unmerged
+stdout 'branch-unmerged'
+
 -- newfile.txt --
 new content
