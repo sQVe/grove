@@ -1,2 +1,0 @@
-kind: Fixed
-body: '`grove convert` now restores files before removing failed worktrees, and workspace locks remain active while their process is running.'

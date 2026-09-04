@@ -1,2 +1,0 @@
-kind: Added
-body: '`grove list --sort recent` now orders worktrees by their latest commit in table and JSON output.'

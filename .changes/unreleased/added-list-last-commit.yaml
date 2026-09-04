@@ -1,2 +1,0 @@
-kind: Added
-body: "`grove list --json` now includes each worktree's last commit time, and `--filter` rejects unknown filter names."
