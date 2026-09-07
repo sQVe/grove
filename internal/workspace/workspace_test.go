@@ -704,52 +704,10 @@ func TestResolveConfigDir(t *testing.T) {
 	t.Run("returns default branch worktree from workspace root", func(t *testing.T) {
 		t.Parallel()
 
-		workspaceDir := testutil.TempDir(t)
-		bareDir := filepath.Join(workspaceDir, ".bare")
+		w := testgit.NewGroveWorkspace(t, "main", "alpha")
+		mainWorktree := w.WorktreePath("main")
 
-		// Create bare repo with HEAD pointing to main
-		if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
-			t.Fatal(err)
-		}
-		cmd := exec.Command("git", "init", "--bare")
-		cmd.Dir = bareDir
-		if err := cmd.Run(); err != nil {
-			t.Fatal(err)
-		}
-		// HEAD file should already point to refs/heads/main by default
-
-		// Create main worktree directory
-		mainWorktree := filepath.Join(workspaceDir, "main")
-		if err := os.MkdirAll(mainWorktree, fs.DirGit); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(mainWorktree, ".git"), []byte("gitdir: ../.bare/worktrees/main"), fs.FileStrict); err != nil {
-			t.Fatal(err)
-		}
-
-		// Create another worktree (alphabetically first)
-		alphaWorktree := filepath.Join(workspaceDir, "alpha")
-		if err := os.MkdirAll(alphaWorktree, fs.DirGit); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(alphaWorktree, ".git"), []byte("gitdir: ../.bare/worktrees/alpha"), fs.FileStrict); err != nil {
-			t.Fatal(err)
-		}
-
-		// Register worktrees with git (create worktree metadata)
-		worktreesDir := filepath.Join(bareDir, "worktrees")
-		for _, name := range []string{"main", "alpha"} {
-			wtDir := filepath.Join(worktreesDir, name)
-			if err := os.MkdirAll(wtDir, fs.DirGit); err != nil {
-				t.Fatal(err)
-			}
-			gitdirPath := filepath.Join(workspaceDir, name)
-			if err := os.WriteFile(filepath.Join(wtDir, "gitdir"), []byte(gitdirPath), fs.FileStrict); err != nil {
-				t.Fatal(err)
-			}
-		}
-
-		result, err := ResolveConfigDir(workspaceDir)
+		result, err := ResolveConfigDir(w.Dir)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
