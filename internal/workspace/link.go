@@ -117,7 +117,8 @@ linkLoop:
 			}
 			continue
 		} else if !errors.Is(err, os.ErrNotExist) {
-			return result, fmt.Errorf("checking dest path %s: %w", destPath, err)
+			result.Conflicts = append(result.Conflicts, name)
+			continue
 		}
 
 		relTarget, err := filepath.Rel(filepath.Dir(destPath), filepath.Join(sourceDir, name))

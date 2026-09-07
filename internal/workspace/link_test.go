@@ -121,28 +121,41 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 
 	t.Run("reports a file at a dest parent as a conflict and keeps linking", func(t *testing.T) {
 		t.Parallel()
-		sourceDir := testutil.TempDir(t)
-		destDir := testutil.TempDir(t)
-		if err := os.MkdirAll(filepath.Join(sourceDir, "apps", "a", "node_modules"), fs.DirStrict); err != nil {
-			t.Fatal(err)
+		tests := []struct {
+			name     string
+			nested   string
+			pattern  string
+			conflict string
+		}{
+			{"one parent component", filepath.Join("apps", "node_modules"), "apps/node_modules", filepath.Join("apps", "node_modules")},
+			{"two parent components", filepath.Join("apps", "a", "node_modules"), "apps/*/node_modules", filepath.Join("apps", "a", "node_modules")},
 		}
-		if err := os.Mkdir(filepath.Join(sourceDir, "vendor"), fs.DirStrict); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(destDir, "apps"), []byte("not a dir"), fs.FileStrict); err != nil {
-			t.Fatal(err)
-		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				sourceDir := testutil.TempDir(t)
+				destDir := testutil.TempDir(t)
+				if err := os.MkdirAll(filepath.Join(sourceDir, tc.nested), fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(filepath.Join(sourceDir, "vendor"), fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(destDir, "apps"), []byte("not a dir"), fs.FileStrict); err != nil {
+					t.Fatal(err)
+				}
 
-		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/*/node_modules", "vendor"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(result.Linked) != 1 || result.Linked[0] != "vendor" {
-			t.Errorf("Expected [vendor] in Linked, got %v", result.Linked)
-		}
-		conflict := filepath.Join("apps", "a", "node_modules")
-		if len(result.Conflicts) != 1 || result.Conflicts[0] != conflict {
-			t.Errorf("Expected [%s] in Conflicts, got %v", conflict, result.Conflicts)
+				result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{tc.pattern, "vendor"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Linked) != 1 || result.Linked[0] != "vendor" {
+					t.Errorf("Expected [vendor] in Linked, got %v", result.Linked)
+				}
+				if len(result.Conflicts) != 1 || result.Conflicts[0] != tc.conflict {
+					t.Errorf("Expected [%s] in Conflicts, got %v", tc.conflict, result.Conflicts)
+				}
+			})
 		}
 	})
 
