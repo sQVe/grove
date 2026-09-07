@@ -1,11 +1,14 @@
 package git
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
@@ -29,6 +32,24 @@ func TestHasNoBranches(t *testing.T) {
 		}
 		if !empty {
 			t.Fatal("hasNoBranches() = false, want true")
+		}
+	})
+
+	t.Run("returns false when only remote-tracking refs exist", func(t *testing.T) {
+		t.Parallel()
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		w.RunOutput("remote", "add", "origin", origin.Path)
+		w.RunOutput("fetch", "origin", "+refs/heads/main:refs/remotes/origin/main")
+		w.RunOutput("worktree", "remove", "--force", filepath.Join(w.Dir, "main"))
+		w.RunOutput("branch", "-D", "main")
+
+		empty, err := hasNoBranches(w.BareDir)
+		if err != nil {
+			t.Fatalf("hasNoBranches() error = %v", err)
+		}
+		if empty {
+			t.Fatal("hasNoBranches() = true, want false")
 		}
 	})
 
@@ -82,7 +103,6 @@ func TestResolveWorktreeBase(t *testing.T) {
 	})
 
 	t.Run("returns HEAD for a repository without commits", func(t *testing.T) {
-		t.Parallel()
 		bareDir := filepath.Join(testutil.TempDir(t), "empty.bare")
 		if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
 			t.Fatalf("failed to create bare directory: %v", err)
@@ -91,12 +111,20 @@ func TestResolveWorktreeBase(t *testing.T) {
 			t.Fatalf("InitBare() error = %v", err)
 		}
 
+		var buf bytes.Buffer
+		logger.SetOutput(&buf)
+		defer logger.SetOutput(nil)
+		logger.Init(true, false)
+
 		base, err := ResolveWorktreeBase(bareDir, "", true)
 		if err != nil {
 			t.Fatalf("ResolveWorktreeBase() error = %v", err)
 		}
 		if base != headRef {
 			t.Fatalf("base = %q, want %s", base, headRef)
+		}
+		if buf.String() != "" {
+			t.Fatalf("warning = %q, want none for an empty repository", buf.String())
 		}
 	})
 
@@ -130,12 +158,16 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
-	t.Run("returns HEAD when no default branch resolves", func(t *testing.T) {
-		t.Parallel()
+	t.Run("warns and returns HEAD when no default branch resolves", func(t *testing.T) {
 		w := testgit.NewGroveWorkspace(t)
 		w.RunOutput("branch", "dev")
 		w.RunOutput("worktree", "remove", "--force", filepath.Join(w.Dir, "main"))
 		w.RunOutput("branch", "-D", "main")
+
+		var buf bytes.Buffer
+		logger.SetOutput(&buf)
+		defer logger.SetOutput(nil)
+		logger.Init(true, false)
 
 		base, err := ResolveWorktreeBase(w.BareDir, "", false)
 		if err != nil {
@@ -143,6 +175,9 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 		if base != headRef {
 			t.Fatalf("base = %q, want %s", base, headRef)
+		}
+		if !strings.Contains(buf.String(), "default branch unavailable") {
+			t.Fatalf("warning = %q, want it to name the unavailable default branch", buf.String())
 		}
 	})
 

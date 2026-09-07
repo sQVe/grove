@@ -62,9 +62,9 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	return base, nil
 }
 
-// hasNoBranches reports whether the repository holds no branches at all.
+// hasNoBranches reports whether the repository holds no local or remote-tracking branches.
 func hasNoBranches(bareDir string) (bool, error) {
-	cmd, cancel := GitCommand("git", "for-each-ref", "--count=1", "--format=%(refname)", "refs/heads")
+	cmd, cancel := GitCommand("git", "for-each-ref", "--count=1", "--format=%(refname)", "refs/heads", "refs/remotes")
 	defer cancel()
 	cmd.Dir = bareDir
 	refs, err := executeWithOutput(cmd)
