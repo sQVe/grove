@@ -6,6 +6,8 @@ exec grove init new workspace
 cd workspace
 exec grove add main
 ! stderr 'basing on'
+exec grove add --base HEAD other
+! stderr 'basing on'
 cd main
 
 # A workspace that never had a remote resolves the local default branch silently.
@@ -29,10 +31,19 @@ cp stdout $WORK/cloned-head
 exec git -C ../feature-orphaned rev-parse HEAD
 cmp stdout $WORK/cloned-head
 
-# Commits exist but no default branch resolves: still a degraded base, so still a warning.
+# Commits exist but HEAD points at a deleted branch: refuse rather than start from nothing.
 exec grove add dev
 cd ../dev
 exec grove remove main --force
 exec git branch -D main
-exec grove add feature/dangling
-stderr 'basing on HEAD from .* - default branch unavailable'
+! exec grove add feature/dangling
+stderr 'HEAD points at a branch that no longer exists'
+stderr 'pass --base'
+! exists ../feature-dangling
+
+# An explicit base still works there.
+exec grove add --base dev feature/based
+exec git rev-parse dev
+cp stdout $WORK/dev-head
+exec git -C ../feature-based rev-parse HEAD
+cmp stdout $WORK/dev-head

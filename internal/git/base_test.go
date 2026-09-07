@@ -14,8 +14,6 @@ import (
 )
 
 func TestHasNoBranches(t *testing.T) {
-	t.Parallel()
-
 	t.Run("returns true for a repository without branches", func(t *testing.T) {
 		t.Parallel()
 		bareDir := filepath.Join(testutil.TempDir(t), "empty.bare")
@@ -71,8 +69,6 @@ func TestHasNoBranches(t *testing.T) {
 }
 
 func TestResolveWorktreeBase(t *testing.T) {
-	t.Parallel()
-
 	t.Run("returns the remote-tracking ref when it exists", func(t *testing.T) {
 		t.Parallel()
 		w := testgit.NewGroveWorkspace(t)
@@ -158,11 +154,27 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
-	t.Run("warns and returns HEAD when no default branch resolves", func(t *testing.T) {
+	t.Run("returns an error when HEAD points at a deleted branch", func(t *testing.T) {
 		w := testgit.NewGroveWorkspace(t)
 		w.RunOutput("branch", "dev")
 		w.RunOutput("worktree", "remove", "--force", filepath.Join(w.Dir, "main"))
 		w.RunOutput("branch", "-D", "main")
+
+		_, err := ResolveWorktreeBase(w.BareDir, "", false)
+		if err == nil {
+			t.Fatal("expected an error when HEAD points at a deleted branch")
+		}
+		if !strings.Contains(err.Error(), "--base") {
+			t.Fatalf("error = %v, want it to suggest --base", err)
+		}
+	})
+
+	t.Run("warns and returns HEAD when a detached HEAD has no default branch", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		head := strings.TrimSpace(w.RunOutput("rev-parse", "HEAD"))
+		w.RunOutput("worktree", "remove", "--force", filepath.Join(w.Dir, "main"))
+		w.RunOutput("update-ref", "--no-deref", "HEAD", head)
+		w.RunOutput("update-ref", "-d", "refs/heads/main")
 
 		var buf bytes.Buffer
 		logger.SetOutput(&buf)
@@ -178,6 +190,24 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 		if !strings.Contains(buf.String(), "default branch unavailable") {
 			t.Fatalf("warning = %q, want it to name the unavailable default branch", buf.String())
+		}
+	})
+
+	t.Run("returns HEAD for an explicit HEAD base in an empty repository", func(t *testing.T) {
+		bareDir := filepath.Join(testutil.TempDir(t), "empty.bare")
+		if err := os.Mkdir(bareDir, fs.DirStrict); err != nil {
+			t.Fatalf("failed to create bare directory: %v", err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatalf("InitBare() error = %v", err)
+		}
+
+		base, err := ResolveWorktreeBase(bareDir, headRef, false)
+		if err != nil {
+			t.Fatalf("ResolveWorktreeBase() error = %v", err)
+		}
+		if base != headRef {
+			t.Fatalf("base = %q, want %s", base, headRef)
 		}
 	})
 

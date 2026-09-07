@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -16,7 +17,21 @@ const headRef = "HEAD"
 func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	branch := strings.TrimPrefix(base, "origin/")
 	if base != "" {
-		if exists, _ := RemoteBranchExists(bareDir, "origin", branch); !exists || base == headRef {
+		remote, err := RemoteBranchExists(bareDir, "origin", branch)
+		if err != nil {
+			return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
+		}
+		if !remote || base == headRef {
+			// An empty repository has no ref to verify; CreateWorktree starts an orphan branch.
+			if base == headRef {
+				empty, emptyErr := hasNoBranches(bareDir)
+				if emptyErr != nil {
+					return "", emptyErr
+				}
+				if empty {
+					return headRef, nil
+				}
+			}
 			exists, err := BranchExists(bareDir, base)
 			if err != nil {
 				return "", err
@@ -30,11 +45,7 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		var err error
 		branch, err = GetDefaultBranch(bareDir)
 		if err != nil {
-			// A repository without branches has nothing to base on yet, which is not a degraded base.
-			if empty, emptyErr := hasNoBranches(bareDir); emptyErr != nil || !empty {
-				warnWorktreeBase(bareDir, headRef, "default branch unavailable")
-			}
-			return headRef, nil
+			return resolveHeadBase(bareDir)
 		}
 	}
 	var fetchErr error
@@ -50,9 +61,18 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		}
 	}
 	base = headRef
-	if exists, _ := RemoteBranchExists(bareDir, "origin", branch); exists {
+	remote, remoteErr := RemoteBranchExists(bareDir, "origin", branch)
+	if remoteErr != nil {
+		return "", fmt.Errorf("failed to check origin/%s: %w", branch, remoteErr)
+	}
+	local, localErr := LocalBranchExists(bareDir, branch)
+	if localErr != nil {
+		return "", fmt.Errorf("failed to check branch %s: %w", branch, localErr)
+	}
+	switch {
+	case remote:
 		base = "origin/" + branch
-	} else if exists, _ := LocalBranchExists(bareDir, branch); exists {
+	case local:
 		base = branch
 	}
 	if fetchErr != nil {
@@ -60,6 +80,27 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		warnWorktreeBase(bareDir, base, "fetch failed")
 	}
 	return base, nil
+}
+
+// resolveHeadBase falls back to the bare repository's HEAD once no default branch resolves.
+func resolveHeadBase(bareDir string) (string, error) {
+	dangling, err := isHeadDangling(bareDir)
+	if err != nil {
+		return "", err
+	}
+	if !dangling {
+		warnWorktreeBase(bareDir, headRef, "default branch unavailable")
+		return headRef, nil
+	}
+	// A repository without branches has nothing to base on yet, which is not a degraded base.
+	empty, err := hasNoBranches(bareDir)
+	if err != nil {
+		return "", err
+	}
+	if empty {
+		return headRef, nil
+	}
+	return "", errors.New("cannot resolve a base branch: HEAD points at a branch that no longer exists; pass --base <branch>")
 }
 
 // hasNoBranches reports whether the repository holds no local or remote-tracking branches.
