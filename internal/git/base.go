@@ -30,21 +30,24 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		var err error
 		branch, err = GetDefaultBranch(bareDir)
 		if err != nil {
-			// A repository without commits has no branch to base on yet, which is not a degraded base.
-			if unborn, headErr := isHeadDangling(bareDir); headErr != nil || !unborn {
+			// A repository without branches has nothing to base on yet, which is not a degraded base.
+			if empty, emptyErr := hasNoBranches(bareDir); emptyErr != nil || !empty {
 				warnWorktreeBase(bareDir, headRef, "default branch unavailable")
 			}
 			return headRef, nil
 		}
 	}
 	var fetchErr error
-	if hasOrigin, _ := RemoteExists(bareDir, "origin"); fetch && hasOrigin {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git
-		cmd.Dir = bareDir
-		cmd.WaitDelay = time.Second
-		fetchErr = runGitCommand(cmd, true)
+	if fetch {
+		// An unreadable remote list is treated as a remote, so a real failure still warns.
+		if hasOrigin, originErr := RemoteExists(bareDir, "origin"); originErr != nil || hasOrigin {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git
+			cmd.Dir = bareDir
+			cmd.WaitDelay = time.Second
+			fetchErr = runGitCommand(cmd, true)
+		}
 	}
 	base = headRef
 	if exists, _ := RemoteBranchExists(bareDir, "origin", branch); exists {
@@ -57,6 +60,18 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		warnWorktreeBase(bareDir, base, "fetch failed")
 	}
 	return base, nil
+}
+
+// hasNoBranches reports whether the repository holds no branches at all.
+func hasNoBranches(bareDir string) (bool, error) {
+	cmd, cancel := GitCommand("git", "for-each-ref", "--count=1", "--format=%(refname)", "refs/heads")
+	defer cancel()
+	cmd.Dir = bareDir
+	refs, err := executeWithOutput(cmd)
+	if err != nil {
+		return false, err
+	}
+	return refs == "", nil
 }
 
 func warnWorktreeBase(bareDir, base, reason string) {

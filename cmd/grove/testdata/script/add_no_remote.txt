@@ -28,3 +28,11 @@ exec git rev-parse HEAD
 cp stdout $WORK/cloned-head
 exec git -C ../feature-orphaned rev-parse HEAD
 cmp stdout $WORK/cloned-head
+
+# Commits exist but no default branch resolves: still a degraded base, so still a warning.
+exec grove add dev
+cd ../dev
+exec grove remove main --force
+exec git branch -D main
+exec grove add feature/dangling
+stderr 'basing on HEAD from .* - default branch unavailable'

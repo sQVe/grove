@@ -223,10 +223,10 @@ grove add --from dev feat/auth # Copy .env from dev worktree
 New branches start from the default branch on origin, fetched with a five-second timeout.
 If fetching fails, Grove warns with the base ref and commit age, then uses the existing
 origin ref, local default branch, or bare HEAD. Local branches and worktrees stay unchanged.
-An explicit `--base` uses its origin counterpart when available. Use `--no-fetch` to skip
-fetching once, or `grove config set --global grove.fetchBase false` to disable it by
-default. Both keep the newest local ref, which is the bare repository's HEAD when nothing
-else resolves.
+An explicit `--base` uses its origin counterpart when available, and `--base HEAD` selects
+the bare repository's HEAD. Use `--no-fetch` to skip fetching once, or
+`grove config set --global grove.fetchBase false` to disable it by default. Both leave the
+refs on disk untouched and pick from them in the same order.
 
 </details>
 
