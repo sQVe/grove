@@ -533,56 +533,76 @@ func TestDeleteBranch(t *testing.T) {
 }
 
 func TestGetDefaultBranch(t *testing.T) {
-	t.Run("returns main for bare repo with main branch", func(t *testing.T) {
-		tempDir := testutil.TempDir(t)
-		bareDir := filepath.Join(tempDir, "test.bare")
-		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
-			t.Fatalf("failed to create bare directory: %v", err)
-		}
+	tests := []struct {
+		name       string
+		originHead string
+		head       string
+		refs       []string
+		want       string
+	}{
+		{name: "origin HEAD takes precedence", originHead: "develop", head: "feature", refs: []string{"remotes/origin/develop", "heads/feature", "heads/main"}, want: "develop"},
+		{name: "valid bare HEAD", head: "feature", refs: []string{"heads/feature", "heads/main"}, want: "feature"},
+		{name: "dangling bare HEAD falls back to main", head: "missing", refs: []string{"heads/main", "heads/master"}, want: "main"},
+		{name: "master fallback", head: "missing", refs: []string{"heads/master"}, want: "master"},
+		{name: "remote main fallback", head: "missing", refs: []string{"remotes/origin/main"}, want: "main"},
+		{name: "remote master fallback", head: "missing", refs: []string{"remotes/origin/master"}, want: "master"},
+		{name: "bare HEAD target exists remotely", head: "feature", refs: []string{"remotes/origin/feature", "heads/main"}, want: "feature"},
+		{name: "dangling origin HEAD", originHead: "missing", head: "feature", refs: []string{"heads/feature"}, want: "feature"},
+		{name: "nothing resolvable", originHead: "missing", head: "missing"},
+		{name: "unrelated branch is not a default", head: "missing", refs: []string{"heads/other"}},
+		{name: "tags are not branches", originHead: "release", head: "release", refs: []string{"tags/release", "tags/main", "tags/master"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := testgit.NewTestRepo(t)
+			bareDir := filepath.Join(repo.TempDir, "test.bare")
+			// Clone from disk to create a real bare repository.
+			repo.RunOutput("clone", "--bare", "--local", repo.Path, bareDir)
+			hash := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD"))
+			repo.RunOutput("--git-dir", bareDir, "update-ref", "-d", "refs/heads/main")
+			for _, ref := range tt.refs {
+				repo.RunOutput("--git-dir", bareDir, "update-ref", "refs/"+ref, hash)
+			}
+			repo.RunOutput("--git-dir", bareDir, "symbolic-ref", "HEAD", "refs/heads/"+tt.head)
+			if tt.originHead != "" {
+				repo.RunOutput("--git-dir", bareDir, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/"+tt.originHead)
+			}
+			repo.RunOutput("--git-dir", bareDir, "pack-refs", "--all")
+			refsBefore := repo.RunOutput("--git-dir", bareDir, "for-each-ref", "--format=%(refname) %(objectname) %(symref)")
 
-		// Initialize bare repo with main branch
-		cmd := exec.Command("git", "init", "--bare", "-b", "main") //nolint:gosec
-		cmd.Dir = bareDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to init bare repo: %v", err)
-		}
-
-		branch, err := GetDefaultBranch(bareDir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if branch != "main" {
-			t.Errorf("expected 'main', got %q", branch)
-		}
-	})
-
-	t.Run("returns master for bare repo with master branch", func(t *testing.T) {
-		tempDir := testutil.TempDir(t)
-		bareDir := filepath.Join(tempDir, "test.bare")
-		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
-			t.Fatalf("failed to create bare directory: %v", err)
-		}
-
-		// Initialize bare repo with master branch
-		cmd := exec.Command("git", "init", "--bare", "-b", "master") //nolint:gosec
-		cmd.Dir = bareDir
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("failed to init bare repo: %v", err)
-		}
-
-		branch, err := GetDefaultBranch(bareDir)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if branch != "master" {
-			t.Errorf("expected 'master', got %q", branch)
-		}
-	})
+			// Disable all Git transports during resolution.
+			t.Setenv("GIT_ALLOW_PROTOCOL", "")
+			branch, err := GetDefaultBranch(bareDir)
+			if tt.want == "" {
+				if err == nil || err.Error() != "could not determine default branch from HEAD" {
+					t.Errorf("expected unresolved default branch error, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if branch != tt.want {
+				t.Errorf("expected %q, got %q", tt.want, branch)
+			}
+			if got := strings.TrimSpace(repo.RunOutput("--git-dir", bareDir, "symbolic-ref", "HEAD")); got != "refs/heads/"+tt.head {
+				t.Errorf("HEAD changed to %q", got)
+			}
+			if got := repo.RunOutput("--git-dir", bareDir, "for-each-ref", "--format=%(refname) %(objectname) %(symref)"); got != refsBefore {
+				t.Errorf("refs changed during resolution")
+			}
+		})
+	}
 
 	t.Run("returns error for empty path", func(t *testing.T) {
 		_, err := GetDefaultBranch("")
-		if err == nil {
-			t.Error("expected error for empty path")
+		if err == nil || err.Error() != "repository path cannot be empty" {
+			t.Errorf("expected empty path error, got %v", err)
+		}
+	})
+
+	t.Run("returns error for missing HEAD", func(t *testing.T) {
+		_, err := GetDefaultBranch(testutil.TempDir(t))
+		if err == nil || !strings.Contains(err.Error(), "failed to read HEAD:") {
+			t.Errorf("expected HEAD read error, got %v", err)
 		}
 	})
 }

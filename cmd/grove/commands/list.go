@@ -19,10 +19,13 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-const sortRecent = "recent"
+const (
+	sortRecent   = "recent"
+	filterLocked = "locked"
+)
 
 var (
-	validFilters = []string{"dirty", "ahead", "behind", "gone", "locked"}
+	validFilters = []string{"dirty", "ahead", "behind", "gone", filterLocked}
 	validSorts   = []string{"name", sortRecent}
 )
 
@@ -80,7 +83,7 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 	}
 	if fast {
 		for _, f := range filters {
-			if f != "locked" {
+			if f != filterLocked {
 				return fmt.Errorf("--filter %s cannot be used with --fast because status checks are skipped", f)
 			}
 		}
@@ -291,7 +294,7 @@ func matchesAnyFilter(info *git.WorktreeInfo, filters []string) bool {
 			if info.Gone {
 				return true
 			}
-		case "locked":
+		case filterLocked:
 			if info.Locked {
 				return true
 			}

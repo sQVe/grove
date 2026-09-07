@@ -184,25 +184,42 @@ func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err 
 	return strings.TrimSpace(string(output)), true, nil
 }
 
-// GetDefaultBranch returns the default branch for a bare repository
+// GetDefaultBranch resolves origin/HEAD, bare HEAD, main, then master using only local ref reads.
 func GetDefaultBranch(bareDir string) (string, error) {
 	if bareDir == "" {
 		return "", errors.New("repository path cannot be empty")
 	}
 
+	cmd, cancel := GitCommand("git", "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
+	cmd.Dir = bareDir
+	output, err := cmd.Output()
+	cancel()
+	if err == nil {
+		if branch, ok := strings.CutPrefix(strings.TrimSpace(string(output)), "refs/remotes/origin/"); ok {
+			if exists, _ := RemoteBranchExists(bareDir, "origin", branch); exists {
+				return branch, nil
+			}
+		}
+	}
+
 	headFile := filepath.Join(bareDir, "HEAD")
-
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	if err != nil {
-		return "", fmt.Errorf("failed to read HEAD: %w", err)
+	content, readErr := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	branch, _ := strings.CutPrefix(strings.TrimSpace(string(content)), "ref: refs/heads/")
+	for _, candidate := range []string{branch, "main", "master"} {
+		if candidate == "" {
+			continue
+		}
+		if exists, _ := LocalBranchExists(bareDir, candidate); exists {
+			return candidate, nil
+		}
+		if exists, _ := RemoteBranchExists(bareDir, "origin", candidate); exists {
+			return candidate, nil
+		}
 	}
 
-	line := strings.TrimSpace(string(content))
-
-	if after, ok := strings.CutPrefix(line, "ref: refs/heads/"); ok {
-		return after, nil
+	if readErr != nil {
+		return "", fmt.Errorf("failed to read HEAD: %w", readErr)
 	}
-
 	return "", fmt.Errorf("could not determine default branch from HEAD")
 }
 
