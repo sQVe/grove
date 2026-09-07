@@ -38,7 +38,7 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	if fetch {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git
+		cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git
 		cmd.Dir = bareDir
 		cmd.WaitDelay = time.Second
 		fetchErr = runGitCommand(cmd, true)
