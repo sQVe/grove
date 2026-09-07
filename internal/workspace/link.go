@@ -102,7 +102,9 @@ linkLoop:
 					continue linkLoop
 				}
 			} else if !errors.Is(err, os.ErrNotExist) {
-				return result, fmt.Errorf("checking dest parent %s: %w", parent, err)
+				// A non-directory on the way to destPath blocks this link but not the rest.
+				result.Conflicts = append(result.Conflicts, name)
+				continue linkLoop
 			}
 		}
 
