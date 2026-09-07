@@ -92,6 +92,11 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 func createWorktreeArgs(worktreePath string, opts CreateWorktreeOptions) []string {
 	args := []string{gitWorktreeSubcommand, "add", "--relative-paths"}
 	if opts.NewBranch {
+		// The base is a start point; branch.autoSetupMerge would otherwise make it an upstream.
+		// An orphan branch has no start point, and git rejects --no-track alongside --orphan.
+		if opts.Base != "" {
+			args = append(args, "--no-track")
+		}
 		args = append(args, "-b", opts.Branch)
 	}
 	if opts.Detach {

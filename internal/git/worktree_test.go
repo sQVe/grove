@@ -113,7 +113,7 @@ func TestCreateWorktreeArgs(t *testing.T) {
 		{
 			name: "new branch from base",
 			opts: CreateWorktreeOptions{Branch: "feature", NewBranch: true, Base: "main"},
-			want: []string{"worktree", "add", "--relative-paths", "-b", "feature", "/wt", "main"},
+			want: []string{"worktree", "add", "--relative-paths", "--no-track", "-b", "feature", "/wt", "main"},
 		},
 		{
 			name: "detached",
