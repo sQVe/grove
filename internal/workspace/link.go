@@ -126,8 +126,11 @@ linkLoop:
 			return result, err
 		}
 
+		// Windows reports a file in the parent chain as not-exist rather than ENOTDIR,
+		// so the Lstat checks above miss it and this is where that case surfaces.
 		if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
-			return result, err
+			result.Conflicts = append(result.Conflicts, name)
+			continue
 		}
 
 		if err := os.Symlink(relTarget, destPath); err != nil {
