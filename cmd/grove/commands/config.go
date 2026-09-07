@@ -18,6 +18,7 @@ import (
 const (
 	configKeyPlain     = "grove.plain"
 	configKeyDebug     = "grove.debug"
+	configKeyFetchBase = "grove.fetchBase"
 	configKeyNerdFonts = "grove.nerdFonts"
 	configKeyPreserve  = "grove.preserve"
 	configKeyHooksAdd  = "hooks.add"
@@ -27,8 +28,8 @@ const (
 )
 
 var (
-	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve}
-	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts}
+	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve, configKeyFetchBase}
+	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyFetchBase}
 )
 
 // isValidConfigKey validates that key is in grove.* namespace
@@ -409,6 +410,7 @@ func runConfigListEffective() error {
 	cfg.Link.Patterns = config.GetMergedLinkPatterns(worktreeDir)
 	cfg.Autolock.Patterns = config.GetAutoLockPatterns()
 	printFileConfig(&cfg)
+	fmt.Printf("grove.fetchBase=%t\n", config.IsFetchBase())
 	return nil
 }
 
@@ -489,6 +491,8 @@ func runConfigGetEffective(key string) error {
 	worktreeDir := findWorktreeDir()
 
 	switch strings.ToLower(key) {
+	case "grove.fetchbase":
+		fmt.Println(config.IsFetchBase())
 	case configKeyPlain, tomlKeyPlain:
 		fmt.Println(config.GetMergedPlain(worktreeDir))
 	case configKeyDebug, tomlKeyDebug:

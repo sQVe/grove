@@ -21,6 +21,7 @@ func NewAddCmd() *cobra.Command {
 	var baseBranch string
 	var name string
 	var detach bool
+	var noFetch bool
 	var prNumber int
 	var reset bool
 	var from string
@@ -45,17 +46,18 @@ Examples:
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset, from)
+			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset, from, noFetch)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the worktree after creating it")
-	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of HEAD")
+	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of the default branch")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch from origin")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -70,7 +72,7 @@ Examples:
 	return cmd
 }
 
-func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string) error {
+func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
 	name = strings.TrimSpace(name)
 	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
 		return fmt.Errorf("--name must be a single directory name")
@@ -206,10 +208,10 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
+	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
 }
 
-func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
+func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -266,22 +268,12 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 			}
 		}
 	} else {
-		if baseBranch != "" {
-			// Validate base branch exists
-			baseExists, err := git.BranchExists(bareDir, baseBranch)
-			if err != nil {
-				return fmt.Errorf("failed to check base branch: %w", err)
-			}
-			if !baseExists {
-				return fmt.Errorf("base branch %q does not exist", baseBranch)
-			}
-			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true, Base: baseBranch}, true); err != nil {
-				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
-			}
-		} else {
-			if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true}, true); err != nil {
-				return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
-			}
+		base, err := git.ResolveWorktreeBase(bareDir, baseBranch, fetchBase)
+		if err != nil {
+			return err
+		}
+		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch, NewBranch: true, Base: base}, true); err != nil {
+			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
 	}
 

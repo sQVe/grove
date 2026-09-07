@@ -148,7 +148,7 @@ func TestGetConfigCompletions(t *testing.T) {
 		{
 			name:       "empty completion shows all keys",
 			toComplete: "",
-			want:       []string{"grove.debug", "grove.nerdFonts", "grove.plain", "grove.preserve"},
+			want:       []string{"grove.debug", "grove.fetchBase", "grove.nerdFonts", "grove.plain", "grove.preserve"},
 		},
 		{
 			name:       "partial grove.p completion",

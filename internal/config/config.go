@@ -18,6 +18,7 @@ var globalMu sync.RWMutex
 
 type settings struct {
 	Plain            bool
+	FetchBase        bool
 	Debug            bool
 	NerdFonts        bool
 	StaleThreshold   string
@@ -40,6 +41,7 @@ var Global settings
 var DefaultConfig = defaultSettings{
 	settings: settings{
 		Plain:          false,
+		FetchBase:      true,
 		Debug:          false,
 		NerdFonts:      true,
 		StaleThreshold: "30d",
@@ -81,6 +83,13 @@ func IsPlain() bool {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
 	return Global.Plain
+}
+
+// IsFetchBase reports whether add should fetch its base branch.
+func IsFetchBase() bool {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
+	return Global.FetchBase
 }
 
 // IsDebug returns true if debug logging is enabled
@@ -221,6 +230,10 @@ func loadGlobalConfig(fileConfig *FileConfig) {
 
 	if value := getGitConfig("grove.plain"); value != "" {
 		loaded.Plain = isTruthy(value)
+	}
+
+	if value := getGitConfig("grove.fetchBase"); value != "" {
+		loaded.FetchBase = isTruthy(value)
 	}
 
 	if value := getGitConfig("grove.debug"); value != "" {

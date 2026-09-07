@@ -70,6 +70,13 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 	}
 
 	args := createWorktreeArgs(worktreePath, opts)
+	// An empty repository has no commit to use as a start point.
+	if opts.NewBranch && opts.Base == headRef {
+		if unborn, err := isHeadDangling(bareRepo); err == nil && unborn {
+			opts.Base = ""
+			args = append(createWorktreeArgs(worktreePath, opts), "--orphan")
+		}
+	}
 	logger.Debug("Executing: git %s", strings.Join(args, " "))
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()

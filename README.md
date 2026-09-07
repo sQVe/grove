@@ -200,7 +200,8 @@ Add a worktree for a branch, pull request, or ref.
 **Flags:**
 
 - `-s, --switch` — Switch to worktree after creating
-- `--base <branch>` — Create new branch from base instead of HEAD
+- `--base <branch>` — Create new branch from this base instead of the default branch
+- `--no-fetch` — Skip fetching the base branch
 - `--name <name>` — Custom directory name
 - `-d, --detach` — Detached HEAD state
 - `--pr <number>` — Create worktree for a pull request
@@ -218,6 +219,13 @@ grove add --pr 123 --reset     # PR, discarding local commits
 grove add --detach v1.0.0      # Tag in detached HEAD
 grove add --from dev feat/auth # Copy .env from dev worktree
 ```
+
+New branches start from the default branch on origin, fetched with a five-second timeout.
+If fetching fails, Grove warns with the base ref and commit age, then uses the existing
+origin ref, local default branch, or bare HEAD. Local branches and worktrees stay unchanged.
+An explicit `--base` uses its origin counterpart when available. Use `--base HEAD` for
+local HEAD, `--no-fetch` to skip fetching once, or
+`grove config set --global grove.fetchBase false` to disable it by default.
 
 </details>
 

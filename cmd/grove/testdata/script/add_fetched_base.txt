@@ -1,0 +1,26 @@
+# Fetch the default branch without touching a dirty default worktree.
+setup_workspace
+exec git rev-parse HEAD
+cp stdout $WORK/head-before
+cp $WORK/dirty README.md
+exec git status --porcelain=v1
+cp stdout $WORK/status-before
+exec git -C $WORK/testrepo commit --allow-empty -m upstream
+exec git -C $WORK/testrepo rev-parse HEAD
+cp stdout $WORK/upstream
+
+# Even a configured local destination must not be updated by this fetch.
+exec git config remote.origin.fetch +refs/heads/*:refs/heads/*
+exec grove add feature/fetched
+exec git -C ../feature-fetched rev-parse HEAD
+cmp stdout $WORK/upstream
+exec git rev-parse origin/main
+cmp stdout $WORK/upstream
+exec git rev-parse HEAD
+cmp stdout $WORK/head-before
+exec git status --porcelain=v1
+cmp stdout $WORK/status-before
+cmp README.md $WORK/dirty
+
+-- dirty --
+uncommitted work

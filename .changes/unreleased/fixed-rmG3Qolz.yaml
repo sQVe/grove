@@ -1,0 +1,5 @@
+kind: Fixed
+body: Base new branches on the fetched origin default branch, with offline fallback warnings and fetch opt-outs.
+time: 2026-09-07T17:05:21.627212356+02:00
+custom:
+  Issue: ''

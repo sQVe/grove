@@ -1,0 +1,24 @@
+# An unavailable origin warns once with the selected ref and commit age.
+setup_workspace
+exec git remote set-url origin $WORK/missing
+exec git rev-parse origin/main
+cp stdout $WORK/expected
+exec grove add offline-remote
+stderr -count=1 'basing on origin/main from .+ ago - fetch failed'
+exec git -C ../offline-remote rev-parse HEAD
+cmp stdout $WORK/expected
+
+# Without a remote-tracking ref, use the local default branch.
+exec git update-ref -d refs/remotes/origin/main
+exec grove add offline-local
+stderr -count=1 'basing on main from .+ ago - fetch failed'
+exec git -C ../offline-local rev-parse HEAD
+cmp stdout $WORK/expected
+
+# A detached bare HEAD and no default branch still provides an explicit base.
+exec git -C ../.bare update-ref --no-deref HEAD main
+exec git -C ../.bare update-ref -d refs/heads/main
+exec grove add offline-head
+stderr -count=1 'basing on HEAD from .+ ago'
+exec git -C ../offline-head rev-parse HEAD
+cmp stdout $WORK/expected
