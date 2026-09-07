@@ -1,5 +1,0 @@
-kind: Fixed
-body: Resolve the default branch from origin/HEAD before bare HEAD, main, and master, checking existing local refs without network access (AI-134).
-time: 2026-09-07T14:29:34.057077769+02:00
-custom:
-  Issue: ''
