@@ -16,12 +16,14 @@ const headRef = "HEAD"
 // ResolveWorktreeBase selects an explicit start point, optionally refreshing origin.
 func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	branch := strings.TrimPrefix(base, "origin/")
+	qualified := strings.HasPrefix(base, "origin/")
 	if base != "" {
 		remote, err := RemoteBranchExists(bareDir, "origin", branch)
 		if err != nil {
 			return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
 		}
-		if !remote || base == headRef {
+		// A qualified base names a remote branch, so fetch it before calling it missing.
+		if (!remote && !qualified) || base == headRef {
 			// An empty repository has no ref to verify; CreateWorktree starts an orphan branch.
 			if base == headRef {
 				empty, emptyErr := hasNoBranches(bareDir)
@@ -72,6 +74,8 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	switch {
 	case remote:
 		base = "origin/" + branch
+	case qualified:
+		return "", fmt.Errorf("base branch \"origin/%s\" does not exist", branch)
 	case local:
 		base = branch
 	}

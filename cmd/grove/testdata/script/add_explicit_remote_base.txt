@@ -10,6 +10,16 @@ exec grove add --base origin/develop from-qualified
 exec git -C ../from-qualified rev-parse HEAD
 cmp stdout $WORK/expected
 
+# A qualified base is fetched even when its tracking ref was pruned.
+exec git update-ref -d refs/remotes/origin/develop
+exec grove add --base origin/develop from-pruned
+exec git -C ../from-pruned rev-parse HEAD
+cmp stdout $WORK/expected
+
+# A qualified base that origin does not have is still an error.
+! exec grove add --base origin/nope from-missing
+stderr 'base branch "origin/nope" does not exist'
+
 # A local-only base remains literal and never contacts origin.
 exec git branch local-only
 exec git remote set-url origin $WORK/missing

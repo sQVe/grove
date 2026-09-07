@@ -140,6 +140,31 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
+	t.Run("fetches a qualified base whose tracking ref was pruned", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		origin.CreateBranch("develop")
+		w.RunOutput("remote", "add", "origin", origin.Path)
+
+		base, err := ResolveWorktreeBase(w.BareDir, "origin/develop", true)
+		if err != nil {
+			t.Fatalf("ResolveWorktreeBase() error = %v", err)
+		}
+		if base != "origin/develop" {
+			t.Fatalf("base = %q, want origin/develop", base)
+		}
+	})
+
+	t.Run("returns an error for a qualified base origin does not have", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		w.RunOutput("remote", "add", "origin", origin.Path)
+
+		if _, err := ResolveWorktreeBase(w.BareDir, "origin/nope", true); err == nil {
+			t.Fatal("expected an error for a base that origin does not have")
+		}
+	})
+
 	t.Run("keeps a local-only base literal", func(t *testing.T) {
 		t.Parallel()
 		w := testgit.NewGroveWorkspace(t)
