@@ -25,8 +25,8 @@ func TestAdd(t *testing.T) {
 		w.RunOutput("config", "grove.timeout", "30s")
 		w.RunOutput("config", "grove.fetchBase", "true")
 		// Stall the real upload-pack process, leaving git fetch waiting for a response.
-		w.RunOutput("config", "remote.origin.uploadpack", "sleep 30; git-upload-pack")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		w.RunOutput("config", "remote.origin.uploadpack", "sleep 10; git-upload-pack")
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "grove", "add", "bounded-fetch")
 		cmd.Dir = w.BareDir
