@@ -455,6 +455,10 @@ func runConfigGetShared(key string) error {
 		if cfg.Plain != nil {
 			fmt.Println(*cfg.Plain)
 		}
+	case strings.ToLower(configKeyFetchBase), tomlKeyFetchBase:
+		if cfg.FetchBase != nil {
+			fmt.Println(*cfg.FetchBase)
+		}
 	case configKeyDebug, tomlKeyDebug:
 		if cfg.Debug != nil {
 			fmt.Println(*cfg.Debug)
