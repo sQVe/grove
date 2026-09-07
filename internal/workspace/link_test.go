@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
@@ -56,7 +57,7 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(result.Linked) != 2 || result.Linked[0] != names[0] || result.Linked[1] != names[1] {
+		if !slices.Equal(result.Linked, names) {
 			t.Errorf("Expected %v in Linked, got %v", names, result.Linked)
 		}
 		if len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
