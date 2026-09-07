@@ -1,6 +1,6 @@
 setup_workspace
 exec grove config list
-stdout 'grove.fetchBase=true'
+stdout 'fetch_base=true'
 exec grove config get grove.fetchBase
 stdout '^true$'
 exec git rev-parse origin/main
@@ -16,7 +16,7 @@ cmp stdout $WORK/before
 
 exec grove config set --global grove.fetchBase false
 exec grove config list
-stdout 'grove.fetchBase=false'
+stdout 'fetch_base=false'
 exec grove add config-skipped
 ! stderr 'fetch failed'
 exec git rev-parse origin/main
@@ -30,3 +30,18 @@ stdout 'grove.fetchBase'
 exec grove __complete config set grove.fetchBase ''
 stdout 'true'
 stdout 'false'
+
+# .grove.toml carries the key too, so a team can disable the fetch for the repository.
+exec grove config unset --global grove.fetchBase
+cp $WORK/toml .grove.toml
+exec grove config list
+stdout 'fetch_base=false'
+exec grove add toml-skipped
+! stderr 'fetch failed'
+exec git rev-parse origin/main
+cmp stdout $WORK/before
+exec git -C ../toml-skipped rev-parse HEAD
+cmp stdout $WORK/before
+
+-- toml --
+fetch_base = false

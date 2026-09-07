@@ -14,6 +14,9 @@ plain = false
 # Enable debug logging.
 debug = false
 
+# Fetch the base branch from origin before creating a new branch.
+fetch_base = true
+
 [preserve]
 # Files to copy from the current worktree when creating a new one.
 # Useful for environment files and local configuration that shouldn't be in git.

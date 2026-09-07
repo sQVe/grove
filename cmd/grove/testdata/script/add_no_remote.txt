@@ -1,0 +1,30 @@
+# A workspace without origin has nothing to fetch, so nothing to warn about.
+
+# The first branch of an empty workspace has no commit to base on.
+mkdir workspace
+exec grove init new workspace
+cd workspace
+exec grove add main
+! stderr 'basing on'
+cd main
+
+# A workspace that never had a remote resolves the local default branch silently.
+exec git commit --allow-empty -m initial
+exec grove add feature/local
+! stderr 'basing on'
+exec git rev-parse HEAD
+cp stdout $WORK/expected
+exec git -C ../feature-local rev-parse HEAD
+cmp stdout $WORK/expected
+
+# Losing origin is the same case: no fetch to fail, no warning.
+cd $WORK
+exec grove clone file://$WORK/workspace/main cloned
+cd cloned/main
+exec git remote remove origin
+exec grove add feature/orphaned
+! stderr 'basing on'
+exec git rev-parse HEAD
+cp stdout $WORK/cloned-head
+exec git -C ../feature-orphaned rev-parse HEAD
+cmp stdout $WORK/cloned-head

@@ -30,12 +30,15 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		var err error
 		branch, err = GetDefaultBranch(bareDir)
 		if err != nil {
-			warnWorktreeBase(bareDir, headRef, "default branch unavailable")
+			// A repository without commits has no branch to base on yet, which is not a degraded base.
+			if unborn, headErr := isHeadDangling(bareDir); headErr != nil || !unborn {
+				warnWorktreeBase(bareDir, headRef, "default branch unavailable")
+			}
 			return headRef, nil
 		}
 	}
 	var fetchErr error
-	if fetch {
+	if hasOrigin, _ := RemoteExists(bareDir, "origin"); fetch && hasOrigin {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git

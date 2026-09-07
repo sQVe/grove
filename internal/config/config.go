@@ -221,6 +221,9 @@ func loadGlobalConfig(fileConfig *FileConfig) {
 	if fileConfig.NerdFonts != nil {
 		loaded.NerdFonts = *fileConfig.NerdFonts
 	}
+	if fileConfig.FetchBase != nil {
+		loaded.FetchBase = *fileConfig.FetchBase
+	}
 	if isValidStaleThreshold(fileConfig.StaleThreshold) {
 		loaded.StaleThreshold = fileConfig.StaleThreshold
 	}

@@ -69,13 +69,17 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 		return errors.New("branch name cannot be empty")
 	}
 
-	args := createWorktreeArgs(worktreePath, opts)
 	// An empty repository has no commit to use as a start point.
+	orphan := false
 	if opts.NewBranch && opts.Base == headRef {
 		if unborn, err := isHeadDangling(bareRepo); err == nil && unborn {
 			opts.Base = ""
-			args = append(createWorktreeArgs(worktreePath, opts), "--orphan")
+			orphan = true
 		}
+	}
+	args := createWorktreeArgs(worktreePath, opts)
+	if orphan {
+		args = append(args, "--orphan")
 	}
 	logger.Debug("Executing: git %s", strings.Join(args, " "))
 	cmd, cancel := GitCommand("git", args...)
