@@ -86,6 +86,11 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		return duplicate
 	})
 
+	// Link parents before children so creating a child's directory cannot cause a conflict.
+	slices.SortStableFunc(names, func(a, b string) int {
+		return strings.Count(a, string(filepath.Separator)) - strings.Count(b, string(filepath.Separator))
+	})
+
 linkLoop:
 	for _, name := range names {
 		parent := destDir

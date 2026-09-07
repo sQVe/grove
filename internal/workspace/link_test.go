@@ -12,6 +12,35 @@ import (
 func TestLinkDirectoriesToWorktree(t *testing.T) {
 	t.Parallel()
 
+	t.Run("links parents before children regardless of pattern order", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct {
+			name     string
+			patterns []string
+		}{
+			{"child first", []string{"apps/*/node_modules", "apps/*"}},
+			{"parent first", []string{"apps/*", "apps/*/node_modules"}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				sourceDir := testutil.TempDir(t)
+				destDir := testutil.TempDir(t)
+				parent := filepath.Join("apps", "a")
+				if err := os.MkdirAll(filepath.Join(sourceDir, parent, "node_modules"), fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+
+				result, err := LinkDirectoriesToWorktree(sourceDir, destDir, tc.patterns)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Linked) != 1 || result.Linked[0] != parent || len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
+					t.Errorf("Expected only parent %q linked, got %+v", parent, result)
+				}
+			})
+		}
+	})
+
 	t.Run("deduplicates overlapping patterns in match order", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)
