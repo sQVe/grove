@@ -588,7 +588,8 @@ directories = []
 [link]
 # Directories to symlink from the source worktree when creating a new one.
 # Useful for sharing tool state (e.g., .claude) across worktrees.
-# Matched against directory names in the worktree root.
+# Patterns without / match directory names in the worktree root.
+# Patterns with / match paths relative to the worktree root.
 # Creates relative symlinks so the workspace remains portable.
 patterns = []
 
@@ -641,11 +642,18 @@ add = ["lefthook install"]
 
 ### Next.js shared build caches
 
-Next.js build output (`.next`) and Turborepo cache (`.turbo`) can be shared across worktrees to avoid redundant rebuilds. Never symlink `node_modules/` — it contains absolute paths and branch-specific dependency versions.
+Next.js build output (`.next`) and Turborepo cache (`.turbo`) can be shared across worktrees to avoid redundant rebuilds. Avoid symlinking `node_modules/` unless its contents are portable and dependency versions match across worktrees. It can contain absolute paths and branch-specific dependency versions.
 
 ```toml
 [link]
 patterns = [".next", ".turbo"]
+```
+
+For a monorepo that meets those conditions, use a path pattern to link each app's dependencies:
+
+```toml
+[link]
+patterns = ["apps/*/node_modules"]
 ```
 
 ### Rust shared target directory

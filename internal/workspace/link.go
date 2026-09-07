@@ -3,8 +3,15 @@ package workspace
 import (
 	"errors"
 	"fmt"
+	iofs "io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/logger"
 )
 
 // LinkResult holds the outcome of a directory linking operation.
@@ -15,7 +22,7 @@ type LinkResult struct {
 }
 
 // LinkDirectoriesToWorktree creates relative symlinks in destDir for directories
-// in sourceDir whose names match any of the given patterns.
+// in sourceDir whose names or relative paths match any of the given patterns.
 // Existing paths in destDir are skipped, never overwritten.
 func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*LinkResult, error) {
 	result := &LinkResult{}
@@ -29,6 +36,7 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		return result, fmt.Errorf("reading source dir %s: %w", sourceDir, err)
 	}
 
+	var names []string
 	for _, entry := range entries {
 		isDir := entry.IsDir()
 		if !isDir && entry.Type()&os.ModeSymlink != 0 {
@@ -45,6 +53,65 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		if !matchesAnyLinkPattern(name, patterns) {
 			continue
 		}
+		names = append(names, name)
+	}
+
+	for _, pattern := range patterns {
+		if !strings.Contains(pattern, "/") {
+			continue
+		}
+		if isPathTraversal(filepath.FromSlash(pattern)) {
+			logger.Debug("Skipping invalid link pattern (path traversal): %s", pattern)
+			continue
+		}
+		// Glob within the source worktree so glob characters in its own path are
+		// never read as pattern syntax, and no match can escape it.
+		matches, err := iofs.Glob(os.DirFS(sourceDir), path.Clean(pattern))
+		if err != nil {
+			continue
+		}
+		for _, match := range matches {
+			name := filepath.FromSlash(match)
+			info, err := os.Stat(filepath.Join(sourceDir, name))
+			if err != nil || !info.IsDir() {
+				continue
+			}
+			names = append(names, name)
+		}
+	}
+
+	seen := make(map[string]bool, len(names))
+	names = slices.DeleteFunc(names, func(name string) bool {
+		duplicate := seen[name]
+		seen[name] = true
+		return duplicate
+	})
+
+	// Link parents before children so creating a child's directory cannot cause a conflict.
+	slices.SortStableFunc(names, func(a, b string) int {
+		return strings.Count(a, string(filepath.Separator)) - strings.Count(b, string(filepath.Separator))
+	})
+
+linkLoop:
+	for _, name := range names {
+		parent := destDir
+		parts := strings.Split(name, string(filepath.Separator))
+		for _, part := range parts[:len(parts)-1] {
+			parent = filepath.Join(parent, part)
+			if info, err := os.Lstat(parent); err == nil {
+				if info.Mode()&os.ModeSymlink != 0 {
+					continue linkLoop
+				}
+				if !info.IsDir() {
+					result.Conflicts = append(result.Conflicts, name)
+					continue linkLoop
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				// A non-directory on the way to destPath blocks this link but not the rest.
+				result.Conflicts = append(result.Conflicts, name)
+				continue linkLoop
+			}
+		}
 
 		destPath := filepath.Join(destDir, name)
 		if info, err := os.Lstat(destPath); err == nil {
@@ -55,12 +122,20 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 			}
 			continue
 		} else if !errors.Is(err, os.ErrNotExist) {
-			return result, fmt.Errorf("checking dest path %s: %w", destPath, err)
+			result.Conflicts = append(result.Conflicts, name)
+			continue
 		}
 
-		relTarget, err := filepath.Rel(destDir, filepath.Join(sourceDir, name))
+		relTarget, err := filepath.Rel(filepath.Dir(destPath), filepath.Join(sourceDir, name))
 		if err != nil {
 			return result, err
+		}
+
+		// Windows reports a file in the parent chain as not-exist rather than ENOTDIR,
+		// so the Lstat checks above miss it and this is where that case surfaces.
+		if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
+			result.Conflicts = append(result.Conflicts, name)
+			continue
 		}
 
 		if err := os.Symlink(relTarget, destPath); err != nil {
