@@ -12,6 +12,84 @@ import (
 func TestLinkDirectoriesToWorktree(t *testing.T) {
 	t.Parallel()
 
+	t.Run("deduplicates overlapping patterns in match order", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		names := []string{filepath.Join("apps", "b", "node_modules"), filepath.Join("apps", "a", "node_modules")}
+		for _, name := range names {
+			if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/b/node_modules", "apps/*/node_modules", "apps/a/node_modules"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != 2 || result.Linked[0] != names[0] || result.Linked[1] != names[1] {
+			t.Errorf("Expected %v in Linked, got %v", names, result.Linked)
+		}
+		if len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
+			t.Errorf("Expected no skips or conflicts, got %+v", result)
+		}
+	})
+
+	t.Run("ignores nested paths beneath linked parents", func(t *testing.T) {
+		t.Parallel()
+		for _, parent := range []string{"apps", "apps/a"} {
+			t.Run(parent, func(t *testing.T) {
+				t.Parallel()
+				sourceDir := testutil.TempDir(t)
+				destDir := testutil.TempDir(t)
+				name := filepath.Join("apps", "a", "node_modules")
+				if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+
+				result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{parent, "apps/*/node_modules"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Linked) != 1 || result.Linked[0] != filepath.FromSlash(parent) || len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
+					t.Errorf("Expected only parent %q linked, got %+v", parent, result)
+				}
+				info, err := os.Stat(filepath.Join(destDir, name))
+				if err != nil || !info.IsDir() {
+					t.Fatalf("Nested directory is not reachable: %v", err)
+				}
+			})
+		}
+	})
+
+	t.Run("does not create directories through existing parent symlinks", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		targetDir := testutil.TempDir(t)
+		if err := os.MkdirAll(filepath.Join(sourceDir, "apps", "a", "node_modules"), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(targetDir, filepath.Join(destDir, "apps")); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/*/node_modules"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != 0 || len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
+			t.Errorf("Expected empty result, got %+v", result)
+		}
+		entries, err := os.ReadDir(targetDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 0 {
+			t.Errorf("Expected symlink target untouched, got %v", entries)
+		}
+	})
+
 	t.Run("preserves existing nested destinations and ignores source files", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)
@@ -67,7 +145,7 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		for _, tc := range []struct{ name, pattern string }{
 			{"rejects absolute paths", "/apps/*/node_modules"},
 			{"rejects parent prefixes", "../source/apps/*/node_modules"},
-			{"rejects parent segments", "apps/../apps/*/node_modules"},
+			{"rejects escaping parent segments", "apps/../../source/apps/*/node_modules"},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
@@ -92,6 +170,23 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 					t.Errorf("Expected invalid pattern %q to be ignored, got %+v", pattern, result)
 				}
 			})
+		}
+	})
+
+	t.Run("accepts parent segments that clean to a safe path", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		if err := os.Mkdir(filepath.Join(sourceDir, "b"), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"a/../b"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != 1 || result.Linked[0] != "b" {
+			t.Errorf("Expected [b] in Linked, got %v", result.Linked)
 		}
 	})
 

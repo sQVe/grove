@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/sqve/grove/internal/fs"
@@ -57,8 +58,7 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		if !strings.Contains(pattern, "/") {
 			continue
 		}
-		cleaned := filepath.Clean(filepath.FromSlash(pattern))
-		if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || strings.Contains("/"+filepath.ToSlash(pattern)+"/", "/../") {
+		if isPathTraversal(filepath.FromSlash(pattern)) {
 			logger.Debug("Skipping invalid link pattern (path traversal): %s", pattern)
 			continue
 		}
@@ -79,7 +79,28 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		}
 	}
 
+	seen := make(map[string]bool, len(names))
+	names = slices.DeleteFunc(names, func(name string) bool {
+		duplicate := seen[name]
+		seen[name] = true
+		return duplicate
+	})
+
+linkLoop:
 	for _, name := range names {
+		parent := destDir
+		parts := strings.Split(name, string(filepath.Separator))
+		for _, part := range parts[:len(parts)-1] {
+			parent = filepath.Join(parent, part)
+			if info, err := os.Lstat(parent); err == nil {
+				if info.Mode()&os.ModeSymlink != 0 {
+					continue linkLoop
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return result, fmt.Errorf("checking dest parent %s: %w", parent, err)
+			}
+		}
+
 		destPath := filepath.Join(destDir, name)
 		if info, err := os.Lstat(destPath); err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {

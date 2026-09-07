@@ -76,7 +76,7 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles, 
 
 // PreserveDirectoriesToWorktree recursively copies named directories from source to dest.
 // Skips directories that don't exist in source. Skips individual files that already exist in dest.
-// Rejects directory names with path traversal (absolute paths or ".." components).
+// Rejects absolute paths and paths that resolve outside the source directory.
 func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []string) (*PreserveResult, error) {
 	result := &PreserveResult{}
 
@@ -86,7 +86,7 @@ func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []stri
 
 	for _, dir := range directories {
 		cleaned := filepath.Clean(dir)
-		if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		if isPathTraversal(dir) {
 			logger.Debug("Skipping invalid preserve directory (path traversal): %s", dir)
 			continue
 		}
@@ -139,6 +139,11 @@ func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []stri
 	}
 
 	return result, nil
+}
+
+func isPathTraversal(path string) bool {
+	cleaned := filepath.Clean(path)
+	return filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator))
 }
 
 func FindIgnoredFilesInWorktree(worktreeDir string) ([]string, error) {
