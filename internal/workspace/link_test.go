@@ -120,6 +120,39 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		}
 	})
 
+	t.Run("matches nested patterns under a source path holding glob characters", func(t *testing.T) {
+		t.Parallel()
+		root := testutil.TempDir(t)
+		sourceDir := filepath.Join(root, "project[1]")
+		destDir := filepath.Join(root, "dest")
+		name := filepath.Join("apps", "a", "node_modules")
+		if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(destDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/*/node_modules"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != 1 || result.Linked[0] != name {
+			t.Fatalf("Expected [%s] in Linked, got %+v", name, result)
+		}
+		sourceInfo, err := os.Stat(filepath.Join(sourceDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		destInfo, err := os.Stat(filepath.Join(destDir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !os.SameFile(sourceInfo, destInfo) {
+			t.Error("Expected the link to resolve to the source directory")
+		}
+	})
+
 	t.Run("reports a file at a dest parent as a conflict and keeps linking", func(t *testing.T) {
 		t.Parallel()
 		tests := []struct {

@@ -3,7 +3,9 @@ package workspace
 import (
 	"errors"
 	"fmt"
+	iofs "io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -62,18 +64,17 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 			logger.Debug("Skipping invalid link pattern (path traversal): %s", pattern)
 			continue
 		}
-		matches, err := filepath.Glob(filepath.Join(sourceDir, filepath.FromSlash(pattern)))
+		// Glob within the source worktree so glob characters in its own path are
+		// never read as pattern syntax, and no match can escape it.
+		matches, err := iofs.Glob(os.DirFS(sourceDir), path.Clean(pattern))
 		if err != nil {
 			continue
 		}
-		for _, sourcePath := range matches {
-			info, err := os.Stat(sourcePath)
+		for _, match := range matches {
+			name := filepath.FromSlash(match)
+			info, err := os.Stat(filepath.Join(sourceDir, name))
 			if err != nil || !info.IsDir() {
 				continue
-			}
-			name, err := filepath.Rel(sourceDir, sourcePath)
-			if err != nil {
-				return result, err
 			}
 			names = append(names, name)
 		}
@@ -99,6 +100,10 @@ linkLoop:
 			parent = filepath.Join(parent, part)
 			if info, err := os.Lstat(parent); err == nil {
 				if info.Mode()&os.ModeSymlink != 0 {
+					continue linkLoop
+				}
+				if !info.IsDir() {
+					result.Conflicts = append(result.Conflicts, name)
 					continue linkLoop
 				}
 			} else if !errors.Is(err, os.ErrNotExist) {
