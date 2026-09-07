@@ -196,30 +196,45 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	cancel()
 	if err == nil {
 		if branch, ok := strings.CutPrefix(strings.TrimSpace(string(output)), "refs/remotes/origin/"); ok {
-			if exists, _ := RemoteBranchExists(bareDir, "origin", branch); exists {
+			exists, existsErr := RemoteBranchExists(bareDir, "origin", branch)
+			if existsErr != nil {
+				return "", fmt.Errorf("failed to check origin/%s: %w", branch, existsErr)
+			}
+			if exists {
 				return branch, nil
 			}
 		}
 	}
 
 	headFile := filepath.Join(bareDir, "HEAD")
-	content, readErr := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
-	branch, _ := strings.CutPrefix(strings.TrimSpace(string(content)), "ref: refs/heads/")
-	for _, candidate := range []string{branch, "main", "master"} {
-		if candidate == "" {
-			continue
+	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	if err != nil {
+		return "", fmt.Errorf("failed to read HEAD: %w", err)
+	}
+
+	candidates := []string{"main", "master"}
+	if branch, ok := strings.CutPrefix(strings.TrimSpace(string(content)), "ref: refs/heads/"); ok {
+		candidates = append([]string{branch}, candidates...)
+	}
+
+	for _, candidate := range candidates {
+		exists, existsErr := LocalBranchExists(bareDir, candidate)
+		if existsErr != nil {
+			return "", fmt.Errorf("failed to check branch %s: %w", candidate, existsErr)
 		}
-		if exists, _ := LocalBranchExists(bareDir, candidate); exists {
+		if exists {
 			return candidate, nil
 		}
-		if exists, _ := RemoteBranchExists(bareDir, "origin", candidate); exists {
+
+		exists, existsErr = RemoteBranchExists(bareDir, "origin", candidate)
+		if existsErr != nil {
+			return "", fmt.Errorf("failed to check origin/%s: %w", candidate, existsErr)
+		}
+		if exists {
 			return candidate, nil
 		}
 	}
 
-	if readErr != nil {
-		return "", fmt.Errorf("failed to read HEAD: %w", readErr)
-	}
 	return "", fmt.Errorf("could not determine default branch from HEAD")
 }
 
