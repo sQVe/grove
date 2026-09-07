@@ -12,6 +12,138 @@ import (
 func TestLinkDirectoriesToWorktree(t *testing.T) {
 	t.Parallel()
 
+	t.Run("preserves existing nested destinations and ignores source files", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		conflict := filepath.Join("apps", "a", "node_modules")
+		skipped := filepath.Join("apps", "b", "node_modules")
+		for _, name := range []string{conflict, skipped} {
+			if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(destDir, name)), fs.DirStrict); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.Mkdir(filepath.Join(destDir, conflict), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("missing", filepath.Join(destDir, skipped)); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(sourceDir, "apps", "c"), fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sourceDir, "apps", "c", "node_modules"), []byte("file"), fs.FileStrict); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/*/node_modules"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != 0 {
+			t.Errorf("Expected nothing linked, got %v", result.Linked)
+		}
+		if len(result.Conflicts) != 1 || result.Conflicts[0] != conflict {
+			t.Errorf("Expected [%s] in Conflicts, got %v", conflict, result.Conflicts)
+		}
+		if len(result.Skipped) != 1 || result.Skipped[0] != skipped {
+			t.Errorf("Expected [%s] in Skipped, got %v", skipped, result.Skipped)
+		}
+		info, err := os.Lstat(filepath.Join(destDir, conflict))
+		if err != nil || !info.IsDir() {
+			t.Fatalf("Existing directory changed: %v", err)
+		}
+		target, err := os.Readlink(filepath.Join(destDir, skipped))
+		if err != nil || target != "missing" {
+			t.Fatalf("Existing symlink changed: target %q, error %v", target, err)
+		}
+	})
+
+	t.Run("rejects absolute and parent traversal patterns", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct{ name, pattern string }{
+			{"rejects absolute paths", "/apps/*/node_modules"},
+			{"rejects parent prefixes", "../source/apps/*/node_modules"},
+			{"rejects parent segments", "apps/../apps/*/node_modules"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				root := testutil.TempDir(t)
+				sourceDir := filepath.Join(root, "source")
+				destDir := filepath.Join(root, "dest")
+				if err := os.MkdirAll(filepath.Join(sourceDir, "apps", "a", "node_modules"), fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.MkdirAll(destDir, fs.DirStrict); err != nil {
+					t.Fatal(err)
+				}
+				pattern := tc.pattern
+				if pattern == "/apps/*/node_modules" {
+					pattern = filepath.VolumeName(sourceDir) + pattern
+				}
+				result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{pattern})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Linked) != 0 || len(result.Skipped) != 0 || len(result.Conflicts) != 0 {
+					t.Errorf("Expected invalid pattern %q to be ignored, got %+v", pattern, result)
+				}
+			})
+		}
+	})
+
+	t.Run("links nested directories with resolving relative targets", func(t *testing.T) {
+		t.Parallel()
+		sourceDir := testutil.TempDir(t)
+		destDir := testutil.TempDir(t)
+		names := []string{filepath.Join("apps", "a", "node_modules"), filepath.Join("apps", "b", "node_modules")}
+		for _, name := range names {
+			if err := os.MkdirAll(filepath.Join(sourceDir, name), fs.DirStrict); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		result, err := LinkDirectoriesToWorktree(sourceDir, destDir, []string{"apps/*/node_modules"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Linked) != len(names) {
+			t.Fatalf("Expected %v in Linked, got %v", names, result.Linked)
+		}
+		for i, name := range names {
+			if result.Linked[i] != name {
+				t.Errorf("Expected %q in Linked, got %q", name, result.Linked[i])
+			}
+			destPath := filepath.Join(destDir, name)
+			sourcePath := filepath.Join(sourceDir, name)
+			target, err := os.Readlink(destPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected, err := filepath.Rel(filepath.Dir(destPath), sourcePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if target != expected || filepath.IsAbs(target) {
+				t.Errorf("Expected relative target %q, got %q", expected, target)
+			}
+			sourceInfo, err := os.Stat(sourcePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			destInfo, err := os.Stat(destPath)
+			if err != nil {
+				t.Fatalf("Symlink does not resolve: %v", err)
+			}
+			if !destInfo.IsDir() || !os.SameFile(sourceInfo, destInfo) {
+				t.Errorf("Symlink %q does not reach source directory %q", destPath, sourcePath)
+			}
+		}
+	})
+
 	t.Run("creates symlinks for matching directories", func(t *testing.T) {
 		t.Parallel()
 		sourceDir := testutil.TempDir(t)

@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/logger"
 )
 
 // LinkResult holds the outcome of a directory linking operation.
@@ -15,7 +19,7 @@ type LinkResult struct {
 }
 
 // LinkDirectoriesToWorktree creates relative symlinks in destDir for directories
-// in sourceDir whose names match any of the given patterns.
+// in sourceDir whose names or relative paths match any of the given patterns.
 // Existing paths in destDir are skipped, never overwritten.
 func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*LinkResult, error) {
 	result := &LinkResult{}
@@ -29,6 +33,7 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		return result, fmt.Errorf("reading source dir %s: %w", sourceDir, err)
 	}
 
+	var names []string
 	for _, entry := range entries {
 		isDir := entry.IsDir()
 		if !isDir && entry.Type()&os.ModeSymlink != 0 {
@@ -45,7 +50,36 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 		if !matchesAnyLinkPattern(name, patterns) {
 			continue
 		}
+		names = append(names, name)
+	}
 
+	for _, pattern := range patterns {
+		if !strings.Contains(pattern, "/") {
+			continue
+		}
+		cleaned := filepath.Clean(filepath.FromSlash(pattern))
+		if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || strings.Contains("/"+filepath.ToSlash(pattern)+"/", "/../") {
+			logger.Debug("Skipping invalid link pattern (path traversal): %s", pattern)
+			continue
+		}
+		matches, err := filepath.Glob(filepath.Join(sourceDir, filepath.FromSlash(pattern)))
+		if err != nil {
+			continue
+		}
+		for _, sourcePath := range matches {
+			info, err := os.Stat(sourcePath)
+			if err != nil || !info.IsDir() {
+				continue
+			}
+			name, err := filepath.Rel(sourceDir, sourcePath)
+			if err != nil {
+				return result, err
+			}
+			names = append(names, name)
+		}
+	}
+
+	for _, name := range names {
 		destPath := filepath.Join(destDir, name)
 		if info, err := os.Lstat(destPath); err == nil {
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -58,8 +92,12 @@ func LinkDirectoriesToWorktree(sourceDir, destDir string, patterns []string) (*L
 			return result, fmt.Errorf("checking dest path %s: %w", destPath, err)
 		}
 
-		relTarget, err := filepath.Rel(destDir, filepath.Join(sourceDir, name))
+		relTarget, err := filepath.Rel(filepath.Dir(destPath), filepath.Join(sourceDir, name))
 		if err != nil {
+			return result, err
+		}
+
+		if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
 			return result, err
 		}
 
