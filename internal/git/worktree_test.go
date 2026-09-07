@@ -101,10 +101,17 @@ func TestCreateWorktree(t *testing.T) {
 
 func TestCreateWorktreeArgs(t *testing.T) {
 	tests := []struct {
-		name string
-		opts CreateWorktreeOptions
-		want []string
+		name   string
+		opts   CreateWorktreeOptions
+		orphan bool
+		want   []string
 	}{
+		{
+			name:   "orphan branch",
+			opts:   CreateWorktreeOptions{Branch: "first", NewBranch: true},
+			orphan: true,
+			want:   []string{"worktree", "add", "--relative-paths", "--orphan", "-b", "first", "/wt"},
+		},
 		{
 			name: "existing branch",
 			opts: CreateWorktreeOptions{Branch: "main"},
@@ -129,7 +136,7 @@ func TestCreateWorktreeArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createWorktreeArgs("/wt", tt.opts)
+			got := createWorktreeArgs("/wt", tt.opts, tt.orphan)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("createWorktreeArgs() = %q, want %q", got, tt.want)
 			}

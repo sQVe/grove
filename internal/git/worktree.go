@@ -77,10 +77,7 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 			orphan = true
 		}
 	}
-	args := createWorktreeArgs(worktreePath, opts)
-	if orphan {
-		args = append(args, "--orphan")
-	}
+	args := createWorktreeArgs(worktreePath, opts, orphan)
 	logger.Debug("Executing: git %s", strings.Join(args, " "))
 	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
@@ -89,8 +86,11 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 	return WrapGitTooOldError(runGitCommand(cmd, quiet))
 }
 
-func createWorktreeArgs(worktreePath string, opts CreateWorktreeOptions) []string {
+func createWorktreeArgs(worktreePath string, opts CreateWorktreeOptions, orphan bool) []string {
 	args := []string{gitWorktreeSubcommand, "add", "--relative-paths"}
+	if orphan {
+		args = append(args, "--orphan")
+	}
 	if opts.NewBranch {
 		// The base is a start point; branch.autoSetupMerge would otherwise make it an upstream.
 		// An orphan branch has no start point, and git rejects --no-track alongside --orphan.
