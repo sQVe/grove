@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -63,6 +64,8 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 			defer cancel()
 			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Fixed executable; branch is part of one refspec argument, not shell input.
 			cmd.Dir = bareDir
+			// The missing-ref message is matched below, so keep git's output untranslated.
+			cmd.Env = append(os.Environ(), "LC_ALL=C")
 			cmd.WaitDelay = time.Second
 			fetchErr = runGitCommand(cmd, true)
 		}
