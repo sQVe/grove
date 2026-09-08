@@ -1,5 +1,0 @@
-kind: Fixed
-body: Refresh the remote default branch after a successful fetch, keeping refresh failures debug-only (AI-151).
-time: 2026-09-08T08:52:04.889206622+02:00
-custom:
-  Issue: ''

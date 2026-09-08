@@ -1,5 +1,0 @@
-kind: Fixed
-body: Link nested directories matched by path patterns such as apps/*/node_modules, using relative symlinks so the links resolve.
-time: 2026-09-07T14:30:31.952371956+02:00
-custom:
-  Issue: ''
