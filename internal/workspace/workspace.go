@@ -965,6 +965,23 @@ func Convert(targetDir, branches string, verbose bool) error {
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
+	bareDir := filepath.Join(targetDir, ".bare")
+	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil {
+		// The resolver can return a remote-only branch; HEAD needs a local ref.
+		exists, err := git.LocalBranchExists(bareDir, defaultBranch)
+		if err != nil {
+			return fmt.Errorf("failed to check default branch: %w", err)
+		}
+		if exists {
+			cmd, cancel := git.GitCommand("git", "symbolic-ref", "HEAD", "refs/heads/"+defaultBranch) // nolint:gosec // Branch resolved from git refs
+			defer cancel()
+			cmd.Dir = bareDir
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to set bare HEAD: %w", err)
+			}
+		}
+	}
+
 	conversionSucceeded = true
 	return nil
 }

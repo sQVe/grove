@@ -16,6 +16,57 @@ import (
 
 const testEnvFile = ".env"
 
+func TestConvertHead(t *testing.T) {
+	t.Setenv("GIT_ALLOW_PROTOCOL", "")
+
+	for _, remoteOnly := range []bool{false, true} {
+		name := "preserves HEAD without a remote"
+		if remoteOnly {
+			name = "preserves HEAD when the default branch exists only remotely"
+		}
+		t.Run(name, func(t *testing.T) {
+			repo := testgit.NewTestRepo(t, "feature")
+			if remoteOnly {
+				repo.AddRemote("origin", "https://example.invalid/repo.git")
+				repo.RunOutput("update-ref", "refs/remotes/origin/develop", "HEAD")
+				repo.RunOutput("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+			}
+
+			if err := Convert(repo.Path, "", false); err != nil {
+				t.Fatal(err)
+			}
+
+			bareDir := filepath.Join(repo.Path, ".bare")
+			if got := strings.TrimSpace(repo.RunOutput("--git-dir", bareDir, "symbolic-ref", "HEAD")); got != "refs/heads/feature" {
+				t.Errorf("expected bare HEAD to stay on feature, got %q", got)
+			}
+			repo.RunOutput("--git-dir", bareDir, "rev-parse", "--verify", "HEAD")
+		})
+	}
+
+	t.Run("points bare HEAD at the resolved default branch", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t, "develop")
+		repo.AddRemote("origin", "https://example.invalid/repo.git")
+		repo.RunOutput("update-ref", "refs/remotes/origin/develop", "HEAD")
+		repo.RunOutput("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop")
+		repo.CreateBranch("feature")
+		repo.Checkout("feature")
+
+		if err := Convert(repo.Path, "", false); err != nil {
+			t.Fatal(err)
+		}
+
+		bareDir := filepath.Join(repo.Path, ".bare")
+		if got := strings.TrimSpace(repo.RunOutput("--git-dir", bareDir, "symbolic-ref", "HEAD")); got != "refs/heads/develop" {
+			t.Errorf("expected bare HEAD to point at develop, got %q", got)
+		}
+		repo.RunOutput("--git-dir", bareDir, "rev-parse", "--verify", "HEAD")
+		if got := strings.TrimSpace(repo.RunOutput("-C", "feature", "symbolic-ref", "HEAD")); got != "refs/heads/feature" {
+			t.Errorf("expected worktree HEAD to stay on feature, got %q", got)
+		}
+	})
+}
+
 func TestConvert(t *testing.T) {
 	t.Parallel()
 
