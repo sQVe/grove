@@ -34,8 +34,14 @@ stderr 'requires workspace context'
 env FAKE_GH_PR_VIEW=$WORK/same-repo-pr.json
 exec grove add https://github.com/acme/widgets/pull/18
 exists ../pr-18
-! exec grove add https://github.com/acme/widgets/pull/18
-stderr 'worktree already exists for branch "feature-pr"'
+exec grove add https://github.com/acme/widgets/pull/18
+stderr 'Already up to date'
+
+exec grove add -s https://github.com/acme/widgets/pull/18 --name unused
+stdout '[/\\\\]workspace[/\\\\]pr-18$'
+stderr 'Already up to date'
+! exists ../unused
+exists ../pr-18/.git
 
 # A fork PR asks gh for the fork URL before fetching its branch.
 mkdir $WORK/fork
@@ -83,6 +89,8 @@ fork content
 ["auth","status"]
 ["pr","view","99999","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
 ["auth","status"]
+["auth","status"]
+["pr","view","18","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
 ["auth","status"]
 ["pr","view","18","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"]
 ["auth","status"]

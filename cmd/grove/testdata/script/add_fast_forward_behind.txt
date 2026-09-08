@@ -1,0 +1,15 @@
+# Fetch before fast-forwarding a local branch with no configured upstream.
+setup_workspace old
+exec git -C ../.bare branch -f --no-track old origin/old
+exec git -C $WORK/testrepo checkout old
+exec git -C $WORK/testrepo commit --allow-empty -m remote-update
+exec git -C $WORK/testrepo rev-parse old
+cp stdout $WORK/expected
+
+exec grove add old
+stderr 'Fast-forwarded old to origin/old \(1 commits\)'
+exists ../old
+exec git -C ../old rev-parse HEAD
+cmp stdout $WORK/expected
+exec git -C ../.bare rev-parse origin/old
+cmp stdout $WORK/expected

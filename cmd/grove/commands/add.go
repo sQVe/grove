@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,9 +56,9 @@ Examples:
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
-	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
+	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits and untracked files the remote now tracks)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
-	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch from origin")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch or an existing branch's upstream")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -224,6 +225,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if switchTo {
+				logger.Info("Switching to existing worktree")
+				fmt.Println(info.Path)
+				return nil
+			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
 	}
@@ -259,6 +265,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		if baseBranch != "" {
 			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
 		}
+		if localExists {
+			fastForwardIfBehind(bareDir, branch, fetchBase)
+		}
 		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
@@ -279,6 +288,50 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 
 	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
+}
+
+func fastForwardIfBehind(bareDir, branch string, fetch bool) {
+	remoteRef, remote, remoteBranch, err := git.BranchUpstream(bareDir, branch)
+	if err != nil {
+		logger.Warning("Failed to resolve upstream for %s: %v", branch, err)
+		return
+	}
+	hasUpstream := remoteRef != ""
+	if !hasUpstream {
+		remoteRef, remote, remoteBranch = "origin/"+branch, "origin", branch
+	}
+
+	if fetch {
+		if err := git.FetchBranch(bareDir, remote, remoteBranch); err != nil {
+			// A branch that exists nowhere on the remote has nothing to fetch; only a known ref warns.
+			if known, _ := git.RemoteBranchExists(bareDir, remote, remoteBranch); known || hasUpstream {
+				logger.Warning("Failed to fetch %s: %v", remoteRef, err)
+			} else {
+				logger.Debug("Failed to fetch %s: %v", remoteRef, err)
+				return
+			}
+		}
+	}
+	exists, err := git.RemoteBranchExists(bareDir, remote, remoteBranch)
+	if err != nil {
+		logger.Warning("Failed to check %s: %v", remoteRef, err)
+		return
+	}
+	if !exists {
+		return
+	}
+	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, remoteRef)
+	if err != nil {
+		logger.Warning("Failed to compare %s with %s: %v", branch, remoteRef, err)
+		return
+	}
+	if ahead == 0 && behind > 0 {
+		if err := git.UpdateBranchRef(bareDir, branch, remoteRef); err != nil {
+			logger.Warning("Failed to fast-forward %s: %v", branch, err)
+			return
+		}
+		logger.Info("Fast-forwarded %s to %s (%d commits)", branch, remoteRef, behind)
+	}
 }
 
 func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
@@ -351,6 +404,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if !prInfo.IsFork {
+				return refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo)
+			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
 	}
@@ -365,6 +421,49 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
+}
+
+func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, switchTo bool) error {
+	if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+		return fmt.Errorf("failed to fetch branch: %w", err)
+	}
+	fetchedHash, err := git.RevParse(bareDir, "FETCH_HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to resolve fetched commit: %w", err)
+	}
+	_, hasTrackedChanges, err := git.CheckGitChanges(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to check worktree changes: %w", err)
+	}
+	if hasTrackedChanges {
+		return errors.New("worktree has uncommitted changes; commit or stash before refreshing")
+	}
+	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
+	if err != nil {
+		return fmt.Errorf("failed to compare branches: %w", err)
+	}
+	if ahead > 0 && !reset {
+		return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
+	}
+	// Move through the worktree so its index and files follow the branch.
+	switch {
+	case ahead > 0:
+		if err := git.ResetWorktreeHard(worktreePath, fetchedHash); err != nil {
+			return fmt.Errorf("failed to reset worktree: %w", err)
+		}
+		logger.Info("Reset %s to match remote (discarded %d local commits)", branch, ahead)
+	case behind > 0:
+		if err := git.FastForwardWorktree(worktreePath, fetchedHash); err != nil {
+			return fmt.Errorf("failed to fast-forward worktree: %w", err)
+		}
+		logger.Info("Fast-forwarded %s (%d commits)", branch, behind)
+	default:
+		logger.Info("Already up to date: %s", branch)
+	}
+	if switchTo {
+		fmt.Println(worktreePath)
+	}
+	return nil
 }
 
 func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.PRInfo, quiet, reset, existingWorkspace bool) error {

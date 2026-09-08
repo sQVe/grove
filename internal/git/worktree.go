@@ -54,6 +54,35 @@ type CreateWorktreeOptions struct {
 	NoCheckout bool
 }
 
+// FastForwardWorktree moves HEAD, the index, and tracked files forward to hash.
+// Untracked files that the target would overwrite make git refuse, so nothing local is lost.
+func FastForwardWorktree(worktreePath, hash string) error {
+	if worktreePath == "" || hash == "" {
+		return errors.New("worktree path and hash cannot be empty")
+	}
+
+	logger.Debug("Executing: git merge --ff-only %s in %s", hash, worktreePath)
+	cmd, cancel := GitCommand("git", "merge", "--ff-only", hash) // nolint:gosec
+	defer cancel()
+	cmd.Dir = worktreePath
+
+	return runGitCommand(cmd, true)
+}
+
+// ResetWorktreeHard resets HEAD, the index, and tracked files to hash.
+func ResetWorktreeHard(worktreePath, hash string) error {
+	if worktreePath == "" || hash == "" {
+		return errors.New("worktree path and hash cannot be empty")
+	}
+
+	logger.Debug("Executing: git reset --hard %s in %s", hash, worktreePath)
+	cmd, cancel := GitCommand("git", "reset", "--hard", hash, "--") // nolint:gosec
+	defer cancel()
+	cmd.Dir = worktreePath
+
+	return runGitCommand(cmd, true)
+}
+
 // CreateWorktree creates a worktree from a bare repository.
 func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, quiet bool) error {
 	if bareRepo == "" {

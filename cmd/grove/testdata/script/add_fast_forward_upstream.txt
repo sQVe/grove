@@ -1,0 +1,15 @@
+# A configured upstream takes priority over origin/<local-branch>.
+setup_workspace old topic/remote
+exec git -C ../.bare remote add upstream $WORK/testrepo
+exec git -C ../.bare fetch upstream
+exec git -C ../.bare branch -f old upstream/topic/remote
+exec git -C $WORK/testrepo checkout topic/remote
+exec git -C $WORK/testrepo commit --allow-empty -m upstream-update
+exec git -C $WORK/testrepo rev-parse HEAD
+cp stdout $WORK/expected
+
+exec grove add old
+stderr 'Fast-forwarded old to upstream/topic/remote \(1 commits\)'
+exists ../old
+exec git -C ../old rev-parse HEAD
+cmp stdout $WORK/expected

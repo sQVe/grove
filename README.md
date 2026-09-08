@@ -199,9 +199,9 @@ Add a worktree for a branch, pull request, or ref.
 
 **Flags:**
 
-- `-s, --switch` — Switch to worktree after creating
+- `-s, --switch` — Switch to the worktree; prints the path of an existing one instead of erroring
 - `--base <branch>` — Create new branch from this base instead of the default branch
-- `--no-fetch` — Skip fetching the base branch
+- `--no-fetch` — Skip fetching the base branch or the existing branch's upstream
 - `--name <name>` — Custom directory name
 - `-d, --detach` — Detached HEAD state
 - `--pr <number>` — Create worktree for a pull request
@@ -222,7 +222,7 @@ grove add --from dev feat/auth # Copy .env from dev worktree
 
 New branches start from the default branch on origin, fetched with a five-second timeout.
 If fetching fails, Grove warns with the base ref and commit age, then uses the existing
-origin ref, local default branch, or bare HEAD. Local branches and worktrees stay unchanged.
+origin ref, local default branch, or bare HEAD. Existing worktrees stay unchanged.
 An explicit `--base <branch>` fetches the branch from origin before resolving it, even
 when its remote-tracking ref is missing. It prefers `origin/<branch>`, falls back to the
 local branch, and errors if neither exists. `--base origin/<branch>` requires the origin
@@ -230,6 +230,14 @@ ref. `--base HEAD` selects the bare repository's HEAD without fetching.
 Use `--no-fetch` to skip fetching once, or
 `grove config set --global grove.fetchBase false` to disable it by default. Both leave the
 refs on disk untouched and pick from them in the same order.
+
+Adding an existing local branch fetches its upstream (`origin/<branch>` when none is
+configured) and fast-forwards the branch first when it is strictly behind; a branch that is
+ahead or diverged is checked out as is. `--no-fetch` skips that fetch too. Re-running
+`grove add --pr N` on a same-repo PR that already has a worktree refreshes it: a clean
+worktree is fast-forwarded, a branch with local commits errors unless `--reset` discards them,
+and a worktree with uncommitted tracked changes refuses to refresh. Fork PRs still error. With
+`-s`, `grove add` prints the path of an existing worktree for a branch instead of erroring.
 
 </details>
 

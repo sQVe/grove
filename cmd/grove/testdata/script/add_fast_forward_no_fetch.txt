@@ -1,0 +1,17 @@
+# --no-fetch uses the cached remote tip without contacting origin.
+setup_workspace old
+exec git -C ../.bare branch -f old origin/old
+exec git -C $WORK/testrepo checkout old
+exec git -C $WORK/testrepo commit --allow-empty -m cached-update
+exec git -C ../.bare fetch origin old
+exec git -C ../.bare rev-parse origin/old
+cp stdout $WORK/expected
+exec git -C $WORK/testrepo commit --allow-empty -m unfetched-update
+exec git -C ../.bare remote set-url origin $WORK/nonexistent
+
+exec grove add --no-fetch old
+stderr 'Fast-forwarded old to origin/old \(1 commits\)'
+! stderr 'Failed to fetch'
+exists ../old
+exec git -C ../old rev-parse HEAD
+cmp stdout $WORK/expected
