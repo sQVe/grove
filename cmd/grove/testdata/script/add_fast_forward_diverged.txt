@@ -1,0 +1,18 @@
+# Keep the local tip when local and remote have different commits.
+setup_workspace old
+exec git -C $WORK/testrepo checkout old
+exec git -C $WORK/testrepo commit --allow-empty -m local-update
+exec git -C ../.bare fetch origin old
+exec git -C ../.bare branch -f old origin/old
+exec git -C ../.bare rev-parse old
+cp stdout $WORK/expected
+exec git -C $WORK/testrepo reset --hard HEAD~1
+exec git -C $WORK/testrepo commit --allow-empty -m remote-update
+
+exec grove add old
+! stderr 'Fast-forwarded'
+exists ../old
+exec git -C ../old rev-parse HEAD
+cmp stdout $WORK/expected
+exec git -C ../.bare rev-list --left-right --count old...origin/old
+stdout '^1\s+1$'

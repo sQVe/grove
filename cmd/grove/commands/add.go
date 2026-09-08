@@ -57,7 +57,7 @@ Examples:
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
-	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch from origin")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base or existing local branch")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -264,6 +264,9 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		if baseBranch != "" {
 			return fmt.Errorf("--base cannot be used with existing branch %q", branch)
 		}
+		if localExists {
+			fastForwardIfBehind(bareDir, branch, fetchBase)
+		}
 		if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, true); err != nil {
 			return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 		}
@@ -284,6 +287,42 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 
 	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
+}
+
+func fastForwardIfBehind(bareDir, branch string, fetch bool) {
+	cmd, cancel := git.GitCommand("git", "for-each-ref", "--format=%(upstream:short) %(upstream:remotename) %(upstream:remoteref)", "refs/heads/"+branch)
+	defer cancel()
+	cmd.Dir = bareDir
+	out, err := cmd.Output()
+	if err != nil {
+		logger.Warning("Failed to resolve upstream for %s: %v", branch, err)
+		return
+	}
+
+	remoteRef, remote, remoteBranch := "origin/"+branch, "origin", branch
+	if upstream := strings.Fields(string(out)); len(upstream) == 3 {
+		remoteRef, remote, remoteBranch = upstream[0], upstream[1], strings.TrimPrefix(upstream[2], "refs/heads/")
+	} else if exists, err := git.RemoteBranchExists(bareDir, remote, branch); err != nil || !exists {
+		return
+	}
+
+	if fetch {
+		if err := git.FetchBranch(bareDir, remote, remoteBranch); err != nil {
+			logger.Warning("Failed to fetch %s: %v", remoteRef, err)
+		}
+	}
+	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, remoteRef)
+	if err != nil {
+		logger.Warning("Failed to compare %s with %s: %v", branch, remoteRef, err)
+		return
+	}
+	if ahead == 0 && behind > 0 {
+		if err := git.UpdateBranchRef(bareDir, branch, remoteRef); err != nil {
+			logger.Warning("Failed to fast-forward %s: %v", branch, err)
+			return
+		}
+		logger.Info("Fast-forwarded %s to %s (%d commits)", branch, remoteRef, behind)
+	}
 }
 
 func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
