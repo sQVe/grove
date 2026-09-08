@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -395,6 +396,9 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if !prInfo.IsFork {
+				return refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo)
+			}
 			if switchTo {
 				logger.Info("Switching to existing worktree")
 				fmt.Println(info.Path)
@@ -414,6 +418,47 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 
 	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
+}
+
+func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, switchTo bool) error {
+	if err := git.FetchBranch(bareDir, "origin", branch); err != nil {
+		return fmt.Errorf("failed to fetch branch: %w", err)
+	}
+	fetchedHash, err := git.RevParse(bareDir, "FETCH_HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to resolve fetched commit: %w", err)
+	}
+	_, hasTrackedChanges, err := git.CheckGitChanges(worktreePath)
+	if err != nil {
+		return fmt.Errorf("failed to check worktree changes: %w", err)
+	}
+	if hasTrackedChanges {
+		return errors.New("worktree has uncommitted changes; commit or stash before refreshing")
+	}
+	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
+	if err != nil {
+		return fmt.Errorf("failed to compare branches: %w", err)
+	}
+	if ahead > 0 && !reset {
+		return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
+	}
+	if ahead > 0 || behind > 0 {
+		// Move through the worktree so its index and files follow the branch.
+		if err := git.ResetWorktreeHard(worktreePath, fetchedHash); err != nil {
+			return fmt.Errorf("failed to reset worktree: %w", err)
+		}
+		if ahead > 0 {
+			logger.Info("Reset %s to match remote (discarded %d local commits)", branch, ahead)
+		} else {
+			logger.Info("Fast-forwarded %s (%d commits)", branch, behind)
+		}
+	} else {
+		logger.Info("Already up to date: %s", branch)
+	}
+	if switchTo {
+		fmt.Println(worktreePath)
+	}
+	return nil
 }
 
 func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.PRInfo, quiet, reset, existingWorkspace bool) error {

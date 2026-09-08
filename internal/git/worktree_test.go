@@ -22,6 +22,43 @@ const (
 	errRefEmpty          = "ref cannot be empty"
 )
 
+func TestResetWorktreeHard(t *testing.T) {
+	repo := testgit.NewTestRepo(t)
+	target := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD"))
+	repo.WriteFile("reset.txt", "local commit")
+	repo.Add("reset.txt")
+	repo.Commit("local")
+	repo.WriteFile("reset.txt", "dirty")
+
+	if err := ResetWorktreeHard(repo.Path, target); err != nil {
+		t.Fatalf("ResetWorktreeHard failed: %v", err)
+	}
+	if got := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD")); got != target {
+		t.Fatalf("HEAD = %s, want %s", got, target)
+	}
+	if got := repo.RunOutput("status", "--porcelain"); got != "" {
+		t.Fatalf("worktree is dirty: %s", got)
+	}
+	if _, err := os.Stat(filepath.Join(repo.Path, "reset.txt")); !os.IsNotExist(err) {
+		t.Fatalf("reset.txt should be removed, got %v", err)
+	}
+
+	for _, tt := range []struct {
+		name, path, hash string
+	}{
+		{"empty path", "", target},
+		{"empty hash", repo.Path, ""},
+		{"invalid hash", repo.Path, "nonexistent"},
+		{"invalid path", filepath.Join(repo.Path, "missing"), target},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ResetWorktreeHard(tt.path, tt.hash); err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
 func TestCreateWorktree(t *testing.T) {
 	t.Run("fails with non-existent branch in empty repo", func(t *testing.T) {
 		tempDir := testutil.TempDir(t)

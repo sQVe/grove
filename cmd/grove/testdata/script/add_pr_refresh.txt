@@ -1,0 +1,74 @@
+# Same-repo PR refresh updates the checked-out branch, index, and files.
+setup_workspace feature-pr
+env FAKE_GH_LOG=$WORK/gh.log
+env FAKE_GH_PR_VIEW=$WORK/pr.json
+env PR=https://github.com/acme/widgets/pull/18
+exec grove add $PR
+
+exec git -C $WORK/testrepo checkout feature-pr
+cp $WORK/remote.txt $WORK/testrepo/README.md
+exec git -C $WORK/testrepo commit -am remote
+exec git -C $WORK/testrepo rev-parse HEAD
+cp stdout $WORK/remote-head
+cp $WORK/untracked.txt ../pr-18/untracked.txt
+exec grove add $PR
+stderr 'Fast-forwarded feature-pr \(1 commits\)'
+! stdout .
+exec git -C ../pr-18 rev-parse HEAD
+cmp stdout $WORK/remote-head
+cmp ../pr-18/README.md $WORK/remote.txt
+cmp ../pr-18/untracked.txt $WORK/untracked.txt
+exec git -C ../pr-18 diff HEAD --exit-code
+
+# Re-running with -s prints the existing path, not the requested name.
+exec grove add -s $PR --name unused
+stdout '^'$WORK'/workspace/pr-18$'
+stderr 'Already up to date'
+! exists ../unused
+
+# Local commits require explicit reset, including when histories diverge.
+cp $WORK/local.txt ../pr-18/README.md
+exec git -C ../pr-18 commit -am local
+! exec grove add $PR
+stderr 'use --reset'
+cmp ../pr-18/README.md $WORK/local.txt
+exec git -C $WORK/testrepo commit --allow-empty -m divergence
+exec git -C $WORK/testrepo rev-parse HEAD
+cp stdout $WORK/remote-head
+! exec grove add $PR
+stderr 'use --reset'
+exec grove add $PR --reset
+exec git -C ../pr-18 rev-parse HEAD
+cmp stdout $WORK/remote-head
+cmp ../pr-18/README.md $WORK/remote.txt
+cmp ../pr-18/untracked.txt $WORK/untracked.txt
+exec git -C ../pr-18 diff HEAD --exit-code
+
+# Neither unstaged nor staged tracked changes may be discarded by reset.
+cp $WORK/local.txt ../pr-18/README.md
+! exec grove add $PR --reset
+stderr 'worktree has uncommitted changes; commit or stash before refreshing'
+cmp ../pr-18/README.md $WORK/local.txt
+exec git -C ../pr-18 add README.md
+! exec grove add $PR --reset
+stderr 'worktree has uncommitted changes; commit or stash before refreshing'
+cmp ../pr-18/README.md $WORK/local.txt
+exec git -C ../pr-18 rev-parse HEAD
+cmp stdout $WORK/remote-head
+exec git -C ../pr-18 reset --hard HEAD
+
+# Fetch failure is fatal, even with a cached remote ref.
+exec git -C $WORK/workspace/.bare remote set-url origin file://$WORK/missing
+! exec grove add $PR
+stderr 'failed to fetch branch'
+exec git -C ../pr-18 rev-parse HEAD
+cmp stdout $WORK/remote-head
+
+-- pr.json --
+{"headRefName":"feature-pr","headRepository":{"name":"widgets"},"headRepositoryOwner":{"login":"acme"}}
+-- remote.txt --
+remote content
+-- local.txt --
+local content
+-- untracked.txt --
+keep this file
