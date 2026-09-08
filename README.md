@@ -234,10 +234,10 @@ refs on disk untouched and pick from them in the same order.
 Adding an existing local branch fetches its upstream (`origin/<branch>` when none is
 configured) and fast-forwards the branch first when it is strictly behind; a branch that is
 ahead or diverged is checked out as is. `--no-fetch` skips that fetch too. Re-running
-`grove add --pr N` on a PR that already has a worktree refreshes it: a clean worktree is
-fast-forwarded, a branch with local commits errors unless `--reset` discards them, and a
-worktree with uncommitted tracked changes refuses to refresh. With `-s`, `grove add` prints
-the path of an existing worktree for the branch instead of erroring.
+`grove add --pr N` on a same-repo PR that already has a worktree refreshes it: a clean
+worktree is fast-forwarded, a branch with local commits errors unless `--reset` discards them,
+and a worktree with uncommitted tracked changes refuses to refresh. Fork PRs still error. With
+`-s`, `grove add` prints the path of an existing worktree for a branch instead of erroring.
 
 </details>
 

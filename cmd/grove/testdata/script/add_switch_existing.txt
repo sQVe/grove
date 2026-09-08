@@ -10,14 +10,14 @@ cp $WORK/marker preserved/marker
 cp $WORK/marker linked/marker
 
 exec grove add -s feat
-stdout '^'$WORK'/workspace/feat$'
+stdout '[/\\\\]workspace[/\\\\]feat$'
 stderr 'Switching to existing worktree'
 ! exists ../feat/preserved
 ! exists ../feat/linked
 ! exists ../.grove-worktree.lock
 
 exec grove add --switch --name unused feat
-stdout '^'$WORK'/workspace/feat$'
+stdout '[/\\\\]workspace[/\\\\]feat$'
 stderr 'Switching to existing worktree'
 ! exists ../unused
 exec git worktree list --porcelain

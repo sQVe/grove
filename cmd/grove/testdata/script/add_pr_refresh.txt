@@ -22,7 +22,7 @@ exec git -C ../pr-18 diff HEAD --exit-code
 
 # Re-running with -s prints the existing path, not the requested name.
 exec grove add -s $PR --name unused
-stdout '^'$WORK'/workspace/pr-18$'
+stdout '[/\\\\]workspace[/\\\\]pr-18$'
 stderr 'Already up to date'
 ! exists ../unused
 

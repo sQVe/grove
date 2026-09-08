@@ -38,7 +38,7 @@ exec grove add https://github.com/acme/widgets/pull/18
 stderr 'Already up to date'
 
 exec grove add -s https://github.com/acme/widgets/pull/18 --name unused
-stdout '^'$WORK'/workspace/pr-18$'
+stdout '[/\\\\]workspace[/\\\\]pr-18$'
 stderr 'Already up to date'
 ! exists ../unused
 exists ../pr-18/.git
