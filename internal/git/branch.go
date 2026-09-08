@@ -198,6 +198,12 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	cmd.Dir = bareDir
 	output, err := cmd.Output()
 	cancel()
+	// Exit code 1 means origin/HEAD is absent or not symbolic, which is the
+	// expected miss. Anything else is a real failure worth reporting.
+	var exitErr *exec.ExitError
+	if err != nil && (!errors.As(err, &exitErr) || exitErr.ExitCode() != 1) {
+		return "", fmt.Errorf("failed to read origin/HEAD: %w", err)
+	}
 	if err == nil {
 		if branch, ok := strings.CutPrefix(strings.TrimSpace(string(output)), "refs/remotes/origin/"); ok {
 			exists, existsErr := RemoteBranchExists(bareDir, "origin", branch)

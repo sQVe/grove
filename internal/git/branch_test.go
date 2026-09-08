@@ -602,7 +602,7 @@ func TestGetDefaultBranch(t *testing.T) {
 
 	t.Run("returns error for missing HEAD", func(t *testing.T) {
 		_, err := GetDefaultBranch(testutil.TempDir(t))
-		if err == nil || !strings.Contains(err.Error(), "failed to read HEAD:") {
+		if err == nil || !strings.Contains(err.Error(), "failed to read") {
 			t.Errorf("expected HEAD read error, got %v", err)
 		}
 	})
