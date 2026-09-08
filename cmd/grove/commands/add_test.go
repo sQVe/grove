@@ -75,7 +75,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "")
+	err = runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -94,56 +94,56 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 
 	t.Run("base flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, "main", "", false, 123, false, "")
+		err := runAdd(nil, false, "main", "", false, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", true, 123, false, "")
+		err := runAdd(nil, false, "", "", true, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("negative --pr gives clear error", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", false, -5, false, "")
+		err := runAdd(nil, false, "", "", false, -5, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--pr must be a positive number") {
 			t.Errorf("expected positive number error, got %v", err)
 		}
 	})
 
 	t.Run("--pr cannot be combined with positional argument", func(t *testing.T) {
-		err := runAdd([]string{"feature"}, false, "", "", false, 123, false, "")
+		err := runAdd([]string{"feature"}, false, "", "", false, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--pr flag cannot be combined with positional argument") {
 			t.Errorf("expected --pr/positional conflict error, got %v", err)
 		}
 	})
 
 	t.Run("old #N syntax gives helpful error", func(t *testing.T) {
-		err := runAdd([]string{"#123"}, false, "", "", false, 0, false, "")
+		err := runAdd([]string{"#123"}, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "syntax no longer supported") {
 			t.Errorf("expected helpful migration error, got %v", err)
 		}
 	})
 
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "main", "", false, 0, false, "")
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "main", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "", "", true, 0, false, "")
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "", "", true, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("reset flag can only be used with PR references", func(t *testing.T) {
-		err := runAdd([]string{"feature-branch"}, false, "", "", false, 0, true, "")
+		err := runAdd([]string{"feature-branch"}, false, "", "", false, 0, true, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--reset can only be used with PR references") {
 			t.Errorf("expected --reset/PR error, got %v", err)
 		}
@@ -152,7 +152,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 func TestRunAdd_DetachBaseValidation(t *testing.T) {
 	t.Run("detach and base cannot be used together", func(t *testing.T) {
-		err := runAdd([]string{"v1.0.0"}, false, "main", "", true, 0, false, "")
+		err := runAdd([]string{"v1.0.0"}, false, "main", "", true, 0, false, "", false)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
 		}
@@ -175,14 +175,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("whitespace-only branch name", func(t *testing.T) {
 		// Whitespace is trimmed, resulting in empty string
 		// This should fail with "requires branch" error
-		err := runAdd([]string{"   "}, false, "", "", false, 0, false, "")
+		err := runAdd([]string{"   "}, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error for whitespace-only branch name, got %v", err)
 		}
 	})
 
 	t.Run("no args and no --pr flag", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", false, 0, false, "")
+		err := runAdd(nil, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error, got %v", err)
 		}
@@ -192,7 +192,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 		// The trimming happens, then workspace detection runs
 		// We're not in a workspace, so we'll get that error
 		// But this verifies the trim doesn't crash
-		err := runAdd([]string{"  feature-test  "}, false, "", "", false, 0, false, "")
+		err := runAdd([]string{"  feature-test  "}, false, "", "", false, 0, false, "", false)
 		if !errors.Is(err, workspace.ErrNotInWorkspace) {
 			t.Errorf("expected ErrNotInWorkspace after trimming, got %v", err)
 		}
@@ -201,14 +201,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("PR URL with /files suffix works", func(t *testing.T) {
 		// PR URLs with /files suffix should be detected as PR references
 		// Flag validation happens before workspace detection
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, "main", "", false, 0, false, "")
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, "main", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error for URL with /files suffix, got %v", err)
 		}
 	})
 
 	t.Run("PR URL with query params works", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, "", "", true, 0, false, "")
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, "", "", true, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error for URL with query params, got %v", err)
 		}
@@ -820,7 +820,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "nonexistent")
+		err := runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "nonexistent", false)
 		if err == nil {
 			t.Fatal("expected error for nonexistent --from worktree")
 		}
@@ -857,7 +857,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		})
 
 		// Create a new worktree with --from pointing to source
-		err := runAdd([]string{"feature-from-test"}, false, "", "", false, 0, false, "source")
+		err := runAdd([]string{"feature-from-test"}, false, "", "", false, 0, false, "source", false)
 		if err != nil {
 			t.Errorf("expected success with valid --from, got %v", err)
 		}
@@ -938,7 +938,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"main"}, false, "", "", false, 0, false, "")
+	err = runAdd([]string{"main"}, false, "", "", false, 0, false, "", false)
 	if err == nil {
 		t.Fatal("expected error for existing worktree")
 	}
@@ -1014,7 +1014,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"feat"}, false, "", "", false, 0, false, ""); err != nil {
+	if err := runAdd([]string{"feat"}, false, "", "", false, 0, false, "", false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 
@@ -1096,7 +1096,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"newwork"}, false, "", "", false, 0, false, ""); err != nil {
+	if err := runAdd([]string{"newwork"}, false, "", "", false, 0, false, "", false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 

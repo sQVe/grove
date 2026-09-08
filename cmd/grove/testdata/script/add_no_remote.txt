@@ -1,0 +1,49 @@
+# A workspace without origin has nothing to fetch, so nothing to warn about.
+
+# The first branch of an empty workspace has no commit to base on.
+mkdir workspace
+exec grove init new workspace
+cd workspace
+exec grove add main
+! stderr 'basing on'
+exec grove add --base HEAD other
+! stderr 'basing on'
+cd main
+
+# A workspace that never had a remote resolves the local default branch silently.
+exec git commit --allow-empty -m initial
+exec grove add feature/local
+! stderr 'basing on'
+exec git rev-parse HEAD
+cp stdout $WORK/expected
+exec git -C ../feature-local rev-parse HEAD
+cmp stdout $WORK/expected
+
+# Losing origin is the same case: no fetch to fail, no warning.
+cd $WORK
+exec grove clone file://$WORK/workspace/main cloned
+cd cloned/main
+exec git remote remove origin
+exec grove add feature/orphaned
+! stderr 'basing on'
+exec git rev-parse HEAD
+cp stdout $WORK/cloned-head
+exec git -C ../feature-orphaned rev-parse HEAD
+cmp stdout $WORK/cloned-head
+
+# Commits exist but HEAD points at a deleted branch: refuse rather than start from nothing.
+exec grove add dev
+cd ../dev
+exec grove remove main --force
+exec git branch -D main
+! exec grove add feature/dangling
+stderr 'HEAD points at a branch that no longer exists'
+stderr 'pass --base'
+! exists ../feature-dangling
+
+# An explicit base still works there.
+exec grove add --base dev feature/based
+exec git rev-parse dev
+cp stdout $WORK/dev-head
+exec git -C ../feature-based rev-parse HEAD
+cmp stdout $WORK/dev-head

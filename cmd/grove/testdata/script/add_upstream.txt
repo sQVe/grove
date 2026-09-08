@@ -1,0 +1,15 @@
+# The base is a start point, never an upstream.
+
+setup_workspace develop
+
+# A new branch based on origin/main must not end up tracking main.
+exec grove add feature/fresh
+! exec git config branch.feature/fresh.remote
+! exec git config branch.feature/fresh.merge
+
+# An existing remote branch still tracks its own counterpart.
+exec grove add develop
+exec git config branch.develop.remote
+stdout '^origin$'
+exec git config branch.develop.merge
+stdout '^refs/heads/develop$'

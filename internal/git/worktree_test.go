@@ -101,10 +101,17 @@ func TestCreateWorktree(t *testing.T) {
 
 func TestCreateWorktreeArgs(t *testing.T) {
 	tests := []struct {
-		name string
-		opts CreateWorktreeOptions
-		want []string
+		name   string
+		opts   CreateWorktreeOptions
+		orphan bool
+		want   []string
 	}{
+		{
+			name:   "orphan branch",
+			opts:   CreateWorktreeOptions{Branch: "first", NewBranch: true},
+			orphan: true,
+			want:   []string{"worktree", "add", "--relative-paths", "--orphan", "-b", "first", "/wt"},
+		},
 		{
 			name: "existing branch",
 			opts: CreateWorktreeOptions{Branch: "main"},
@@ -113,7 +120,7 @@ func TestCreateWorktreeArgs(t *testing.T) {
 		{
 			name: "new branch from base",
 			opts: CreateWorktreeOptions{Branch: "feature", NewBranch: true, Base: "main"},
-			want: []string{"worktree", "add", "--relative-paths", "-b", "feature", "/wt", "main"},
+			want: []string{"worktree", "add", "--relative-paths", "--no-track", "-b", "feature", "/wt", "main"},
 		},
 		{
 			name: "detached",
@@ -129,7 +136,7 @@ func TestCreateWorktreeArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createWorktreeArgs("/wt", tt.opts)
+			got := createWorktreeArgs("/wt", tt.opts, tt.orphan)
 			if !slices.Equal(got, tt.want) {
 				t.Fatalf("createWorktreeArgs() = %q, want %q", got, tt.want)
 			}
@@ -877,6 +884,43 @@ func TestCreateWorktreeNewBranch(t *testing.T) {
 }
 
 func TestCreateWorktreeFromBase(t *testing.T) {
+	t.Run("starts an orphan branch in a repository without branches", func(t *testing.T) {
+		t.Parallel()
+
+		tempDir := testutil.TempDir(t)
+		bareDir := filepath.Join(tempDir, ".bare")
+		if err := os.MkdirAll(bareDir, fs.DirStrict); err != nil {
+			t.Fatal(err)
+		}
+		if err := InitBare(bareDir); err != nil {
+			t.Fatal(err)
+		}
+
+		worktreeDir := filepath.Join(tempDir, "first")
+		err := CreateWorktree(bareDir, worktreeDir, CreateWorktreeOptions{Branch: "first", NewBranch: true, Base: headRef}, true)
+		if err != nil {
+			t.Fatalf("CreateWorktree() error = %v", err)
+		}
+	})
+
+	t.Run("refuses a base of HEAD when HEAD dangles over an existing branch", func(t *testing.T) {
+		t.Parallel()
+
+		w := testgit.NewGroveWorkspace(t)
+		w.RunOutput("branch", "dev")
+		w.RunOutput("worktree", "remove", "--force", filepath.Join(w.Dir, "main"))
+		w.RunOutput("branch", "-D", "main")
+
+		worktreeDir := filepath.Join(w.Dir, "feature")
+		err := CreateWorktree(w.BareDir, worktreeDir, CreateWorktreeOptions{Branch: "feature", NewBranch: true, Base: headRef}, true)
+		if err == nil {
+			t.Fatal("expected error for a dangling HEAD base")
+		}
+		if _, statErr := os.Stat(worktreeDir); !os.IsNotExist(statErr) {
+			t.Fatalf("worktree should not exist, stat error = %v", statErr)
+		}
+	})
+
 	t.Run("fails with empty bare repo path", func(t *testing.T) {
 		err := CreateWorktree("", "/wt", CreateWorktreeOptions{Branch: "branch", NewBranch: true, Base: "main"}, true)
 		if err == nil {

@@ -8,7 +8,7 @@ exec git add .gitignore
 exec git commit -m 'add env-skip-test to gitignore'
 
 # First add creates worktree
-exec grove add feature/skip-test
+exec grove add --base HEAD feature/skip-test
 exists ../feature-skip-test
 
 # Create the file in destination
@@ -19,7 +19,7 @@ exec grove remove feature-skip-test
 
 # Modify source file and re-add
 cp $WORK/env-skip-modified .env-skip-test
-exec grove add feature/skip-test-2
+exec grove add --base HEAD feature/skip-test-2
 stderr 'Created worktree at'
 
 -- env-skip-test --

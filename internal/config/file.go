@@ -34,6 +34,7 @@ type FileConfig struct {
 	Plain          *bool  `toml:"plain"`
 	Debug          *bool  `toml:"debug"`
 	NerdFonts      *bool  `toml:"nerd_fonts"`
+	FetchBase      *bool  `toml:"fetch_base"`
 	StaleThreshold string `toml:"stale_threshold"`
 }
 

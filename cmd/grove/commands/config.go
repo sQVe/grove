@@ -18,17 +18,19 @@ import (
 const (
 	configKeyPlain     = "grove.plain"
 	configKeyDebug     = "grove.debug"
+	configKeyFetchBase = "grove.fetchBase"
 	configKeyNerdFonts = "grove.nerdFonts"
 	configKeyPreserve  = "grove.preserve"
 	configKeyHooksAdd  = "hooks.add"
 	tomlKeyPlain       = "plain"
 	tomlKeyDebug       = "debug"
 	tomlKeyPreserve    = "preserve.patterns"
+	tomlKeyFetchBase   = "fetch_base"
 )
 
 var (
-	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve}
-	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts}
+	allConfigKeys     = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyPreserve, configKeyFetchBase}
+	booleanConfigKeys = []string{configKeyPlain, configKeyDebug, configKeyNerdFonts, configKeyFetchBase}
 )
 
 // isValidConfigKey validates that key is in grove.* namespace
@@ -335,6 +337,9 @@ func printFileConfig(cfg *config.FileConfig) {
 	if cfg.NerdFonts != nil {
 		fmt.Printf("nerd_fonts=%t\n", *cfg.NerdFonts)
 	}
+	if cfg.FetchBase != nil {
+		fmt.Printf("fetch_base=%t\n", *cfg.FetchBase)
+	}
 	if cfg.StaleThreshold != "" {
 		fmt.Printf("stale_threshold=%s\n", cfg.StaleThreshold)
 	}
@@ -401,7 +406,8 @@ func runConfigListEffective() error {
 	}
 
 	plain, debug, nerdFonts := config.GetMergedPlain(worktreeDir), config.GetMergedDebug(worktreeDir), config.IsNerdFonts()
-	cfg.Plain, cfg.Debug, cfg.NerdFonts = &plain, &debug, &nerdFonts
+	fetchBase := config.IsFetchBase()
+	cfg.Plain, cfg.Debug, cfg.NerdFonts, cfg.FetchBase = &plain, &debug, &nerdFonts, &fetchBase
 	cfg.StaleThreshold = config.GetStaleThreshold()
 	cfg.Preserve.Patterns = config.GetMergedPreservePatterns(worktreeDir)
 	cfg.Preserve.Exclude = config.GetMergedPreserveExcludePatterns(worktreeDir)
@@ -449,6 +455,10 @@ func runConfigGetShared(key string) error {
 		if cfg.Plain != nil {
 			fmt.Println(*cfg.Plain)
 		}
+	case strings.ToLower(configKeyFetchBase), tomlKeyFetchBase:
+		if cfg.FetchBase != nil {
+			fmt.Println(*cfg.FetchBase)
+		}
 	case configKeyDebug, tomlKeyDebug:
 		if cfg.Debug != nil {
 			fmt.Println(*cfg.Debug)
@@ -489,6 +499,9 @@ func runConfigGetEffective(key string) error {
 	worktreeDir := findWorktreeDir()
 
 	switch strings.ToLower(key) {
+	// The switch lowercases its input, so the camelCase constant cannot be a case here.
+	case strings.ToLower(configKeyFetchBase), tomlKeyFetchBase:
+		fmt.Println(config.IsFetchBase())
 	case configKeyPlain, tomlKeyPlain:
 		fmt.Println(config.GetMergedPlain(worktreeDir))
 	case configKeyDebug, tomlKeyDebug:
