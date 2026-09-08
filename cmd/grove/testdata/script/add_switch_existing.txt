@@ -1,0 +1,39 @@
+setup_workspace feat
+exec grove add feat
+exists ../feat/.git
+exec git worktree list --porcelain
+cp stdout $WORK/worktrees-before
+
+cp $WORK/config.toml .grove.toml
+mkdir preserved linked
+cp $WORK/marker preserved/marker
+cp $WORK/marker linked/marker
+
+exec grove add -s feat
+stdout '^'$WORK'/workspace/feat$'
+stderr 'Switching to existing worktree'
+! exists ../feat/preserved
+! exists ../feat/linked
+! exists ../.grove-worktree.lock
+
+exec grove add --switch --name unused feat
+stdout '^'$WORK'/workspace/feat$'
+stderr 'Switching to existing worktree'
+! exists ../unused
+exec git worktree list --porcelain
+cmp stdout $WORK/worktrees-before
+
+mkdir ../occupied
+! exec grove add -s --name occupied another
+stderr 'directory already exists:'
+
+-- config.toml --
+[preserve]
+directories = ["preserved"]
+[link]
+patterns = ["linked"]
+[hooks]
+add = ["exit 1"]
+
+-- marker --
+unchanged

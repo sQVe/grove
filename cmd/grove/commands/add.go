@@ -224,6 +224,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if switchTo {
+				logger.Info("Switching to existing worktree")
+				fmt.Println(info.Path)
+				return nil
+			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
 	}
@@ -351,6 +356,11 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if switchTo {
+				logger.Info("Switching to existing worktree")
+				fmt.Println(info.Path)
+				return nil
+			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
 	}
