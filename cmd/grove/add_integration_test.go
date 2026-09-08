@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,11 @@ func TestAdd(t *testing.T) {
 	t.Parallel()
 	t.Run("returns a worktree when the base fetch times out", func(t *testing.T) {
 		t.Parallel()
+		if runtime.GOOS == "windows" {
+			// Killing git leaves the stalled upload-pack holding the repository open,
+			// and Windows cannot delete open files, so TempDir cleanup fails (AI-140).
+			t.Skip("stalled upload-pack keeps the repository open on Windows")
+		}
 		origin := gitutil.NewTestRepo(t)
 		w := gitutil.NewGroveWorkspace(t)
 		w.RunOutput("remote", "add", "origin", "file://"+origin.Path)
