@@ -233,6 +233,41 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
+	t.Run("warns when the default base fetch fails and only a local branch exists", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t, "trunk")
+		w.RunOutput("remote", "add", "origin", origin.Path)
+
+		var buf bytes.Buffer
+		logger.SetOutput(&buf)
+		defer logger.SetOutput(nil)
+		logger.Init(true, false)
+
+		base, err := ResolveWorktreeBase(w.BareDir, "", true)
+		if err != nil {
+			t.Fatalf("ResolveWorktreeBase() error = %v", err)
+		}
+		if base != "main" {
+			t.Fatalf("base = %q, want main", base)
+		}
+		if !strings.Contains(buf.String(), "fetch failed") {
+			t.Fatalf("warning = %q, want a fetch failure warning for the default base", buf.String())
+		}
+	})
+
+	t.Run("surfaces a failed fetch instead of calling an explicit base missing", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		w.RunOutput("remote", "add", "origin", filepath.Join(testutil.TempDir(t), "gone"))
+
+		_, err := ResolveWorktreeBase(w.BareDir, "develop", true)
+		if err == nil {
+			t.Fatal("expected an error when the base fetch fails")
+		}
+		if strings.Contains(err.Error(), "does not exist") {
+			t.Fatalf("error = %v, want it to report the fetch failure, not a missing branch", err)
+		}
+	})
+
 	t.Run("checks the remote-tracking ref only after fetching", func(t *testing.T) {
 		w := testgit.NewGroveWorkspace(t)
 		origin := testgit.NewTestRepo(t)

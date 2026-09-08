@@ -79,6 +79,11 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	if localErr != nil {
 		return "", fmt.Errorf("failed to check branch %s: %w", branch, localErr)
 	}
+	missingRef := fetchErr != nil && strings.HasSuffix(fetchErr.Error(), "fatal: couldn't find remote ref refs/heads/"+branch)
+	// A failed fetch is no proof the branch is missing, so report the failure instead.
+	if explicit && fetchErr != nil && !missingRef && !remote && !local {
+		return "", fmt.Errorf("failed to fetch base branch %q: %w", branch, fetchErr)
+	}
 	switch {
 	case remote:
 		base = "origin/" + branch
@@ -92,7 +97,7 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	if fetchErr != nil {
 		logger.Debug("Base fetch failed: %v", fetchErr)
 		// An unpushed local branch is usable without a counterpart on origin.
-		if !local || remote || !strings.HasSuffix(fetchErr.Error(), "fatal: couldn't find remote ref refs/heads/"+branch) {
+		if !explicit || !local || remote || !missingRef {
 			warnWorktreeBase(bareDir, base, "fetch failed")
 		}
 	}
