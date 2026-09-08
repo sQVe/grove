@@ -69,10 +69,11 @@ func CreateWorktree(bareRepo, worktreePath string, opts CreateWorktreeOptions, q
 		return errors.New("branch name cannot be empty")
 	}
 
-	// An empty repository has no commit to use as a start point.
+	// An empty repository has no commit to use as a start point. A HEAD that merely
+	// dangles over existing branches is not empty, and git rejects it as a base.
 	orphan := false
 	if opts.NewBranch && opts.Base == headRef {
-		if unborn, err := isHeadDangling(bareRepo); err == nil && unborn {
+		if unborn, err := hasNoBranches(bareRepo); err == nil && unborn {
 			opts.Base = ""
 			orphan = true
 		}
