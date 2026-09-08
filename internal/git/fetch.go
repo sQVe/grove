@@ -107,7 +107,9 @@ func GetRemoteRefs(repoPath, remote string) (map[string]string, error) {
 		}
 
 		parts := strings.Fields(line)
-		if len(parts) == 2 {
+		// <remote>/HEAD is a symbolic alias, so reporting it would double-count
+		// the branch it points at.
+		if len(parts) == 2 && parts[0] != refPattern+"HEAD" {
 			refs[parts[0]] = parts[1]
 		}
 	}
