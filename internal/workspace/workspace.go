@@ -967,21 +967,8 @@ func Convert(targetDir, branches string, verbose bool) error {
 
 	// HEAD is cosmetic next to a completed conversion, so failures warn instead
 	// of rolling the whole conversion back.
-	bareDir := filepath.Join(targetDir, ".bare")
-	if defaultBranch, err := git.GetDefaultBranch(bareDir); err == nil {
-		// The resolver can return a remote-only branch; HEAD needs a local ref.
-		exists, err := git.LocalBranchExists(bareDir, defaultBranch)
-		switch {
-		case err != nil:
-			logger.Warning("Failed to check default branch %s: %v", defaultBranch, err)
-		case exists:
-			cmd, cancel := git.GitCommand("git", "symbolic-ref", "HEAD", "refs/heads/"+defaultBranch) // nolint:gosec // Branch resolved from git refs
-			cmd.Dir = bareDir
-			if err := cmd.Run(); err != nil {
-				logger.Warning("Failed to set bare HEAD to %s: %v", defaultBranch, err)
-			}
-			cancel()
-		}
+	if err := git.SetHeadToDefaultBranch(filepath.Join(targetDir, ".bare")); err != nil {
+		logger.Warning("Failed to set bare HEAD: %v", err)
 	}
 
 	conversionSucceeded = true

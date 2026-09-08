@@ -601,3 +601,34 @@ func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
 	// All commits marked with "-" means they're all in target (squash-merged)
 	return true, nil
 }
+
+// SetHeadToDefaultBranch points the repository's HEAD at the resolved default
+// branch. It is a local ref write, so it works offline. HEAD is left alone when
+// the default branch does not resolve or exists only on the remote, since HEAD
+// must never be left dangling.
+func SetHeadToDefaultBranch(bareDir string) error {
+	defaultBranch, err := GetDefaultBranch(bareDir)
+	if err != nil {
+		logger.Debug("Skipping HEAD update, no default branch resolved: %v", err)
+		return nil
+	}
+
+	exists, err := LocalBranchExists(bareDir, defaultBranch)
+	if err != nil {
+		return fmt.Errorf("failed to check default branch %s: %w", defaultBranch, err)
+	}
+	if !exists {
+		logger.Debug("Skipping HEAD update, default branch %s has no local ref", defaultBranch)
+		return nil
+	}
+
+	logger.Debug("Executing: git symbolic-ref HEAD refs/heads/%s in %s", defaultBranch, bareDir)
+	cmd, cancel := GitCommand("git", "symbolic-ref", "HEAD", "refs/heads/"+defaultBranch) // nolint:gosec // Branch resolved from git refs
+	defer cancel()
+	cmd.Dir = bareDir
+
+	if err := runGitCommand(cmd, true); err != nil {
+		return fmt.Errorf("failed to set HEAD to %s: %w", defaultBranch, err)
+	}
+	return nil
+}

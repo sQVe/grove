@@ -229,6 +229,11 @@ func TestFetchRemote(t *testing.T) {
 		repo, remote := newRemoteFixture(t)
 		remote.RunOutput("branch", "feature")
 		remote.RunOutput("symbolic-ref", "HEAD", "refs/heads/missing")
+		headPath := filepath.Join(repo.Path, "refs", "remotes", "origin", "HEAD")
+		before, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
 		var logs bytes.Buffer
 		previous := logger.SetOutput(&logs)
 		defer logger.SetOutput(previous)
@@ -248,6 +253,13 @@ func TestFetchRemote(t *testing.T) {
 			}
 		}
 		repo.RunOutput("rev-parse", "--verify", "refs/remotes/origin/feature")
+		after, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(before, after) {
+			t.Fatalf("origin/HEAD changed from %q to %q", before, after)
+		}
 	})
 
 	t.Run("refreshes the remote default branch after fetching", func(t *testing.T) {
