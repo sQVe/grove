@@ -653,8 +653,11 @@ func BranchUpstream(repoPath, branch string) (remoteRef, remote, remoteBranch st
 		return "", "", "", errors.New("repository path and branch name cannot be empty")
 	}
 
-	logger.Debug("Executing: git for-each-ref refs/heads/%s in %s", branch, repoPath)
-	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(upstream:short) %(upstream:remotename) %(upstream:remoteref)", "refs/heads/"+branch) // nolint:gosec
+	// for-each-ref matches by path prefix, so refs/heads/feature also lists
+	// refs/heads/feature/sub; the refname field lets us keep the exact match only.
+	refName := "refs/heads/" + branch
+	logger.Debug("Executing: git for-each-ref %s in %s", refName, repoPath)
+	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname) %(upstream:short) %(upstream:remotename) %(upstream:remoteref)", refName) // nolint:gosec
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -662,9 +665,11 @@ func BranchUpstream(repoPath, branch string) (remoteRef, remote, remoteBranch st
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to resolve upstream for %q: %w", branch, err)
 	}
-	fields := strings.Fields(output)
-	if len(fields) != 3 {
-		return "", "", "", nil
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 4 && fields[0] == refName {
+			return fields[1], fields[2], strings.TrimPrefix(fields[3], "refs/heads/"), nil
+		}
 	}
-	return fields[0], fields[1], strings.TrimPrefix(fields[2], "refs/heads/"), nil
+	return "", "", "", nil
 }

@@ -1396,6 +1396,30 @@ func TestBranchUpstream(t *testing.T) {
 		}
 	})
 
+	t.Run("ignores a nested branch when the requested branch is missing", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature/sub")
+		repo.AddRemote("origin", repo.Path)
+		for _, args := range [][]string{
+			{"update-ref", "refs/remotes/origin/feature/sub", "main"},
+			{"config", "branch.feature/sub.remote", "origin"},
+			{"config", "branch.feature/sub.merge", "refs/heads/feature/sub"},
+		} {
+			if _, err := repo.Run(args...); err != nil {
+				t.Fatalf("git %v: %v", args, err)
+			}
+		}
+
+		remoteRef, _, _, err := BranchUpstream(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if remoteRef != "" {
+			t.Errorf("expected no upstream for missing branch, got %q", remoteRef)
+		}
+	})
+
 	t.Run("returns error for empty inputs", func(t *testing.T) {
 		t.Parallel()
 		if _, _, _, err := BranchUpstream("", "feature"); err == nil {

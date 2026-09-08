@@ -296,22 +296,29 @@ func fastForwardIfBehind(bareDir, branch string, fetch bool) {
 		logger.Warning("Failed to resolve upstream for %s: %v", branch, err)
 		return
 	}
-	if remoteRef == "" {
+	hasUpstream := remoteRef != ""
+	if !hasUpstream {
 		remoteRef, remote, remoteBranch = "origin/"+branch, "origin", branch
-		exists, err := git.RemoteBranchExists(bareDir, remote, branch)
-		if err != nil {
-			logger.Warning("Failed to check %s: %v", remoteRef, err)
-			return
-		}
-		if !exists {
-			return
-		}
 	}
 
 	if fetch {
 		if err := git.FetchBranch(bareDir, remote, remoteBranch); err != nil {
-			logger.Warning("Failed to fetch %s: %v", remoteRef, err)
+			// A branch that exists nowhere on the remote has nothing to fetch; only a known ref warns.
+			if known, _ := git.RemoteBranchExists(bareDir, remote, remoteBranch); known || hasUpstream {
+				logger.Warning("Failed to fetch %s: %v", remoteRef, err)
+			} else {
+				logger.Debug("Failed to fetch %s: %v", remoteRef, err)
+				return
+			}
 		}
+	}
+	exists, err := git.RemoteBranchExists(bareDir, remote, remoteBranch)
+	if err != nil {
+		logger.Warning("Failed to check %s: %v", remoteRef, err)
+		return
+	}
+	if !exists {
+		return
 	}
 	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, remoteRef)
 	if err != nil {
