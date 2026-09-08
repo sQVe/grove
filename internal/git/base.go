@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -17,13 +18,18 @@ const headRef = "HEAD"
 func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	branch := strings.TrimPrefix(base, "origin/")
 	qualified := strings.HasPrefix(base, "origin/")
-	if base != "" {
-		remote, err := RemoteBranchExists(bareDir, "origin", branch)
-		if err != nil {
-			return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
+	explicit := base != ""
+	if explicit {
+		localOnly := false
+		if !fetch && !qualified {
+			remote, err := RemoteBranchExists(bareDir, "origin", branch)
+			if err != nil {
+				return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
+			}
+			localOnly = !remote
 		}
-		// A qualified base names a remote branch, so fetch it before calling it missing.
-		if (!remote && !qualified) || base == headRef {
+		// Fetch an explicit base before calling it missing, unless fetching is disabled.
+		if localOnly || base == headRef {
 			// An empty repository has no ref to verify; CreateWorktree starts an orphan branch.
 			if base == headRef {
 				empty, emptyErr := hasNoBranches(bareDir)
@@ -56,8 +62,10 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		if hasOrigin, originErr := RemoteExists(bareDir, "origin"); originErr != nil || hasOrigin {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Branch resolved from git
+			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Fixed executable; branch is part of one refspec argument, not shell input.
 			cmd.Dir = bareDir
+			// The missing-ref message is matched below, so keep git's output untranslated.
+			cmd.Env = append(os.Environ(), "LC_ALL=C")
 			cmd.WaitDelay = time.Second
 			fetchErr = runGitCommand(cmd, true)
 		}
@@ -71,6 +79,11 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	if localErr != nil {
 		return "", fmt.Errorf("failed to check branch %s: %w", branch, localErr)
 	}
+	missingRef := fetchErr != nil && strings.HasSuffix(fetchErr.Error(), "fatal: couldn't find remote ref refs/heads/"+branch)
+	// A failed fetch is no proof the branch is missing, so report the failure instead.
+	if explicit && fetchErr != nil && !missingRef && !remote && !local {
+		return "", fmt.Errorf("failed to fetch base branch %q: %w", branch, fetchErr)
+	}
 	switch {
 	case remote:
 		base = "origin/" + branch
@@ -78,10 +91,15 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		return "", fmt.Errorf("base branch \"origin/%s\" does not exist", branch)
 	case local:
 		base = branch
+	case explicit:
+		return "", fmt.Errorf("base branch %q does not exist", branch)
 	}
 	if fetchErr != nil {
 		logger.Debug("Base fetch failed: %v", fetchErr)
-		warnWorktreeBase(bareDir, base, "fetch failed")
+		// An unpushed local branch is usable without a counterpart on origin.
+		if !explicit || !local || remote || !missingRef {
+			warnWorktreeBase(bareDir, base, "fetch failed")
+		}
 	}
 	return base, nil
 }
