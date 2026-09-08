@@ -132,7 +132,18 @@ func FetchRemote(repoPath, remote string) error {
 	defer cancel()
 	cmd.Dir = repoPath
 
-	return runGitCommand(cmd, true)
+	if err := runGitCommand(cmd, true); err != nil {
+		return err
+	}
+
+	logger.Debug("Executing: git remote set-head %s --auto in %s", remote, repoPath)
+	cmd, cancel = GitCommand("git", "remote", "set-head", remote, "--auto") //nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+	if err := runGitCommand(cmd, true); err != nil {
+		logger.Debug("Failed to refresh %s/HEAD: %v", remote, err)
+	}
+	return nil
 }
 
 func CountCommits(repoPath, fromHash, toHash string) int {
