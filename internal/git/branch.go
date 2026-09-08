@@ -161,6 +161,10 @@ func GetCurrentBranch(path string) (string, error) {
 // ErrDetachedHead is returned when the worktree is in detached HEAD state
 var ErrDetachedHead = errors.New("detached HEAD state")
 
+// ErrNoDefaultBranch reports that no default branch could be resolved, as
+// distinct from a failure while trying to resolve one.
+var ErrNoDefaultBranch = errors.New("could not determine default branch from HEAD")
+
 // GetCurrentBranchOrDetached returns the branch name, or the short commit hash if detached.
 // Returns (branch, detached, error) where detached indicates if HEAD is detached.
 func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err error) {
@@ -194,6 +198,12 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	cmd.Dir = bareDir
 	output, err := cmd.Output()
 	cancel()
+	// Exit code 1 means origin/HEAD is absent or not symbolic, which is the
+	// expected miss. Anything else is a real failure worth reporting.
+	var exitErr *exec.ExitError
+	if err != nil && (!errors.As(err, &exitErr) || exitErr.ExitCode() != 1) {
+		return "", fmt.Errorf("failed to read origin/HEAD: %w", err)
+	}
 	if err == nil {
 		if branch, ok := strings.CutPrefix(strings.TrimSpace(string(output)), "refs/remotes/origin/"); ok {
 			exists, existsErr := RemoteBranchExists(bareDir, "origin", branch)
@@ -235,7 +245,7 @@ func GetDefaultBranch(bareDir string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not determine default branch from HEAD")
+	return "", ErrNoDefaultBranch
 }
 
 // IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
@@ -600,4 +610,37 @@ func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
 
 	// All commits marked with "-" means they're all in target (squash-merged)
 	return true, nil
+}
+
+// SetHeadToDefaultBranch points the repository's HEAD at the resolved default
+// branch. It is a local ref write, so it works offline. HEAD is left alone when
+// the default branch does not resolve or exists only on the remote, since HEAD
+// must never be left dangling.
+func SetHeadToDefaultBranch(bareDir string) error {
+	if bareDir == "" {
+		return errors.New("repository path cannot be empty")
+	}
+
+	defaultBranch, err := GetDefaultBranch(bareDir)
+	if errors.Is(err, ErrNoDefaultBranch) {
+		logger.Debug("Skipping HEAD update, no default branch resolved")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to resolve default branch: %w", err)
+	}
+
+	exists, err := LocalBranchExists(bareDir, defaultBranch)
+	if err != nil {
+		return fmt.Errorf("failed to check default branch %s: %w", defaultBranch, err)
+	}
+	if !exists {
+		logger.Debug("Skipping HEAD update, default branch %s has no local ref", defaultBranch)
+		return nil
+	}
+
+	if err := SetSymbolicRef(bareDir, "HEAD", "refs/heads/"+defaultBranch); err != nil {
+		return fmt.Errorf("failed to set HEAD to %s: %w", defaultBranch, err)
+	}
+	return nil
 }

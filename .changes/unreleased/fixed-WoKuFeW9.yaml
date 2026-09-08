@@ -1,0 +1,5 @@
+kind: Fixed
+body: Point the bare repository HEAD at the locally resolved default branch after conversion, when that branch exists locally (AI-136).
+time: 2026-09-08T08:44:20.057548951+02:00
+custom:
+  Issue: ''

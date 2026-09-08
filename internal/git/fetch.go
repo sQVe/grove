@@ -107,7 +107,9 @@ func GetRemoteRefs(repoPath, remote string) (map[string]string, error) {
 		}
 
 		parts := strings.Fields(line)
-		if len(parts) == 2 {
+		// <remote>/HEAD is a symbolic alias, so reporting it would double-count
+		// the branch it points at.
+		if len(parts) == 2 && parts[0] != refPattern+"HEAD" {
 			refs[parts[0]] = parts[1]
 		}
 	}
@@ -132,7 +134,18 @@ func FetchRemote(repoPath, remote string) error {
 	defer cancel()
 	cmd.Dir = repoPath
 
-	return runGitCommand(cmd, true)
+	if err := runGitCommand(cmd, true); err != nil {
+		return err
+	}
+
+	logger.Debug("Executing: git remote set-head %s --auto in %s", remote, repoPath)
+	cmd, cancel = GitCommand("git", "remote", "set-head", remote, "--auto") //nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+	if err := runGitCommand(cmd, true); err != nil {
+		logger.Debug("Failed to refresh %s/HEAD: %v", remote, err)
+	}
+	return nil
 }
 
 func CountCommits(repoPath, fromHash, toHash string) int {

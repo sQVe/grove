@@ -1,9 +1,14 @@
 package git
 
 import (
+	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/sqve/grove/internal/logger"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
@@ -180,6 +185,96 @@ func TestGetRemoteRefs(t *testing.T) {
 }
 
 func TestFetchRemote(t *testing.T) {
+	newRemoteFixture := func(t *testing.T) (*testgit.BareTestRepo, *testgit.BareTestRepo) {
+		t.Helper()
+		seed := testgit.NewTestRepo(t)
+		remote := testgit.NewBareTestRepo(t)
+		seed.RunOutput("push", remote.Path, "main")
+		repo := testgit.NewBareTestRepo(t)
+		repo.RunOutput("remote", "add", "origin", remote.Path)
+		repo.RunOutput("config", "remote.origin.followRemoteHEAD", "never")
+		repo.RunOutput("fetch", "origin")
+		repo.RunOutput("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+		return repo, remote
+	}
+
+	t.Run("preserves the remote HEAD and error when fetching fails", func(t *testing.T) {
+		repo, _ := newRemoteFixture(t)
+		headPath := filepath.Join(repo.Path, "refs", "remotes", "origin", "HEAD")
+		before, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		repo.RunOutput("remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
+		cmd := exec.Command("git", "fetch", "--prune", "origin")
+		cmd.Dir = repo.Path
+		wantErr := runGitCommand(cmd, true)
+		if wantErr == nil {
+			t.Fatal("fetch from missing remote succeeded")
+		}
+
+		if err := FetchRemote(repo.Path, "origin"); err == nil || err.Error() != wantErr.Error() {
+			t.Fatalf("FetchRemote() error = %v, want %v", err, wantErr)
+		}
+		after, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(before, after) {
+			t.Fatalf("origin/HEAD changed from %q to %q", before, after)
+		}
+	})
+
+	t.Run("logs a set-head failure only in debug mode after fetching", func(t *testing.T) {
+		repo, remote := newRemoteFixture(t)
+		remote.RunOutput("branch", "feature")
+		remote.RunOutput("symbolic-ref", "HEAD", "refs/heads/missing")
+		headPath := filepath.Join(repo.Path, "refs", "remotes", "origin", "HEAD")
+		before, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		var logs bytes.Buffer
+		previous := logger.SetOutput(&logs)
+		defer logger.SetOutput(previous)
+		defer logger.Init(false, false)
+
+		for _, debug := range []bool{true, false} {
+			logger.Init(true, debug)
+			logs.Reset()
+			if err := FetchRemote(repo.Path, "origin"); err != nil {
+				t.Fatalf("FetchRemote() error = %v, want nil", err)
+			}
+			if debug && !strings.Contains(logs.String(), "[DEBUG] Failed to refresh origin/HEAD:") {
+				t.Errorf("missing set-head failure debug log: %q", logs.String())
+			}
+			if !debug && logs.Len() != 0 {
+				t.Errorf("unexpected non-debug output: %q", logs.String())
+			}
+		}
+		repo.RunOutput("rev-parse", "--verify", "refs/remotes/origin/feature")
+		after, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(before, after) {
+			t.Fatalf("origin/HEAD changed from %q to %q", before, after)
+		}
+	})
+
+	t.Run("refreshes the remote default branch after fetching", func(t *testing.T) {
+		repo, remote := newRemoteFixture(t)
+		remote.RunOutput("branch", "develop")
+		remote.RunOutput("symbolic-ref", "HEAD", "refs/heads/develop")
+
+		if err := FetchRemote(repo.Path, "origin"); err != nil {
+			t.Fatalf("FetchRemote() error = %v", err)
+		}
+		if got := repo.RunOutput("symbolic-ref", "refs/remotes/origin/HEAD"); got != "refs/remotes/origin/develop\n" {
+			t.Fatalf("origin/HEAD = %q, want refs/remotes/origin/develop", got)
+		}
+	})
+
 	t.Run("successful fetch", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 

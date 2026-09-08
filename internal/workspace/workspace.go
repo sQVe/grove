@@ -965,6 +965,12 @@ func Convert(targetDir, branches string, verbose bool) error {
 		return fmt.Errorf("failed to create .git file: %w", err)
 	}
 
+	// HEAD is cosmetic next to a completed conversion, so failures warn instead
+	// of rolling the whole conversion back.
+	if err := git.SetHeadToDefaultBranch(filepath.Join(targetDir, ".bare")); err != nil {
+		logger.Warning("Failed to set bare HEAD: %v", err)
+	}
+
 	conversionSucceeded = true
 	return nil
 }
