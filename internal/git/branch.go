@@ -647,7 +647,7 @@ func SetHeadToDefaultBranch(bareDir string) error {
 
 // BranchUpstream returns the configured upstream of a local branch as the
 // short ref (origin/main), the remote name, and the remote branch name.
-// All three are empty when the branch has no upstream.
+// All three are empty when the branch has no upstream or does not exist.
 func BranchUpstream(repoPath, branch string) (remoteRef, remote, remoteBranch string, err error) {
 	if repoPath == "" || branch == "" {
 		return "", "", "", errors.New("repository path and branch name cannot be empty")

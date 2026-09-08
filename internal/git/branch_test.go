@@ -1401,5 +1401,8 @@ func TestBranchUpstream(t *testing.T) {
 		if _, _, _, err := BranchUpstream("", "feature"); err == nil {
 			t.Error("expected error for empty repo path")
 		}
+		if _, _, _, err := BranchUpstream("repo", ""); err == nil {
+			t.Error("expected error for empty branch")
+		}
 	})
 }

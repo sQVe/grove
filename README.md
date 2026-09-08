@@ -237,7 +237,7 @@ ahead or diverged is checked out as is. `--no-fetch` skips that fetch too. Re-ru
 `grove add --pr N` on a PR that already has a worktree refreshes it: a clean worktree is
 fast-forwarded, a branch with local commits errors unless `--reset` discards them, and a
 worktree with uncommitted tracked changes refuses to refresh. With `-s`, `grove add` prints
-the path of an existing worktree instead of erroring.
+the path of an existing worktree for the branch instead of erroring.
 
 </details>
 
