@@ -210,10 +210,16 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
-	t.Run("keeps a local-only base literal", func(t *testing.T) {
-		t.Parallel()
+	t.Run("keeps a local-only base literal without a fetch failure warning", func(t *testing.T) {
 		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		w.RunOutput("remote", "add", "origin", origin.Path)
 		w.RunOutput("branch", "local-only")
+
+		var buf bytes.Buffer
+		logger.SetOutput(&buf)
+		defer logger.SetOutput(nil)
+		logger.Init(true, false)
 
 		base, err := ResolveWorktreeBase(w.BareDir, "local-only", true)
 		if err != nil {
@@ -221,6 +227,32 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 		if base != "local-only" {
 			t.Fatalf("base = %q, want local-only", base)
+		}
+		if strings.Contains(buf.String(), "fetch failed") {
+			t.Fatalf("unexpected fetch failure warning: %s", buf.String())
+		}
+	})
+
+	t.Run("checks the remote-tracking ref only after fetching", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		w.RunOutput("remote", "add", "origin", origin.Path)
+		trace := filepath.Join(testutil.TempDir(t), "git-trace")
+		t.Setenv("GIT_TRACE", trace)
+
+		base, err := ResolveWorktreeBase(w.BareDir, "main", true)
+		if err != nil {
+			t.Fatalf("ResolveWorktreeBase() error = %v", err)
+		}
+		if base != "origin/main" {
+			t.Fatalf("base = %q, want origin/main", base)
+		}
+		output, err := os.ReadFile(trace) //nolint:gosec // Trace path is inside the test's temporary directory.
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count := strings.Count(string(output), "git show-ref --verify --quiet refs/remotes/origin/main"); count != 1 {
+			t.Fatalf("remote-tracking ref checks = %d, want 1\n%s", count, output)
 		}
 	})
 

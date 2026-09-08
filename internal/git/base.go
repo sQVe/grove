@@ -19,12 +19,16 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	qualified := strings.HasPrefix(base, "origin/")
 	explicit := base != ""
 	if explicit {
-		remote, err := RemoteBranchExists(bareDir, "origin", branch)
-		if err != nil {
-			return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
+		localOnly := false
+		if !fetch && !qualified {
+			remote, err := RemoteBranchExists(bareDir, "origin", branch)
+			if err != nil {
+				return "", fmt.Errorf("failed to check origin/%s: %w", branch, err)
+			}
+			localOnly = !remote
 		}
 		// Fetch an explicit base before calling it missing, unless fetching is disabled.
-		if (!fetch && !remote && !qualified) || base == headRef {
+		if localOnly || base == headRef {
 			// An empty repository has no ref to verify; CreateWorktree starts an orphan branch.
 			if base == headRef {
 				empty, emptyErr := hasNoBranches(bareDir)
@@ -84,7 +88,10 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 	}
 	if fetchErr != nil {
 		logger.Debug("Base fetch failed: %v", fetchErr)
-		warnWorktreeBase(bareDir, base, "fetch failed")
+		// An unpushed local branch is usable without a counterpart on origin.
+		if !local || remote || !strings.HasSuffix(fetchErr.Error(), "fatal: couldn't find remote ref refs/heads/"+branch) {
+			warnWorktreeBase(bareDir, base, "fetch failed")
+		}
 	}
 	return base, nil
 }

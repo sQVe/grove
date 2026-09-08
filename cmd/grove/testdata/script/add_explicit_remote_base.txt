@@ -20,11 +20,10 @@ cmp stdout $WORK/expected
 ! exec grove add --base origin/nope from-missing
 stderr 'base branch "origin/nope" does not exist'
 
-# A local-only base remains usable when fetching fails.
+# An unpushed local-only base does not produce a fetch failure warning.
 exec git branch local-only
-exec git remote set-url origin $WORK/missing
 exec grove add --base local-only from-local
-stderr 'basing on local-only from .* - fetch failed'
+! stderr 'fetch failed'
 exec git rev-parse local-only
 cp stdout $WORK/local
 exec git -C ../from-local rev-parse HEAD
