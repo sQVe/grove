@@ -58,7 +58,7 @@ Examples:
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
-	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base or existing local branch")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch or an existing branch's upstream")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -438,17 +438,19 @@ func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, swit
 	if ahead > 0 && !reset {
 		return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
 	}
-	if ahead > 0 || behind > 0 {
-		// Move through the worktree so its index and files follow the branch.
+	// Move through the worktree so its index and files follow the branch.
+	switch {
+	case ahead > 0:
 		if err := git.ResetWorktreeHard(worktreePath, fetchedHash); err != nil {
 			return fmt.Errorf("failed to reset worktree: %w", err)
 		}
-		if ahead > 0 {
-			logger.Info("Reset %s to match remote (discarded %d local commits)", branch, ahead)
-		} else {
-			logger.Info("Fast-forwarded %s (%d commits)", branch, behind)
+		logger.Info("Reset %s to match remote (discarded %d local commits)", branch, ahead)
+	case behind > 0:
+		if err := git.FastForwardWorktree(worktreePath, fetchedHash); err != nil {
+			return fmt.Errorf("failed to fast-forward worktree: %w", err)
 		}
-	} else {
+		logger.Info("Fast-forwarded %s (%d commits)", branch, behind)
+	default:
 		logger.Info("Already up to date: %s", branch)
 	}
 	if switchTo {

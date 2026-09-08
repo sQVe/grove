@@ -57,6 +57,24 @@ exec git -C ../pr-18 rev-parse HEAD
 cmp stdout $WORK/remote-head
 exec git -C ../pr-18 reset --hard HEAD
 
+# An untracked file that the remote now tracks is never overwritten by a fast-forward.
+cp $WORK/remote.txt $WORK/testrepo/new.txt
+exec git -C $WORK/testrepo add new.txt
+exec git -C $WORK/testrepo commit -m 'track new file'
+exec git -C $WORK/testrepo rev-parse HEAD
+cp stdout $WORK/new-head
+cp $WORK/local.txt ../pr-18/new.txt
+! exec grove add $PR
+stderr 'untracked working tree files would be overwritten'
+cmp ../pr-18/new.txt $WORK/local.txt
+exec git -C ../pr-18 rev-parse HEAD
+cmp stdout $WORK/remote-head
+rm ../pr-18/new.txt
+exec grove add $PR
+stderr 'Fast-forwarded feature-pr \(1 commits\)'
+cmp ../pr-18/new.txt $WORK/remote.txt
+cp $WORK/new-head $WORK/remote-head
+
 # Fetch failure is fatal, even with a cached remote ref.
 exec git -C $WORK/workspace/.bare remote set-url origin file://$WORK/missing
 ! exec grove add $PR

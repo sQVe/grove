@@ -59,6 +59,61 @@ func TestResetWorktreeHard(t *testing.T) {
 	}
 }
 
+func TestFastForwardWorktree(t *testing.T) {
+	repo := testgit.NewTestRepo(t)
+	base := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD"))
+	repo.WriteFile("new.txt", "tracked")
+	repo.Add("new.txt")
+	repo.Commit("track new file")
+	target := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD"))
+	if _, err := repo.Run("reset", "--hard", base); err != nil {
+		t.Fatalf("reset: %v", err)
+	}
+
+	t.Run("refuses to overwrite an untracked file", func(t *testing.T) {
+		repo.WriteFile("new.txt", "untracked")
+		if err := FastForwardWorktree(repo.Path, target); err == nil {
+			t.Fatal("expected error")
+		}
+		if got := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD")); got != base {
+			t.Fatalf("HEAD = %s, want %s", got, base)
+		}
+		content, err := os.ReadFile(filepath.Join(repo.Path, "new.txt"))
+		if err != nil || string(content) != "untracked" {
+			t.Fatalf("untracked file changed: %q, %v", content, err)
+		}
+		if err := os.Remove(filepath.Join(repo.Path, "new.txt")); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("fast-forwards HEAD, index, and files", func(t *testing.T) {
+		if err := FastForwardWorktree(repo.Path, target); err != nil {
+			t.Fatalf("FastForwardWorktree failed: %v", err)
+		}
+		if got := strings.TrimSpace(repo.RunOutput("rev-parse", "HEAD")); got != target {
+			t.Fatalf("HEAD = %s, want %s", got, target)
+		}
+		if got := repo.RunOutput("status", "--porcelain"); got != "" {
+			t.Fatalf("worktree is dirty: %s", got)
+		}
+	})
+
+	for _, tt := range []struct {
+		name, path, hash string
+	}{
+		{"empty path", "", target},
+		{"empty hash", repo.Path, ""},
+		{"invalid hash", repo.Path, "nonexistent"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := FastForwardWorktree(tt.path, tt.hash); err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
 func TestCreateWorktree(t *testing.T) {
 	t.Run("fails with non-existent branch in empty repo", func(t *testing.T) {
 		tempDir := testutil.TempDir(t)
