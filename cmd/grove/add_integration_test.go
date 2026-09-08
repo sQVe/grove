@@ -37,9 +37,15 @@ func TestAdd(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "grove", "add", "bounded-fetch")
 		cmd.Dir = w.BareDir
 		cmd.WaitDelay = time.Second
+		start := time.Now()
 		out, err := cmd.CombinedOutput()
+		elapsed := time.Since(start)
 		if err != nil {
 			t.Fatalf("add failed: %v\n%s", err, out)
+		}
+		// The fetch budget is five seconds; the stall lasts ten, so anything slower waited on it.
+		if elapsed >= 10*time.Second {
+			t.Fatalf("add took %s, want the fetch to give up well inside the stall", elapsed)
 		}
 		if strings.Count(string(out), "basing on origin/main from ") != 1 || !strings.Contains(string(out), "ago - fetch failed") {
 			t.Fatalf("expected one warning with base and age, got %s", out)
