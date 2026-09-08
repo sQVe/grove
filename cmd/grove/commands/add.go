@@ -56,7 +56,7 @@ Examples:
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
 	cmd.Flags().IntVar(&prNumber, "pr", 0, "Pull request number to checkout")
-	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits)")
+	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits and untracked files the remote now tracks)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
 	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch or an existing branch's upstream")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
