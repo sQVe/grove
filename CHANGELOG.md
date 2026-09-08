@@ -1,3 +1,8 @@
+## [v1.11.1](https://github.com/sQVe/grove/releases/tag/v1.11.1) - 2026-09-08
+
+### Fixed
+- Fetch an explicit unqualified `grove add --base` branch before reporting it missing, and prefer its origin ref over a stale local branch.
+
 ## [v1.11.0](https://github.com/sQVe/grove/releases/tag/v1.11.0) - 2026-09-08
 
 ### Changed
