@@ -644,3 +644,27 @@ func SetHeadToDefaultBranch(bareDir string) error {
 	}
 	return nil
 }
+
+// BranchUpstream returns the configured upstream of a local branch as the
+// short ref (origin/main), the remote name, and the remote branch name.
+// All three are empty when the branch has no upstream.
+func BranchUpstream(repoPath, branch string) (remoteRef, remote, remoteBranch string, err error) {
+	if repoPath == "" || branch == "" {
+		return "", "", "", errors.New("repository path and branch name cannot be empty")
+	}
+
+	logger.Debug("Executing: git for-each-ref refs/heads/%s in %s", branch, repoPath)
+	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(upstream:short) %(upstream:remotename) %(upstream:remoteref)", "refs/heads/"+branch) // nolint:gosec
+	defer cancel()
+	cmd.Dir = repoPath
+
+	output, err := executeWithOutput(cmd)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to resolve upstream for %q: %w", branch, err)
+	}
+	fields := strings.Fields(output)
+	if len(fields) != 3 {
+		return "", "", "", nil
+	}
+	return fields[0], fields[1], strings.TrimPrefix(fields[2], "refs/heads/"), nil
+}

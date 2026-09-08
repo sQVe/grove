@@ -291,20 +291,21 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 }
 
 func fastForwardIfBehind(bareDir, branch string, fetch bool) {
-	cmd, cancel := git.GitCommand("git", "for-each-ref", "--format=%(upstream:short) %(upstream:remotename) %(upstream:remoteref)", "refs/heads/"+branch)
-	defer cancel()
-	cmd.Dir = bareDir
-	out, err := cmd.Output()
+	remoteRef, remote, remoteBranch, err := git.BranchUpstream(bareDir, branch)
 	if err != nil {
 		logger.Warning("Failed to resolve upstream for %s: %v", branch, err)
 		return
 	}
-
-	remoteRef, remote, remoteBranch := "origin/"+branch, "origin", branch
-	if upstream := strings.Fields(string(out)); len(upstream) == 3 {
-		remoteRef, remote, remoteBranch = upstream[0], upstream[1], strings.TrimPrefix(upstream[2], "refs/heads/")
-	} else if exists, err := git.RemoteBranchExists(bareDir, remote, branch); err != nil || !exists {
-		return
+	if remoteRef == "" {
+		remoteRef, remote, remoteBranch = "origin/"+branch, "origin", branch
+		exists, err := git.RemoteBranchExists(bareDir, remote, branch)
+		if err != nil {
+			logger.Warning("Failed to check %s: %v", remoteRef, err)
+			return
+		}
+		if !exists {
+			return
+		}
 	}
 
 	if fetch {
@@ -398,11 +399,6 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		if info.Branch == branch {
 			if !prInfo.IsFork {
 				return refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo)
-			}
-			if switchTo {
-				logger.Info("Switching to existing worktree")
-				fmt.Println(info.Path)
-				return nil
 			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}

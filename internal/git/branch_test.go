@@ -1354,3 +1354,52 @@ func TestRestoreBareHeadIfDangling(t *testing.T) {
 		}
 	})
 }
+
+func TestBranchUpstream(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns empty strings when the branch has no upstream", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+
+		remoteRef, remote, remoteBranch, err := BranchUpstream(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if remoteRef != "" || remote != "" || remoteBranch != "" {
+			t.Errorf("expected empty upstream, got %q %q %q", remoteRef, remote, remoteBranch)
+		}
+	})
+
+	t.Run("returns the configured upstream parts", func(t *testing.T) {
+		t.Parallel()
+		repo := testgit.NewTestRepo(t)
+		repo.CreateBranch("feature")
+		repo.AddRemote("upstream", repo.Path)
+		for _, args := range [][]string{
+			{"update-ref", "refs/remotes/upstream/renamed", "main"},
+			{"config", "branch.feature.remote", "upstream"},
+			{"config", "branch.feature.merge", "refs/heads/renamed"},
+		} {
+			if _, err := repo.Run(args...); err != nil {
+				t.Fatalf("git %v: %v", args, err)
+			}
+		}
+
+		remoteRef, remote, remoteBranch, err := BranchUpstream(repo.Path, "feature")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if remoteRef != "upstream/renamed" || remote != "upstream" || remoteBranch != "renamed" {
+			t.Errorf("unexpected upstream: %q %q %q", remoteRef, remote, remoteBranch)
+		}
+	})
+
+	t.Run("returns error for empty inputs", func(t *testing.T) {
+		t.Parallel()
+		if _, _, _, err := BranchUpstream("", "feature"); err == nil {
+			t.Error("expected error for empty repo path")
+		}
+	})
+}
