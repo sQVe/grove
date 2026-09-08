@@ -14,6 +14,18 @@ cmp stdout $WORK/before
 exec git -C ../flag-skipped rev-parse HEAD
 cmp stdout $WORK/before
 
+# An unfetched explicit base uses only refs on disk with --no-fetch.
+exec git -C $WORK/testrepo branch develop
+! exec grove add --no-fetch --base develop missing-base
+stderr 'base branch "develop" does not exist'
+! exec git rev-parse --verify refs/remotes/origin/develop
+exec git branch develop
+exec grove add --no-fetch --base develop local-base
+! stderr 'fetch failed'
+! exec git rev-parse --verify refs/remotes/origin/develop
+exec git -C ../local-base rev-parse HEAD
+cmp stdout $WORK/before
+
 exec grove config set --global grove.fetchBase false
 exec grove config list
 stdout 'fetch_base=false'

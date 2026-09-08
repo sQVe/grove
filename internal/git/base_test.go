@@ -155,6 +155,51 @@ func TestResolveWorktreeBase(t *testing.T) {
 		}
 	})
 
+	for _, staleLocal := range []bool{false, true} {
+		name := "fetches an unqualified base whose tracking ref was pruned"
+		if staleLocal {
+			name = "prefers fetched unqualified base over stale local branch"
+		}
+		t.Run(name, func(t *testing.T) {
+			w := testgit.NewGroveWorkspace(t)
+			origin := testgit.NewTestRepo(t)
+			origin.CreateBranch("develop")
+			w.RunOutput("remote", "add", "origin", origin.Path)
+			w.RunOutput("fetch", "origin", "+refs/heads/develop:refs/remotes/origin/develop")
+			before := w.RunOutput("rev-parse", "origin/develop")
+			if staleLocal {
+				w.RunOutput("branch", "develop", "origin/develop")
+			}
+			w.RunOutput("update-ref", "-d", "refs/remotes/origin/develop")
+			origin.RunOutput("checkout", "develop")
+			origin.RunOutput("commit", "--allow-empty", "-m", "upstream")
+
+			base, err := ResolveWorktreeBase(w.BareDir, "develop", true)
+			if err != nil {
+				t.Fatalf("ResolveWorktreeBase() error = %v", err)
+			}
+			if base != "origin/develop" {
+				t.Fatalf("base = %q, want origin/develop", base)
+			}
+			if got := w.RunOutput("rev-parse", base); got == before {
+				t.Fatal("base still points at the stale commit")
+			}
+			if staleLocal && w.RunOutput("rev-parse", "develop") != before {
+				t.Fatal("fetch changed the local branch")
+			}
+		})
+	}
+
+	t.Run("returns an error for an unqualified base origin does not have", func(t *testing.T) {
+		w := testgit.NewGroveWorkspace(t)
+		origin := testgit.NewTestRepo(t)
+		w.RunOutput("remote", "add", "origin", origin.Path)
+
+		if _, err := ResolveWorktreeBase(w.BareDir, "nope", true); err == nil || err.Error() != `base branch "nope" does not exist` {
+			t.Fatalf("error = %v, want missing-branch error", err)
+		}
+	})
+
 	t.Run("returns an error for a qualified base origin does not have", func(t *testing.T) {
 		w := testgit.NewGroveWorkspace(t)
 		origin := testgit.NewTestRepo(t)
