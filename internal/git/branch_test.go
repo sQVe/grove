@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -574,7 +575,7 @@ func TestGetDefaultBranch(t *testing.T) {
 			t.Setenv("GIT_ALLOW_PROTOCOL", "")
 			branch, err := GetDefaultBranch(bareDir)
 			if tt.want == "" {
-				if err == nil || err.Error() != "could not determine default branch from HEAD" {
+				if !errors.Is(err, ErrNoDefaultBranch) {
 					t.Errorf("expected unresolved default branch error, got %v", err)
 				}
 			} else if err != nil {

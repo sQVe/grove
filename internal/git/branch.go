@@ -161,6 +161,10 @@ func GetCurrentBranch(path string) (string, error) {
 // ErrDetachedHead is returned when the worktree is in detached HEAD state
 var ErrDetachedHead = errors.New("detached HEAD state")
 
+// ErrNoDefaultBranch reports that no default branch could be resolved, as
+// distinct from a failure while trying to resolve one.
+var ErrNoDefaultBranch = errors.New("could not determine default branch from HEAD")
+
 // GetCurrentBranchOrDetached returns the branch name, or the short commit hash if detached.
 // Returns (branch, detached, error) where detached indicates if HEAD is detached.
 func GetCurrentBranchOrDetached(path string) (branch string, detached bool, err error) {
@@ -235,7 +239,7 @@ func GetDefaultBranch(bareDir string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not determine default branch from HEAD")
+	return "", ErrNoDefaultBranch
 }
 
 // IsUnbornHead checks if the repository has an unborn HEAD (no commits yet).
@@ -607,10 +611,17 @@ func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
 // the default branch does not resolve or exists only on the remote, since HEAD
 // must never be left dangling.
 func SetHeadToDefaultBranch(bareDir string) error {
+	if bareDir == "" {
+		return errors.New("repository path cannot be empty")
+	}
+
 	defaultBranch, err := GetDefaultBranch(bareDir)
-	if err != nil {
-		logger.Debug("Skipping HEAD update, no default branch resolved: %v", err)
+	if errors.Is(err, ErrNoDefaultBranch) {
+		logger.Debug("Skipping HEAD update, no default branch resolved")
 		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to resolve default branch: %w", err)
 	}
 
 	exists, err := LocalBranchExists(bareDir, defaultBranch)
@@ -622,12 +633,7 @@ func SetHeadToDefaultBranch(bareDir string) error {
 		return nil
 	}
 
-	logger.Debug("Executing: git symbolic-ref HEAD refs/heads/%s in %s", defaultBranch, bareDir)
-	cmd, cancel := GitCommand("git", "symbolic-ref", "HEAD", "refs/heads/"+defaultBranch) // nolint:gosec // Branch resolved from git refs
-	defer cancel()
-	cmd.Dir = bareDir
-
-	if err := runGitCommand(cmd, true); err != nil {
+	if err := SetSymbolicRef(bareDir, "HEAD", "refs/heads/"+defaultBranch); err != nil {
 		return fmt.Errorf("failed to set HEAD to %s: %w", defaultBranch, err)
 	}
 	return nil
