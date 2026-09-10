@@ -97,6 +97,7 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 	semaphore := make(chan struct{}, n)
 	var waitGroup sync.WaitGroup
 	var mutex sync.Mutex
+	var outputMutex sync.Mutex
 	results := make([]execResult, len(targets))
 	stopped := false
 	started := 0
@@ -114,20 +115,28 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 		started++
 		go func() {
 			defer waitGroup.Done()
-			defer func() { <-semaphore }()
 
 			result := run(target)
+			output := result.output
+			result.output = nil
 
+			// Publish state and free the slot before flushing, so a large block
+			// never stalls dispatch. The dispatcher takes the slot then the
+			// mutex, so it always sees this stopped value.
 			mutex.Lock()
-			defer mutex.Unlock()
-
 			stopped = stopped || result.stop
+			results[index] = result
+			mutex.Unlock()
+			<-semaphore
+
+			outputMutex.Lock()
+			defer outputMutex.Unlock()
+
 			if result.label != "" {
 				logger.Info("%s", result.label)
 			}
-			if result.output != nil {
-				_, _ = result.output.WriteTo(os.Stderr)
-				result.output = nil
+			if output != nil {
+				_, _ = output.WriteTo(os.Stderr)
 			}
 			if result.err != nil {
 				logger.Error("%s", result.err)
@@ -135,7 +144,6 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 			if result.label != "" {
 				fmt.Fprintln(os.Stderr)
 			}
-			results[index] = result
 		}()
 		mutex.Unlock()
 	}
