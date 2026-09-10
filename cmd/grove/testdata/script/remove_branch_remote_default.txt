@@ -1,0 +1,13 @@
+# Test: remote-only default branch falls back to Git's safe delete
+setup_workspace feature
+exec grove add feature
+exec git branch -m main trunk
+exec git --git-dir=../.bare symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+! exec git show-ref --verify refs/heads/main
+exec git show-ref --verify refs/remotes/origin/main
+
+exec grove --debug remove --branch feature
+stderr 'Removed worktree.*feature'
+stderr 'Executing: git branch -d feature'
+! exists ../feature
+! exec git show-ref --verify refs/heads/feature

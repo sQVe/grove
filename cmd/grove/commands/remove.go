@@ -143,19 +143,17 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error 
 		forceDelete := force
 		if deleteThisBranch && !force && defaultBranch != "" {
 			merged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
-			if mergeErr != nil {
-				logger.Error("%s: failed to check merge status: %v", displayName, mergeErr)
-				failed = append(failed, dirName)
-				continue
-			}
-			if !merged {
+			switch {
+			case mergeErr != nil:
+				logger.Debug("Could not verify merge status for %s: %v", info.Branch, mergeErr)
+			case !merged:
 				logger.Error("%s: branch is not merged into %s; use --force to delete anyway", info.Branch, defaultBranch)
 				failed = append(failed, dirName)
 				continue
+			default:
+				// Git's safe delete does not recognize squash merges.
+				forceDelete = true
 			}
-
-			// Git's safe delete does not recognize squash merges.
-			forceDelete = true
 		}
 
 		// Count commits before removing the worktree so branch deletion can warn.
