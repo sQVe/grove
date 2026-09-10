@@ -1,0 +1,31 @@
+# Test: missing targets abort validation unless --ignore-missing is set
+setup_workspace a b
+exec grove add a
+exec grove add b
+
+! exec grove remove a nope b
+stderr 'worktree not found: nope'
+! stderr 'Removed'
+exists ../a
+exists ../b
+
+exec grove remove --ignore-missing a nope b a
+stderr -count=1 'nope: not found \(skipped\)'
+stderr 'Removed 2 worktrees:'
+! exists ../a
+! exists ../b
+exec git show-ref --verify refs/heads/a
+exec git show-ref --verify refs/heads/b
+
+# All missing targets are a successful no-op, with one warning per name.
+exec grove remove --ignore-missing nope nope absent
+stderr -count=1 'nope: not found \(skipped\)'
+stderr -count=1 'absent: not found \(skipped\)'
+! stderr 'Removed'
+
+# The flag does not suppress failures for worktrees that exist.
+! exec grove remove --ignore-missing nope main
+stderr 'nope: not found \(skipped\)'
+stderr 'cannot delete current worktree'
+stderr 'failed: main'
+exists ../main

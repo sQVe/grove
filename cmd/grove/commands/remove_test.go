@@ -44,7 +44,7 @@ func TestRunRemove_NotInWorkspace(t *testing.T) {
 	tmpDir := testutil.TempDir(t)
 	testutil.Chdir(t, tmpDir)
 
-	err := runRemove([]string{"some-branch"}, false, false)
+	err := runRemove([]string{"some-branch"}, false, false, false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -74,7 +74,7 @@ func TestRunRemove_WorktreeNotFound(t *testing.T) {
 	// Change to workspace
 	testutil.Chdir(t, mainPath)
 
-	err := runRemove([]string{"nonexistent"}, false, false)
+	err := runRemove([]string{"nonexistent"}, false, false, false)
 	if err == nil {
 		t.Error("expected error for non-existent branch")
 	}
@@ -107,7 +107,7 @@ func TestRunRemove_CurrentWorktree(t *testing.T) {
 	// Change to workspace (the worktree we'll try to remove)
 	testutil.Chdir(t, mainPath)
 
-	err := runRemove([]string{"main"}, false, false)
+	err := runRemove([]string{"main"}, false, false, false)
 	if err == nil {
 		t.Error("expected error when removing current worktree")
 	}
@@ -143,7 +143,7 @@ func TestRunRemove_CurrentWorktreeHint(t *testing.T) {
 	defer logger.SetOutput(nil)
 	logger.Init(true, false)
 
-	err := runRemove([]string{"main"}, false, false)
+	err := runRemove([]string{"main"}, false, false, false)
 	if err == nil {
 		t.Error("expected error when removing current worktree")
 	}
@@ -192,7 +192,7 @@ func TestRunRemove_DirtyWorktree(t *testing.T) {
 	// Change to main worktree (not the one we're removing)
 	testutil.Chdir(t, mainPath)
 
-	err := runRemove([]string{"feature"}, false, false)
+	err := runRemove([]string{"feature"}, false, false, false)
 	if err == nil {
 		t.Error("expected error for dirty worktree")
 	}
@@ -241,7 +241,7 @@ func TestRunRemove_LockedWorktree(t *testing.T) {
 	// Change to main worktree
 	testutil.Chdir(t, mainPath)
 
-	err := runRemove([]string{"feature"}, false, false)
+	err := runRemove([]string{"feature"}, false, false, false)
 	if err == nil {
 		t.Error("expected error for locked worktree")
 	}
@@ -315,7 +315,7 @@ func TestRunRemove_Success(t *testing.T) {
 		t.Fatal("feature worktree should exist before deletion")
 	}
 
-	err := runRemove([]string{"feature"}, false, false)
+	err := runRemove([]string{"feature"}, false, false, false)
 	if err != nil {
 		t.Fatalf("runRemove failed: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestRunRemove_ForceDirty(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Force remove dirty worktree
-	err := runRemove([]string{"feature"}, true, false)
+	err := runRemove([]string{"feature"}, true, false, false)
 	if err != nil {
 		t.Fatalf("runRemove with force failed: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestRunRemove_ForceLocked(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Force remove locked worktree
-	err := runRemove([]string{"feature"}, true, false)
+	err := runRemove([]string{"feature"}, true, false, false)
 	if err != nil {
 		t.Fatalf("runRemove with force failed: %v", err)
 	}
@@ -496,7 +496,7 @@ func TestRunRemove_WithBranchFlag(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove with --branch flag
-	err := runRemove([]string{"feature"}, false, true)
+	err := runRemove([]string{"feature"}, false, true, false)
 	if err != nil {
 		t.Fatalf("runRemove with --branch failed: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestRunRemove_MultipleWorktrees(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove multiple worktrees at once
-	err := runRemove([]string{"feature", "bugfix"}, false, false)
+	err := runRemove([]string{"feature", "bugfix"}, false, false, false)
 	if err != nil {
 		t.Fatalf("runRemove failed: %v", err)
 	}
@@ -612,7 +612,7 @@ func TestRunRemove_MultipleWithForce(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Force remove both dirty and locked worktrees
-	err := runRemove([]string{"feature", "bugfix"}, true, false)
+	err := runRemove([]string{"feature", "bugfix"}, true, false, false)
 	if err != nil {
 		t.Fatalf("runRemove with force failed: %v", err)
 	}
@@ -667,7 +667,7 @@ func TestRunRemove_MultipleWithOneDirty(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove both without force - bugfix should fail, feature should succeed
-	err := runRemove([]string{"feature", "bugfix"}, false, false)
+	err := runRemove([]string{"feature", "bugfix"}, false, false, false)
 	if err == nil {
 		t.Fatal("expected error for dirty worktree")
 	}
@@ -728,7 +728,7 @@ func TestRunRemove_MultipleWithOneLocked(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove both without force - bugfix should fail, feature should succeed
-	err := runRemove([]string{"feature", "bugfix"}, false, false)
+	err := runRemove([]string{"feature", "bugfix"}, false, false, false)
 	if err == nil {
 		t.Fatal("expected error for locked worktree")
 	}
@@ -776,7 +776,7 @@ func TestRunRemove_MultipleWithOneCurrent(t *testing.T) {
 	testutil.Chdir(t, featurePath)
 
 	// Try to remove both current (feature) and main
-	err := runRemove([]string{"feature", "main"}, false, false)
+	err := runRemove([]string{"feature", "main"}, false, false, false)
 	if err == nil {
 		t.Fatal("expected error for current worktree")
 	}
@@ -857,7 +857,7 @@ func TestRunRemove_MultipleWithDeleteBranch(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove with --branch flag
-	err := runRemove([]string{"feature", "bugfix"}, false, true)
+	err := runRemove([]string{"feature", "bugfix"}, false, true, false)
 	if err != nil {
 		t.Fatalf("runRemove failed: %v", err)
 	}
@@ -917,7 +917,7 @@ func TestRunRemove_DuplicateArgs(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Remove with duplicate args (same worktree specified twice)
-	err := runRemove([]string{"feature", "feature"}, false, false)
+	err := runRemove([]string{"feature", "feature"}, false, false, false)
 	if err != nil {
 		t.Fatalf("runRemove with duplicates failed: %v", err)
 	}
@@ -968,7 +968,7 @@ func TestRunRemove_ErrorShowsWorktreeLabel(t *testing.T) {
 	defer logger.SetOutput(nil)
 	logger.Init(true, false)
 
-	_ = runRemove([]string{"feat-auth"}, false, false)
+	_ = runRemove([]string{"feat-auth"}, false, false, false)
 
 	output := buf.String()
 	// Error should show directory name as primary identifier with branch in brackets
@@ -1152,7 +1152,7 @@ func TestRunRemove_CurrentWorktreeSubdirectory(t *testing.T) {
 	}
 	testutil.Chdir(t, subDir)
 
-	err := runRemove([]string{"feature"}, false, false)
+	err := runRemove([]string{"feature"}, false, false, false)
 	if err == nil {
 		t.Error("expected error when removing worktree from subdirectory within it")
 	}

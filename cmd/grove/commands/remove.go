@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ import (
 func NewRemoveCmd() *cobra.Command {
 	var force bool
 	var deleteBranch bool
+	var ignoreMissing bool
 
 	cmd := &cobra.Command{
 		Use:   "remove <worktree>...",
@@ -24,6 +26,7 @@ func NewRemoveCmd() *cobra.Command {
 		Long: `Remove one or more worktrees, optionally deleting their branches.
 
 Accepts worktree names (directories) or branch names.
+With --branch, unmerged branches are rejected before removal unless --force is set.
 
 Examples:
   grove remove feat-auth            # Remove worktree
@@ -33,18 +36,19 @@ Examples:
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: worktreeCompletion(0, false, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemove(args, force, deleteBranch)
+			return runRemove(args, force, deleteBranch, ignoreMissing)
 		},
 	}
 
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty or locked; with --branch, delete unmerged and unpushed commits")
 	cmd.Flags().BoolVar(&deleteBranch, "branch", false, "Also delete the branch")
+	cmd.Flags().BoolVar(&ignoreMissing, "ignore-missing", false, "Skip worktrees that are not found")
 	cmd.Flags().BoolP("help", "h", false, "Help for remove")
 
 	return cmd
 }
 
-func runRemove(targets []string, force, deleteBranch bool) error {
+func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("requires at least one worktree")
 	}
@@ -54,13 +58,33 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 		return err
 	}
 
-	cleaned := make([]string, len(targets))
-	for i, target := range targets {
-		cleaned[i] = strings.TrimSpace(target)
+	cleaned := make([]string, 0, len(targets))
+	var missing []string
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		if ignoreMissing && git.FindWorktree(infos, target) == nil {
+			if !slices.Contains(missing, target) {
+				missing = append(missing, target)
+			}
+			continue
+		}
+		cleaned = append(cleaned, target)
 	}
+
 	toRemove, err := resolveWorktrees(infos, cleaned)
 	if err != nil {
 		return err
+	}
+	for _, target := range missing {
+		logger.Warning("%s: not found (skipped)", target)
+	}
+
+	var defaultBranch string
+	if deleteBranch && !force {
+		defaultBranch, err = git.GetDefaultBranch(bareDir)
+		if err != nil {
+			logger.Debug("Skipping merge check: could not determine default branch: %v", err)
+		}
 	}
 
 	// Process each target, accumulate successes and failures
@@ -115,9 +139,27 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 			}
 		}
 
+		deleteThisBranch := deleteBranch && !info.Detached
+		forceDelete := force
+		if deleteThisBranch && !force && defaultBranch != "" {
+			merged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
+			if mergeErr != nil {
+				logger.Error("%s: failed to check merge status: %v", displayName, mergeErr)
+				failed = append(failed, dirName)
+				continue
+			}
+			if !merged {
+				logger.Error("%s: branch is not merged into %s; use --force to delete anyway", info.Branch, defaultBranch)
+				failed = append(failed, dirName)
+				continue
+			}
+
+			// Git's safe delete does not recognize squash merges.
+			forceDelete = true
+		}
+
 		// Count commits before removing the worktree so branch deletion can warn.
 		var aheadCount, unreachableCount int
-		deleteThisBranch := deleteBranch && !info.Detached
 		if deleteThisBranch {
 			if force {
 				unreachableCount, err = git.CountUnreachableCommits(bareDir, info.Branch)
@@ -155,7 +197,7 @@ func runRemove(targets []string, force, deleteBranch bool) error {
 				logger.Warning("%s: branch has %d unpushed commit(s)", info.Branch, aheadCount)
 			}
 
-			if err := git.DeleteBranch(bareDir, info.Branch, force); err != nil {
+			if err := git.DeleteBranch(bareDir, info.Branch, forceDelete); err != nil {
 				logger.Error("%s: worktree removed but failed to delete branch: %v", displayName, err)
 				failed = append(failed, dirName)
 				continue

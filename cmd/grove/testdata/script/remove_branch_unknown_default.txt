@@ -1,0 +1,14 @@
+# Test: unknown default branch keeps Git's existing safe-delete behavior
+setup_workspace feature
+exec grove add feature
+exec git branch -m main trunk
+exec git remote remove origin
+exec git --git-dir=../.bare symbolic-ref HEAD refs/heads/unknown
+
+! exec grove --debug remove --branch feature
+stderr 'Skipping merge check: could not determine default branch'
+stderr 'Removed worktree.*feature'
+stderr 'Executing: git branch -d feature'
+stderr 'worktree removed but failed to delete branch'
+! exists ../feature
+exec git show-ref --verify refs/heads/feature

@@ -336,12 +336,13 @@ grove status --verbose
 
 <br>
 
-Remove one or more worktrees.
+Remove one or more worktrees. With `--branch`, unmerged branches are rejected before removal unless `--force` is set.
 
 **Flags:**
 
 - `-f, --force` — Remove even if dirty or locked; with `--branch`, delete unmerged and unpushed commits
 - `--branch` — Also delete the branch
+- `--ignore-missing` — Skip unknown targets with a warning
 
 **Examples:**
 
@@ -350,6 +351,7 @@ grove remove feat-auth
 grove remove feat-auth --branch
 grove remove --force wip
 grove remove feat-auth bugfix-123 # Remove multiple
+grove remove --ignore-missing feat-auth bugfix-123 # Skip missing worktrees
 ```
 
 </details>

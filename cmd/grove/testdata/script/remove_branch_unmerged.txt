@@ -1,4 +1,4 @@
-# Test: grove remove --branch fails for unmerged commits
+# Test: unmerged branches are rejected before removing their worktrees
 setup_workspace branch-unmerged
 
 exec grove add branch-unmerged
@@ -8,30 +8,23 @@ exec git add newfile.txt
 exec git commit -m 'unmerged commit'
 cd ../main
 
-# Branch has commits not merged to main, so git branch -d fails
 ! exec grove remove --branch branch-unmerged
-stderr '✗ .*not fully merged'
-stderr 'Removed worktree.*branch-unmerged'
+stderr 'branch-unmerged: branch is not merged into main; use --force to delete anyway'
+stderr 'failed: branch-unmerged'
+! stderr 'Removed worktree'
+exists ../branch-unmerged/newfile.txt
+exec git show-ref --verify refs/heads/branch-unmerged
 
-# Worktree was removed but branch deletion failed
-! exists ../branch-unmerged
-exec git branch --list branch-unmerged
-stdout 'branch-unmerged'
-
-# Multi-worktree summary only claims a branch deletion that succeeded
+# An unmerged target fails without blocking a merged target in the batch.
 exec grove add branch-merged
-exec grove add branch-unmerged
-cd ../branch-unmerged
-cp $WORK/newfile.txt second.txt
-exec git add second.txt
-exec git commit -m 'second unmerged commit'
-cd ../main
 ! exec grove remove --branch branch-merged branch-unmerged
-stderr 'Removed 2 worktrees:'
-stderr 'branch-merged \(branch branch-merged\)'
-! stderr 'branch-unmerged \(branch'
-exec git branch --list branch-unmerged
-stdout 'branch-unmerged'
+stderr 'Removed worktree.*branch-merged'
+stderr 'deleted branch branch-merged'
+stderr 'failed: branch-unmerged'
+! exists ../branch-merged
+! exec git show-ref --verify refs/heads/branch-merged
+exists ../branch-unmerged/newfile.txt
+exec git show-ref --verify refs/heads/branch-unmerged
 
 -- newfile.txt --
 new content
