@@ -13,6 +13,8 @@ stdout '"name": "feature"'
 stdout '"path": ".*workspace[/\\]+feature"'
 stdout '"exit_code": 1'
 ! stdout 'child|output|label|stop'
+# Target order, not completion order, so the array matches sequential exec.
+stdout '(?s)"name": "main".*"name": "feature"'
 stderr -count=2 '^child-output$'
 stderr -count=2 '^child-error$'
 ! stderr 'Executed|executions failed|→ main|→ feature'

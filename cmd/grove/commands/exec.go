@@ -97,10 +97,11 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 	semaphore := make(chan struct{}, n)
 	var waitGroup sync.WaitGroup
 	var mutex sync.Mutex
-	results := make([]execResult, 0, len(targets))
+	results := make([]execResult, len(targets))
+	completed := make([]bool, len(targets))
 	stopped := false
 
-	for _, target := range targets {
+	for index, target := range targets {
 		semaphore <- struct{}{}
 		mutex.Lock()
 		if stopped {
@@ -133,14 +134,23 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 			if result.label != "" {
 				fmt.Fprintln(os.Stderr)
 			}
-			results = append(results, result)
+			results[index] = result
+			completed[index] = true
 		}()
 		mutex.Unlock()
 	}
 
 	waitGroup.Wait()
 
-	return results
+	// Report in target order, so --json matches the sequential array regardless of who finished first.
+	ordered := make([]execResult, 0, len(targets))
+	for index, result := range results {
+		if completed[index] {
+			ordered = append(ordered, result)
+		}
+	}
+
+	return ordered
 }
 
 func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []string) error {
@@ -184,7 +194,7 @@ func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []
 		}
 	}
 
-	runOne := func(target execTarget, command []string, streaming bool) execResult {
+	runOne := func(target execTarget, streaming bool) execResult {
 		result := execResult{Name: target.name, Path: target.path}
 		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
 		cmd.Dir = target.path
@@ -227,11 +237,11 @@ func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []
 	results := make([]execResult, 0, len(targets))
 	if parallel > 1 {
 		results = runParallel(targets, parallel, func(target execTarget) execResult {
-			return runOne(target, command, false)
+			return runOne(target, false)
 		})
 	} else {
 		for _, target := range targets {
-			result := runOne(target, command, true)
+			result := runOne(target, true)
 			results = append(results, result)
 			if result.stop {
 				break
