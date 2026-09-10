@@ -47,7 +47,7 @@ Examples:
   grove switch feat-auth   # Switch by directory name
   grove switch feat/auth   # Switch by branch name`,
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: worktreeCompletion(1, false, notCurrentWorktree),
+		ValidArgsFunction: worktreeCompletionWithBranches(1, false, true, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSwitch(args[0])
 		},
