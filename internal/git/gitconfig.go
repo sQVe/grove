@@ -93,6 +93,51 @@ func SetConfig(key, value string, global bool) error {
 	return err
 }
 
+// SetBranchConfig sets a branch value in the repository's local config.
+func SetBranchConfig(bareDir, branch, key, value string) error {
+	if bareDir == "" || branch == "" || key == "" {
+		return errors.New("repository path, branch and config key cannot be empty")
+	}
+
+	cmd, cancel := GitCommand("git", configCommand, "--local", "branch."+branch+"."+key, value)
+	defer cancel()
+	cmd.Dir = bareDir
+
+	_, err := executeWithOutput(cmd)
+	return err
+}
+
+// GetBranchConfigs reads a config value for all branches in one command.
+func GetBranchConfigs(bareDir, key string) (map[string]string, error) {
+	if bareDir == "" || key == "" {
+		return nil, errors.New("repository path and config key cannot be empty")
+	}
+
+	suffix := "." + strings.ToLower(key)
+	cmd, cancel := GitCommand("git", configCommand, "--local", "--get-regexp", "^branch\\..+"+regexp.QuoteMeta(suffix)+"$")
+	defer cancel()
+	cmd.Dir = bareDir
+	output, err := executeWithOutput(cmd)
+	configs := make(map[string]string)
+	if err != nil {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() == 1 {
+			return configs, nil
+		}
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	for scanner.Scan() {
+		name, value, found := strings.Cut(scanner.Text(), " ")
+		if found {
+			branch := strings.TrimSuffix(strings.TrimPrefix(name, "branch."), suffix)
+			configs[branch] = value
+		}
+	}
+
+	return configs, scanner.Err()
+}
+
 // UnsetConfig removes a config key and all its values
 func UnsetConfig(key string, global bool) error {
 	logger.Debug("Unsetting git config: %s (global=%v)", key, global)

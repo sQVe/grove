@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -562,6 +563,11 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, quiet); err != nil {
 		return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 	}
+
+	if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
+		logger.Debug("Failed to record PR for %s: %v", branch, err)
+	}
+
 	if existingWorkspace {
 		if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
 			logger.Debug("Failed to set upstream for %s: %v", branch, err)

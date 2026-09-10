@@ -8,6 +8,42 @@ import (
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
+func TestBranchConfigs(t *testing.T) {
+	repo := testgit.NewTestRepo(t)
+	bareDir := repo.TempDir + "/bare.git"
+	repo.RunOutput("clone", "--bare", repo.Path, bareDir)
+	t.Chdir(repo.Path)
+
+	configs, err := GetBranchConfigs(bareDir, "grovePr")
+	if err != nil || len(configs) != 0 {
+		t.Fatalf("empty configs = %v, %v", configs, err)
+	}
+	for _, branch := range []string{"Feature/topic.v2", "main"} {
+		if err := SetBranchConfig(bareDir, branch, "grovePr", "41"); err != nil {
+			t.Fatal(err)
+		}
+		if err := SetBranchConfig(bareDir, branch, "grovePr", "42"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repo.RunOutput("-C", bareDir, "config", "branch.main.grovePrExtra", "99")
+	repo.RunOutput("config", "branch.main.grovePr", "100")
+
+	configs, err = GetBranchConfigs(bareDir, "grovePr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(configs) != 2 || configs["Feature/topic.v2"] != "42" || configs["main"] != "42" {
+		t.Fatalf("configs = %v", configs)
+	}
+	if _, err := GetBranchConfigs(bareDir+"/missing", "grovePr"); err == nil {
+		t.Fatal("expected read failure")
+	}
+	if err := SetBranchConfig(bareDir+"/missing", "main", "grovePr", "42"); err == nil {
+		t.Fatal("expected write failure")
+	}
+}
+
 func TestGetConfigs(t *testing.T) {
 	t.Run("only matches keys starting with exact prefix", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
