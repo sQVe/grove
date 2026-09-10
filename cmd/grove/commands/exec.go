@@ -98,8 +98,8 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 	var waitGroup sync.WaitGroup
 	var mutex sync.Mutex
 	results := make([]execResult, len(targets))
-	completed := make([]bool, len(targets))
 	stopped := false
+	started := 0
 
 	for index, target := range targets {
 		semaphore <- struct{}{}
@@ -111,6 +111,7 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 		}
 
 		waitGroup.Add(1)
+		started++
 		go func() {
 			defer waitGroup.Done()
 			defer func() { <-semaphore }()
@@ -135,7 +136,6 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 				fmt.Fprintln(os.Stderr)
 			}
 			results[index] = result
-			completed[index] = true
 		}()
 		mutex.Unlock()
 	}
@@ -143,14 +143,7 @@ func runParallel(targets []execTarget, n int, run func(execTarget) execResult) [
 	waitGroup.Wait()
 
 	// Report in target order, so --json matches the sequential array regardless of who finished first.
-	ordered := make([]execResult, 0, len(targets))
-	for index, result := range results {
-		if completed[index] {
-			ordered = append(ordered, result)
-		}
-	}
-
-	return ordered
+	return results[:started]
 }
 
 func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []string) error {
