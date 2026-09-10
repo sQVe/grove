@@ -1,0 +1,31 @@
+# A failure stops dispatch, but the other running child finishes.
+# Skip on Windows: children branch on Unix shell path matching to pick who fails
+[windows] skip
+setup_workspace feature skipped
+exec grove add feature
+exec grove add skipped
+
+! exec grove --plain exec main feature skipped -j 2 --fail-fast -- sh $WORK/fail.sh
+exists main-started
+exists ../feature/finished
+! exists ../skipped/started
+stderr 'Stopped early, 1 worktrees skipped'
+stderr '1 succeeded, 1 failed'
+
+# Without fail-fast all targets run despite failures.
+! exec grove exec main feature skipped -j 2 -- sh -c 'touch started; exit 3'
+exists ../skipped/started
+
+-- fail.sh --
+touch started
+case "$PWD" in
+  */main)
+    touch main-started
+    while [ ! -f ../feature/started ]; do sleep 0.01; done
+    exit 3
+    ;;
+  */feature)
+    sleep 0.2
+    touch finished
+    ;;
+esac

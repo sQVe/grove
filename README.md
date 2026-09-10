@@ -447,12 +447,23 @@ Execute a command in worktrees.
 **Flags:**
 
 - `-a, --all` — Execute in all worktrees
-- `--fail-fast` — Stop on first failure
+- `-j, --parallel N` — Run at most N commands at once (default: 1)
+- `--fail-fast` — Stop starting commands after the first failure; running commands finish
+- `--json` — Write results as JSON to stdout and child output to stderr
+
+With `N > 1`, each worktree's header, stdout, and stderr appear together on stderr
+as each command finishes. Output is buffered in memory without a size cap.
+Parallel commands receive no stdin. `--json` always lists worktrees in target
+order, though with `--fail-fast` it can list more of them than a sequential run,
+since commands already running when the first failure lands still finish and
+still report. With `N = 1` or no flag, output streams as before and commands
+inherit stdin.
 
 **Examples:**
 
 ```bash
 grove exec --all -- npm install
+grove exec --all -j 4 -- npm test
 grove exec main feat-auth -- git pull
 grove exec --all --fail-fast -- go build
 grove exec --all -- bash -c "npm install && npm test"

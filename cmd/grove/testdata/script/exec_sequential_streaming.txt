@@ -1,0 +1,31 @@
+# Default and -j 1 retain stdout, stderr, headers, and stdin while the child runs.
+setup_workspace
+
+exec sh $WORK/check.sh
+exec sh $WORK/check.sh -j 1
+
+-- check.sh --
+rm -f release output errors
+echo caller-input | grove --plain exec main "$@" -- sh "$WORK/child.sh" >output 2>errors &
+process=$!
+for attempt in $(seq 1 200); do
+  if grep -q '^ready$' output && grep -q '^main \[main\]$' errors && grep -q '^child-error$' errors; then
+    touch release
+    wait "$process"
+    exit $?
+  fi
+  sleep 0.01
+done
+kill "$process"
+wait "$process"
+exit 1
+-- child.sh --
+read -r input
+[ "$input" = caller-input ] || exit 2
+echo ready
+echo child-error >&2
+for attempt in $(seq 1 200); do
+  [ -f release ] && exit 0
+  sleep 0.01
+done
+exit 3

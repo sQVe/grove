@@ -1,0 +1,47 @@
+# Buffered blocks include both streams and appear only after exit, as each command finishes.
+# Skip on Windows: children coordinate completion order through Unix shell path expansion
+[windows] skip
+setup_workspace feature
+exec grove add feature
+
+exec grove --plain exec main feature -j 2 -- sh $WORK/output.sh
+cmp stderr $WORK/expected.txt
+! stdout .
+
+# Parallel children do not inherit caller stdin.
+stdin $WORK/input.txt
+exec grove exec main --parallel 2 -- cat
+! stdout .
+! stderr 'caller input'
+
+# Invalid limits fail before workspace or command validation.
+cd $WORK
+! exec grove exec -j 0 --
+stderr 'parallel must be at least 1'
+! exec grove exec --parallel=-2 --
+stderr 'parallel must be at least 1'
+
+-- output.sh --
+name=${PWD##*/}
+echo "$name-out-1"
+if [ "$name" = main ]; then
+  while [ ! -f ../feature/done ]; do sleep 0.01; done
+  sleep 0.2
+fi
+echo "$name-err" >&2
+echo "$name-out-2"
+touch done
+-- expected.txt --
+feature [feature]
+feature-out-1
+feature-err
+feature-out-2
+
+main [main]
+main-out-1
+main-err
+main-out-2
+
+Executed in 2 worktrees
+-- input.txt --
+caller input

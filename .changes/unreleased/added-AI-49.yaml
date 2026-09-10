@@ -1,0 +1,3 @@
+kind: Added
+body: "`grove exec -j/--parallel N` runs targets with bounded concurrency, printing each worktree's buffered output as its command finishes."
+time: 2026-09-10T08:17:48+02:00

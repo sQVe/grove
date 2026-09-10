@@ -1,0 +1,32 @@
+# JSON keeps the sequential schema and exit codes, without buffered output on stdout.
+setup_workspace feature
+exec grove add feature
+cp $WORK/exists.txt only-in-main.txt
+
+! exec grove exec main feature -j 2 --json -- sh -c 'echo child-output; echo child-error >&2; test -f only-in-main.txt'
+stdout '^\['
+stdout -count=2 '"name":'
+stdout '"name": "main"'
+stdout '"path": ".*workspace[/\\]+main"'
+stdout '"exit_code": 0'
+stdout '"name": "feature"'
+stdout '"path": ".*workspace[/\\]+feature"'
+stdout '"exit_code": 1'
+! stdout 'child|output|label|stop'
+# Target order, not completion order, so the array matches sequential exec.
+stdout '(?s)"name": "main".*"name": "feature"'
+stderr -count=2 '^child-output$'
+stderr -count=2 '^child-error$'
+! stderr 'Executed|executions failed|→ main|→ feature'
+
+exec sh -c 'grove exec main -j 2 --json -- sh -c "exit 3"; test $? -eq 3'
+stdout '"exit_code": 3'
+exec sh -c 'grove exec main feature -j 2 --json -- false; test $? -eq 1'
+stdout -count=2 '"exit_code": 1'
+
+! exec grove exec main feature -j 2 --json -- grove-no-such-command-xyz
+stdout -count=2 '"exit_code": 1'
+stderr -count=2 'executable file not found'
+
+-- exists.txt --
+exists
