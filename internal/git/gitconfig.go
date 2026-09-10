@@ -95,6 +95,8 @@ func SetConfig(key, value string, global bool) error {
 
 // SetBranchConfig sets a branch value in the repository's local config.
 func SetBranchConfig(bareDir, branch, key, value string) error {
+	logger.Debug("Setting git config: branch.%s.%s=%s (repo=%s)", branch, key, value, bareDir)
+
 	if bareDir == "" || branch == "" || key == "" {
 		return errors.New("repository path, branch and config key cannot be empty")
 	}
@@ -109,6 +111,8 @@ func SetBranchConfig(bareDir, branch, key, value string) error {
 
 // GetBranchConfigs reads a config value for all branches in one command.
 func GetBranchConfigs(bareDir, key string) (map[string]string, error) {
+	logger.Debug("Getting git configs with branch key: %s (repo=%s)", key, bareDir)
+
 	if bareDir == "" || key == "" {
 		return nil, errors.New("repository path and config key cannot be empty")
 	}

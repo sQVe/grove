@@ -224,12 +224,8 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 
 		displayInfo := *info
 		if fast {
-			// Fast mode has no sync status, even when an upstream exists.
+			// Hide the sync indicator because fast mode skips upstream checks.
 			displayInfo.NoUpstream = true
-			displayInfo.Dirty = false
-			displayInfo.Ahead = 0
-			displayInfo.Behind = 0
-			displayInfo.Gone = false
 		}
 
 		// Print the worktree row using the formatter
@@ -249,6 +245,10 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 		if verbose {
 			subItems := formatter.VerboseSubItems(&displayInfo)
 			for _, item := range subItems {
+				if maxPRLen > 0 {
+					item = strings.Repeat(" ", maxPRLen+2) + item
+				}
+
 				fmt.Println(item)
 			}
 		}

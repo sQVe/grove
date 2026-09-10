@@ -505,34 +505,56 @@ func TestListWorktreesWithInfoPR(t *testing.T) {
 	repo := testgit.NewTestRepo(t)
 	bareDir := filepath.Join(repo.TempDir, "bare.git")
 	repo.RunOutput("clone", "--bare", repo.Path, bareDir)
+
 	for _, branch := range []string{"Feature/topic.v2", "missing", "invalid", "negative", "overflow"} {
 		repo.RunOutput("-C", bareDir, "worktree", "add", filepath.Join(repo.TempDir, branch), "-b", branch)
 	}
+
 	repo.RunOutput("-C", bareDir, "config", "branch.Feature/topic.v2.grovePr", "42")
 	repo.RunOutput("-C", bareDir, "config", "branch.invalid.grovePr", "not-a-number")
 	repo.RunOutput("-C", bareDir, "config", "branch.negative.grovePr", "-2")
 	repo.RunOutput("-C", bareDir, "config", "branch.overflow.grovePr", "9999999999999999999999999")
 	repo.RunOutput("-C", bareDir, "worktree", "add", "--detach", filepath.Join(repo.TempDir, "detached"), "main")
+
 	t.Chdir(repo.Path)
 	repo.RunOutput("config", "branch.Feature/topic.v2.grovePr", "99")
 
 	for _, fast := range []bool{true, false} {
-		infos, err := ListWorktreesWithInfo(bareDir, fast)
-		if err != nil {
-			t.Fatal(err)
+		name := "reads PR numbers from the bare repository in full mode"
+		if fast {
+			name = "reads PR numbers from the bare repository in fast mode"
 		}
-		if len(infos) != 6 {
-			t.Fatalf("got %d worktrees", len(infos))
-		}
-		for _, info := range infos {
-			want := 0
-			if info.Branch == "Feature/topic.v2" {
-				want = 42
+
+		t.Run(name, func(t *testing.T) {
+			infos, err := ListWorktreesWithInfo(bareDir, fast)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if info.PR != want {
-				t.Errorf("fast=%v branch=%s PR=%d, want %d", fast, info.Branch, info.PR, want)
+
+			if len(infos) != 6 {
+				t.Fatalf("got %d worktrees", len(infos))
 			}
-		}
+
+			for _, info := range infos {
+				name := "ignores " + info.Branch + " PR numbers"
+				if info.Detached {
+					name = "leaves detached worktrees without a PR number"
+				} else if info.Branch == "Feature/topic.v2" {
+					name = "preserves mixed-case branch names with dots and slashes"
+				}
+
+				t.Run(name, func(t *testing.T) {
+					want := 0
+					if info.Branch == "Feature/topic.v2" {
+						want = 42
+					}
+
+					if info.PR != want {
+						t.Errorf("branch=%s PR=%d, want %d", info.Branch, info.PR, want)
+					}
+				})
+			}
+		})
 	}
 }
 

@@ -14,34 +14,79 @@ func TestBranchConfigs(t *testing.T) {
 	repo.RunOutput("clone", "--bare", repo.Path, bareDir)
 	t.Chdir(repo.Path)
 
-	configs, err := GetBranchConfigs(bareDir, "grovePr")
-	if err != nil || len(configs) != 0 {
-		t.Fatalf("empty configs = %v, %v", configs, err)
-	}
-	for _, branch := range []string{"Feature/topic.v2", "main"} {
-		if err := SetBranchConfig(bareDir, branch, "grovePr", "41"); err != nil {
-			t.Fatal(err)
-		}
-		if err := SetBranchConfig(bareDir, branch, "grovePr", "42"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	repo.RunOutput("-C", bareDir, "config", "branch.main.grovePrExtra", "99")
-	repo.RunOutput("config", "branch.main.grovePr", "100")
+	t.Run("returns an empty map when no keys match", func(t *testing.T) {
+		configs, err := GetBranchConfigs(bareDir, "grovePr")
 
-	configs, err = GetBranchConfigs(bareDir, "grovePr")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(configs) != 2 || configs["Feature/topic.v2"] != "42" || configs["main"] != "42" {
-		t.Fatalf("configs = %v", configs)
-	}
-	if _, err := GetBranchConfigs(bareDir+"/missing", "grovePr"); err == nil {
-		t.Fatal("expected read failure")
-	}
-	if err := SetBranchConfig(bareDir+"/missing", "main", "grovePr", "42"); err == nil {
-		t.Fatal("expected write failure")
-	}
+		if err != nil || len(configs) != 0 {
+			t.Fatalf("empty configs = %v, %v", configs, err)
+		}
+	})
+
+	t.Run("overwrites values and preserves branch names", func(t *testing.T) {
+		for _, branch := range []string{"Feature/topic.v2", "main"} {
+			if err := SetBranchConfig(bareDir, branch, "grovePr", "41"); err != nil {
+				t.Fatal(err)
+			}
+			if err := SetBranchConfig(bareDir, branch, "grovePr", "42"); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		configs, err := GetBranchConfigs(bareDir, "grovePr")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(configs) != 2 || configs["Feature/topic.v2"] != "42" || configs["main"] != "42" {
+			t.Fatalf("configs = %v", configs)
+		}
+	})
+
+	t.Run("excludes other keys", func(t *testing.T) {
+		repo := testgit.NewTestRepo(t)
+		repo.RunOutput("config", "branch.main.grovePrExtra", "99")
+
+		configs, err := GetBranchConfigs(repo.Path, "grovePr")
+
+		if err != nil || len(configs) != 0 {
+			t.Fatalf("configs = %v, %v", configs, err)
+		}
+	})
+
+	t.Run("reads and writes the requested repository regardless of cwd", func(t *testing.T) {
+		repo.RunOutput("config", "branch.main.grovePr", "100")
+		if err := SetBranchConfig(bareDir, "main", "grovePr", "42"); err != nil {
+			t.Fatal(err)
+		}
+
+		configs, err := GetBranchConfigs(bareDir, "grovePr")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if configs["main"] != "42" {
+			t.Fatalf("configs = %v", configs)
+		}
+		if value := repo.RunOutput("config", "branch.main.grovePr"); value != "100\n" {
+			t.Fatalf("cwd config = %q, want 100", value)
+		}
+	})
+
+	t.Run("reports read failures", func(t *testing.T) {
+		_, err := GetBranchConfigs(bareDir+"/missing", "grovePr")
+
+		if err == nil {
+			t.Fatal("expected read failure")
+		}
+	})
+
+	t.Run("reports write failures", func(t *testing.T) {
+		err := SetBranchConfig(bareDir+"/missing", "main", "grovePr", "42")
+
+		if err == nil {
+			t.Fatal("expected write failure")
+		}
+	})
 }
 
 func TestGetConfigs(t *testing.T) {
