@@ -45,7 +45,7 @@ func TestRunExec_NotInWorkspace(t *testing.T) {
 	tmpDir := testutil.TempDir(t)
 	testutil.Chdir(t, tmpDir)
 
-	err := runExec(true, false, false, nil, []string{"echo", "hello"})
+	err := runExec(true, false, false, 1, nil, []string{"echo", "hello"})
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestRunExec_NotInWorkspace(t *testing.T) {
 
 func TestRunExec_NoTargets(t *testing.T) {
 	// No --all and no worktree args
-	err := runExec(false, false, false, nil, []string{"echo", "hello"})
+	err := runExec(false, false, false, 1, nil, []string{"echo", "hello"})
 	if err == nil {
 		t.Error("expected error for no targets")
 	}
@@ -64,7 +64,7 @@ func TestRunExec_NoTargets(t *testing.T) {
 
 func TestRunExec_NoCommand(t *testing.T) {
 	// No command after --
-	err := runExec(true, false, false, nil, nil)
+	err := runExec(true, false, false, 1, nil, nil)
 	if err == nil {
 		t.Error("expected error for no command")
 	}
@@ -75,7 +75,7 @@ func TestRunExec_NoCommand(t *testing.T) {
 
 func TestRunExec_AllWithWorktrees(t *testing.T) {
 	// Both --all and worktree args specified
-	err := runExec(true, false, false, []string{"main"}, []string{"echo", "hello"})
+	err := runExec(true, false, false, 1, []string{"main"}, []string{"echo", "hello"})
 	if err == nil {
 		t.Error("expected error when both --all and worktrees specified")
 	}
@@ -152,7 +152,7 @@ func TestRunExec_AllWorktrees(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Run command in all worktrees (creates a marker file)
-	err := runExec(true, false, false, nil, []string{"touch", "exec-marker.txt"})
+	err := runExec(true, false, false, 1, nil, []string{"touch", "exec-marker.txt"})
 	if err != nil {
 		t.Fatalf("runExec failed: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestRunExec_SpecificWorktrees(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Run command only in main and feature (not bugfix)
-	err := runExec(false, false, false, []string{"main", "feature"}, []string{"touch", "specific-marker.txt"})
+	err := runExec(false, false, false, 1, []string{"main", "feature"}, []string{"touch", "specific-marker.txt"})
 	if err != nil {
 		t.Fatalf("runExec failed: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestRunExec_InvalidWorktree(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Try to run in non-existent worktree
-	err := runExec(false, false, false, []string{"nonexistent"}, []string{"echo", "hello"})
+	err := runExec(false, false, false, 1, []string{"nonexistent"}, []string{"echo", "hello"})
 	if err == nil {
 		t.Error("expected error for non-existent worktree")
 	}
@@ -243,7 +243,7 @@ func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
 
 	// Run a command that creates a marker file then fails (exit 1).
 	// Both worktrees will fail, but execution should continue to all worktrees.
-	err := runExec(true, false, false, nil, []string{"sh", "-c", "touch marker.txt && exit 1"})
+	err := runExec(true, false, false, 1, nil, []string{"sh", "-c", "touch marker.txt && exit 1"})
 
 	// Should return error (all executions failed)
 	if err == nil {
@@ -277,7 +277,7 @@ func TestRunExec_SingleTargetExitCode(t *testing.T) {
 			if test.name == "signal" && runtime.GOOS == "windows" {
 				t.Skip("Windows has no signal exit status; sh reports 3840")
 			}
-			err := runExec(false, false, false, []string{"main"}, []string{"sh", "-c", test.command})
+			err := runExec(false, false, false, 1, []string{"main"}, []string{"sh", "-c", test.command})
 			exitError, ok := err.(interface{ ExitCode() int })
 			if !ok {
 				t.Fatalf("expected exit-code error, got %v", err)
@@ -308,7 +308,7 @@ func TestRunExec_FailFast(t *testing.T) {
 
 	// Run a command that creates a marker then fails, with --fail-fast.
 	// Worktrees are processed in alphabetical order by branch name.
-	err := runExec(true, true, false, nil, []string{"sh", "-c", "touch failfast-marker.txt && exit 1"})
+	err := runExec(true, true, false, 1, nil, []string{"sh", "-c", "touch failfast-marker.txt && exit 1"})
 
 	// Should return error
 	if err == nil {
@@ -341,7 +341,7 @@ func TestRunExec_FindsByDirectoryName(t *testing.T) {
 	testutil.Chdir(t, mainPath)
 
 	// Run command using directory name (not branch name)
-	err := runExec(false, false, false, []string{"feat-auth"}, []string{"touch", "found-by-dir.txt"})
+	err := runExec(false, false, false, 1, []string{"feat-auth"}, []string{"touch", "found-by-dir.txt"})
 	if err != nil {
 		t.Fatalf("runExec should find worktree by directory name: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestRunExec_PartialFailure(t *testing.T) {
 		}
 	}
 
-	err := runExec(true, false, false, nil, []string{"test", "-f", "marker.txt"})
+	err := runExec(true, false, false, 1, nil, []string{"test", "-f", "marker.txt"})
 	if err == nil {
 		t.Fatal("expected error for partial failure")
 	}
@@ -488,7 +488,7 @@ func TestRunExec_DuplicateWorktrees(t *testing.T) {
 
 	// Run command with same worktree specified twice. The command appends to a file,
 	// so we can check it ran only once by verifying the file content.
-	err := runExec(false, false, false, []string{"feature", "feature"}, []string{"sh", "-c", "echo x >> dedup-marker.txt"})
+	err := runExec(false, false, false, 1, []string{"feature", "feature"}, []string{"sh", "-c", "echo x >> dedup-marker.txt"})
 	if err != nil {
 		t.Fatalf("runExec failed: %v", err)
 	}

@@ -1,12 +1,14 @@
 package commands
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/formatter"
@@ -23,6 +25,11 @@ type execResult struct {
 	Name     string `json:"name"`
 	Path     string `json:"path"`
 	ExitCode int    `json:"exit_code"`
+
+	label  string
+	output *bytes.Buffer
+	err    error
+	stop   bool
 }
 
 // ExecError reports an exec command failure with its process exit code.
@@ -46,14 +53,22 @@ func NewExecCmd() *cobra.Command {
 	var all bool
 	var failFast bool
 	var jsonOutput bool
+	var parallel int
 
 	cmd := &cobra.Command{
 		Use:   "exec [--all | <worktree>...] -- <command>",
 		Short: "Execute a command in worktrees",
 		Long: `Run a command in one or more worktrees.
 
+With --parallel N, run at most N commands at once. For N > 1, buffer each
+worktree's stdout and stderr in memory and print them with its header to stderr
+in completion order. Parallel commands receive no stdin. The default, N = 1,
+streams output and passes stdin through. With --fail-fast, stop starting commands
+after a failure and wait for commands already running.
+
 Examples:
   grove exec --all -- npm install                        # All worktrees
+  grove exec --all -j 4 -- npm test                       # Four at a time
   grove exec main feature -- npm ci                      # Named worktrees
   grove exec --all --fail-fast -- go build               # Stop on first failure
   grove exec --all --json -- npm test                    # JSON results
@@ -65,19 +80,74 @@ Examples:
 			if dashPos < 0 {
 				return errors.New("missing \"--\" before the command")
 			}
-			return runExec(all, failFast, jsonOutput, args[:dashPos], args[dashPos:])
+			return runExec(all, failFast, jsonOutput, parallel, args[:dashPos], args[dashPos:])
 		},
 	}
 
 	cmd.Flags().BoolVarP(&all, "all", "a", false, "Execute in all worktrees")
-	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "Stop on first failure")
+	cmd.Flags().IntVarP(&parallel, "parallel", "j", 1, "Maximum concurrent commands (buffer output when greater than 1)")
+	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "Stop starting commands after first failure")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for exec")
 
 	return cmd
 }
 
-func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error {
+func runParallel(targets []execTarget, n int, run func(execTarget) execResult) []execResult {
+	semaphore := make(chan struct{}, n)
+	var waitGroup sync.WaitGroup
+	var mutex sync.Mutex
+	results := make([]execResult, 0, len(targets))
+	stopped := false
+
+	for _, target := range targets {
+		semaphore <- struct{}{}
+		mutex.Lock()
+		if stopped {
+			mutex.Unlock()
+			<-semaphore
+			break
+		}
+
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			defer func() { <-semaphore }()
+
+			result := run(target)
+
+			mutex.Lock()
+			defer mutex.Unlock()
+
+			stopped = stopped || result.stop
+			if result.label != "" {
+				logger.Info("%s", result.label)
+			}
+			if result.output != nil {
+				_, _ = result.output.WriteTo(os.Stderr)
+				result.output = nil
+			}
+			if result.err != nil {
+				logger.Error("%s", result.err)
+			}
+			if result.label != "" {
+				fmt.Fprintln(os.Stderr)
+			}
+			results = append(results, result)
+		}()
+		mutex.Unlock()
+	}
+
+	waitGroup.Wait()
+
+	return results
+}
+
+func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []string) error {
+	if parallel < 1 {
+		return errors.New("parallel must be at least 1")
+	}
+
 	// Validation: must have a command
 	if len(command) == 0 {
 		return errors.New("no command specified after --")
@@ -114,42 +184,71 @@ func runExec(all, failFast, jsonOutput bool, worktrees, command []string) error 
 		}
 	}
 
-	// Execute command in each worktree
-	var failed []string
-	results := make([]execResult, 0, len(targets))
-	succeeded := 0
-	for _, target := range targets {
-		if !jsonOutput {
-			logger.Info("%s", target.label)
-		}
-
+	runOne := func(target execTarget, command []string, streaming bool) execResult {
+		result := execResult{Name: target.name, Path: target.path}
 		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
 		cmd.Dir = target.path
-		cmd.Stdin = os.Stdin
-		if jsonOutput {
-			cmd.Stdout = os.Stderr
-		} else {
-			cmd.Stdout = os.Stdout
-		}
-		cmd.Stderr = os.Stderr
-
-		exitCode := 0
-		if err := cmd.Run(); err != nil {
-			exitCode = commandExitCode(err)
-			failed = append(failed, target.name)
-			if !isExitError(err) {
-				logger.Error("%s", err)
+		if streaming {
+			if !jsonOutput {
+				logger.Info("%s", target.label)
 			}
+			cmd.Stdin = os.Stdin
+			if jsonOutput {
+				cmd.Stdout = os.Stderr
+			} else {
+				cmd.Stdout = os.Stdout
+			}
+			cmd.Stderr = os.Stderr
+		} else {
+			result.output = &bytes.Buffer{}
+			// Sharing the writer makes os/exec copy both streams without concurrent writes.
+			cmd.Stdout = result.output
+			cmd.Stderr = result.output
+			if !jsonOutput {
+				result.label = target.label
+			}
+		}
+
+		if err := cmd.Run(); err != nil {
+			result.ExitCode = commandExitCode(err)
+			result.stop = failFast
+			if !isExitError(err) {
+				if streaming {
+					logger.Error("%s", err)
+				} else {
+					result.err = err
+				}
+			}
+		}
+
+		return result
+	}
+
+	results := make([]execResult, 0, len(targets))
+	if parallel > 1 {
+		results = runParallel(targets, parallel, func(target execTarget) execResult {
+			return runOne(target, command, false)
+		})
+	} else {
+		for _, target := range targets {
+			result := runOne(target, command, true)
+			results = append(results, result)
+			if result.stop {
+				break
+			}
+			if !jsonOutput {
+				fmt.Fprintln(os.Stderr) // Blank line between worktrees
+			}
+		}
+	}
+
+	var failed []string
+	succeeded := 0
+	for _, result := range results {
+		if result.ExitCode != 0 {
+			failed = append(failed, result.Name)
 		} else {
 			succeeded++
-		}
-		results = append(results, execResult{Name: target.name, Path: target.path, ExitCode: exitCode})
-
-		if failFast && exitCode != 0 {
-			break
-		}
-		if !jsonOutput {
-			fmt.Fprintln(os.Stderr) // Blank line between worktrees
 		}
 	}
 
