@@ -1019,10 +1019,10 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 
 	// Should not include feature (already used) or main (current)
 	for _, c := range completions {
-		if c == "feature" {
+		if c == "feature\tfeature" {
 			t.Error("completions should not include already-used 'feature'")
 		}
-		if c == "main" {
+		if c == "main\tmain" {
 			t.Error("completions should not include current worktree 'main'")
 		}
 	}
@@ -1030,7 +1030,7 @@ func TestCompleteRemoveArgs_MultipleArgs(t *testing.T) {
 	// Should include bugfix
 	hasBugfix := false
 	for _, c := range completions {
-		if c == "bugfix" {
+		if c == "bugfix\tbugfix" {
 			hasBugfix = true
 		}
 	}
@@ -1085,7 +1085,7 @@ func TestCompleteRemoveArgs(t *testing.T) {
 
 	// Should not include current worktree (main)
 	for _, c := range completions {
-		if c == "main" {
+		if c == "main\tmain" {
 			t.Error("completions should not include current worktree")
 		}
 	}
@@ -1094,10 +1094,10 @@ func TestCompleteRemoveArgs(t *testing.T) {
 	hasFeature := false
 	hasBugfix := false
 	for _, c := range completions {
-		if c == "feature" {
+		if c == "feature\tfeature" {
 			hasFeature = true
 		}
-		if c == "bugfix" {
+		if c == "bugfix\tbugfix" {
 			hasBugfix = true
 		}
 	}
@@ -1109,8 +1109,8 @@ func TestCompleteRemoveArgs(t *testing.T) {
 	}
 
 	completions, _ = removeCmd.ValidArgsFunction(removeCmd, nil, "fea")
-	if len(completions) != 1 || completions[0] != "feature" {
-		t.Errorf("completions for prefix %q = %v, want [feature]", "fea", completions)
+	if len(completions) != 1 || completions[0] != "feature\tfeature" {
+		t.Errorf("completions for prefix %q = %v, want [feature\\tfeature]", "fea", completions)
 	}
 
 	// Should disable file completion

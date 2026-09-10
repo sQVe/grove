@@ -67,11 +67,25 @@ func worktreeCompletion(maxArgs int, afterDash bool, include func(string, *git.W
 			used[arg] = true
 		}
 
+		describeBranch := cmd.Name() == "switch" || cmd.Name() == "remove" || cmd.Name() == "exec"
 		var completions []string
 		for _, info := range infos {
 			name := filepath.Base(info.Path)
-			if strings.HasPrefix(name, toComplete) && !used[name] && !used[info.Branch] && (include == nil || include(cwd, info)) {
-				completions = append(completions, name)
+			if used[name] || used[info.Branch] || (include != nil && !include(cwd, info)) {
+				continue
+			}
+
+			if strings.HasPrefix(name, toComplete) {
+				completion := name
+				if describeBranch && !info.Detached && info.Branch != "" {
+					completion += "\t" + info.Branch
+				}
+
+				completions = append(completions, completion)
+			}
+
+			if describeBranch && !info.Detached && info.Branch != "" && info.Branch != name && strings.HasPrefix(info.Branch, toComplete) {
+				completions = append(completions, info.Branch)
 			}
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp
