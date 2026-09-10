@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -53,6 +55,7 @@ func NewPruneCmd() *cobra.Command {
 	var stale string
 	var merged bool
 	var detached bool
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -77,7 +80,7 @@ Examples:
 			if cmd.Flags().Changed("stale") && stale == "" {
 				stale = config.GetStaleThreshold()
 			}
-			return runPrune(commit, force, stale, merged, detached)
+			return runPrune(commit, force, stale, merged, detached, jsonOutput)
 		},
 	}
 
@@ -86,6 +89,7 @@ Examples:
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
 	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
 	cmd.Flags().BoolVar(&detached, "detached", false, "Include detached worktrees")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output dry run as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	_ = cmd.RegisterFlagCompletionFunc("stale", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -95,7 +99,11 @@ Examples:
 	return cmd
 }
 
-func runPrune(commit, force bool, stale string, merged, detached bool) error {
+func runPrune(commit, force bool, stale string, merged, detached, jsonOutput bool) error {
+	if jsonOutput && commit {
+		return fmt.Errorf("--json applies to dry run only")
+	}
+
 	// Parse stale threshold if provided
 	var staleCutoff int64
 	if stale != "" {
@@ -212,6 +220,10 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	if commit {
 		return executePrune(bareDir, candidates, force, defaultBranch)
 	}
+	if jsonOutput {
+		return outputPruneJSON(candidates)
+	}
+
 	return displayDryRun(candidates)
 }
 
@@ -238,6 +250,34 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 	}
 
 	return skipNone
+}
+
+type pruneJSON struct {
+	Name       string     `json:"name"`
+	Path       string     `json:"path"`
+	Branch     string     `json:"branch"`
+	Reason     pruneType  `json:"reason"`
+	SkipReason skipReason `json:"skip_reason"`
+	StaleAge   string     `json:"stale_age"`
+}
+
+func outputPruneJSON(candidates []pruneCandidate) error {
+	output := make([]pruneJSON, 0, len(candidates))
+	for _, candidate := range candidates {
+		output = append(output, pruneJSON{
+			Name:       filepath.Base(candidate.info.Path),
+			Path:       candidate.info.Path,
+			Branch:     candidate.info.Branch,
+			Reason:     candidate.pruneType,
+			SkipReason: candidate.reason,
+			StaleAge:   candidate.staleAge,
+		})
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+
+	return encoder.Encode(output)
 }
 
 func displayDryRun(candidates []pruneCandidate) error {
@@ -488,6 +528,8 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		for _, item := range failed {
 			logger.Dimmed("    %s", item)
 		}
+
+		return fmt.Errorf("failed to prune %d worktree(s)", len(failed))
 	}
 
 	return nil

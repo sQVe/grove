@@ -1,0 +1,14 @@
+# Test: prune failures keep the summary and exit with status 1
+[windows] skip 'requires Unix directory permissions'
+setup_workspace feature-gone
+
+exec grove add feature-gone
+exec git -C $WORK/testrepo branch -D feature-gone
+
+# Restore permissions before assertions so cleanup also works on failure.
+exec chmod 0555 $WORK/workspace
+! exec sh -c 'grove prune --commit; status=$?; chmod 0755 "$WORK/workspace"; echo "exit status: $status"; exit "$status"'
+stdout '^exit status: 1$'
+stderr 'Failed to remove 1 worktree:'
+stderr 'feature-gone.*[Pp]ermission denied'
+stderr 'failed to prune 1 worktree\(s\)'

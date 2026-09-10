@@ -1,0 +1,32 @@
+# Test: prune JSON dry runs expose candidates without human-readable output
+setup_workspace feature-gone
+
+exec grove add feature-gone
+exec git -C $WORK/testrepo branch -D feature-gone
+exec grove prune --json
+stdout '^\['
+stdout '"name": "feature-gone"'
+stdout '"path": ".*/workspace/feature-gone"'
+stdout '"branch": "feature-gone"'
+stdout '"reason": "gone"'
+stdout '"skip_reason": ""'
+stdout '"stale_age": ""'
+! stdout 'Would prune|Would skip|Run with --commit|Fetching'
+exists ../feature-gone
+
+# A skipped candidate stays in the array with its existing skip reason.
+exec git -C ../feature-gone worktree lock .
+exec grove prune --json
+stdout '"skip_reason": "locked, use --force"'
+! stdout 'Would prune|Would skip|Run with --commit|Fetching'
+exec git -C ../feature-gone worktree unlock .
+
+! exec grove prune --json --commit
+stderr '\-\-json applies to dry run only'
+! stdout .
+exists ../feature-gone
+
+exec grove prune --commit
+exec grove prune --json
+stdout '^\[\]$'
+! stdout 'No worktrees'
