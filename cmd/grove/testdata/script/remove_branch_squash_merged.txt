@@ -1,0 +1,21 @@
+# Test: delete squash-merged branches even when git branch -d would reject them
+setup_workspace feature-squashed
+
+exec grove add feature-squashed
+cd ../feature-squashed
+cp $WORK/feature.txt feature.txt
+exec git add feature.txt
+exec git commit -m 'feature commit'
+cd ../main
+exec git merge --squash feature-squashed
+exec git commit -m 'squashed feature'
+! exec git merge-base --is-ancestor feature-squashed main
+
+exec grove remove --branch feature-squashed
+stderr 'Removed worktree.*feature-squashed'
+stderr 'deleted branch feature-squashed'
+! exists ../feature-squashed
+! exec git show-ref --verify refs/heads/feature-squashed
+
+-- feature.txt --
+feature content

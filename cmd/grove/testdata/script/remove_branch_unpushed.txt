@@ -19,17 +19,18 @@ exec git add local-change.txt
 exec git commit -m 'unpushed local commit'
 cd ../main
 
-# Remove with --branch warns about unpushed but fails branch delete (not merged to main)
+# Refuse deletion before removing the unmerged worktree.
 ! exec grove remove --branch unpushed-test
-stderr 'unpushed'
-stderr '✗ .*not fully merged'
+stderr 'unpushed-test: branch is not merged into main; use --force to delete anyway'
+exists ../unpushed-test
 
-# Worktree was removed
+# Once merged, deletion still warns about commits not pushed to the upstream.
+exec git merge unpushed-test
+exec grove remove --branch unpushed-test
+stderr 'branch has 1 unpushed commit\(s\)'
 ! exists ../unpushed-test
 
-# Branch still exists
-exec git branch --list unpushed-test
-stdout 'unpushed-test'
+! exec git show-ref --verify refs/heads/unpushed-test
 
 -- local-change.txt --
 local only
