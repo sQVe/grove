@@ -62,7 +62,7 @@ func NewExecCmd() *cobra.Command {
 
 With --parallel N, run at most N commands at once. For N > 1, buffer each
 worktree's stdout and stderr in memory and print them with its header to stderr
-in completion order. Parallel commands receive no stdin. The default, N = 1,
+as each command finishes. Parallel commands receive no stdin. The default, N = 1,
 streams output and passes stdin through. With --fail-fast, stop starting commands
 after a failure and wait for commands already running.
 
