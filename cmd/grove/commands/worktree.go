@@ -73,6 +73,13 @@ func worktreeCompletionWithBranches(maxArgs int, afterDash, describeBranch bool,
 			used[arg] = true
 		}
 
+		// Resolution matches directory names before branches, so a branch that collides with any
+		// worktree's directory name would select that other worktree instead.
+		names := make(map[string]bool, len(infos))
+		for _, info := range infos {
+			names[filepath.Base(info.Path)] = true
+		}
+
 		var completions []string
 		for _, info := range infos {
 			name := filepath.Base(info.Path)
@@ -94,7 +101,7 @@ func worktreeCompletionWithBranches(maxArgs int, afterDash, describeBranch bool,
 				completions = append(completions, completion)
 			}
 
-			if branch != "" && branch != name && strings.HasPrefix(branch, toComplete) {
+			if branch != "" && !names[branch] && strings.HasPrefix(branch, toComplete) {
 				completions = append(completions, branch)
 			}
 		}
