@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -405,7 +406,15 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	for _, info := range infos {
 		if info.Branch == branch {
 			if !prInfo.IsFork {
-				return refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo)
+				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
+					return err
+				}
+
+				if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
+					logger.Debug("Failed to record PR for %s: %v", branch, err)
+				}
+
+				return nil
 			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
@@ -562,6 +571,11 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: branch}, quiet); err != nil {
 		return git.HintGitTooOld(fmt.Errorf("failed to create worktree: %w", err))
 	}
+
+	if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
+		logger.Debug("Failed to record PR for %s: %v", branch, err)
+	}
+
 	if existingWorkspace {
 		if err := git.SetUpstreamBranch(worktreePath, "origin/"+branch); err != nil {
 			logger.Debug("Failed to set upstream for %s: %v", branch, err)

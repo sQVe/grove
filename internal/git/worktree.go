@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/sqve/grove/internal/fs"
@@ -16,6 +17,7 @@ import (
 
 // WorktreeInfo contains status information about a worktree
 type WorktreeInfo struct {
+	PR             int    `json:"-"`
 	Path           string `json:"path"`                  // Absolute path to worktree
 	Branch         string `json:"branch"`                // Branch name (or commit hash if detached)
 	Upstream       string `json:"upstream,omitempty"`    // Upstream branch name (e.g., "origin/main")
@@ -302,6 +304,11 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 		return nil, err
 	}
 
+	branchPRs, err := GetBranchConfigs(bareDir, "grovePr")
+	if err != nil {
+		logger.Debug("Failed to read branch PR numbers: %v", err)
+	}
+
 	var infos []*WorktreeInfo
 	for _, entry := range entries {
 		path := entry.Path
@@ -334,6 +341,13 @@ func ListWorktreesWithInfo(bareDir string, fast bool) ([]*WorktreeInfo, error) {
 				if info, ok = worktreeFallbackInfo(path, entry, err); !ok {
 					continue
 				}
+			}
+		}
+
+		if !info.Detached {
+			number, err := strconv.Atoi(branchPRs[info.Branch])
+			if err == nil && number > 0 {
+				info.PR = number
 			}
 		}
 

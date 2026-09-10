@@ -1,0 +1,24 @@
+# Verbose output has a PR column, including in fast mode.
+setup_workspace feat
+exec grove add feat
+exec git config branch.feat.grovePr 7
+
+exec grove list -v --plain
+stdout '^#7 +feat +\[feat\]'
+stdout '^ +\* main +\[main\]'
+! stdout '#0'
+
+exec git config branch.feat.grovePr 12345
+exec grove list -v --plain
+stdout '^#12345 +feat +\[feat\]'
+stdout '^            > path: .*[/\\]feat$'
+stdout '^            > path: .*[/\\]main$'
+! stdout '^    > path:'
+
+exec grove list --verbose --fast --plain
+stdout '^#12345 +feat +\[feat\]'
+stdout '^ +\* main +\[main\]'
+stdout '^            > path: .*[/\\]feat$'
+stdout '^            > path: .*[/\\]main$'
+! stdout '^    > path:'
+! stdout '#0'

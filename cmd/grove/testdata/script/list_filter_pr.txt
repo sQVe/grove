@@ -1,0 +1,30 @@
+# PR filtering stays offline and combines with status filters using OR.
+setup_workspace feat clean
+exec grove add feat
+exec grove add clean
+exec git config branch.feat.grovePr 7
+
+exec grove list --filter pr --plain
+stdout 'feat'
+! stdout 'main'
+! stdout 'clean'
+
+exec grove list --filter pr,locked --plain
+stdout 'feat'
+stdout 'main'
+! stdout 'clean'
+
+exec grove list --filter pr --fast --json
+stdout '"name": "feat"'
+stdout '"pr": 7'
+! stdout '"name": "main"'
+! stdout '"name": "clean"'
+
+exec grove list --filter pr,locked --fast --plain
+stdout 'feat'
+stdout 'main'
+! stdout 'clean'
+
+exec git config --unset branch.feat.grovePr
+exec grove list --filter pr --json
+stdout '^\[\]$'

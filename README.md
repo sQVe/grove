@@ -270,10 +270,10 @@ List all worktrees with status.
 **Flags:**
 
 - `--fast` — Skip dirty and sync status checks
-- `--filter <status>` — Filter by: `dirty`, `ahead`, `behind`, `gone`, `locked`
-- `--json` — JSON output; includes `last_commit` when commit times are known (omitted with `--fast`)
+- `--filter <status>` — Filter by `dirty`, `ahead`, `behind`, `gone`, `locked`, or `pr`. Comma-separated filters use OR. `locked` and `pr` work with `--fast`.
+- `--json` — JSON output. Includes `pr` when a PR number is recorded and `last_commit` when commit times are known (omitted with `--fast`).
 - `--sort name|recent` — Sort by name or latest commit (`recent` needs commit times, so it cannot be combined with `--fast`)
-- `-v, --verbose` — Show paths and upstreams
+- `-v, --verbose` — Show paths, upstreams, and a PR column (`#42`) when any worktree has a recorded PR number, blank on the rows without one. PR numbers come from local config; `list` stays offline.
 
 **Examples:**
 
@@ -282,6 +282,7 @@ grove list
 grove list --fast
 grove list --filter dirty
 grove list --filter ahead,behind
+grove list --filter pr
 grove list --json
 grove list --sort recent
 ```
