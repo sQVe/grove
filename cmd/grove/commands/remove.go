@@ -101,7 +101,7 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error 
 				continue
 			}
 
-			mergeChecks[info.Branch] = merged
+			mergeChecks[info.Path] = merged
 		}
 	}
 
@@ -159,7 +159,7 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error 
 
 		deleteThisBranch := deleteBranch && !info.Detached
 		forceDelete := force
-		merged, checked := mergeChecks[info.Branch]
+		merged, checked := mergeChecks[info.Path]
 		if checked {
 			if !merged {
 				logger.Error("%s: branch is not merged into %s; use --force to delete anyway", info.Branch, defaultBranch)
