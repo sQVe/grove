@@ -452,7 +452,9 @@ Execute a command in worktrees.
 With `N > 1`, each worktree's header, stdout, and stderr appear together on stderr
 after its command exits, in completion order. Output is buffered in memory without
 a size cap. Parallel commands receive no stdin. `--json` always lists worktrees in
-target order, so the array matches a sequential run. With `N = 1` or no flag, output
+target order, though with `--fail-fast` it can list more of them than a sequential
+run, since commands already running when the first failure lands still finish and
+still report. With `N = 1` or no flag, output
 streams as before and commands inherit stdin.
 
 **Examples:**
