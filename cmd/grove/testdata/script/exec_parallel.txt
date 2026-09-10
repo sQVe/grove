@@ -1,4 +1,6 @@
 # Buffered blocks include both streams and appear only after exit, in completion order.
+# Skip on Windows: children coordinate completion order through Unix shell path expansion
+[windows] skip
 setup_workspace feature
 exec grove add feature
 
