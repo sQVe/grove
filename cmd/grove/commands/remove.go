@@ -87,6 +87,24 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error 
 		}
 	}
 
+	// Validate all targets before a removal can delete the default branch ref.
+	mergeChecks := make(map[string]bool)
+	if deleteBranch && !force && defaultBranch != "" {
+		for _, info := range toRemove {
+			if info.Detached {
+				continue
+			}
+
+			merged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
+			if mergeErr != nil {
+				logger.Debug("Could not verify merge status for %s: %v", info.Branch, mergeErr)
+				continue
+			}
+
+			mergeChecks[info.Branch] = merged
+		}
+	}
+
 	// Process each target, accumulate successes and failures
 	type removedWorktree struct {
 		path          string
@@ -141,19 +159,16 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing bool) error 
 
 		deleteThisBranch := deleteBranch && !info.Detached
 		forceDelete := force
-		if deleteThisBranch && !force && defaultBranch != "" {
-			merged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
-			switch {
-			case mergeErr != nil:
-				logger.Debug("Could not verify merge status for %s: %v", info.Branch, mergeErr)
-			case !merged:
+		merged, checked := mergeChecks[info.Branch]
+		if checked {
+			if !merged {
 				logger.Error("%s: branch is not merged into %s; use --force to delete anyway", info.Branch, defaultBranch)
 				failed = append(failed, dirName)
 				continue
-			default:
-				// Git's safe delete does not recognize squash merges.
-				forceDelete = true
 			}
+
+			// Git's safe delete does not recognize squash merges.
+			forceDelete = true
 		}
 
 		// Count commits before removing the worktree so branch deletion can warn.

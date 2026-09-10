@@ -1,0 +1,23 @@
+# Test: removing the default branch cannot bypass later merge checks
+setup_workspace other observer
+exec grove add other
+exec grove add observer
+cd ../other
+cp $WORK/newfile.txt newfile.txt
+exec git add newfile.txt
+exec git commit -m 'unmerged commit'
+cd ../observer
+exec grove unlock main
+
+! exec grove remove --branch main other
+stderr 'failed: other'
+exists ../other/newfile.txt
+stderr 'other: branch is not merged into main; use --force to delete anyway'
+stderr 'Removed worktree.*main'
+stderr 'deleted branch main'
+exec git show-ref --verify refs/heads/other
+! exists ../main
+! exec git show-ref --verify refs/heads/main
+
+-- newfile.txt --
+new content
