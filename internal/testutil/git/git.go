@@ -11,6 +11,9 @@ import (
 	"github.com/sqve/grove/internal/testutil"
 )
 
+// defaultBranch is the branch test repositories are initialized on.
+const defaultBranch = "main"
+
 // gitConfig holds a git configuration key-value pair.
 type gitConfig struct {
 	key, value string
@@ -62,7 +65,7 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 		t.Fatalf("Failed to create repo dir: %v", err)
 	}
 
-	branch := "main"
+	branch := defaultBranch
 	if len(branchName) > 0 && branchName[0] != "" {
 		branch = branchName[0]
 	}
@@ -267,7 +270,7 @@ func NewBareTestRepo(t *testing.T) *BareTestRepo {
 	dir := testutil.TempDir(t)
 	bareDir := filepath.Join(dir, "repo.git")
 
-	cmd := exec.Command("git", "init", "--bare", "-b", "main") // nolint:gosec
+	cmd := exec.Command("git", "init", "--bare", "-b", defaultBranch) // nolint:gosec
 	if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 		t.Fatalf("Failed to create bare repo dir: %v", err)
 	}
@@ -303,7 +306,7 @@ func NewGroveWorkspace(t *testing.T, branches ...string) *GroveWorkspace {
 	t.Helper()
 
 	if len(branches) == 0 {
-		branches = []string{"main"}
+		branches = []string{defaultBranch}
 	}
 
 	dir := testutil.TempDir(t)
