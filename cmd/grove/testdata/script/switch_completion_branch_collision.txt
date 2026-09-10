@@ -1,0 +1,15 @@
+# Test: completion omits a branch that collides with another worktree's directory name
+setup_workspace bar baz
+
+# Branch bar lives in directory foo, so the directory named bar holds branch baz.
+exec grove add --name foo bar
+exec grove add --name bar baz
+
+cd $WORK/workspace/main
+exec grove __complete switch ''
+stdout '^foo\tbar$'
+stdout '^bar\tbaz$'
+
+# "bar" as a standalone branch candidate would resolve to the bar directory, which holds baz.
+! stdout '^bar$'
+stdout '^baz$'

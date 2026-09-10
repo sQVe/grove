@@ -49,7 +49,13 @@ func resolveWorktrees(infos []*git.WorktreeInfo, targets []string) ([]*git.Workt
 }
 
 func worktreeCompletion(maxArgs int, afterDash bool, include func(string, *git.WorktreeInfo) bool) cobra.CompletionFunc {
-	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return worktreeCompletionWithBranches(maxArgs, afterDash, false, include)
+}
+
+// worktreeCompletionWithBranches optionally describes each worktree with its branch and offers the
+// branch itself as a candidate.
+func worktreeCompletionWithBranches(maxArgs int, afterDash, describeBranch bool, include func(string, *git.WorktreeInfo) bool) cobra.CompletionFunc {
+	return func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		if afterDash && slices.Contains(os.Args, "--") {
 			return nil, cobra.ShellCompDirectiveDefault
 		}
@@ -67,11 +73,36 @@ func worktreeCompletion(maxArgs int, afterDash bool, include func(string, *git.W
 			used[arg] = true
 		}
 
+		// Resolution matches directory names before branches, so a branch that collides with any
+		// worktree's directory name would select that other worktree instead.
+		names := make(map[string]bool, len(infos))
+		for _, info := range infos {
+			names[filepath.Base(info.Path)] = true
+		}
+
 		var completions []string
 		for _, info := range infos {
 			name := filepath.Base(info.Path)
-			if strings.HasPrefix(name, toComplete) && !used[name] && !used[info.Branch] && (include == nil || include(cwd, info)) {
-				completions = append(completions, name)
+			if used[name] || used[info.Branch] || (include != nil && !include(cwd, info)) {
+				continue
+			}
+
+			branch := ""
+			if describeBranch && !info.Detached {
+				branch = info.Branch
+			}
+
+			if strings.HasPrefix(name, toComplete) {
+				completion := name
+				if branch != "" {
+					completion += "\t" + branch
+				}
+
+				completions = append(completions, completion)
+			}
+
+			if branch != "" && !names[branch] && strings.HasPrefix(branch, toComplete) {
+				completions = append(completions, branch)
 			}
 		}
 		return completions, cobra.ShellCompDirectiveNoFileComp

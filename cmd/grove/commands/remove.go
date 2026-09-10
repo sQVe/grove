@@ -31,7 +31,7 @@ Examples:
   grove remove --force wip          # Force remove if dirty or locked
   grove remove feat-auth bugfix-123 # Remove multiple worktrees`,
 		Args:              cobra.ArbitraryArgs,
-		ValidArgsFunction: worktreeCompletion(0, false, notCurrentWorktree),
+		ValidArgsFunction: worktreeCompletionWithBranches(0, false, true, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRemove(args, force, deleteBranch)
 		},

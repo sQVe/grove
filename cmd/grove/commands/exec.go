@@ -59,7 +59,7 @@ Examples:
   grove exec --all --json -- npm test                    # JSON results
   grove exec --all -- bash -c "npm install && npm test"  # Multiple commands`,
 		Args:              cobra.ArbitraryArgs,
-		ValidArgsFunction: worktreeCompletion(0, true, nil),
+		ValidArgsFunction: worktreeCompletionWithBranches(0, true, true, nil),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dashPos := cmd.ArgsLenAtDash()
 			if dashPos < 0 {

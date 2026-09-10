@@ -1,0 +1,36 @@
+# Test: grove exec completes directories with branches, including the current worktree
+setup_workspace feature/auth develop
+
+exec grove add feature/auth
+exec grove add develop
+
+cd $WORK/workspace/main
+exec grove __complete exec ''
+stdout 'feature-auth\tfeature/auth'
+stdout '^feature/auth'
+stdout '^main\tmain$'
+stdout '^develop\tdevelop$'
+! stdout '^develop$'
+
+exec grove __complete exec feature-auth ''
+! stdout 'feature-auth'
+! stdout 'feature/auth'
+stdout '^main\tmain$'
+
+exec grove __complete exec feature/auth ''
+! stdout 'feature-auth'
+! stdout 'feature/auth'
+
+exec grove __complete exec feature/
+stdout '^feature/auth$'
+! stdout 'feature-auth'
+
+exec git worktree add --detach ../detached HEAD
+exec grove __complete exec ''
+stdout '^detached$'
+! stdout '^detached\t'
+
+exec grove __complete exec -- ''
+! stdout 'feature-auth'
+! stdout 'feature/auth'
+stdout ':0'

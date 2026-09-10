@@ -370,18 +370,18 @@ func TestCompleteExecArgs_ReturnsDirectoryNames(t *testing.T) {
 	execCmd := NewExecCmd()
 	completions, _ := execCmd.ValidArgsFunction(execCmd, nil, "")
 
-	// Should contain directory name, not branch name
 	hasDirName := false
+	hasBranchName := false
 	for _, c := range completions {
-		if c == "feat-auth" {
+		if c == "feat-auth\tfeature/auth" {
 			hasDirName = true
 		}
 		if c == "feature/auth" {
-			t.Error("completions should return directory names, not branch names")
+			hasBranchName = true
 		}
 	}
-	if !hasDirName {
-		t.Errorf("completions should include directory name 'feat-auth', got: %v", completions)
+	if !hasDirName || !hasBranchName {
+		t.Errorf("completions should include 'feat-auth\\tfeature/auth' and 'feature/auth', got: %v", completions)
 	}
 }
 
@@ -421,7 +421,7 @@ func TestCompleteExecArgs(t *testing.T) {
 		completions, _ := execCmd.ValidArgsFunction(execCmd, []string{"main"}, "")
 		// Should not include "main" since it's already specified
 		for _, c := range completions {
-			if c == "main" {
+			if c == "main\tmain" {
 				t.Error("completions should not include already-specified worktree 'main'")
 			}
 		}

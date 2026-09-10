@@ -5,11 +5,14 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
+	testgit "github.com/sqve/grove/internal/testutil/git"
 	"github.com/sqve/grove/internal/workspace"
 )
 
@@ -58,6 +61,101 @@ func TestRunSwitch_NotInWorkspace(t *testing.T) {
 	err = runSwitch("main")
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
+	}
+}
+
+func TestRunSwitch_TargetMatching(t *testing.T) {
+	tests := []struct {
+		name      string
+		branches  []string
+		target    string
+		wantPath  string
+		wantError string
+		notFound  bool
+	}{
+		{
+			name:     "exact name wins",
+			branches: []string{"main", "auth-fix", "feat/auth"},
+			target:   "auth", wantPath: "feat/auth",
+		},
+		{
+			name:     "exact branch wins",
+			branches: []string{"main", "feat/auth-extra", "feat/auth"},
+			target:   "feat/auth", wantPath: "feat/auth",
+		},
+		{
+			name:     "unique name and branch substring counts once",
+			branches: []string{"main", "feat-auth"},
+			target:   "auth", wantPath: "feat-auth",
+		},
+		{
+			name:     "unique branch substring",
+			branches: []string{"main", "feature/login"},
+			target:   "feature/", wantPath: "feature/login",
+		},
+		{
+			name:     "ambiguous substring lists candidates in worktree order",
+			branches: []string{"main", "feat-auth", "auth-fix"},
+			target:   "auth", wantError: `ambiguous target "auth": auth-fix, feat-auth`,
+		},
+		{
+			name:     "no match",
+			branches: []string{"main", "feat-auth"},
+			target:   "missing", wantError: "worktree not found: missing", notFound: true,
+		},
+		{
+			name:     "empty after trimming",
+			branches: []string{"main"},
+			target:   "   ", wantError: "worktree not found: ", notFound: true,
+		},
+		{
+			name:     "case sensitive",
+			branches: []string{"main", "feat-auth"},
+			target:   "AUTH", wantError: "worktree not found: AUTH", notFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			groveWorkspace := testgit.NewGroveWorkspace(t, tt.branches...)
+			t.Chdir(groveWorkspace.Dir)
+
+			oldStdout := os.Stdout
+			reader, writer, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = reader.Close() }()
+			os.Stdout = writer
+
+			err = runSwitch(tt.target)
+
+			_ = writer.Close()
+			os.Stdout = oldStdout
+			var output bytes.Buffer
+			_, _ = io.Copy(&output, reader)
+
+			if tt.wantError != "" {
+				if err == nil || err.Error() != tt.wantError {
+					t.Errorf("runSwitch() error = %v, want %q", err, tt.wantError)
+				}
+				if errors.Is(err, ErrWorktreeNotFound) != tt.notFound {
+					t.Errorf("runSwitch() error = %v, want not-found = %v", err, tt.notFound)
+				}
+				if output.Len() != 0 {
+					t.Errorf("unexpected output on error: %q", output.String())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("runSwitch() failed: %v", err)
+			}
+			want := filepath.Join(groveWorkspace.Dir, tt.wantPath) + "\n"
+			if output.String() != want {
+				t.Errorf("runSwitch() output = %q, want %q", output.String(), want)
+			}
+		})
 	}
 }
 
@@ -162,6 +260,85 @@ func TestPrintShellIntegration(t *testing.T) {
 
 			if !strings.Contains(output, tt.wantContain) {
 				t.Errorf("printShellIntegration(%q) output = %q, want to contain %q", tt.shell, output, tt.wantContain)
+			}
+		})
+	}
+}
+
+func TestResolveBySubstring(t *testing.T) {
+	t.Parallel()
+
+	detached := &git.WorktreeInfo{Path: "/ws/tmp", Branch: "3fa61bc", Detached: true}
+	alpha := &git.WorktreeInfo{Path: "/ws/alpha", Branch: "alpha"}
+	authFix := &git.WorktreeInfo{Path: "/ws/auth-fix", Branch: "auth-fix"}
+	featAuth := &git.WorktreeInfo{Path: "/ws/feat-auth", Branch: "feat/auth"}
+
+	tests := []struct {
+		name      string
+		infos     []*git.WorktreeInfo
+		target    string
+		wantPath  string
+		wantError string
+	}{
+		{
+			name:  "unique name substring resolves",
+			infos: []*git.WorktreeInfo{alpha, authFix}, target: "alph", wantPath: "/ws/alpha",
+		},
+		{
+			name:  "unique branch substring resolves",
+			infos: []*git.WorktreeInfo{alpha, featAuth}, target: "feat/", wantPath: "/ws/feat-auth",
+		},
+		{
+			name:  "several matches list candidates in worktree order",
+			infos: []*git.WorktreeInfo{authFix, featAuth}, target: "auth",
+			wantError: `ambiguous target "auth": auth-fix, feat-auth`,
+		},
+		{
+			name:  "detached placeholder branch never matches",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "3fa",
+			wantError: "worktree not found: 3fa",
+		},
+		{
+			name:  "detached worktree still matches by directory name",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "tm", wantPath: "/ws/tmp",
+		},
+		{
+			name:  "detached placeholder does not make a name match ambiguous",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "a", wantPath: "/ws/alpha",
+		},
+		{
+			name:  "no match",
+			infos: []*git.WorktreeInfo{alpha}, target: "missing",
+			wantError: "worktree not found: missing",
+		},
+		{
+			name:  "empty target",
+			infos: []*git.WorktreeInfo{alpha}, target: "",
+			wantError: "worktree not found: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			match, err := resolveBySubstring(tt.infos, tt.target)
+
+			if tt.wantError != "" {
+				if err == nil {
+					t.Fatalf("resolveBySubstring(%q) = %v, want error %q", tt.target, match, tt.wantError)
+				}
+				if err.Error() != tt.wantError {
+					t.Errorf("resolveBySubstring(%q) error = %q, want %q", tt.target, err.Error(), tt.wantError)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("resolveBySubstring(%q) unexpected error: %v", tt.target, err)
+			}
+			if match.Path != tt.wantPath {
+				t.Errorf("resolveBySubstring(%q) path = %q, want %q", tt.target, match.Path, tt.wantPath)
 			}
 		})
 	}

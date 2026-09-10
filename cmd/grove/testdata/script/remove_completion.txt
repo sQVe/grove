@@ -1,13 +1,26 @@
 # Test: grove remove shell completion excludes typed worktrees
-setup_workspace completion-test completion-extra
+setup_workspace completion-test completion-extra feature/auth
 
 exec grove add completion-test
 exec grove add completion-extra
+exec grove add feature/auth
 
 # First argument gets completions
 exec grove __complete remove ''
 stdout 'completion-test'
 stdout 'completion-extra'
+stdout 'feature-auth\tfeature/auth'
+stdout '^feature/auth'
+! stdout '^completion-test$'
+
+exec grove __complete remove feature/auth ''
+! stdout 'feature-auth'
+! stdout 'feature/auth'
+
+exec git worktree add --detach ../detached HEAD
+exec grove __complete remove ''
+stdout '^detached$'
+! stdout '^detached\t'
 
 # After first argument, excludes already-typed and current worktree
 exec grove __complete remove completion-test ''
