@@ -3,15 +3,22 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/github"
+	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
 func TestRunAddFromPRRecordsNumberOnRefresh(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell gh stub is not executable on Windows")
+	}
+
 	remote := testgit.NewTestRepo(t)
 	remote.CreateBranch("Feature/topic.v2")
 	remotePath := filepath.Join(remote.TempDir, "remote.git")
@@ -26,9 +33,7 @@ func TestRunAddFromPRRecordsNumberOnRefresh(t *testing.T) {
 if [ "$1" = auth ]; then exit 0; fi
 printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
 `
-	if err := os.WriteFile(ghPath, []byte(ghScript), 0o700); err != nil { //nolint:gosec // The gh stub must be executable.
-		t.Fatal(err)
-	}
+	testutil.WriteFileMode(t, ghPath, ghScript, fs.FileExec)
 
 	t.Setenv("PATH", filepath.Dir(ghPath)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
