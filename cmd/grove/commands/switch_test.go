@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 	"github.com/sqve/grove/internal/workspace"
@@ -259,6 +260,85 @@ func TestPrintShellIntegration(t *testing.T) {
 
 			if !strings.Contains(output, tt.wantContain) {
 				t.Errorf("printShellIntegration(%q) output = %q, want to contain %q", tt.shell, output, tt.wantContain)
+			}
+		})
+	}
+}
+
+func TestResolveBySubstring(t *testing.T) {
+	t.Parallel()
+
+	detached := &git.WorktreeInfo{Path: "/ws/tmp", Branch: "3fa61bc", Detached: true}
+	alpha := &git.WorktreeInfo{Path: "/ws/alpha", Branch: "alpha"}
+	authFix := &git.WorktreeInfo{Path: "/ws/auth-fix", Branch: "auth-fix"}
+	featAuth := &git.WorktreeInfo{Path: "/ws/feat-auth", Branch: "feat/auth"}
+
+	tests := []struct {
+		name      string
+		infos     []*git.WorktreeInfo
+		target    string
+		wantPath  string
+		wantError string
+	}{
+		{
+			name:  "unique name substring resolves",
+			infos: []*git.WorktreeInfo{alpha, authFix}, target: "alph", wantPath: "/ws/alpha",
+		},
+		{
+			name:  "unique branch substring resolves",
+			infos: []*git.WorktreeInfo{alpha, featAuth}, target: "feat/", wantPath: "/ws/feat-auth",
+		},
+		{
+			name:  "several matches list candidates in worktree order",
+			infos: []*git.WorktreeInfo{authFix, featAuth}, target: "auth",
+			wantError: `ambiguous target "auth": auth-fix, feat-auth`,
+		},
+		{
+			name:  "detached placeholder branch never matches",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "3fa",
+			wantError: "worktree not found: 3fa",
+		},
+		{
+			name:  "detached worktree still matches by directory name",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "tm", wantPath: "/ws/tmp",
+		},
+		{
+			name:  "detached placeholder does not make a name match ambiguous",
+			infos: []*git.WorktreeInfo{alpha, detached}, target: "a", wantPath: "/ws/alpha",
+		},
+		{
+			name:  "no match",
+			infos: []*git.WorktreeInfo{alpha}, target: "missing",
+			wantError: "worktree not found: missing",
+		},
+		{
+			name:  "empty target",
+			infos: []*git.WorktreeInfo{alpha}, target: "",
+			wantError: "worktree not found: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			match, err := resolveBySubstring(tt.infos, tt.target)
+
+			if tt.wantError != "" {
+				if err == nil {
+					t.Fatalf("resolveBySubstring(%q) = %v, want error %q", tt.target, match, tt.wantError)
+				}
+				if err.Error() != tt.wantError {
+					t.Errorf("resolveBySubstring(%q) error = %q, want %q", tt.target, err.Error(), tt.wantError)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("resolveBySubstring(%q) unexpected error: %v", tt.target, err)
+			}
+			if match.Path != tt.wantPath {
+				t.Errorf("resolveBySubstring(%q) path = %q, want %q", tt.target, match.Path, tt.wantPath)
 			}
 		})
 	}

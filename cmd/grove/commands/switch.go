@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/sqve/grove/internal/git"
 )
 
 //go:embed shell/grove.sh
@@ -142,28 +143,44 @@ func runSwitch(target string) error {
 
 	resolved, err := resolveWorktrees(infos, []string{target})
 	if err != nil {
-		if target == "" {
-			return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+		match, matchErr := resolveBySubstring(infos, target)
+		if matchErr != nil {
+			return matchErr
 		}
 
-		var names []string
-		for _, info := range infos {
-			name := filepath.Base(info.Path)
-			if strings.Contains(name, target) || strings.Contains(info.Branch, target) {
-				resolved = append(resolved, info)
-				names = append(names, name)
-			}
-		}
-
-		switch len(resolved) {
-		case 0:
-			return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
-		case 1:
-		default:
-			return fmt.Errorf("ambiguous target %q: %s", target, strings.Join(names, ", "))
-		}
+		resolved = []*git.WorktreeInfo{match}
 	}
 
 	fmt.Println(resolved[0].Path)
 	return nil
+}
+
+// resolveBySubstring finds the single worktree whose directory name or branch contains target,
+// after both exact passes have missed. A detached worktree carries a placeholder branch, so only
+// its directory name is considered.
+func resolveBySubstring(infos []*git.WorktreeInfo, target string) (*git.WorktreeInfo, error) {
+	if target == "" {
+		return nil, fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+	}
+
+	var matches []*git.WorktreeInfo
+	var names []string
+
+	for _, info := range infos {
+		name := filepath.Base(info.Path)
+		matchesBranch := !info.Detached && strings.Contains(info.Branch, target)
+		if strings.Contains(name, target) || matchesBranch {
+			matches = append(matches, info)
+			names = append(names, name)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+	case 1:
+		return matches[0], nil
+	default:
+		return nil, fmt.Errorf("ambiguous target %q: %s", target, strings.Join(names, ", "))
+	}
 }
