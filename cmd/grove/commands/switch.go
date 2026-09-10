@@ -142,8 +142,28 @@ func runSwitch(target string) error {
 
 	resolved, err := resolveWorktrees(infos, []string{target})
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+		if target == "" {
+			return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+		}
+
+		var names []string
+		for _, info := range infos {
+			name := filepath.Base(info.Path)
+			if strings.Contains(name, target) || strings.Contains(info.Branch, target) {
+				resolved = append(resolved, info)
+				names = append(names, name)
+			}
+		}
+
+		switch len(resolved) {
+		case 0:
+			return fmt.Errorf("%w: %s", ErrWorktreeNotFound, target)
+		case 1:
+		default:
+			return fmt.Errorf("ambiguous target %q: %s", target, strings.Join(names, ", "))
+		}
 	}
+
 	fmt.Println(resolved[0].Path)
 	return nil
 }

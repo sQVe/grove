@@ -1,0 +1,2 @@
+kind: Added
+body: '`grove switch` accepts a unique substring of a worktree name or branch and lists candidates when the target is ambiguous.'
