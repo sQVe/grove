@@ -1,3 +1,26 @@
+## [v1.12.0](https://github.com/sQVe/grove/releases/tag/v1.12.0) - 2026-09-11
+
+### Added
+- `grove add -s` switches to an existing worktree instead of erroring.
+- `grove add` fast-forwards a strictly-behind local branch before creating its worktree.
+- Re-running `grove add --pr` refreshes the existing same-repo worktree: fast-forwards, supports `--reset` on divergence, and refuses uncommitted tracked changes.
+- `grove exec -j/--parallel N` runs targets with bounded concurrency, printing each worktree's buffered output as its command finishes.
+- `grove switch` accepts a unique substring of a worktree name or branch and lists candidates when the target is ambiguous.
+- Branch descriptions and branch-name completions for grove switch, remove, and exec.
+- Record same-repository PR numbers on branches when adding or cloning PR worktrees.
+- Show recorded PR numbers in grove list --json and --verbose, and select PR worktrees with --filter pr, including in fast mode.
+- Add `prune --json` for dry runs and return a non-zero exit status when pruning fails.
+- Add `grove add --herdr` to open a prepared worktree in Herdr after setup and hooks succeed.
+
+### Changed
+- Check merge state before remove --branch and add --ignore-missing to skip unknown worktrees.
+- `grove prune --merged` accepts a target branch as `--merged=<branch>`, so merged candidates can be selected against any base branch.
+
+### Fixed
+- Fetch an explicit unqualified `grove add --base` branch before reporting it missing, and prefer its origin ref over a stale local branch.
+- Give grove add --herdr distinct recovery hints for missing binaries, failed exits, and existing PR worktrees, and document the flag.
+- Reuse the existing worktree when grove add --herdr is run again, without repeating setup or hooks.
+
 ## [v1.11.0](https://github.com/sQVe/grove/releases/tag/v1.11.0) - 2026-09-08
 
 ### Changed
