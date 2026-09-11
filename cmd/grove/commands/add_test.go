@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
 	"github.com/sqve/grove/internal/workspace"
@@ -382,6 +383,17 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	// NewTestRepo commits, so editing it is what trips the refusal.
 	testutil.WriteFile(t, filepath.Join(worktreePath, "test.txt"), "edited in the worktree")
 
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStderr := os.Stderr
+	os.Stderr = stderr
+	t.Cleanup(func() {
+		os.Stderr = originalStderr
+		_ = stderr.Close()
+	})
+
 	command = NewAddCmd()
 	command.SetArgs(arguments)
 	if err := command.Execute(); err != nil {
@@ -395,6 +407,138 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
 	if string(calls) != want {
 		t.Fatalf("calls = %q, want %q", calls, want)
+	}
+
+	// The handoff must open the work in progress, never discard it.
+	edited, err := os.ReadFile(filepath.Join(worktreePath, "test.txt")) //nolint:gosec // Test-owned temporary path.
+	if err != nil || string(edited) != "edited in the worktree" {
+		t.Fatalf("handoff destroyed the uncommitted edit: %q (%v)", edited, err)
+	}
+
+	// Pin the reason, so a fetch failure taking the same path is not mistaken
+	// for the dirty-worktree branch this test is named for.
+	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	if err != nil || !strings.Contains(string(warning), "uncommitted changes") {
+		t.Fatalf("expected the uncommitted-changes warning, got %q (%v)", warning, err)
+	}
+}
+
+// The PR number is recorded even when the sync that follows refuses, or a
+// worktree adopted by a PR re-run never shows its PR in grove list.
+func TestAddHerdrRecordsPROnDirtyWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	// Created as a plain branch worktree, so nothing has recorded a PR yet.
+	command := NewAddCmd()
+	command.SetArgs([]string{"pr-feature", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("branch add: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-feature")
+	testutil.WriteFile(t, filepath.Join(worktreePath, "test.txt"), "edited in the worktree")
+
+	command = NewAddCmd()
+	command.SetArgs([]string{"https://github.com/owner/repo/pull/42", "--herdr"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("dirty PR re-run must open, got: %v", err)
+	}
+
+	configs, err := git.GetBranchConfigs(bareDir, "grovePr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if configs["pr-feature"] != "42" {
+		t.Fatalf("grovePr = %q, want \"42\"", configs["pr-feature"])
+	}
+}
+
+// A refresh that fails for any reason other than work in progress must abort:
+// the worktree may be half-synced, and opening it would hide that.
+func TestAddHerdrAbortsOnBrokenPRRefresh(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Break the fetch the refresh depends on, leaving the worktree clean.
+	repository.RunOutput("-C", bareDir, "remote", "set-url", "origin", filepath.Join(repository.TempDir, "gone"))
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	err = command.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "fetch") {
+		t.Fatalf("a broken fetch must abort, got %v", err)
+	}
+	if calls, readError := os.ReadFile(callPath); !os.IsNotExist(readError) { //nolint:gosec // Test-owned temporary path.
+		t.Fatalf("a broken refresh must not reach Herdr: %q", calls)
 	}
 }
 

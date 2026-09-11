@@ -221,10 +221,14 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
 }
 
-// openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. Herdr
-// keys a workspace on the checkout path, so the path is resolved first: a fresh
-// worktree carries the spelling the caller built, while a re-run carries the one
-// git recorded, and through a symlinked root those differ.
+// A refresh can refuse for two reasons that describe the user's own in-progress
+// work rather than a broken sync. Only those are safe for --herdr to open
+// anyway; anything else leaves a worktree that may be half-synced.
+var (
+	errWorktreeDirty    = errors.New("worktree has uncommitted changes")
+	errWorktreeUnsynced = errors.New("worktree has local commits")
+)
+
 // samePath reports whether two paths name the same worktree. git records the
 // resolved path while Grove builds one from os.Getwd, which prefers $PWD, so
 // through a symlinked workspace root the two spellings differ. A path that
@@ -242,6 +246,10 @@ func samePath(a, b string) bool {
 	return fs.PathsEqual(resolve(a), resolve(b))
 }
 
+// openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. Herdr
+// keys a workspace on the checkout path, so the path is resolved first: a fresh
+// worktree carries the spelling the caller built, while a re-run carries the one
+// git recorded, and through a symlinked root those differ.
 func openWorktreeInHerdr(bareDir, worktreePath string) error {
 	canonical, err := filepath.EvalSymlinks(worktreePath)
 	if err != nil {
@@ -506,22 +514,26 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 	for _, info := range infos {
 		if info.Branch == branch {
 			if !prInfo.IsFork {
+				// The PR identity holds regardless of whether the sync below
+				// succeeds, and a worktree being worked in never syncs cleanly.
+				if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
+					logger.Debug("Failed to record PR for %s: %v", branch, err)
+				}
+
 				// Sync before any handoff, so --herdr opens the refreshed PR head
 				// rather than a stale checkout, and --reset keeps its meaning.
-				// A worktree being worked in is dirty by definition, so with
-				// --herdr a refusal to sync must not also refuse to open it.
 				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
-					if !herdr {
+					// Refusing to sync work in progress must not also refuse to
+					// open it. A broken sync still aborts: the worktree may be
+					// half-synced, and opening it would hide that.
+					inProgress := errors.Is(err, errWorktreeDirty) || errors.Is(err, errWorktreeUnsynced)
+					if !herdr || !inProgress {
 						return err
 					}
 
 					logger.Warning("Opening %s without syncing it: %v", info.Path, err)
 					releaseLock()
 					return openWorktreeInHerdr(bareDir, info.Path)
-				}
-
-				if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
-					logger.Debug("Failed to record PR for %s: %v", branch, err)
 				}
 
 				if herdr {
@@ -566,14 +578,14 @@ func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, swit
 		return fmt.Errorf("failed to check worktree changes: %w", err)
 	}
 	if hasTrackedChanges {
-		return errors.New("worktree has uncommitted changes; commit or stash before refreshing")
+		return fmt.Errorf("%w; commit or stash before refreshing", errWorktreeDirty)
 	}
 	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
 	if err != nil {
 		return fmt.Errorf("failed to compare branches: %w", err)
 	}
 	if ahead > 0 && !reset {
-		return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
+		return fmt.Errorf("%w: local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", errWorktreeUnsynced, branch, ahead)
 	}
 	// Move through the worktree so its index and files follow the branch.
 	switch {
