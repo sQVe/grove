@@ -20,9 +20,6 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-// ErrHerdrWorktreeExists means the requested PR branch already has a worktree.
-var ErrHerdrWorktreeExists = errors.New("worktree already exists")
-
 func NewAddCmd() *cobra.Command {
 	var baseBranch string
 	var name string
@@ -417,7 +414,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 	for _, info := range infos {
 		if info.Branch == branch {
 			if herdr {
-				return fmt.Errorf("--herdr: %w for branch %q at %s; open that worktree directly in Herdr", ErrHerdrWorktreeExists, branch, info.Path)
+				return fmt.Errorf("--herdr: worktree already exists for branch %q at %s; open that worktree directly in Herdr", branch, info.Path)
 			}
 
 			if !prInfo.IsFork {
