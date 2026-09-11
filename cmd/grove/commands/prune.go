@@ -133,23 +133,25 @@ func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, e
 		return mergedTarget{ref: defaultBranch, branch: defaultBranch}, nil
 	}
 
-	// Accept the remote-qualified form users reach for, e.g. origin/develop.
-	if remote, branch, found := strings.Cut(merged, "/"); found {
-		exists, err := git.RemoteBranchExists(bareDir, remote, branch)
-		if err != nil {
-			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
-		}
-		if exists {
-			return mergedTarget{ref: merged, branch: branch}, nil
-		}
-	}
-
+	// A local branch wins, the way git prefers refs/heads over refs/remotes. A
+	// branch named feature/foo must not be read as remote "feature", branch "foo".
 	local, err := git.LocalBranchExists(bareDir, merged)
 	if err != nil {
 		return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
 	}
 	if local {
 		return mergedTarget{ref: merged, branch: merged}, nil
+	}
+
+	// Accept the remote-qualified form users reach for, e.g. origin/develop.
+	if remote, branch, found := strings.Cut(merged, "/"); found {
+		exists, cutErr := git.RemoteBranchExists(bareDir, remote, branch)
+		if cutErr != nil {
+			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, cutErr)
+		}
+		if exists {
+			return mergedTarget{ref: merged, branch: branch}, nil
+		}
 	}
 
 	remotes, err := git.ListRemotes(bareDir)

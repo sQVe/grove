@@ -1,0 +1,30 @@
+# Test: a local slash-bearing --merged target wins over a same-named remote
+setup_workspace feature/foo sub
+
+# sub is merged into feature/foo
+exec git -C $WORK/testrepo checkout sub
+cp $WORK/sub.txt $WORK/testrepo/sub.txt
+exec git -C $WORK/testrepo add sub.txt
+exec git -C $WORK/testrepo commit -m 'sub commit'
+exec git -C $WORK/testrepo checkout feature/foo
+exec git -C $WORK/testrepo merge --no-ff sub -m 'merge sub'
+exec git -C $WORK/testrepo checkout main
+
+# A second remote named "feature" carrying a branch "foo", so refs/remotes/feature/foo
+# collides with the local branch feature/foo
+exec git clone $WORK/testrepo $WORK/otherrepo
+exec git -C $WORK/otherrepo checkout -b foo
+exec git -C $WORK/workspace/.bare remote add feature file://$WORK/otherrepo
+exec git -C $WORK/workspace/.bare fetch origin
+exec git -C $WORK/workspace/.bare fetch feature
+exec grove add feature/foo
+exec grove add sub
+
+# The local branch wins, so its own worktree stays excluded
+exec grove prune --merged=feature/foo
+stderr 'Would prune 1 worktree'
+stderr 'sub'
+! stderr 'feature/foo'
+
+-- sub.txt --
+sub content
