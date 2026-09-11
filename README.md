@@ -47,6 +47,11 @@ The catch: `git worktree` is clunky. Grove makes it feel like `git checkout` —
 
 - **Git 2.48+** — Grove uses `--relative-paths` for portable worktrees
 
+Optional, each enabling one feature and never required:
+
+- **[`gh`](https://cli.github.com/)** — [PR worktrees and squash-merge detection](#optional-github-cli)
+- **`herdr`** — [opening a new worktree in a workspace](#optional-herdr)
+
 ## 📦 Installation
 
 ### Quick install (Linux/macOS)
@@ -81,6 +86,14 @@ Grove works without additional dependencies, but installing the [GitHub CLI](htt
 - **Squash-merge detection**: `grove prune` accurately detects branches merged via GitHub's squash-and-merge, even with multiple commits. Without `gh`, only single-commit squash merges are detected via git.
 
 See [GitHub CLI installation](https://github.com/cli/cli#installation) for setup instructions.
+
+### Optional: Herdr
+
+Installing `herdr`, a terminal workspace manager for AI coding agents, enables one extra feature:
+
+- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to Herdr, which opens and focuses a workspace for it. Re-running the command focuses the workspace that already exists.
+
+Grove only needs `herdr` on PATH. Without the flag it is never called.
 
 ## 🔧 Setup
 
