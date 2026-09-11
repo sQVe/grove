@@ -37,7 +37,7 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 
 	t.Setenv("PATH", filepath.Dir(ghPath)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, false, "", bareDir, remote.TempDir, worktreePath, false, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +48,24 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 	}
 	if configs["Feature/topic.v2"] != "42" {
 		t.Fatalf("PR number = %q, want 42", configs["Feature/topic.v2"])
+	}
+
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(filepath.Dir(ghPath), "herdr"), "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$HERDR_CALLS\"\n", fs.FileExec)
+
+	err = runAddFromPR("https://github.com/owner/repo/pull/42", false, true, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	if err != nil {
+		t.Fatalf("handoff existing PR worktree: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	want := "worktree\nopen\n--cwd\n" + remote.TempDir + "\n--path\n" + worktreePath + "\n--focus\n"
+	if err != nil || string(calls) != want {
+		t.Fatalf("calls = %q (%v), want %q", calls, err, want)
+	}
+	if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
+		t.Fatalf("existing worktree must remain intact: %v", err)
 	}
 }
 

@@ -1,0 +1,5 @@
+kind: Fixed
+body: Give grove add --herdr distinct recovery hints for missing binaries, failed exits, and existing PR worktrees, and document the flag.
+time: 2026-09-11T11:33:26.95436676+02:00
+custom:
+  Issue: ''

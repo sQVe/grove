@@ -47,6 +47,11 @@ The catch: `git worktree` is clunky. Grove makes it feel like `git checkout` —
 
 - **Git 2.48+** — Grove uses `--relative-paths` for portable worktrees
 
+Optional, each enabling one feature and never required:
+
+- **[`gh`](https://cli.github.com/)** — [PR worktrees and squash-merge detection](#optional-github-cli)
+- **`herdr`** — [opening a new worktree in a workspace](#optional-herdr)
+
 ## 📦 Installation
 
 ### Quick install (Linux/macOS)
@@ -81,6 +86,14 @@ Grove works without additional dependencies, but installing the [GitHub CLI](htt
 - **Squash-merge detection**: `grove prune` accurately detects branches merged via GitHub's squash-and-merge, even with multiple commits. Without `gh`, only single-commit squash merges are detected via git.
 
 See [GitHub CLI installation](https://github.com/cli/cli#installation) for setup instructions.
+
+### Optional: Herdr
+
+Installing `herdr`, a terminal workspace manager for AI coding agents, enables one extra feature:
+
+- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to Herdr, which opens and focuses a workspace for it. Re-running the command focuses the workspace that already exists.
+
+Grove only needs `herdr` on PATH. Without the flag it is never called.
 
 ## 🔧 Setup
 
@@ -200,6 +213,7 @@ Add a worktree for a branch, pull request, or ref.
 **Flags:**
 
 - `-s, --switch` — Switch to the worktree; prints the path of an existing one instead of erroring
+- `--herdr` — Open the prepared worktree in Herdr after setup and hooks succeed; re-running it for an existing worktree hands that worktree to Herdr without repeating preserve, link, or add hooks. Requires `herdr` on PATH and cannot combine with `--switch`
 - `--base <branch>` — Create new branch from this base instead of the default branch
 - `--no-fetch` — Skip fetching the base branch or the existing branch's upstream
 - `--name <name>` — Custom directory name
@@ -213,6 +227,7 @@ Add a worktree for a branch, pull request, or ref.
 ```bash
 grove add feat/auth
 grove add feat/auth --switch
+grove add feat/auth --herdr    # Open in Herdr after preparation
 grove add --base main feat/auth
 grove add --pr 123             # PR by number
 grove add --pr 123 --reset     # PR, discarding local commits

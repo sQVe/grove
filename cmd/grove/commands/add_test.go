@@ -5,14 +5,718 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/testutil"
+	testgit "github.com/sqve/grove/internal/testutil/git"
 	"github.com/sqve/grove/internal/workspace"
 )
+
+func TestAddHerdr(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	for _, scenario := range []struct {
+		name      string
+		arguments []string
+		hook      string
+		exitCode  string
+		missing   bool
+		wantCall  bool
+		wantError string
+	}{
+		{name: "branch", arguments: []string{"feature", "--herdr"}, wantCall: true},
+		{name: "detached", arguments: []string{"main", "--detach", "--herdr"}, wantCall: true},
+		{name: "pull request", arguments: []string{"https://github.com/owner/repo/pull/42", "--herdr"}, wantCall: true},
+		{name: "without flag", arguments: []string{"feature"}},
+		{name: "failed hook", arguments: []string{"feature", "--herdr"}, hook: "exit 9", wantError: "hook failed"},
+		{name: "missing binary", arguments: []string{"feature", "--herdr"}, missing: true, wantError: "PATH"},
+		{name: "failed handoff", arguments: []string{"feature", "--herdr"}, exitCode: "7", wantCall: true, wantError: "exit status 7"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			repository := testgit.NewTestRepo(t)
+			repository.CreateBranch("pr-feature")
+			workspaceRoot := filepath.Join(repository.TempDir, "workspace with spaces")
+			bareDir := filepath.Join(workspaceRoot, ".bare")
+			repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+			mainPath := filepath.Join(workspaceRoot, "main")
+			repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+			t.Chdir(mainPath)
+
+			hook := "printf ready > prepared"
+			if scenario.hook != "" {
+				hook = scenario.hook
+			}
+			testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[hooks]\nadd = [\""+hook+"\"]\n")
+
+			binaryDir := t.TempDir()
+			gitPath, err := exec.LookPath("git")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink("/bin/sh", filepath.Join(binaryDir, "sh")); err != nil {
+				t.Fatal(err)
+			}
+
+			callPath := filepath.Join(t.TempDir(), "calls")
+			t.Setenv("HERDR_CALLS", callPath)
+			t.Setenv("HERDR_EXIT", scenario.exitCode)
+			if !scenario.missing {
+				testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+[ -f "$6/prepared" ] || exit 8
+[ -e "$4/.grove-worktree.lock" ] && exit 7
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+printf 'herdr diagnostic\n' >&2
+exit "${HERDR_EXIT:-0}"
+`, fs.FileExec)
+			}
+			testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+			t.Setenv("PATH", binaryDir)
+
+			stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+			if err != nil {
+				t.Fatal(err)
+			}
+			originalStderr := os.Stderr
+			os.Stderr = stderr
+			t.Cleanup(func() {
+				os.Stderr = originalStderr
+				_ = stderr.Close()
+			})
+
+			command := NewAddCmd()
+			command.SetArgs(append(scenario.arguments, "--name", "prepared tree", "--no-fetch"))
+			err = command.Execute()
+			worktreePath := filepath.Join(workspaceRoot, "prepared tree")
+			if scenario.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), scenario.wantError) {
+				t.Fatalf("error = %v, want %q", err, scenario.wantError)
+			}
+			if scenario.missing || scenario.exitCode != "" {
+				if !strings.Contains(err.Error(), worktreePath) || errors.Unwrap(err) == nil {
+					t.Fatalf("expected wrapped error naming prepared path, got %v", err)
+				}
+			}
+			if scenario.missing {
+				if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "ensure herdr is installed and on PATH") {
+					t.Fatalf("expected missing binary with install hint, got %v", err)
+				}
+			}
+			if scenario.exitCode != "" {
+				var exitError *exec.ExitError
+				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "Herdr exited with an error") || !strings.Contains(err.Error(), "output above") {
+					t.Errorf("expected failed exit with output hint, got %v", err)
+				}
+				if strings.Contains(err.Error(), "installed") || strings.Contains(err.Error(), "PATH") {
+					t.Errorf("unexpected install hint after Herdr ran: %v", err)
+				}
+			}
+
+			if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
+				t.Fatalf("worktree must remain intact: %v", err)
+			}
+
+			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+			if scenario.wantCall {
+				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+				if readError != nil || string(calls) != want {
+					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
+				}
+				diagnostic, err := os.ReadFile(stderr.Name())
+				if err != nil || !strings.Contains(string(diagnostic), "herdr diagnostic") {
+					t.Fatalf("missing inherited stderr: %q (%v)", diagnostic, err)
+				}
+			} else if !os.IsNotExist(readError) {
+				t.Fatalf("unexpected herdr call: %q (%v)", calls, readError)
+			}
+
+			if scenario.wantCall && scenario.wantError == "" {
+				worktreesBefore := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+				branchesBefore := repository.RunOutput("-C", bareDir, "show-ref", "--heads")
+				testutil.WriteFile(t, filepath.Join(mainPath, "preserved"), "new source file")
+				testutil.WriteFile(t, filepath.Join(mainPath, "linked", "file"), "new source directory")
+				testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[preserve]\npatterns = [\"preserved\"]\n[link]\npatterns = [\"linked\"]\n[hooks]\nadd = [\"exit 9\"]\n")
+
+				rerunName := "unused directory"
+				if scenario.name == "detached" {
+					rerunName = "prepared tree"
+				}
+				command = NewAddCmd()
+				command.SetArgs(append(scenario.arguments, "--name", rerunName, "--no-fetch"))
+				if err := command.Execute(); err != nil {
+					t.Fatalf("handoff-only rerun: %v", err)
+				}
+
+				rerunCalls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+				if err != nil || string(rerunCalls) != string(calls)+string(calls) {
+					t.Fatalf("rerun must use identical argv: %q (%v)", rerunCalls, err)
+				}
+				worktreesAfter := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+				if worktreesAfter != worktreesBefore || strings.Count(worktreesAfter, "worktree "+worktreePath+"\n") != 1 {
+					t.Fatalf("rerun changed worktrees: %s", worktreesAfter)
+				}
+				if branchesAfter := repository.RunOutput("-C", bareDir, "show-ref", "--heads"); branchesAfter != branchesBefore {
+					t.Fatalf("rerun changed branches: %s", branchesAfter)
+				}
+				for _, absentPath := range []string{filepath.Join(workspaceRoot, "unused directory"), filepath.Join(worktreePath, "preserved"), filepath.Join(worktreePath, "linked"), filepath.Join(workspaceRoot, ".grove-worktree.lock")} {
+					if _, err := os.Lstat(absentPath); !os.IsNotExist(err) {
+						t.Fatalf("handoff-only rerun created %s (%v)", absentPath, err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAddHerdrDetachedRerun(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	for _, scenario := range []struct {
+		name      string
+		ref       string
+		parkAtTag bool
+		wantCall  bool
+		wantError string
+	}{
+		{name: "annotated tag resolves to its commit", ref: "v1.0.0", wantCall: true},
+		{name: "refuses a worktree parked at another commit", ref: "main", parkAtTag: true, wantError: "not \"main\""},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			repository := testgit.NewTestRepo(t)
+			repository.RunOutput("-C", repository.Path, "tag", "-a", "v1.0.0", "-m", "release")
+			// Move main past the tag, so "main" and "v1.0.0" name different commits.
+			repository.WriteFile("moved", "after the tag")
+			repository.Add("moved")
+			repository.Commit("chore: move main past the tag")
+			workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+			bareDir := filepath.Join(workspaceRoot, ".bare")
+			repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+			repository.RunOutput("-C", bareDir, "fetch", "origin", "refs/tags/*:refs/tags/*")
+			mainPath := filepath.Join(workspaceRoot, "main")
+			repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+			t.Chdir(mainPath)
+
+			binaryDir := t.TempDir()
+			gitPath, err := exec.LookPath("git")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+				t.Fatal(err)
+			}
+			callPath := filepath.Join(t.TempDir(), "calls")
+			t.Setenv("HERDR_CALLS", callPath)
+			testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+			t.Setenv("PATH", binaryDir)
+
+			worktreePath := filepath.Join(workspaceRoot, "probe")
+			command := NewAddCmd()
+			command.SetArgs([]string{scenario.ref, "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+			if err := command.Execute(); err != nil {
+				t.Fatalf("first run: %v", err)
+			}
+			if err := os.Remove(callPath); err != nil {
+				t.Fatal(err)
+			}
+
+			// Park the existing worktree on a commit the ref does not name.
+			if scenario.parkAtTag {
+				repository.RunOutput("-C", worktreePath, "checkout", "--detach", "v1.0.0")
+			}
+
+			command = NewAddCmd()
+			command.SetArgs([]string{scenario.ref, "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+			err = command.Execute()
+
+			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+			if scenario.wantCall {
+				if err != nil {
+					t.Fatalf("rerun must hand off: %v", err)
+				}
+				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+				if readError != nil || string(calls) != want {
+					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
+				}
+				return
+			}
+
+			if err == nil || !strings.Contains(err.Error(), scenario.wantError) {
+				t.Fatalf("error = %v, want %q", err, scenario.wantError)
+			}
+			if !os.IsNotExist(readError) {
+				t.Fatalf("mismatched HEAD must not reach Herdr: %q", calls)
+			}
+		})
+	}
+}
+
+// testgit builds on testutil.TempDir, which resolves symlinks, so a symlinked
+// workspace root has to be built by hand to be exercised at all.
+func TestAddHerdrSymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	realRoot := filepath.Join(repository.TempDir, "real")
+	bareDir := filepath.Join(realRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(realRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+
+	linkRoot := filepath.Join(repository.TempDir, "link")
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	// os.Getwd prefers $PWD when it names the same directory, which is how the
+	// unresolved spelling reaches Grove in a real shell.
+	linkMain := filepath.Join(linkRoot, "main")
+	t.Chdir(linkMain)
+	t.Setenv("PWD", linkMain)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	command := NewAddCmd()
+	command.SetArgs([]string{"main", "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+
+	command = NewAddCmd()
+	command.SetArgs([]string{"main", "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("rerun through the symlinked root must hand off, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both runs must send one identity, in the resolved namespace, or Herdr
+	// treats them as two workspaces.
+	want := "worktree\nopen\n--cwd\n" + realRoot + "\n--path\n" + filepath.Join(realRoot, "probe") + "\n--focus\n"
+	if string(calls) != want+want {
+		t.Fatalf("calls = %q, want two identical resolved calls %q", calls, want)
+	}
+}
+
+func TestAddHerdrOpensDirtyPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// A worktree you are working in is dirty by definition; the refresh refuses
+	// it, and that must not also refuse to open it. test.txt is the tracked file
+	// NewTestRepo commits, so editing it is what trips the refusal.
+	testutil.WriteFile(t, filepath.Join(worktreePath, "test.txt"), "edited in the worktree")
+
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStderr := os.Stderr
+	os.Stderr = stderr
+	t.Cleanup(func() {
+		os.Stderr = originalStderr
+		_ = stderr.Close()
+	})
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("dirty worktree must still open in Herdr, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("dirty worktree never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want %q", calls, want)
+	}
+
+	// The handoff must open the work in progress, never discard it.
+	edited, err := os.ReadFile(filepath.Join(worktreePath, "test.txt")) //nolint:gosec // Test-owned temporary path.
+	if err != nil || string(edited) != "edited in the worktree" {
+		t.Fatalf("handoff destroyed the uncommitted edit: %q (%v)", edited, err)
+	}
+
+	// Pin the reason, so a fetch failure taking the same path is not mistaken
+	// for the dirty-worktree branch this test is named for.
+	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	if err != nil || !strings.Contains(string(warning), "uncommitted changes") {
+		t.Fatalf("expected the uncommitted-changes warning, got %q (%v)", warning, err)
+	}
+}
+
+// The PR number is recorded even when the sync that follows refuses, or a
+// worktree adopted by a PR re-run never shows its PR in grove list.
+func TestAddHerdrRecordsPROnDirtyWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	// Created as a plain branch worktree, so nothing has recorded a PR yet.
+	command := NewAddCmd()
+	command.SetArgs([]string{"pr-feature", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("branch add: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-feature")
+	testutil.WriteFile(t, filepath.Join(worktreePath, "test.txt"), "edited in the worktree")
+
+	command = NewAddCmd()
+	command.SetArgs([]string{"https://github.com/owner/repo/pull/42", "--herdr"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("dirty PR re-run must open, got: %v", err)
+	}
+
+	configs, err := git.GetBranchConfigs(bareDir, "grovePr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if configs["pr-feature"] != "42" {
+		t.Fatalf("grovePr = %q, want \"42\"", configs["pr-feature"])
+	}
+}
+
+// A fork PR worktree is checked out from the fork's remote-tracking ref, so it
+// is detached and has no branch to match on. Its path is the identity.
+func TestAddHerdrRerunsForkPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("fork-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	// headRepositoryOwner differs from the URL's owner, which is what makes it a
+	// fork; repo view hands back the local repo standing in for the fork.
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+if [ "$1" = repo ]; then printf '%s\n' "$GH_FORK_URL"; exit 0; fi
+printf '%s\n' '{"headRefName":"fork-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"contributor"}}'
+`, fs.FileExec)
+	t.Setenv("GH_FORK_URL", repository.Path)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+
+	// The fork worktree must be detached, or this test is not exercising the bug.
+	listing := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+	if !strings.Contains(listing, "worktree "+worktreePath+"\nHEAD") || !strings.Contains(listing, "detached") {
+		t.Fatalf("expected a detached fork worktree, got %s", listing)
+	}
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// A local worktree that merely shares the fork's branch name must not be
+	// mistaken for the PR's worktree.
+	decoyPath := filepath.Join(workspaceRoot, "decoy")
+	repository.RunOutput("-C", bareDir, "worktree", "add", decoyPath, "fork-feature")
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("fork PR rerun must hand off, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("fork PR rerun never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want the fork PR worktree %q", calls, want)
+	}
+}
+
+// Local commits are work in progress too, so --herdr opens past that refusal
+// exactly as it does past a dirty worktree.
+func TestAddHerdrOpensUnsyncedPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Commit locally so the branch is ahead of the PR head, leaving the worktree
+	// clean: this is the other refusal, not the dirty one.
+	repository.RunOutput("-C", worktreePath, "-c", "commit.gpgsign=false",
+		"-c", "user.email=test@example.com", "-c", "user.name=Test",
+		"commit", "--allow-empty", "-m", "local work not yet pushed")
+
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStderr := os.Stderr
+	os.Stderr = stderr
+	t.Cleanup(func() {
+		os.Stderr = originalStderr
+		_ = stderr.Close()
+	})
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("unsynced worktree must still open in Herdr, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("unsynced worktree never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want %q", calls, want)
+	}
+
+	// Without --reset the local commits must survive being opened.
+	if subject := repository.RunOutput("-C", worktreePath, "log", "-1", "--format=%s"); !strings.Contains(subject, "local work not yet pushed") {
+		t.Fatalf("handoff discarded the local commit, HEAD is now %q", subject)
+	}
+
+	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	if err != nil || !strings.Contains(string(warning), "not on remote") {
+		t.Fatalf("expected the local-commits warning, got %q (%v)", warning, err)
+	}
+}
+
+// A refresh that fails for any reason other than work in progress must abort:
+// the worktree may be half-synced, and opening it would hide that.
+func TestAddHerdrAbortsOnBrokenPRRefresh(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Break the fetch the refresh depends on, leaving the worktree clean.
+	repository.RunOutput("-C", bareDir, "remote", "set-url", "origin", filepath.Join(repository.TempDir, "gone"))
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	err = command.Execute()
+
+	if err == nil || !strings.Contains(err.Error(), "fetch") {
+		t.Fatalf("a broken fetch must abort, got %v", err)
+	}
+	if calls, readError := os.ReadFile(callPath); !os.IsNotExist(readError) { //nolint:gosec // Test-owned temporary path.
+		t.Fatalf("a broken refresh must not reach Herdr: %q", calls)
+	}
+}
+
+func TestAddHerdrSwitchConflict(t *testing.T) {
+	command := NewAddCmd()
+	command.SetArgs([]string{"feature", "--herdr", "--switch"})
+
+	err := command.Execute()
+	if err == nil || !strings.Contains(err.Error(), "herdr") || !strings.Contains(err.Error(), "switch") {
+		t.Fatalf("expected flag conflict, got %v", err)
+	}
+}
 
 func TestNewAddCmd(t *testing.T) {
 	cmd := NewAddCmd()
@@ -33,6 +737,7 @@ func TestNewAddCmd(t *testing.T) {
 		valueType string
 	}{
 		{"switch", "s", "false", "bool"},
+		{"herdr", "", "false", "bool"},
 		{"base", "", "", "string"},
 		{"detach", "d", "false", "bool"},
 		{"name", "", "", "string"},
@@ -75,7 +780,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "", false)
+	err = runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -94,56 +799,56 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 
 	t.Run("base flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, "main", "", false, 123, false, "", false)
+		err := runAdd(nil, false, false, "main", "", false, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", true, 123, false, "", false)
+		err := runAdd(nil, false, false, "", "", true, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("negative --pr gives clear error", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", false, -5, false, "", false)
+		err := runAdd(nil, false, false, "", "", false, -5, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--pr must be a positive number") {
 			t.Errorf("expected positive number error, got %v", err)
 		}
 	})
 
 	t.Run("--pr cannot be combined with positional argument", func(t *testing.T) {
-		err := runAdd([]string{"feature"}, false, "", "", false, 123, false, "", false)
+		err := runAdd([]string{"feature"}, false, false, "", "", false, 123, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--pr flag cannot be combined with positional argument") {
 			t.Errorf("expected --pr/positional conflict error, got %v", err)
 		}
 	})
 
 	t.Run("old #N syntax gives helpful error", func(t *testing.T) {
-		err := runAdd([]string{"#123"}, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"#123"}, false, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "syntax no longer supported") {
 			t.Errorf("expected helpful migration error, got %v", err)
 		}
 	})
 
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "main", "", false, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "main", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, "", "", true, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "", "", true, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("reset flag can only be used with PR references", func(t *testing.T) {
-		err := runAdd([]string{"feature-branch"}, false, "", "", false, 0, true, "", false)
+		err := runAdd([]string{"feature-branch"}, false, false, "", "", false, 0, true, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--reset can only be used with PR references") {
 			t.Errorf("expected --reset/PR error, got %v", err)
 		}
@@ -152,7 +857,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 func TestRunAdd_DetachBaseValidation(t *testing.T) {
 	t.Run("detach and base cannot be used together", func(t *testing.T) {
-		err := runAdd([]string{"v1.0.0"}, false, "main", "", true, 0, false, "", false)
+		err := runAdd([]string{"v1.0.0"}, false, false, "main", "", true, 0, false, "", false)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
 		}
@@ -175,14 +880,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("whitespace-only branch name", func(t *testing.T) {
 		// Whitespace is trimmed, resulting in empty string
 		// This should fail with "requires branch" error
-		err := runAdd([]string{"   "}, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"   "}, false, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error for whitespace-only branch name, got %v", err)
 		}
 	})
 
 	t.Run("no args and no --pr flag", func(t *testing.T) {
-		err := runAdd(nil, false, "", "", false, 0, false, "", false)
+		err := runAdd(nil, false, false, "", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error, got %v", err)
 		}
@@ -192,7 +897,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 		// The trimming happens, then workspace detection runs
 		// We're not in a workspace, so we'll get that error
 		// But this verifies the trim doesn't crash
-		err := runAdd([]string{"  feature-test  "}, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"  feature-test  "}, false, false, "", "", false, 0, false, "", false)
 		if !errors.Is(err, workspace.ErrNotInWorkspace) {
 			t.Errorf("expected ErrNotInWorkspace after trimming, got %v", err)
 		}
@@ -201,14 +906,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("PR URL with /files suffix works", func(t *testing.T) {
 		// PR URLs with /files suffix should be detected as PR references
 		// Flag validation happens before workspace detection
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, "main", "", false, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, false, "main", "", false, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error for URL with /files suffix, got %v", err)
 		}
 	})
 
 	t.Run("PR URL with query params works", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, "", "", true, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, false, "", "", true, 0, false, "", false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error for URL with query params, got %v", err)
 		}
@@ -820,7 +1525,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := runAdd([]string{"feature-test"}, false, "", "", false, 0, false, "nonexistent", false)
+		err := runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "nonexistent", false)
 		if err == nil {
 			t.Fatal("expected error for nonexistent --from worktree")
 		}
@@ -857,7 +1562,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		})
 
 		// Create a new worktree with --from pointing to source
-		err := runAdd([]string{"feature-from-test"}, false, "", "", false, 0, false, "source", false)
+		err := runAdd([]string{"feature-from-test"}, false, false, "", "", false, 0, false, "source", false)
 		if err != nil {
 			t.Errorf("expected success with valid --from, got %v", err)
 		}
@@ -938,7 +1643,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"main"}, false, "", "", false, 0, false, "", false)
+	err = runAdd([]string{"main"}, false, false, "", "", false, 0, false, "", false)
 	if err == nil {
 		t.Fatal("expected error for existing worktree")
 	}
@@ -1014,7 +1719,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"feat"}, false, "", "", false, 0, false, "", false); err != nil {
+	if err := runAdd([]string{"feat"}, false, false, "", "", false, 0, false, "", false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 
@@ -1096,7 +1801,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"newwork"}, false, "", "", false, 0, false, "", false); err != nil {
+	if err := runAdd([]string{"newwork"}, false, false, "", "", false, 0, false, "", false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 

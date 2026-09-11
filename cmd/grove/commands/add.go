@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ func NewAddCmd() *cobra.Command {
 	var prNumber int
 	var reset bool
 	var from string
+	var herdr bool
 
 	cmd := &cobra.Command{
 		Use:   "add [branch|PR-URL|ref]",
@@ -40,6 +42,7 @@ Examples:
   grove add feat/auth --name auth  # Creates ./auth worktree
   grove add main                   # Existing branch
   grove add -s feat/auth           # Add and switch to worktree
+  grove add feat/auth --herdr      # Open the prepared worktree in Herdr
   grove add --base main feat/auth  # New branch from main
   grove add --detach v1.0.0        # Detached HEAD at tag
   grove add --pr 123               # Creates ./pr-123 worktree
@@ -48,11 +51,12 @@ Examples:
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset, from, noFetch)
+			return runAdd(args, switchTo, herdr, baseBranch, name, detach, prNumber, reset, from, noFetch)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the worktree after creating it")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Open the prepared worktree in Herdr after creating it (requires herdr on PATH)")
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of the default branch")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
@@ -74,7 +78,11 @@ Examples:
 	return cmd
 }
 
-func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
+func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
+	if herdr && switchTo {
+		return fmt.Errorf("--herdr and --switch cannot be used together")
+	}
+
 	name = strings.TrimSpace(name)
 	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
 		return fmt.Errorf("--name must be a single directory name")
@@ -196,24 +204,85 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
+		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
+	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
 }
 
-func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
+// A refresh can refuse for two reasons that describe the user's own in-progress
+// work rather than a broken sync. Only those are safe for --herdr to open
+// anyway; anything else leaves a worktree that may be half-synced.
+var (
+	errWorktreeDirty    = errors.New("worktree has uncommitted changes")
+	errWorktreeUnsynced = errors.New("worktree is unsynced")
+)
+
+// samePath reports whether two paths name the same worktree. git records the
+// resolved path while Grove builds one from os.Getwd, which prefers $PWD, so
+// through a symlinked workspace root the two spellings differ. A path that
+// cannot be resolved (it does not exist yet) compares as written.
+func samePath(a, b string) bool {
+	resolve := func(path string) string {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return path
+		}
+
+		return resolved
+	}
+
+	return fs.PathsEqual(resolve(a), resolve(b))
+}
+
+// openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. Herdr
+// keys a workspace on the checkout path, so the path is resolved first: a fresh
+// worktree carries the spelling the caller built, while a re-run carries the one
+// git recorded, and through a symlinked root those differ.
+func openWorktreeInHerdr(bareDir, worktreePath string) error {
+	canonical, err := filepath.EvalSymlinks(worktreePath)
+	if err != nil {
+		return fmt.Errorf("worktree at %s is ready, but its path could not be resolved for Herdr: %w", worktreePath, err)
+	}
+
+	// Both arguments must land in the same namespace: Herdr resolves the
+	// workspace from --cwd and the worktree from --path.
+	root, err := filepath.EvalSymlinks(filepath.Dir(bareDir))
+	if err != nil {
+		return fmt.Errorf("worktree at %s is ready, but the workspace root could not be resolved for Herdr: %w", canonical, err)
+	}
+
+	command := exec.Command("herdr", "worktree", "open", "--cwd", root, "--path", canonical, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
+	command.Stderr = os.Stderr
+
+	if err := command.Run(); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf("worktree at %s is ready, but Herdr could not open it (ensure herdr is installed and on PATH): %w", canonical, err)
+		}
+
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			return fmt.Errorf("worktree at %s is ready, but Herdr exited with an error; see its output above: %w", canonical, err)
+		}
+
+		return fmt.Errorf("worktree at %s is ready, but Herdr could not start: %w", canonical, err)
+	}
+
+	return nil
+}
+
+func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -226,6 +295,11 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
+			if herdr {
+				releaseLock()
+				return openWorktreeInHerdr(bareDir, info.Path)
+			}
+
 			if switchTo {
 				logger.Info("Switching to existing worktree")
 				fmt.Println(info.Path)
@@ -287,7 +361,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -335,32 +409,66 @@ func fastForwardIfBehind(bareDir, branch string, fetch bool) {
 	}
 }
 
-func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
+func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(ref)
 	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
-	// Check directory doesn't already exist
-	if _, err := os.Stat(worktreePath); err == nil {
-		return fmt.Errorf("directory already exists: %s", worktreePath)
-	}
-
 	// Validate ref exists
 	if err := git.RefExists(bareDir, ref); err != nil {
 		return fmt.Errorf("ref %q does not exist", ref)
+	}
+
+	// Only a registered detached worktree already sitting at ref can be handed
+	// off without preparation. Matching on path alone would focus a worktree
+	// checked out at a different commit whenever --name is given.
+	if herdr {
+		infos, err := git.ListWorktreesWithInfo(bareDir, true)
+		if err != nil {
+			return fmt.Errorf("failed to list worktrees: %w", err)
+		}
+
+		// Peel to the commit so an annotated tag compares against the commit its
+		// worktree is checked out at, not the tag object.
+		wanted, err := git.RevParse(bareDir, ref+"^{commit}")
+		if err != nil {
+			return fmt.Errorf("failed to resolve ref %q: %w", ref, err)
+		}
+
+		for _, info := range infos {
+			if !info.Detached || !samePath(info.Path, worktreePath) {
+				continue
+			}
+
+			head, err := git.RevParse(info.Path, "HEAD")
+			if err != nil {
+				return fmt.Errorf("failed to resolve HEAD of %s: %w", info.Path, err)
+			}
+
+			if head != wanted {
+				return fmt.Errorf("worktree at %s is checked out at %s, not %q; remove it or pass --name to use a different directory", info.Path, head, ref)
+			}
+
+			releaseLock()
+			return openWorktreeInHerdr(bareDir, info.Path)
+		}
+	}
+
+	if _, err := os.Stat(worktreePath); err == nil {
+		return fmt.Errorf("directory already exists: %s", worktreePath)
 	}
 
 	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: ref, Detach: true}, true); err != nil {
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, herdr, releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
+func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -404,18 +512,52 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 	for _, info := range infos {
-		if info.Branch == branch {
-			if !prInfo.IsFork {
-				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
-					return err
-				}
+		// A fork PR is checked out from the fork's remote-tracking ref, so its
+		// worktree is detached and carries no branch to match on. Its path is the
+		// identity; matching the fork's branch name would find a local worktree
+		// that merely shares it.
+		matched := info.Branch == branch
+		if prInfo.IsFork {
+			matched = samePath(info.Path, worktreePath)
+		}
 
+		if matched {
+			if !prInfo.IsFork {
+				// The PR identity holds regardless of whether the sync below
+				// succeeds, and a worktree being worked in never syncs cleanly.
 				if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {
 					logger.Debug("Failed to record PR for %s: %v", branch, err)
 				}
 
+				// Sync before any handoff, so --herdr opens the refreshed PR head
+				// rather than a stale checkout, and --reset keeps its meaning.
+				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
+					// Refusing to sync work in progress must not also refuse to
+					// open it. A broken sync still aborts: the worktree may be
+					// half-synced, and opening it would hide that.
+					inProgress := errors.Is(err, errWorktreeDirty) || errors.Is(err, errWorktreeUnsynced)
+					if !herdr || !inProgress {
+						return err
+					}
+
+					logger.Warning("Opening %s without syncing it: %v", info.Path, err)
+					releaseLock()
+					return openWorktreeInHerdr(bareDir, info.Path)
+				}
+
+				if herdr {
+					releaseLock()
+					return openWorktreeInHerdr(bareDir, info.Path)
+				}
+
 				return nil
 			}
+
+			if herdr {
+				releaseLock()
+				return openWorktreeInHerdr(bareDir, info.Path)
+			}
+
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
 		}
 	}
@@ -428,7 +570,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
@@ -445,14 +587,14 @@ func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, swit
 		return fmt.Errorf("failed to check worktree changes: %w", err)
 	}
 	if hasTrackedChanges {
-		return errors.New("worktree has uncommitted changes; commit or stash before refreshing")
+		return fmt.Errorf("%w; commit or stash before refreshing", errWorktreeDirty)
 	}
 	ahead, behind, err := git.CompareBranchRefs(bareDir, branch, fetchedHash)
 	if err != nil {
 		return fmt.Errorf("failed to compare branches: %w", err)
 	}
 	if ahead > 0 && !reset {
-		return fmt.Errorf("local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", branch, ahead)
+		return fmt.Errorf("%w: local branch %q has %d commit(s) not on remote (PR may have been rebased); use --reset to discard local commits and sync with remote", errWorktreeUnsynced, branch, ahead)
 	}
 	// Move through the worktree so its index and files follow the branch.
 	switch {
@@ -584,7 +726,7 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	return nil
 }
 
-func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo bool, releaseLock func(), successFormat string, successArgs ...any) error {
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo, herdr bool, releaseLock func(), successFormat string, successArgs ...any) error {
 	if branch != "" {
 		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
@@ -597,6 +739,12 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 	spin.Stop()
 	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
 		return err
+	}
+
+	if herdr {
+		if err := openWorktreeInHerdr(bareDir, worktreePath); err != nil {
+			return err
+		}
 	}
 
 	if switchTo {
