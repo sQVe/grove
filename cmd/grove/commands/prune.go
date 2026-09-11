@@ -121,7 +121,9 @@ type mergedTarget struct {
 
 // resolveMergedTarget maps the --merged flag value to its target, preferring a
 // local branch and falling back to a remote one so a branch that exists only on
-// the remote still resolves. An empty result means the flag was not passed.
+// the remote still resolves. The ref is fully qualified, since a short name like
+// origin/develop is ambiguous when a local branch of that name also exists.
+// An empty result means the flag was not passed.
 func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, error) {
 	if merged == "" {
 		return mergedTarget{}, nil
@@ -140,7 +142,7 @@ func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, e
 		return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
 	}
 	if local {
-		return mergedTarget{ref: merged, branch: merged}, nil
+		return mergedTarget{ref: "refs/heads/" + merged, branch: merged}, nil
 	}
 
 	// Accept the remote-qualified form users reach for, e.g. origin/develop.
@@ -150,7 +152,7 @@ func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, e
 			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, cutErr)
 		}
 		if exists {
-			return mergedTarget{ref: merged, branch: branch}, nil
+			return mergedTarget{ref: "refs/remotes/" + merged, branch: branch}, nil
 		}
 	}
 
@@ -164,7 +166,7 @@ func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, e
 			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, remoteErr)
 		}
 		if exists {
-			return mergedTarget{ref: remote + "/" + merged, branch: merged}, nil
+			return mergedTarget{ref: "refs/remotes/" + remote + "/" + merged, branch: merged}, nil
 		}
 	}
 
