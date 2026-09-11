@@ -48,12 +48,16 @@ type pruneCandidate struct {
 	staleAge  string // Human-readable age for stale worktrees
 }
 
+// mergedDefaultTarget is the --merged value Cobra substitutes when the flag is
+// passed without one. The spaces make it impossible to collide with a branch name.
+const mergedDefaultTarget = "<default branch>"
+
 // NewPruneCmd creates the prune command
 func NewPruneCmd() *cobra.Command {
 	var commit bool
 	var force bool
 	var stale string
-	var merged bool
+	var merged string
 	var detached bool
 	var jsonOutput bool
 
@@ -68,7 +72,8 @@ Examples:
   grove prune                 # Dry-run: show what would be removed
   grove prune --commit        # Actually remove worktrees
   grove prune --stale 30d     # Include inactive worktrees
-  grove prune --merged        # Include merged branches
+  grove prune --merged        # Include branches merged into the default branch
+  grove prune --merged=dev    # Include branches merged into dev (the = is required)
   grove prune --detached      # Include detached worktrees
   grove prune --force         # Remove even if dirty or locked`,
 		Args: cobra.NoArgs,
@@ -87,7 +92,8 @@ Examples:
 	cmd.Flags().BoolVar(&commit, "commit", false, "Remove worktrees (dry-run without this flag)")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty, locked, or unpushed")
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
-	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
+	cmd.Flags().StringVar(&merged, "merged", "", "Include worktrees merged into a branch (default: the default branch; use --merged=<branch>)")
+	cmd.Flags().Lookup("merged").NoOptDefVal = mergedDefaultTarget
 	cmd.Flags().BoolVar(&detached, "detached", false, "Include detached worktrees")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output dry run as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
@@ -99,7 +105,28 @@ Examples:
 	return cmd
 }
 
-func runPrune(commit, force bool, stale string, merged, detached, jsonOutput bool) error {
+// resolveMergedTarget maps the --merged flag value to the branch that drives
+// candidate selection. An empty result means the flag was not passed.
+func resolveMergedTarget(bareDir, merged, defaultBranch string) (string, error) {
+	if merged == "" {
+		return "", nil
+	}
+	if merged == mergedDefaultTarget {
+		return defaultBranch, nil
+	}
+
+	exists, err := git.BranchExists(bareDir, merged)
+	if err != nil {
+		return "", fmt.Errorf("failed to check branch %q: %w", merged, err)
+	}
+	if !exists {
+		return "", fmt.Errorf("branch not found: %s", merged)
+	}
+
+	return merged, nil
+}
+
+func runPrune(commit, force bool, stale, merged string, detached, jsonOutput bool) error {
 	if jsonOutput && commit {
 		return fmt.Errorf("--json applies to dry run only")
 	}
@@ -138,10 +165,15 @@ func runPrune(commit, force bool, stale string, merged, detached, jsonOutput boo
 	defaultBranch, defaultBranchErr := git.GetDefaultBranch(bareDir)
 	if defaultBranchErr != nil {
 		logger.Debug("Could not determine default branch: %v", defaultBranchErr)
-		if merged {
+		if merged == mergedDefaultTarget {
 			logger.Warning("Could not determine default branch, skipping --merged check")
-			merged = false // Disable merged check if we can't determine default branch
+			merged = "" // Disable merged check if we can't determine default branch
 		}
+	}
+
+	mergedTarget, err := resolveMergedTarget(bareDir, merged, defaultBranch)
+	if err != nil {
+		return err
 	}
 
 	// Get all worktrees with info
@@ -190,9 +222,10 @@ func runPrune(commit, force bool, stale string, merged, detached, jsonOutput boo
 			continue // Don't double-count as merged or stale
 		}
 
-		// Check for merged (only if --merged flag was passed)
-		if merged && info.Branch != "" && info.Branch != defaultBranch {
-			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
+		// Check for merged (only if --merged flag was passed). The default-branch
+		// and target-branch worktrees are never candidates for their own merge.
+		if mergedTarget != "" && info.Branch != "" && info.Branch != defaultBranch && info.Branch != mergedTarget {
+			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, mergedTarget)
 			if mergeErr == nil && isMerged {
 				reason := determineSkipReason(info, cwd, force)
 				candidates = append(candidates, pruneCandidate{

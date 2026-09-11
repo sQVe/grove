@@ -1,0 +1,33 @@
+# Test: grove prune --merged=<branch> selects against an explicit branch
+setup_workspace develop topic
+
+# topic is merged into develop only, never into main
+exec git -C $WORK/testrepo checkout topic
+cp $WORK/topic.txt $WORK/testrepo/topic.txt
+exec git -C $WORK/testrepo add topic.txt
+exec git -C $WORK/testrepo commit -m 'topic commit'
+exec git -C $WORK/testrepo checkout develop
+exec git -C $WORK/testrepo merge --no-ff topic -m 'merge topic'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add develop
+exec grove add topic
+
+# Bare --merged still targets the default branch, where topic is unmerged
+exec grove prune --merged
+stderr 'No worktrees to prune'
+
+# --merged=develop selects the branch merged into develop
+exec grove prune --merged=develop
+stderr 'Would prune 1 worktree'
+stderr 'topic'
+
+# Neither the default-branch nor the target-branch worktree is a candidate
+! stderr 'develop'
+
+# An unknown target is rejected
+! exec grove prune --merged=nosuchbranch
+stderr 'branch not found: nosuchbranch'
+
+-- topic.txt --
+topic content

@@ -57,7 +57,7 @@ func TestRunPrune(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		testutil.Chdir(t, tmpDir)
 
-		err := runPrune(false, false, "", false, false, false)
+		err := runPrune(false, false, "", "", false, false)
 		if err == nil {
 			t.Error("expected error for non-workspace directory")
 		}
