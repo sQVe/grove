@@ -225,13 +225,37 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 // keys a workspace on the checkout path, so the path is resolved first: a fresh
 // worktree carries the spelling the caller built, while a re-run carries the one
 // git recorded, and through a symlinked root those differ.
+// samePath reports whether two paths name the same worktree. git records the
+// resolved path while Grove builds one from os.Getwd, which prefers $PWD, so
+// through a symlinked workspace root the two spellings differ. A path that
+// cannot be resolved (it does not exist yet) compares as written.
+func samePath(a, b string) bool {
+	resolve := func(path string) string {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return path
+		}
+
+		return resolved
+	}
+
+	return fs.PathsEqual(resolve(a), resolve(b))
+}
+
 func openWorktreeInHerdr(bareDir, worktreePath string) error {
 	canonical, err := filepath.EvalSymlinks(worktreePath)
 	if err != nil {
 		return fmt.Errorf("worktree at %s is ready, but its path could not be resolved for Herdr: %w", worktreePath, err)
 	}
 
-	command := exec.Command("herdr", "worktree", "open", "--cwd", filepath.Dir(bareDir), "--path", canonical, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
+	// Both arguments must land in the same namespace: Herdr resolves the
+	// workspace from --cwd and the worktree from --path.
+	root, err := filepath.EvalSymlinks(filepath.Dir(bareDir))
+	if err != nil {
+		return fmt.Errorf("worktree at %s is ready, but the workspace root could not be resolved for Herdr: %w", canonical, err)
+	}
+
+	command := exec.Command("herdr", "worktree", "open", "--cwd", root, "--path", canonical, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
 	command.Stderr = os.Stderr
 
 	if err := command.Run(); err != nil {
@@ -406,7 +430,7 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 		}
 
 		for _, info := range infos {
-			if !info.Detached || !fs.PathsEqual(info.Path, worktreePath) {
+			if !info.Detached || !samePath(info.Path, worktreePath) {
 				continue
 			}
 
@@ -484,8 +508,16 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 			if !prInfo.IsFork {
 				// Sync before any handoff, so --herdr opens the refreshed PR head
 				// rather than a stale checkout, and --reset keeps its meaning.
+				// A worktree being worked in is dirty by definition, so with
+				// --herdr a refusal to sync must not also refuse to open it.
 				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
-					return err
+					if !herdr {
+						return err
+					}
+
+					logger.Warning("Opening %s without syncing it: %v", info.Path, err)
+					releaseLock()
+					return openWorktreeInHerdr(bareDir, info.Path)
 				}
 
 				if err := git.SetBranchConfig(bareDir, branch, "grovePr", strconv.Itoa(ref.Number)); err != nil {

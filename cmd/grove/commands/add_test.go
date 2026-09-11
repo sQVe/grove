@@ -268,6 +268,136 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 	}
 }
 
+// testgit builds on testutil.TempDir, which resolves symlinks, so a symlinked
+// workspace root has to be built by hand to be exercised at all.
+func TestAddHerdrSymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	realRoot := filepath.Join(repository.TempDir, "real")
+	bareDir := filepath.Join(realRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(realRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+
+	linkRoot := filepath.Join(repository.TempDir, "link")
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	// os.Getwd prefers $PWD when it names the same directory, which is how the
+	// unresolved spelling reaches Grove in a real shell.
+	linkMain := filepath.Join(linkRoot, "main")
+	t.Chdir(linkMain)
+	t.Setenv("PWD", linkMain)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	command := NewAddCmd()
+	command.SetArgs([]string{"main", "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+
+	command = NewAddCmd()
+	command.SetArgs([]string{"main", "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatalf("rerun through the symlinked root must hand off, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both runs must send one identity, in the resolved namespace, or Herdr
+	// treats them as two workspaces.
+	want := "worktree\nopen\n--cwd\n" + realRoot + "\n--path\n" + filepath.Join(realRoot, "probe") + "\n--focus\n"
+	if string(calls) != want+want {
+		t.Fatalf("calls = %q, want two identical resolved calls %q", calls, want)
+	}
+}
+
+func TestAddHerdrOpensDirtyPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// A worktree you are working in is dirty by definition; the refresh refuses
+	// it, and that must not also refuse to open it. test.txt is the tracked file
+	// NewTestRepo commits, so editing it is what trips the refusal.
+	testutil.WriteFile(t, filepath.Join(worktreePath, "test.txt"), "edited in the worktree")
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("dirty worktree must still open in Herdr, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("dirty worktree never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want %q", calls, want)
+	}
+}
+
 func TestAddHerdrSwitchConflict(t *testing.T) {
 	command := NewAddCmd()
 	command.SetArgs([]string{"feature", "--herdr", "--switch"})
