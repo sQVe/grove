@@ -142,6 +142,41 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 			} else if !os.IsNotExist(readError) {
 				t.Fatalf("unexpected herdr call: %q (%v)", calls, readError)
 			}
+
+			if scenario.wantCall && scenario.wantError == "" {
+				worktreesBefore := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+				branchesBefore := repository.RunOutput("-C", bareDir, "show-ref", "--heads")
+				testutil.WriteFile(t, filepath.Join(mainPath, "preserved"), "new source file")
+				testutil.WriteFile(t, filepath.Join(mainPath, "linked", "file"), "new source directory")
+				testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[preserve]\npatterns = [\"preserved\"]\n[link]\npatterns = [\"linked\"]\n[hooks]\nadd = [\"exit 9\"]\n")
+
+				rerunName := "unused directory"
+				if scenario.name == "detached" {
+					rerunName = "prepared tree"
+				}
+				command = NewAddCmd()
+				command.SetArgs(append(scenario.arguments, "--name", rerunName, "--no-fetch"))
+				if err := command.Execute(); err != nil {
+					t.Fatalf("handoff-only rerun: %v", err)
+				}
+
+				rerunCalls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+				if err != nil || string(rerunCalls) != string(calls)+string(calls) {
+					t.Fatalf("rerun must use identical argv: %q (%v)", rerunCalls, err)
+				}
+				worktreesAfter := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+				if worktreesAfter != worktreesBefore || strings.Count(worktreesAfter, "worktree "+worktreePath+"\n") != 1 {
+					t.Fatalf("rerun changed worktrees: %s", worktreesAfter)
+				}
+				if branchesAfter := repository.RunOutput("-C", bareDir, "show-ref", "--heads"); branchesAfter != branchesBefore {
+					t.Fatalf("rerun changed branches: %s", branchesAfter)
+				}
+				for _, absentPath := range []string{filepath.Join(workspaceRoot, "unused directory"), filepath.Join(worktreePath, "preserved"), filepath.Join(worktreePath, "linked"), filepath.Join(workspaceRoot, ".grove-worktree.lock")} {
+					if _, err := os.Lstat(absentPath); !os.IsNotExist(err) {
+						t.Fatalf("handoff-only rerun created %s (%v)", absentPath, err)
+					}
+				}
+			}
 		})
 	}
 }
