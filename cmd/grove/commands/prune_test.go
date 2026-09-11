@@ -39,6 +39,16 @@ func TestNewPruneCmd(t *testing.T) {
 	}
 }
 
+func TestPruneJSONCommitConflict(t *testing.T) {
+	cmd := NewPruneCmd()
+	cmd.SetArgs([]string{"--json", "--commit"})
+
+	err := cmd.Execute()
+	if err == nil || err.Error() != "--json applies to dry run only" {
+		t.Fatalf("expected JSON commit conflict, got: %v", err)
+	}
+}
+
 func TestRunPrune(t *testing.T) {
 	t.Run("returns error when not in workspace", func(t *testing.T) {
 		// Save and restore cwd
@@ -47,7 +57,7 @@ func TestRunPrune(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		testutil.Chdir(t, tmpDir)
 
-		err := runPrune(false, false, "", false, false)
+		err := runPrune(false, false, "", "", false, false)
 		if err == nil {
 			t.Error("expected error for non-workspace directory")
 		}
