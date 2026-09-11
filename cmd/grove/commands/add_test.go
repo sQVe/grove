@@ -482,6 +482,83 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	}
 }
 
+// A fork PR worktree is checked out from the fork's remote-tracking ref, so it
+// is detached and has no branch to match on. Its path is the identity.
+func TestAddHerdrRerunsForkPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("fork-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	// headRepositoryOwner differs from the URL's owner, which is what makes it a
+	// fork; repo view hands back the local repo standing in for the fork.
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+if [ "$1" = repo ]; then printf '%s\n' "$GH_FORK_URL"; exit 0; fi
+printf '%s\n' '{"headRefName":"fork-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"contributor"}}'
+`, fs.FileExec)
+	t.Setenv("GH_FORK_URL", repository.Path)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+
+	// The fork worktree must be detached, or this test is not exercising the bug.
+	listing := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
+	if !strings.Contains(listing, "worktree "+worktreePath+"\nHEAD") || !strings.Contains(listing, "detached") {
+		t.Fatalf("expected a detached fork worktree, got %s", listing)
+	}
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// A local worktree that merely shares the fork's branch name must not be
+	// mistaken for the PR's worktree.
+	decoyPath := filepath.Join(workspaceRoot, "decoy")
+	repository.RunOutput("-C", bareDir, "worktree", "add", decoyPath, "fork-feature")
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("fork PR rerun must hand off, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("fork PR rerun never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want the fork PR worktree %q", calls, want)
+	}
+}
+
 // Local commits are work in progress too, so --herdr opens past that refusal
 // exactly as it does past a dirty worktree.
 func TestAddHerdrOpensUnsyncedPRWorktree(t *testing.T) {

@@ -512,7 +512,16 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return fmt.Errorf("failed to list worktrees: %w", err)
 	}
 	for _, info := range infos {
-		if info.Branch == branch {
+		// A fork PR is checked out from the fork's remote-tracking ref, so its
+		// worktree is detached and carries no branch to match on. Its path is the
+		// identity; matching the fork's branch name would find a local worktree
+		// that merely shares it.
+		matched := info.Branch == branch
+		if prInfo.IsFork {
+			matched = samePath(info.Path, worktreePath)
+		}
+
+		if matched {
 			if !prInfo.IsFork {
 				// The PR identity holds regardless of whether the sync below
 				// succeeds, and a worktree being worked in never syncs cleanly.
