@@ -110,6 +110,21 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 					t.Fatalf("expected wrapped error naming prepared path, got %v", err)
 				}
 			}
+			if scenario.missing {
+				if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "ensure herdr is installed and on PATH") {
+					t.Fatalf("expected missing binary with install hint, got %v", err)
+				}
+			}
+			if scenario.exitCode != "" {
+				var exitError *exec.ExitError
+				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "Herdr exited with an error") || !strings.Contains(err.Error(), "output above") {
+					t.Errorf("expected failed exit with output hint, got %v", err)
+				}
+				if strings.Contains(err.Error(), "installed") || strings.Contains(err.Error(), "PATH") {
+					t.Errorf("unexpected install hint after Herdr ran: %v", err)
+				}
+			}
+
 			if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
 				t.Fatalf("worktree must remain intact: %v", err)
 			}

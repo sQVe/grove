@@ -20,6 +20,9 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+// ErrHerdrWorktreeExists means the requested PR branch already has a worktree.
+var ErrHerdrWorktreeExists = errors.New("worktree already exists")
+
 func NewAddCmd() *cobra.Command {
 	var baseBranch string
 	var name string
@@ -42,6 +45,7 @@ Examples:
   grove add feat/auth --name auth  # Creates ./auth worktree
   grove add main                   # Existing branch
   grove add -s feat/auth           # Add and switch to worktree
+  grove add feat/auth --herdr      # Open the prepared worktree in Herdr
   grove add --base main feat/auth  # New branch from main
   grove add --detach v1.0.0        # Detached HEAD at tag
   grove add --pr 123               # Creates ./pr-123 worktree
@@ -412,7 +416,11 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
-			if !prInfo.IsFork && !herdr {
+			if herdr {
+				return fmt.Errorf("--herdr: %w for branch %q at %s; open that worktree directly in Herdr", ErrHerdrWorktreeExists, branch, info.Path)
+			}
+
+			if !prInfo.IsFork {
 				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
 					return err
 				}
@@ -611,7 +619,16 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 		command.Stderr = os.Stderr
 
 		if err := command.Run(); err != nil {
-			return fmt.Errorf("worktree prepared at %s, but Herdr could not open it (ensure herdr is installed and on PATH): %w", worktreePath, err)
+			if errors.Is(err, exec.ErrNotFound) {
+				return fmt.Errorf("worktree prepared at %s, but Herdr could not open it (ensure herdr is installed and on PATH): %w", worktreePath, err)
+			}
+
+			var exitError *exec.ExitError
+			if errors.As(err, &exitError) {
+				return fmt.Errorf("worktree prepared at %s, but Herdr exited with an error; see its output above: %w", worktreePath, err)
+			}
+
+			return fmt.Errorf("worktree prepared at %s, but Herdr could not start: %w", worktreePath, err)
 		}
 	}
 

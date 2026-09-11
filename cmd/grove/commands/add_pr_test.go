@@ -54,6 +54,12 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 	if err == nil || !strings.Contains(err.Error(), "worktree already exists") {
 		t.Fatalf("expected --herdr to reject an existing PR worktree, got %v", err)
 	}
+	if !strings.Contains(err.Error(), worktreePath) || !strings.Contains(err.Error(), "open that worktree directly") || strings.Contains(err.Error(), "--name") {
+		t.Errorf("expected existing path and direct-open hint, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
+		t.Fatalf("existing worktree must remain intact: %v", err)
+	}
 }
 
 func TestCheckoutPRRecordsNumber(t *testing.T) {

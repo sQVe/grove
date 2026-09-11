@@ -200,6 +200,7 @@ Add a worktree for a branch, pull request, or ref.
 **Flags:**
 
 - `-s, --switch` — Switch to the worktree; prints the path of an existing one instead of erroring
+- `--herdr`: Open the prepared worktree in Herdr after setup and hooks succeed. Requires `herdr` on PATH; cannot combine with `--switch`.
 - `--base <branch>` — Create new branch from this base instead of the default branch
 - `--no-fetch` — Skip fetching the base branch or the existing branch's upstream
 - `--name <name>` — Custom directory name
@@ -213,6 +214,7 @@ Add a worktree for a branch, pull request, or ref.
 ```bash
 grove add feat/auth
 grove add feat/auth --switch
+grove add feat/auth --herdr    # Open in Herdr after preparation
 grove add --base main feat/auth
 grove add --pr 123             # PR by number
 grove add --pr 123 --reset     # PR, discarding local commits
