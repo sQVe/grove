@@ -182,6 +182,92 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	}
 }
 
+func TestAddHerdrDetachedRerun(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	for _, scenario := range []struct {
+		name      string
+		ref       string
+		parkAtTag bool
+		wantCall  bool
+		wantError string
+	}{
+		{name: "annotated tag resolves to its commit", ref: "v1.0.0", wantCall: true},
+		{name: "refuses a worktree parked at another commit", ref: "main", parkAtTag: true, wantError: "not \"main\""},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			repository := testgit.NewTestRepo(t)
+			repository.RunOutput("-C", repository.Path, "tag", "-a", "v1.0.0", "-m", "release")
+			// Move main past the tag, so "main" and "v1.0.0" name different commits.
+			repository.WriteFile("moved", "after the tag")
+			repository.Add("moved")
+			repository.Commit("chore: move main past the tag")
+			workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+			bareDir := filepath.Join(workspaceRoot, ".bare")
+			repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+			repository.RunOutput("-C", bareDir, "fetch", "origin", "refs/tags/*:refs/tags/*")
+			mainPath := filepath.Join(workspaceRoot, "main")
+			repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+			t.Chdir(mainPath)
+
+			binaryDir := t.TempDir()
+			gitPath, err := exec.LookPath("git")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+				t.Fatal(err)
+			}
+			callPath := filepath.Join(t.TempDir(), "calls")
+			t.Setenv("HERDR_CALLS", callPath)
+			testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+			t.Setenv("PATH", binaryDir)
+
+			worktreePath := filepath.Join(workspaceRoot, "probe")
+			command := NewAddCmd()
+			command.SetArgs([]string{scenario.ref, "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+			if err := command.Execute(); err != nil {
+				t.Fatalf("first run: %v", err)
+			}
+			if err := os.Remove(callPath); err != nil {
+				t.Fatal(err)
+			}
+
+			// Park the existing worktree on a commit the ref does not name.
+			if scenario.parkAtTag {
+				repository.RunOutput("-C", worktreePath, "checkout", "--detach", "v1.0.0")
+			}
+
+			command = NewAddCmd()
+			command.SetArgs([]string{scenario.ref, "--detach", "--herdr", "--name", "probe", "--no-fetch"})
+			err = command.Execute()
+
+			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+			if scenario.wantCall {
+				if err != nil {
+					t.Fatalf("rerun must hand off: %v", err)
+				}
+				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+				if readError != nil || string(calls) != want {
+					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
+				}
+				return
+			}
+
+			if err == nil || !strings.Contains(err.Error(), scenario.wantError) {
+				t.Fatalf("error = %v, want %q", err, scenario.wantError)
+			}
+			if !os.IsNotExist(readError) {
+				t.Fatalf("mismatched HEAD must not reach Herdr: %q", calls)
+			}
+		})
+	}
+}
+
 func TestAddHerdrSwitchConflict(t *testing.T) {
 	command := NewAddCmd()
 	command.SetArgs([]string{"feature", "--herdr", "--switch"})
