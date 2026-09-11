@@ -6,7 +6,7 @@ exec git -C $WORK/testrepo branch -D feature-gone
 exec grove prune --json
 stdout '^\['
 stdout '"name": "feature-gone"'
-stdout '"path": ".*/workspace/feature-gone"'
+stdout '"path": ".*workspace[/\\]+feature-gone"'
 stdout '"branch": "feature-gone"'
 stdout '"reason": "gone"'
 stdout '"skip_reason": ""'

@@ -12,3 +12,6 @@ stdout '^exit status: 1$'
 stderr 'Failed to remove 1 worktree:'
 stderr 'feature-gone.*[Pp]ermission denied'
 stderr 'failed to prune 1 worktree\(s\)'
+
+# The candidate that could not be removed is still there.
+exists ../feature-gone

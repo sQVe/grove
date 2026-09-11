@@ -1,5 +1,5 @@
 # Test: grove prune --merged=<branch> selects against an explicit branch
-setup_workspace develop topic
+setup_workspace develop topic spare
 
 # topic is merged into develop only, never into main
 exec git -C $WORK/testrepo checkout topic
@@ -8,14 +8,26 @@ exec git -C $WORK/testrepo add topic.txt
 exec git -C $WORK/testrepo commit -m 'topic commit'
 exec git -C $WORK/testrepo checkout develop
 exec git -C $WORK/testrepo merge --no-ff topic -m 'merge topic'
+
+# spare carries its own commit, so it is never a merged candidate
+exec git -C $WORK/testrepo checkout spare
+cp $WORK/spare.txt $WORK/testrepo/spare.txt
+exec git -C $WORK/testrepo add spare.txt
+exec git -C $WORK/testrepo commit -m 'spare commit'
 exec git -C $WORK/testrepo checkout main
 exec git -C $WORK/workspace/.bare fetch origin
 exec grove add develop
 exec grove add topic
+exec grove add spare
 
 # Bare --merged still targets the default branch, where topic is unmerged
 exec grove prune --merged
 stderr 'No worktrees to prune'
+
+# Run from spare, not from main. main is merged into develop, so only the
+# default-branch exclusion keeps it out; from main it would be skipped as the
+# current worktree and the exclusion would go untested.
+cd ../spare
 
 # --merged=develop selects the branch merged into develop
 exec grove prune --merged=develop
@@ -24,12 +36,14 @@ stderr 'topic'
 
 # Neither the default-branch nor the target-branch worktree is a candidate
 ! stderr 'develop'
+! stderr 'main'
 
 # The remote-qualified form resolves and still excludes the target worktree
 exec grove prune --merged=origin/develop
 stderr 'Would prune 1 worktree'
 stderr 'topic'
-! stderr '\bdevelop\b'
+! stderr 'develop'
+! stderr 'main'
 
 # An unknown target is rejected
 ! exec grove prune --merged=nosuchbranch
@@ -41,3 +55,5 @@ stderr '--merged requires a branch name'
 
 -- topic.txt --
 topic content
+-- spare.txt --
+spare content
