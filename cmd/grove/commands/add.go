@@ -226,7 +226,7 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 // anyway; anything else leaves a worktree that may be half-synced.
 var (
 	errWorktreeDirty    = errors.New("worktree has uncommitted changes")
-	errWorktreeUnsynced = errors.New("worktree has local commits")
+	errWorktreeUnsynced = errors.New("worktree is unsynced")
 )
 
 // samePath reports whether two paths name the same worktree. git records the

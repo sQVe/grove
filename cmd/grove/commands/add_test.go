@@ -482,6 +482,95 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	}
 }
 
+// Local commits are work in progress too, so --herdr opens past that refusal
+// exactly as it does past a dirty worktree.
+func TestAddHerdrOpensUnsyncedPRWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell herdr stub is not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("pr-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	callPath := filepath.Join(t.TempDir(), "calls")
+	t.Setenv("HERDR_CALLS", callPath)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_CALLS"
+`, fs.FileExec)
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+`, fs.FileExec)
+	t.Setenv("PATH", binaryDir)
+
+	arguments := []string{"https://github.com/owner/repo/pull/42", "--herdr"}
+	command := NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	worktreePath := filepath.Join(workspaceRoot, "pr-42")
+	if err := os.Remove(callPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Commit locally so the branch is ahead of the PR head, leaving the worktree
+	// clean: this is the other refusal, not the dirty one.
+	repository.RunOutput("-C", worktreePath, "-c", "commit.gpgsign=false",
+		"-c", "user.email=test@example.com", "-c", "user.name=Test",
+		"commit", "--allow-empty", "-m", "local work not yet pushed")
+
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStderr := os.Stderr
+	os.Stderr = stderr
+	t.Cleanup(func() {
+		os.Stderr = originalStderr
+		_ = stderr.Close()
+	})
+
+	command = NewAddCmd()
+	command.SetArgs(arguments)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("unsynced worktree must still open in Herdr, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil {
+		t.Fatalf("unsynced worktree never reached Herdr: %v", err)
+	}
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	if string(calls) != want {
+		t.Fatalf("calls = %q, want %q", calls, want)
+	}
+
+	// Without --reset the local commits must survive being opened.
+	if subject := repository.RunOutput("-C", worktreePath, "log", "-1", "--format=%s"); !strings.Contains(subject, "local work not yet pushed") {
+		t.Fatalf("handoff discarded the local commit, HEAD is now %q", subject)
+	}
+
+	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	if err != nil || !strings.Contains(string(warning), "not on remote") {
+		t.Fatalf("expected the local-commits warning, got %q (%v)", warning, err)
+	}
+}
+
 // A refresh that fails for any reason other than work in progress must abort:
 // the worktree may be half-synced, and opening it would hide that.
 func TestAddHerdrAbortsOnBrokenPRRefresh(t *testing.T) {
