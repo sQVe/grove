@@ -221,21 +221,24 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
 }
 
-func openWorktreeInHerdr(bareDir, worktreePath string) error {
+// openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. The
+// state describes how the worktree got there, so a failed re-run does not claim
+// setup work this invocation never did.
+func openWorktreeInHerdr(bareDir, worktreePath, state string) error {
 	command := exec.Command("herdr", "worktree", "open", "--cwd", filepath.Dir(bareDir), "--path", worktreePath, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
 	command.Stderr = os.Stderr
 
 	if err := command.Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return fmt.Errorf("worktree prepared at %s, but Herdr could not open it (ensure herdr is installed and on PATH): %w", worktreePath, err)
+			return fmt.Errorf("worktree %s at %s, but Herdr could not open it (ensure herdr is installed and on PATH): %w", state, worktreePath, err)
 		}
 
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
-			return fmt.Errorf("worktree prepared at %s, but Herdr exited with an error; see its output above: %w", worktreePath, err)
+			return fmt.Errorf("worktree %s at %s, but Herdr exited with an error; see its output above: %w", state, worktreePath, err)
 		}
 
-		return fmt.Errorf("worktree prepared at %s, but Herdr could not start: %w", worktreePath, err)
+		return fmt.Errorf("worktree %s at %s, but Herdr could not start: %w", state, worktreePath, err)
 	}
 
 	return nil
@@ -256,7 +259,7 @@ func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bar
 		if info.Branch == branch {
 			if herdr {
 				releaseLock()
-				return openWorktreeInHerdr(bareDir, info.Path)
+				return openWorktreeInHerdr(bareDir, info.Path, "exists")
 			}
 
 			if switchTo {
@@ -375,28 +378,44 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 	}
 	worktreePath := filepath.Join(workspaceRoot, dirName)
 
-	// Only a registered detached worktree can be handed off without preparation.
+	// Validate ref exists
+	if err := git.RefExists(bareDir, ref); err != nil {
+		return fmt.Errorf("ref %q does not exist", ref)
+	}
+
+	// Only a registered detached worktree already sitting at ref can be handed
+	// off without preparation. Matching on path alone would focus a worktree
+	// checked out at a different commit whenever --name is given.
 	if herdr {
 		infos, err := git.ListWorktreesWithInfo(bareDir, true)
 		if err != nil {
 			return fmt.Errorf("failed to list worktrees: %w", err)
 		}
 
+		wanted, err := git.RevParse(bareDir, ref)
+		if err != nil {
+			return fmt.Errorf("failed to resolve ref %q: %w", ref, err)
+		}
+
 		for _, info := range infos {
-			if info.Detached && fs.PathsEqual(info.Path, worktreePath) {
+			if !info.Detached || !fs.PathsEqual(info.Path, worktreePath) {
+				continue
+			}
+
+			head, err := git.RevParse(info.Path, "HEAD")
+			if err != nil {
+				return fmt.Errorf("failed to resolve HEAD of %s: %w", info.Path, err)
+			}
+
+			if head == wanted {
 				releaseLock()
-				return openWorktreeInHerdr(bareDir, info.Path)
+				return openWorktreeInHerdr(bareDir, info.Path, "exists")
 			}
 		}
 	}
 
 	if _, err := os.Stat(worktreePath); err == nil {
 		return fmt.Errorf("directory already exists: %s", worktreePath)
-	}
-
-	// Validate ref exists
-	if err := git.RefExists(bareDir, ref); err != nil {
-		return fmt.Errorf("ref %q does not exist", ref)
 	}
 
 	if err := git.CreateWorktree(bareDir, worktreePath, git.CreateWorktreeOptions{Branch: ref, Detach: true}, true); err != nil {
@@ -454,7 +473,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		if info.Branch == branch {
 			if herdr {
 				releaseLock()
-				return openWorktreeInHerdr(bareDir, info.Path)
+				return openWorktreeInHerdr(bareDir, info.Path, "exists")
 			}
 
 			if !prInfo.IsFork {
@@ -652,7 +671,7 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 	}
 
 	if herdr {
-		if err := openWorktreeInHerdr(bareDir, worktreePath); err != nil {
+		if err := openWorktreeInHerdr(bareDir, worktreePath, "prepared"); err != nil {
 			return err
 		}
 	}

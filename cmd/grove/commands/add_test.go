@@ -72,6 +72,7 @@ func TestAddHerdr(t *testing.T) {
 			if !scenario.missing {
 				testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
 [ -f "$6/prepared" ] || exit 8
+[ -e "$4/.grove-worktree.lock" ] && exit 7
 printf '%s\n' "$@" >> "$HERDR_CALLS"
 printf 'herdr diagnostic\n' >&2
 exit "${HERDR_EXIT:-0}"
