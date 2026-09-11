@@ -1,3 +1,0 @@
-kind: Changed
-body: Check merge state before remove --branch and add --ignore-missing to skip unknown worktrees.
-time: 2026-09-10T08:40:49.210075567+02:00
