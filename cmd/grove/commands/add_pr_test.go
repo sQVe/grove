@@ -37,7 +37,7 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 
 	t.Setenv("PATH", filepath.Dir(ghPath)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, false, "", bareDir, remote.TempDir, worktreePath, false, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +48,11 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 	}
 	if configs["Feature/topic.v2"] != "42" {
 		t.Fatalf("PR number = %q, want 42", configs["Feature/topic.v2"])
+	}
+
+	err = runAddFromPR("https://github.com/owner/repo/pull/42", false, true, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	if err == nil || !strings.Contains(err.Error(), "worktree already exists") {
+		t.Fatalf("expected --herdr to reject an existing PR worktree, got %v", err)
 	}
 }
 

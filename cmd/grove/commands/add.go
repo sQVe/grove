@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ func NewAddCmd() *cobra.Command {
 	var prNumber int
 	var reset bool
 	var from string
+	var herdr bool
 
 	cmd := &cobra.Command{
 		Use:   "add [branch|PR-URL|ref]",
@@ -48,11 +50,12 @@ Examples:
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, baseBranch, name, detach, prNumber, reset, from, noFetch)
+			return runAdd(args, switchTo, herdr, baseBranch, name, detach, prNumber, reset, from, noFetch)
 		},
 	}
 
 	cmd.Flags().BoolP("switch", "s", false, "Switch to the worktree after creating it")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Open the prepared worktree in Herdr after creating it (requires herdr on PATH)")
 	cmd.Flags().StringVar(&baseBranch, "base", "", "Create new branch from this base instead of the default branch")
 	cmd.Flags().StringVar(&name, "name", "", "Custom directory name for the worktree")
 	cmd.Flags().BoolVarP(&detach, "detach", "d", false, "Create worktree in detached HEAD state")
@@ -74,7 +77,11 @@ Examples:
 	return cmd
 }
 
-func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
+func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
+	if herdr && switchTo {
+		return fmt.Errorf("--herdr and --switch cannot be used together")
+	}
+
 	name = strings.TrimSpace(name)
 	if name == "." || name == ".." || strings.ContainsAny(name, `/\`) {
 		return fmt.Errorf("--name must be a single directory name")
@@ -196,24 +203,24 @@ func runAdd(args []string, switchTo bool, baseBranch, name string, detach bool, 
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
+		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
+	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
 }
 
-func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
+func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -287,7 +294,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -335,7 +342,7 @@ func fastForwardIfBehind(bareDir, branch string, fetch bool) {
 	}
 }
 
-func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
+func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(ref)
@@ -356,11 +363,11 @@ func runAddDetached(ref string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, herdr, releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
+func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -405,7 +412,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 	}
 	for _, info := range infos {
 		if info.Branch == branch {
-			if !prInfo.IsFork {
+			if !prInfo.IsFork && !herdr {
 				if err := refreshExistingPRWorktree(bareDir, info.Path, branch, reset, switchTo); err != nil {
 					return err
 				}
@@ -428,7 +435,7 @@ func runAddFromPR(prRef string, switchTo bool, name, bareDir, workspaceRoot, sou
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
@@ -584,7 +591,7 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	return nil
 }
 
-func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo bool, releaseLock func(), successFormat string, successArgs ...any) error {
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo, herdr bool, releaseLock func(), successFormat string, successArgs ...any) error {
 	if branch != "" {
 		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
@@ -597,6 +604,15 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 	spin.Stop()
 	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
 		return err
+	}
+
+	if herdr {
+		command := exec.Command("herdr", "worktree", "open", "--cwd", filepath.Dir(bareDir), "--path", worktreePath, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
+		command.Stderr = os.Stderr
+
+		if err := command.Run(); err != nil {
+			return fmt.Errorf("worktree prepared at %s, but Herdr could not open it (ensure herdr is installed and on PATH): %w", worktreePath, err)
+		}
 	}
 
 	if switchTo {
