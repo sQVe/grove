@@ -422,8 +422,9 @@ When removing worktrees whose upstream was deleted on remote, local branches are
 - `--commit` — Actually remove (default is dry-run)
 - `-f, --force` — Remove even if dirty, locked, or unpushed
 - `--stale <duration>` — Include inactive worktrees (e.g., `30d`, `2w`)
-- `--merged` — Include branches merged into default branch
+- `--merged[=<branch>]` — Include branches merged into `<branch>`, defaulting to the default branch
 - `--detached` — Include detached worktrees
+- `--json` — Print the dry run as a JSON array (dry run only)
 
 **Examples:**
 
@@ -432,7 +433,9 @@ grove prune          # Dry-run
 grove prune --commit # Actually remove
 grove prune --stale 30d --commit
 grove prune --merged --commit
+grove prune --merged=develop --commit # The = is required when naming a branch
 grove prune --detached --commit
+grove prune --json   # Dry run as JSON
 ```
 
 </details>
