@@ -1,0 +1,21 @@
+# Test: grove prune --merged=<branch> resolves a branch that only exists on the remote
+setup_workspace topic
+
+# develop is created on the origin after the clone, so it never exists locally
+exec git -C $WORK/testrepo checkout topic
+cp $WORK/topic.txt $WORK/testrepo/topic.txt
+exec git -C $WORK/testrepo add topic.txt
+exec git -C $WORK/testrepo commit -m 'topic commit'
+exec git -C $WORK/testrepo checkout -b develop main
+exec git -C $WORK/testrepo merge --no-ff topic -m 'merge topic'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add topic
+
+# The target resolves through origin/develop rather than failing or matching nothing
+exec grove prune --merged=develop
+stderr 'Would prune 1 worktree'
+stderr 'topic'
+
+-- topic.txt --
+topic content

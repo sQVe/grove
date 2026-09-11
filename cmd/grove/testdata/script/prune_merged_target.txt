@@ -25,9 +25,19 @@ stderr 'topic'
 # Neither the default-branch nor the target-branch worktree is a candidate
 ! stderr 'develop'
 
+# The remote-qualified form resolves and still excludes the target worktree
+exec grove prune --merged=origin/develop
+stderr 'Would prune 1 worktree'
+stderr 'topic'
+! stderr '\bdevelop\b'
+
 # An unknown target is rejected
 ! exec grove prune --merged=nosuchbranch
 stderr 'branch not found: nosuchbranch'
+
+# An empty value is rejected rather than silently skipping the check
+! exec grove prune --merged=
+stderr '--merged requires a branch name'
 
 -- topic.txt --
 topic content

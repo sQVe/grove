@@ -85,6 +85,12 @@ Examples:
 			if cmd.Flags().Changed("stale") && stale == "" {
 				stale = config.GetStaleThreshold()
 			}
+
+			// Bare --merged becomes the sentinel, so an empty value here means
+			// the user passed --merged= and a script expanded nothing into it.
+			if cmd.Flags().Changed("merged") && merged == "" {
+				return fmt.Errorf("--merged requires a branch name")
+			}
 			return runPrune(commit, force, stale, merged, detached, jsonOutput)
 		},
 	}
@@ -105,25 +111,62 @@ Examples:
 	return cmd
 }
 
-// resolveMergedTarget maps the --merged flag value to the branch that drives
-// candidate selection. An empty result means the flag was not passed.
-func resolveMergedTarget(bareDir, merged, defaultBranch string) (string, error) {
+// mergedTarget names the branch that --merged selects against. ref is what git
+// resolves for the merge check; branch is the plain name a worktree is checked
+// out on, which is what the candidate exclusion compares.
+type mergedTarget struct {
+	ref    string
+	branch string
+}
+
+// resolveMergedTarget maps the --merged flag value to its target, preferring a
+// local branch and falling back to a remote one so a branch that exists only on
+// the remote still resolves. An empty result means the flag was not passed.
+func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, error) {
 	if merged == "" {
-		return "", nil
+		return mergedTarget{}, nil
 	}
+
+	// The default branch is derived rather than typed, so it keeps its old
+	// behavior: an unresolvable one yields no candidates instead of an error.
 	if merged == mergedDefaultTarget {
-		return defaultBranch, nil
+		return mergedTarget{ref: defaultBranch, branch: defaultBranch}, nil
 	}
 
-	exists, err := git.BranchExists(bareDir, merged)
+	// Accept the remote-qualified form users reach for, e.g. origin/develop.
+	if remote, branch, found := strings.Cut(merged, "/"); found {
+		exists, err := git.RemoteBranchExists(bareDir, remote, branch)
+		if err != nil {
+			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
+		}
+		if exists {
+			return mergedTarget{ref: merged, branch: branch}, nil
+		}
+	}
+
+	local, err := git.LocalBranchExists(bareDir, merged)
 	if err != nil {
-		return "", fmt.Errorf("failed to check branch %q: %w", merged, err)
+		return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
 	}
-	if !exists {
-		return "", fmt.Errorf("branch not found: %s", merged)
+	if local {
+		return mergedTarget{ref: merged, branch: merged}, nil
 	}
 
-	return merged, nil
+	remotes, err := git.ListRemotes(bareDir)
+	if err != nil {
+		return mergedTarget{}, fmt.Errorf("failed to list remotes: %w", err)
+	}
+	for _, remote := range remotes {
+		exists, remoteErr := git.RemoteBranchExists(bareDir, remote, merged)
+		if remoteErr != nil {
+			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, remoteErr)
+		}
+		if exists {
+			return mergedTarget{ref: remote + "/" + merged, branch: merged}, nil
+		}
+	}
+
+	return mergedTarget{}, fmt.Errorf("branch not found: %s", merged)
 }
 
 func runPrune(commit, force bool, stale, merged string, detached, jsonOutput bool) error {
@@ -171,7 +214,7 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput boo
 		}
 	}
 
-	mergedTarget, err := resolveMergedTarget(bareDir, merged, defaultBranch)
+	target, err := resolveMergedTarget(bareDir, merged, defaultBranch)
 	if err != nil {
 		return err
 	}
@@ -224,9 +267,12 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput boo
 
 		// Check for merged (only if --merged flag was passed). The default-branch
 		// and target-branch worktrees are never candidates for their own merge.
-		if mergedTarget != "" && info.Branch != "" && info.Branch != defaultBranch && info.Branch != mergedTarget {
-			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, mergedTarget)
-			if mergeErr == nil && isMerged {
+		if target.ref != "" && info.Branch != "" && info.Branch != defaultBranch && info.Branch != target.branch {
+			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, target.ref)
+			if mergeErr != nil {
+				// Say so rather than silently reporting no candidates.
+				logger.Warning("Could not check whether %s is merged into %s: %v", info.Branch, target.ref, mergeErr)
+			} else if isMerged {
 				reason := determineSkipReason(info, cwd, force)
 				candidates = append(candidates, pruneCandidate{
 					info:      info,
