@@ -1,0 +1,26 @@
+# Test: a local branch named origin/<x> cannot hijack a remote --merged target
+setup_workspace topic
+
+# develop exists only on the origin, so the target resolves through refs/remotes
+exec git -C $WORK/testrepo checkout topic
+cp $WORK/topic.txt $WORK/testrepo/topic.txt
+exec git -C $WORK/testrepo add topic.txt
+exec git -C $WORK/testrepo commit -m 'topic commit'
+exec git -C $WORK/testrepo checkout -b develop main
+exec git -C $WORK/testrepo merge --no-ff topic -m 'merge topic'
+exec git -C $WORK/testrepo checkout main
+exec git -C $WORK/workspace/.bare fetch origin
+exec grove add topic
+
+# A local branch literally named origin/develop shadows the short ref: git
+# resolves refs/heads before refs/remotes. It sits on main, which topic is not
+# merged into, so an unqualified target would find no candidates at all.
+exec git -C $WORK/workspace/.bare update-ref refs/heads/origin/develop refs/heads/main
+
+# The target still resolves to the remote branch, so topic is found
+exec grove prune --merged=develop
+stderr 'Would prune 1 worktree'
+stderr 'topic'
+
+-- topic.txt --
+topic content

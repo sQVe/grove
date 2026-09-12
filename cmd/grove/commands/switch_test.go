@@ -156,7 +156,7 @@ func TestRunSwitch_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runSwitch("main")
+	err = runSwitch("main", false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -226,7 +226,7 @@ func TestRunSwitch_TargetMatching(t *testing.T) {
 			defer func() { _ = reader.Close() }()
 			os.Stdout = writer
 
-			err = runSwitch(tt.target)
+			err = runSwitch(tt.target, false)
 
 			_ = writer.Close()
 			os.Stdout = oldStdout

@@ -1,0 +1,3 @@
+kind: Added
+body: Show recorded PR numbers in grove list --json and --verbose, and select PR worktrees with --filter pr, including in fast mode.
+time: 2026-09-10T16:58:21.027646168+02:00

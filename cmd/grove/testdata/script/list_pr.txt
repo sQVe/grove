@@ -1,0 +1,14 @@
+# Recorded PR numbers appear in JSON and are omitted on other rows.
+setup_workspace feat
+exec grove add feat
+exec git config branch.feat.grovePr 7
+
+exec grove list --json
+stdout -count=1 '"pr": 7'
+! stdout '"pr": 0'
+
+exec grove list --json --filter locked
+! stdout '"pr":'
+
+exec grove list --plain
+! stdout '#7'

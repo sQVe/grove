@@ -22,10 +22,11 @@ import (
 const (
 	sortRecent   = "recent"
 	filterLocked = "locked"
+	filterPR     = "pr"
 )
 
 var (
-	validFilters = []string{"dirty", "ahead", "behind", "gone", filterLocked}
+	validFilters = []string{"dirty", "ahead", "behind", "gone", filterLocked, filterPR}
 	validSorts   = []string{"name", sortRecent}
 )
 
@@ -47,7 +48,7 @@ Examples:
   grove list --fast           # Skip dirty and sync status checks
   grove list --filter dirty   # Show only dirty worktrees
   grove list --sort recent    # Show most recently committed worktrees first
-  grove list --verbose        # Include paths and upstreams`,
+  grove list --verbose        # Include PR numbers, paths, and upstreams`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -59,8 +60,8 @@ Examples:
 
 	cmd.Flags().BoolVar(&fast, "fast", false, "Skip dirty and sync status checks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output as JSON")
-	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show paths and upstream names")
-	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked; comma-separated)")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show PR numbers, paths, and upstream names")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter by status (valid: dirty, ahead, behind, gone, locked, pr; comma-separated)")
 	cmd.Flags().StringVar(&sortBy, "sort", "name", "Sort order (valid: name, recent)")
 	cmd.Flags().BoolP("help", "h", false, "Help for list")
 
@@ -83,7 +84,7 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 	}
 	if fast {
 		for _, f := range filters {
-			if f != filterLocked {
+			if f != filterLocked && f != filterPR {
 				return fmt.Errorf("--filter %s cannot be used with --fast because status checks are skipped", f)
 			}
 		}
@@ -132,6 +133,7 @@ func runList(fast, jsonOutput, verbose bool, filter, sortBy string) error {
 }
 
 type worktreeJSON struct {
+	PR         int    `json:"pr,omitempty"`
 	Name       string `json:"name"`
 	Branch     string `json:"branch,omitempty"`
 	Path       string `json:"path"`
@@ -152,6 +154,7 @@ func outputJSON(infos []*git.WorktreeInfo, currentPath string) error {
 	output := []worktreeJSON{}
 	for _, info := range infos {
 		entry := worktreeJSON{
+			PR:         info.PR,
 			Name:       filepath.Base(info.Path),
 			Path:       info.Path,
 			Current:    fs.PathsEqual(info.Path, currentPath),
@@ -196,7 +199,12 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 	// Calculate max widths for padding
 	maxNameLen := 0
 	maxBranchLen := 0
+	maxPRLen := 0
 	for _, info := range infos {
+		if verbose && info.PR > 0 {
+			maxPRLen = max(maxPRLen, len(fmt.Sprintf("#%d", info.PR)))
+		}
+
 		nameLen := len(filepath.Base(info.Path))
 		if nameLen > maxNameLen {
 			maxNameLen = nameLen
@@ -214,27 +222,33 @@ func outputTable(infos []*git.WorktreeInfo, currentPath string, fast, verbose bo
 	for _, info := range infos {
 		isCurrent := fs.PathsEqual(info.Path, currentPath)
 
-		// In fast mode, we don't have sync status - create a copy with zeroed sync info
-		displayInfo := info
+		displayInfo := *info
 		if fast {
-			displayInfo = &git.WorktreeInfo{
-				Branch:     info.Branch,
-				Path:       info.Path,
-				Upstream:   info.Upstream,
-				Locked:     info.Locked,
-				LockReason: info.LockReason,
-				Detached:   info.Detached,
-				NoUpstream: true, // This prevents showing sync status
-			}
+			// Hide the sync indicator because fast mode skips upstream checks.
+			displayInfo.NoUpstream = true
 		}
 
 		// Print the worktree row using the formatter
-		fmt.Println(formatter.WorktreeRow(displayInfo, isCurrent, maxNameLen, maxBranchLen))
+		row := formatter.WorktreeRow(&displayInfo, isCurrent, maxNameLen, maxBranchLen)
+		if verbose && maxPRLen > 0 {
+			pr := ""
+			if displayInfo.PR > 0 {
+				pr = fmt.Sprintf("#%d", displayInfo.PR)
+			}
+
+			row = fmt.Sprintf("%-*s  %s", maxPRLen, pr, row)
+		}
+
+		fmt.Println(row)
 
 		// Print verbose sub-items
 		if verbose {
-			subItems := formatter.VerboseSubItems(displayInfo)
+			subItems := formatter.VerboseSubItems(&displayInfo)
 			for _, item := range subItems {
+				if maxPRLen > 0 {
+					item = strings.Repeat(" ", maxPRLen+2) + item
+				}
+
 				fmt.Println(item)
 			}
 		}
@@ -292,6 +306,10 @@ func matchesAnyFilter(info *git.WorktreeInfo, filters []string) bool {
 			}
 		case "gone":
 			if info.Gone {
+				return true
+			}
+		case filterPR:
+			if info.PR > 0 {
 				return true
 			}
 		case filterLocked:

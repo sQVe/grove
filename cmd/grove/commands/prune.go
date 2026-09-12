@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -46,13 +48,18 @@ type pruneCandidate struct {
 	staleAge  string // Human-readable age for stale worktrees
 }
 
+// mergedDefaultTarget is the --merged value Cobra substitutes when the flag is
+// passed without one. The spaces make it impossible to collide with a branch name.
+const mergedDefaultTarget = "<default branch>"
+
 // NewPruneCmd creates the prune command
 func NewPruneCmd() *cobra.Command {
 	var commit bool
 	var force bool
 	var stale string
-	var merged bool
+	var merged string
 	var detached bool
+	var jsonOutput bool
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -65,7 +72,8 @@ Examples:
   grove prune                 # Dry-run: show what would be removed
   grove prune --commit        # Actually remove worktrees
   grove prune --stale 30d     # Include inactive worktrees
-  grove prune --merged        # Include merged branches
+  grove prune --merged        # Include branches merged into the default branch
+  grove prune --merged=dev    # Include branches merged into dev (the = is required)
   grove prune --detached      # Include detached worktrees
   grove prune --force         # Remove even if dirty or locked`,
 		Args: cobra.NoArgs,
@@ -77,15 +85,23 @@ Examples:
 			if cmd.Flags().Changed("stale") && stale == "" {
 				stale = config.GetStaleThreshold()
 			}
-			return runPrune(commit, force, stale, merged, detached)
+
+			// Bare --merged becomes the sentinel, so an empty value here means
+			// the user passed --merged= and a script expanded nothing into it.
+			if cmd.Flags().Changed("merged") && merged == "" {
+				return fmt.Errorf("--merged requires a branch name")
+			}
+			return runPrune(commit, force, stale, merged, detached, jsonOutput)
 		},
 	}
 
 	cmd.Flags().BoolVar(&commit, "commit", false, "Remove worktrees (dry-run without this flag)")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty, locked, or unpushed")
 	cmd.Flags().StringVar(&stale, "stale", "", fmt.Sprintf("Include inactive worktrees (e.g., 30d, 2w; default: %s)", config.GetStaleThreshold()))
-	cmd.Flags().BoolVar(&merged, "merged", false, "Include worktrees merged into default branch")
+	cmd.Flags().StringVar(&merged, "merged", "", "Include worktrees merged into a branch (default: the default branch; use --merged=<branch>)")
+	cmd.Flags().Lookup("merged").NoOptDefVal = mergedDefaultTarget
 	cmd.Flags().BoolVar(&detached, "detached", false, "Include detached worktrees")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output dry run as JSON")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	_ = cmd.RegisterFlagCompletionFunc("stale", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -95,7 +111,73 @@ Examples:
 	return cmd
 }
 
-func runPrune(commit, force bool, stale string, merged, detached bool) error {
+// mergedTarget names the branch that --merged selects against. ref is what git
+// resolves for the merge check; branch is the plain name a worktree is checked
+// out on, which is what the candidate exclusion compares.
+type mergedTarget struct {
+	ref    string
+	branch string
+}
+
+// resolveMergedTarget maps the --merged flag value to its target, preferring a
+// local branch and falling back to a remote one so a branch that exists only on
+// the remote still resolves. The ref is fully qualified, since a short name like
+// origin/develop is ambiguous when a local branch of that name also exists.
+// An empty result means the flag was not passed.
+func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, error) {
+	if merged == "" {
+		return mergedTarget{}, nil
+	}
+
+	// The default branch is derived rather than typed, so it keeps its old
+	// behavior: an unresolvable one yields no candidates instead of an error.
+	if merged == mergedDefaultTarget {
+		return mergedTarget{ref: defaultBranch, branch: defaultBranch}, nil
+	}
+
+	// A local branch wins, the way git prefers refs/heads over refs/remotes. A
+	// branch named feature/foo must not be read as remote "feature", branch "foo".
+	local, err := git.LocalBranchExists(bareDir, merged)
+	if err != nil {
+		return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, err)
+	}
+	if local {
+		return mergedTarget{ref: "refs/heads/" + merged, branch: merged}, nil
+	}
+
+	// Accept the remote-qualified form users reach for, e.g. origin/develop.
+	if remote, branch, found := strings.Cut(merged, "/"); found {
+		exists, cutErr := git.RemoteBranchExists(bareDir, remote, branch)
+		if cutErr != nil {
+			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, cutErr)
+		}
+		if exists {
+			return mergedTarget{ref: "refs/remotes/" + merged, branch: branch}, nil
+		}
+	}
+
+	remotes, err := git.ListRemotes(bareDir)
+	if err != nil {
+		return mergedTarget{}, fmt.Errorf("failed to list remotes: %w", err)
+	}
+	for _, remote := range remotes {
+		exists, remoteErr := git.RemoteBranchExists(bareDir, remote, merged)
+		if remoteErr != nil {
+			return mergedTarget{}, fmt.Errorf("failed to check branch %q: %w", merged, remoteErr)
+		}
+		if exists {
+			return mergedTarget{ref: "refs/remotes/" + remote + "/" + merged, branch: merged}, nil
+		}
+	}
+
+	return mergedTarget{}, fmt.Errorf("branch not found: %s", merged)
+}
+
+func runPrune(commit, force bool, stale, merged string, detached, jsonOutput bool) error {
+	if jsonOutput && commit {
+		return fmt.Errorf("--json applies to dry run only")
+	}
+
 	// Parse stale threshold if provided
 	var staleCutoff int64
 	if stale != "" {
@@ -130,10 +212,15 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	defaultBranch, defaultBranchErr := git.GetDefaultBranch(bareDir)
 	if defaultBranchErr != nil {
 		logger.Debug("Could not determine default branch: %v", defaultBranchErr)
-		if merged {
+		if merged == mergedDefaultTarget {
 			logger.Warning("Could not determine default branch, skipping --merged check")
-			merged = false // Disable merged check if we can't determine default branch
+			merged = "" // Disable merged check if we can't determine default branch
 		}
+	}
+
+	target, err := resolveMergedTarget(bareDir, merged, defaultBranch)
+	if err != nil {
+		return err
 	}
 
 	// Get all worktrees with info
@@ -182,10 +269,14 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 			continue // Don't double-count as merged or stale
 		}
 
-		// Check for merged (only if --merged flag was passed)
-		if merged && info.Branch != "" && info.Branch != defaultBranch {
-			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, defaultBranch)
-			if mergeErr == nil && isMerged {
+		// Check for merged (only if --merged flag was passed). The default-branch
+		// and target-branch worktrees are never candidates for their own merge.
+		if target.ref != "" && info.Branch != "" && info.Branch != defaultBranch && info.Branch != target.branch {
+			isMerged, mergeErr := git.IsBranchMerged(bareDir, info.Branch, target.ref)
+			if mergeErr != nil {
+				// Say so rather than silently reporting no candidates.
+				logger.Warning("Could not check whether %s is merged into %s: %v", info.Branch, target.ref, mergeErr)
+			} else if isMerged {
 				reason := determineSkipReason(info, cwd, force)
 				candidates = append(candidates, pruneCandidate{
 					info:      info,
@@ -212,6 +303,10 @@ func runPrune(commit, force bool, stale string, merged, detached bool) error {
 	if commit {
 		return executePrune(bareDir, candidates, force, defaultBranch)
 	}
+	if jsonOutput {
+		return outputPruneJSON(candidates)
+	}
+
 	return displayDryRun(candidates)
 }
 
@@ -238,6 +333,34 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 	}
 
 	return skipNone
+}
+
+type pruneJSON struct {
+	Name       string     `json:"name"`
+	Path       string     `json:"path"`
+	Branch     string     `json:"branch"`
+	Reason     pruneType  `json:"reason"`
+	SkipReason skipReason `json:"skip_reason"`
+	StaleAge   string     `json:"stale_age"`
+}
+
+func outputPruneJSON(candidates []pruneCandidate) error {
+	output := make([]pruneJSON, 0, len(candidates))
+	for _, candidate := range candidates {
+		output = append(output, pruneJSON{
+			Name:       filepath.Base(candidate.info.Path),
+			Path:       candidate.info.Path,
+			Branch:     candidate.info.Branch,
+			Reason:     candidate.pruneType,
+			SkipReason: candidate.reason,
+			StaleAge:   candidate.staleAge,
+		})
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+
+	return encoder.Encode(output)
 }
 
 func displayDryRun(candidates []pruneCandidate) error {
@@ -488,6 +611,8 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		for _, item := range failed {
 			logger.Dimmed("    %s", item)
 		}
+
+		return fmt.Errorf("failed to prune %d worktree(s)", len(failed))
 	}
 
 	return nil

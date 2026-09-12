@@ -65,6 +65,7 @@ func TestParseFilters(t *testing.T) {
 		expected []string
 	}{
 		{"single filter", "dirty", []string{"dirty"}},
+		{"PR filter", "PR", []string{"pr"}},
 		{"multiple filters", "dirty,locked", []string{"dirty", "locked"}},
 		{"with spaces", " dirty , locked ", []string{"dirty", "locked"}},
 		{"empty string", "", nil},
@@ -91,7 +92,7 @@ func TestParseFilters(t *testing.T) {
 		if err == nil {
 			t.Fatalf("parseFilters(\"dirty,bogus\") = %v, want error", got)
 		}
-		want := `unknown filter "bogus" (valid: dirty, ahead, behind, gone, locked)`
+		want := `unknown filter "bogus" (valid: dirty, ahead, behind, gone, locked, pr)`
 		if err.Error() != want {
 			t.Errorf("error = %q, want %q", err.Error(), want)
 		}
@@ -194,7 +195,7 @@ func TestCompleteFilterValues(t *testing.T) {
 		{
 			name:       "empty returns all filters",
 			toComplete: "",
-			wantLen:    5,
+			wantLen:    6,
 			wantFirst:  "dirty",
 		},
 		{
@@ -212,7 +213,7 @@ func TestCompleteFilterValues(t *testing.T) {
 		{
 			name:       "after comma returns remaining filters",
 			toComplete: "dirty,",
-			wantLen:    4,
+			wantLen:    5,
 			wantFirst:  "dirty,ahead",
 		},
 		{
@@ -224,7 +225,7 @@ func TestCompleteFilterValues(t *testing.T) {
 		{
 			name:       "multiple selected excludes them",
 			toComplete: "dirty,ahead,",
-			wantLen:    3,
+			wantLen:    4,
 		},
 	}
 

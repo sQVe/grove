@@ -24,7 +24,6 @@ function grove {
                 Set-Location -LiteralPath $target
             } else {
                 if ($target) { Write-Output $target }
-                return $LASTEXITCODE
             }
         } elseif ($args.Count -gt 0 -and $args[0] -eq "remove") {
             $original = (Get-Location).Path

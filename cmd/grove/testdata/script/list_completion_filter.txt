@@ -7,6 +7,17 @@ stdout 'locked'
 stdout 'ahead'
 stdout 'behind'
 stdout 'gone'
+stdout '^pr$'
+
+exec grove __complete list --filter 'dirty,p'
+stdout '^dirty,pr$'
+
+exec grove __complete list --filter 'pr,'
+! stdout '^pr,pr$'
+stdout '^pr,locked$'
+
+exec grove list --help
+stdout 'gone, locked, pr'
 
 # Partial filter filters suggestions
 exec grove __complete list --filter 'd'
