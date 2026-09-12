@@ -263,7 +263,10 @@ and a worktree with uncommitted tracked changes refuses to refresh. Fork PRs sti
 
 Switch to a worktree by directory or branch name.
 
-Requires shell integration (see Setup section).
+Requires shell integration (see Setup section) to change directories.
+
+Use `--herdr` to open and focus the worktree in Herdr instead, without changing your shell's directory.
+This requires the `herdr` executable on `PATH`; shell integration is not required.
 
 **Examples:**
 
@@ -271,6 +274,7 @@ Requires shell integration (see Setup section).
 grove switch main
 grove switch feat-auth
 grove switch feat/auth
+grove switch feat-auth --herdr
 ```
 
 </details>

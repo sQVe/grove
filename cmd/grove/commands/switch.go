@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 )
 
 //go:embed shell/grove.sh
@@ -32,14 +33,19 @@ const (
 	shellPowerShellType = "powershell"
 )
 
+// NewSwitchCmd creates the worktree switch command.
 func NewSwitchCmd() *cobra.Command {
+	var herdr bool
+
 	cmd := &cobra.Command{
 		Use:   "switch <worktree>",
 		Short: "Switch to a worktree",
 		Long: `Switch to a worktree by name or branch.
 
-Requires shell integration:
+Requires shell integration to change directories:
   eval "$(grove switch shell-init)"
+
+With --herdr the worktree opens in Herdr instead and no shell integration is needed.
 
 Accepts worktree name (directory) or branch name.
 
@@ -50,11 +56,12 @@ Examples:
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: worktreeCompletionWithBranches(1, false, true, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSwitch(args[0])
+			return runSwitch(args[0], herdr)
 		},
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for switch")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Open the worktree in Herdr instead of changing directories (requires herdr)")
 
 	cmd.AddCommand(newShellInitCmd())
 
@@ -133,10 +140,10 @@ func printShellIntegration(shell string) error {
 	return nil
 }
 
-func runSwitch(target string) error {
+func runSwitch(target string, herdr bool) error {
 	target = strings.TrimSpace(target)
 
-	_, _, infos, err := loadWorkspace(true)
+	_, bareDir, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
 	}
@@ -149,6 +156,15 @@ func runSwitch(target string) error {
 		}
 
 		resolved = []*git.WorktreeInfo{match}
+	}
+
+	if herdr {
+		if err := openWorktreeInHerdr(bareDir, resolved[0].Path); err != nil {
+			return err
+		}
+
+		logger.Success("Opened worktree %s in Herdr", resolved[0].Path)
+		return nil
 	}
 
 	fmt.Println(resolved[0].Path)

@@ -119,8 +119,8 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 			}
 			if scenario.exitCode != "" {
 				var exitError *exec.ExitError
-				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "Herdr exited with an error") || !strings.Contains(err.Error(), "output above") {
-					t.Errorf("expected failed exit with output hint, got %v", err)
+				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "herdr failed to open") || !strings.Contains(err.Error(), "herdr diagnostic") {
+					t.Errorf("expected failed exit carrying Herdr stderr, got %v", err)
 				}
 				if strings.Contains(err.Error(), "installed") || strings.Contains(err.Error(), "PATH") {
 					t.Errorf("unexpected install hint after Herdr ran: %v", err)
