@@ -1,3 +1,0 @@
-kind: Added
-body: 'Re-running `grove add --pr` refreshes the existing same-repo worktree: fast-forwards, supports `--reset` on divergence, and refuses uncommitted tracked changes.'
-time: 2026-09-08T16:00:00+02:00

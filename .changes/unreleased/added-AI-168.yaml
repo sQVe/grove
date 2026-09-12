@@ -1,5 +1,0 @@
-kind: Added
-body: Add `grove add --herdr` to open a prepared worktree in Herdr after setup and hooks succeed.
-time: 2026-09-11T11:20:03.197752219+02:00
-custom:
-  Issue: ''

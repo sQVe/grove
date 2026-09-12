@@ -1,3 +1,0 @@
-kind: Added
-body: '`grove add -s` switches to an existing worktree instead of erroring.'
-time: 2026-09-08T14:31:05+02:00
