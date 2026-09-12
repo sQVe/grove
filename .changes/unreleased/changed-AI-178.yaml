@@ -1,5 +1,0 @@
-kind: Changed
-body: Label Herdr workspaces opened by `grove add --herdr` and `grove switch --herdr` from the branch name or PR title instead of the directory name.
-time: 2026-09-12T21:14:53+02:00
-custom:
-  Issue: ''

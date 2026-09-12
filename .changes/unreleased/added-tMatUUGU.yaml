@@ -1,5 +1,0 @@
-kind: Added
-body: Add `grove switch --herdr` to open and focus a worktree in Herdr without changing the shell directory.
-time: 2026-09-12T18:42:16.831374516+02:00
-custom:
-  Issue: ''

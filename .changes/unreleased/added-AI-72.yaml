@@ -1,3 +1,0 @@
-kind: Added
-body: '`grove switch` accepts a unique substring of a worktree name or branch and lists candidates when the target is ambiguous.'
-time: 2026-09-10T09:00:00+02:00

@@ -1,5 +1,0 @@
-kind: Added
-body: Add `prune --json` for dry runs and return a non-zero exit status when pruning fails.
-time: 2026-09-10T19:52:43.929065138+02:00
-custom:
-  Issue: ''

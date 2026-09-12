@@ -1,3 +1,0 @@
-kind: Added
-body: Shell wrappers leave the current worktree before removal and restore the original directory on failure if it still exists.
-time: 2026-09-12T19:19:50.504281492+02:00
