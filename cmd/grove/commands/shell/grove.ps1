@@ -7,7 +7,6 @@ function grove {
             Set-Location $target
         } else {
             if ($target) { Write-Output $target }
-            return $LASTEXITCODE
         }
     } elseif ($args.Count -gt 0 -and $args[0] -eq "add" -and ($args -contains "-s" -or $args -contains "--switch")) {
         $target = & grove.exe add @($args | Select-Object -Skip 1)
