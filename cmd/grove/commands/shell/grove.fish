@@ -30,7 +30,8 @@ function grove
             end
 
             if set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
-                if test "$PWD" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$PWD"
+                set -l physical (pwd -P)
+                if test "$physical" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$physical"
                     cd (dirname "$target"); or return 1
                 end
             end

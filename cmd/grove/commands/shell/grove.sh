@@ -34,7 +34,7 @@ grove() {
         esac
 
         if _grove_target="$(GROVE_SHELL=1 command grove switch "${_grove_arg}" 2>/dev/null)"; then
-          case "${PWD}" in
+          case "$(pwd -P)" in
             "${_grove_target}" | "${_grove_target}"/*)
               cd "$(dirname "${_grove_target}")" || return 1
               ;;
