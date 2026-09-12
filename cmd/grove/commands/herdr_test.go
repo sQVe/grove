@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
@@ -137,6 +138,28 @@ func TestRunSwitchHerdr(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("opens a detached worktree without a label", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
+		t.Chdir(groveWorkspace.Dir)
+		worktreePath := filepath.Join(groveWorkspace.Dir, "parked")
+		if err := git.CreateWorktree(groveWorkspace.BareDir, worktreePath, git.CreateWorktreeOptions{Branch: "main", Detach: true}, true); err != nil {
+			t.Fatal(err)
+		}
+		argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\n")
+
+		if _, _, err := executeSwitch(t, "parked", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		arguments, err := os.ReadFile(argumentsPath) // nolint:gosec // The test creates this marker in t.TempDir().
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(arguments), "--label") {
+			t.Errorf("herdr arguments = %q, want no --label for a detached worktree", arguments)
+		}
+	})
 
 	t.Run("prints the path without the flag", func(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
