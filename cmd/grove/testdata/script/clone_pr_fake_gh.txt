@@ -54,9 +54,9 @@ grep '^\["repo","clone","acme/widgets",".*[/\\\\]+workspace[/\\\\]+\.bare","--",
 grep '^\["repo","clone","acme/widgets",".*[/\\\\]+failed[/\\\\]+\.bare","--","--bare"\]$' gh.log
 grep '^\["repo","clone","acme/widgets",".*[/\\\\]+clone-failed[/\\\\]+\.bare","--","--bare"\]$' gh.log
 grep '^\["repo","clone","acme/widgets",".*[/\\\\]+fork-workspace[/\\\\]+\.bare","--","--bare"\]$' gh.log
-grep '^\["pr","view","42","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
-grep '^\["pr","view","43","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
-grep '^\["pr","view","46","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner"\]$' gh.log
+grep '^\["pr","view","42","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner,title"\]$' gh.log
+grep '^\["pr","view","43","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner,title"\]$' gh.log
+grep '^\["pr","view","46","--repo","acme/widgets","--json","headRefName,headRepository,headRepositoryOwner,title"\]$' gh.log
 grep '^\["repo","view","contrib/fork","--json","url","-q","\.url"\]$' gh.log
 
 -- README.md --
