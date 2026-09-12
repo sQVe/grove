@@ -9,4 +9,6 @@ stdout 'case "\$1" in'
 stdout 'grove add'
 stdout '\-\-switch'
 ! stdout '\[\['
+stdout 'GROVE_PREV_WORKTREE'
+stdout 'no previous worktree'
 ! stderr .

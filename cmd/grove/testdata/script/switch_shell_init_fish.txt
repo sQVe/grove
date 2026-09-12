@@ -7,4 +7,6 @@ stdout 'GROVE_SHELL=1 command grove'
 stdout 'command grove switch'
 stdout 'cd "\$target"'
 stdout 'set -l target'
+stdout 'GROVE_PREV_WORKTREE'
+stdout 'no previous worktree'
 ! stderr .

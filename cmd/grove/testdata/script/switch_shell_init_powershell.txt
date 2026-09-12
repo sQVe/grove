@@ -7,4 +7,6 @@ stdout 'Set-Location'
 stdout '\$env:GROVE_SHELL = "1"'
 stdout 'finally'
 stdout 'Remove-Item Env:GROVE_SHELL'
+stdout 'GROVE_PREV_WORKTREE'
+stdout 'no previous worktree'
 ! stderr .

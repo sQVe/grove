@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,47 @@ import (
 	testgit "github.com/sqve/grove/internal/testutil/git"
 	"github.com/sqve/grove/internal/workspace"
 )
+
+func TestShellSwitchPrevious(t *testing.T) {
+	shell, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("sh is not on PATH")
+	}
+
+	directory := t.TempDir()
+	previous := filepath.Join(directory, "previous worktree")
+	if err := os.Mkdir(previous, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		script string
+	}{
+		{"unset", `unset GROVE_PREV_WORKTREE; grove switch -; test "$?" -eq 1`},
+		{"missing directory", `export GROVE_PREV_WORKTREE="$PWD/missing"; grove switch -; test "$?" -eq 1`},
+		{"toggle", `start=$PWD; export GROVE_PREV_WORKTREE="$PWD/previous worktree"; grove switch - && test "$PWD" = "$start/previous worktree" && test "$GROVE_PREV_WORKTREE" = "$start" && grove switch - && test "$PWD" = "$start" && test "$GROVE_PREV_WORKTREE" = "$start/previous worktree"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			command := exec.Command(shell, "-c", shellPOSIX+"\nPATH=/nonexistent\n"+test.script) //nolint:gosec // Runs the embedded wrapper with fixed test scripts.
+			command.Dir = directory
+			output, err := command.CombinedOutput()
+			if err != nil {
+				t.Fatalf("shell failed: %v\n%s", err, output)
+			}
+
+			expected := "no previous worktree\n"
+			if test.name == "toggle" {
+				expected = ""
+			}
+			if string(output) != expected {
+				t.Errorf("output = %q, want %q", output, expected)
+			}
+		})
+	}
+}
 
 func TestShouldHintShellIntegration(t *testing.T) {
 	t.Parallel()
