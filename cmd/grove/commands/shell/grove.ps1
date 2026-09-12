@@ -1,5 +1,5 @@
 # Grove shell integration for PowerShell
-# Wraps grove to enable 'grove switch' and 'grove add --switch' to change directories
+# Changes directories for switch, add --switch, and removal of the current worktree.
 function grove {
     try {
         $env:GROVE_SHELL = "1"
@@ -25,6 +25,34 @@ function grove {
                 if ($target) { Write-Output $target }
                 return $LASTEXITCODE
             }
+        } elseif ($args.Count -gt 0 -and $args[0] -eq "remove") {
+            $original = (Get-Location).Path
+            $removeArguments = @($args | Select-Object -Skip 1)
+            $comparison = [StringComparison]::Ordinal
+            if ([IO.Path]::DirectorySeparatorChar -eq '\') {
+                $comparison = [StringComparison]::OrdinalIgnoreCase
+            }
+
+            foreach ($argument in $removeArguments) {
+                if ($argument.StartsWith("-")) { continue }
+
+                $target = & grove.exe switch $argument 2>$null
+                if ($LASTEXITCODE -eq 0 -and $target) {
+                    $current = (Get-Location).Path
+                    $prefix = $target + [IO.Path]::DirectorySeparatorChar
+                    if ($current.Equals($target, $comparison) -or $current.StartsWith($prefix, $comparison)) {
+                        Set-Location -LiteralPath (Split-Path -Parent $target) -ErrorAction Stop
+                    }
+                }
+            }
+
+            & grove.exe remove @removeArguments
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0 -and (Get-Location).Path -ne $original -and (Test-Path -LiteralPath $original -PathType Container)) {
+                Set-Location -LiteralPath $original
+            }
+
+            $global:LASTEXITCODE = $exitCode
         } elseif ($args.Count -gt 0 -and $args[0] -eq "add" -and ($args -contains "-s" -or $args -contains "--switch")) {
             $target = & grove.exe add @($args | Select-Object -Skip 1)
             if ($LASTEXITCODE -eq 0 -and $target -and (Test-Path -LiteralPath $target -PathType Container)) {

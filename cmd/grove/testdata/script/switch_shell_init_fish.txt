@@ -9,4 +9,5 @@ stdout 'cd "\$target"'
 stdout 'set -l target'
 stdout 'GROVE_PREV_WORKTREE'
 stdout 'no previous worktree'
+stdout 'command grove remove'
 ! stderr .

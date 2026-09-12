@@ -1,5 +1,5 @@
 # Grove shell integration for fish
-# Wraps grove to enable 'grove switch' and 'grove add --switch' to change directories
+# Changes directories for switch, add --switch, and removal of the current worktree.
 function grove
     if test (count $argv) -gt 0 -a "$argv[1]" = "switch"
         set -l target
@@ -22,6 +22,28 @@ function grove
             test -n "$target" && printf '%s\n' "$target"
             return $exit_code
         end
+    else if test (count $argv) -gt 0 -a "$argv[1]" = "remove"
+        set -l original "$PWD"
+        for argument in $argv[2..]
+            if string match -q -- '-*' "$argument"
+                continue
+            end
+
+            set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
+            if test $status -eq 0
+                if test "$PWD" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$PWD"
+                    cd (dirname "$target"); or return 1
+                end
+            end
+        end
+
+        GROVE_SHELL=1 command grove remove $argv[2..]
+        set -l exit_code $status
+        if test $exit_code -ne 0; and test "$PWD" != "$original"; and test -d "$original"
+            cd "$original"
+        end
+
+        return $exit_code
     else if test (count $argv) -gt 0 -a "$argv[1]" = "add"
         if contains -- -s $argv[2..]; or contains -- --switch $argv[2..]
             set -l target (GROVE_SHELL=1 command grove add $argv[2..])

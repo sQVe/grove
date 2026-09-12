@@ -9,4 +9,5 @@ stdout 'finally'
 stdout 'Remove-Item Env:GROVE_SHELL'
 stdout 'GROVE_PREV_WORKTREE'
 stdout 'no previous worktree'
+stdout 'grove.exe remove'
 ! stderr .

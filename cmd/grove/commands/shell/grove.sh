@@ -1,6 +1,6 @@
 # shellcheck shell=sh
 # Grove shell integration for POSIX sh
-# Wraps grove to enable 'grove switch' and 'grove add --switch' to change directories
+# Changes directories for switch, add --switch, and removal of the current worktree.
 grove() {
   case "$1" in
     switch)
@@ -24,6 +24,34 @@ grove() {
         [ -n "${_grove_target}" ] && printf '%s\n' "${_grove_target}"
         return "${_grove_exit}"
       fi
+      ;;
+    remove)
+      shift
+      _grove_original="${PWD}"
+      for _grove_arg in "$@"; do
+        case "${_grove_arg}" in
+          -*) continue ;;
+        esac
+
+        if _grove_target="$(GROVE_SHELL=1 command grove switch "${_grove_arg}" 2>/dev/null)"; then
+          case "${PWD}" in
+            "${_grove_target}" | "${_grove_target}"/*)
+              cd "$(dirname "${_grove_target}")" || return 1
+              ;;
+          esac
+        fi
+      done
+
+      if GROVE_SHELL=1 command grove remove "$@"; then
+        _grove_exit=0
+      else
+        _grove_exit=$?
+        if [ "${PWD}" != "${_grove_original}" ] && [ -d "${_grove_original}" ]; then
+          cd "${_grove_original}" || :
+        fi
+      fi
+
+      return "${_grove_exit}"
       ;;
     add)
       # Check if -s or --switch is in the arguments
