@@ -69,6 +69,30 @@ func assertHerdrNotCalled(t *testing.T, argumentsPath string) {
 	}
 }
 
+func TestHerdrLabel(t *testing.T) {
+	for _, scenario := range []struct {
+		branch string
+		want   string
+	}{
+		{branch: "feat/auth", want: "auth"},
+		{branch: "abu-377-set-nice-workspace-name-when-using-herdr", want: "set nice workspace name when using herdr"},
+		{branch: "fix_typo", want: "fix typo"},
+		{branch: "abu-377", want: "abu-377"},
+		{branch: "", want: ""},
+		{branch: "team/feat/ABU-377-fix__the---typo", want: "fix the typo"},
+		{branch: "feat/ABU-377-___", want: "feat/ABU-377-___"},
+		{branch: "feat/", want: "feat/"},
+	} {
+		t.Run(scenario.branch, func(t *testing.T) {
+			label := herdrLabel(scenario.branch)
+
+			if label != scenario.want {
+				t.Errorf("herdrLabel(%q) = %q, want %q", scenario.branch, label, scenario.want)
+			}
+		})
+	}
+}
+
 func TestRunSwitchHerdr(t *testing.T) {
 	for _, directory := range []string{"linked worktree", "worktree subdirectory"} {
 		t.Run("opens from "+directory, func(t *testing.T) {
@@ -107,7 +131,7 @@ func TestRunSwitchHerdr(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			want := strings.Join([]string{"worktree", "open", "--cwd", root, "--path", worktreePath, "--focus", ""}, "\n")
+			want := strings.Join([]string{"worktree", "open", "--cwd", root, "--path", worktreePath, "--focus", "--label", "feat auth", ""}, "\n")
 			if string(arguments) != want {
 				t.Errorf("herdr arguments = %q, want %q", arguments, want)
 			}

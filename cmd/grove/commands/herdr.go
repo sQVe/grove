@@ -8,14 +8,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var herdrTicketPrefix = regexp.MustCompile(`^[a-zA-Z]+-\d+(?:-|$)`)
+
+func herdrLabel(branch string) string {
+	label := branch[strings.LastIndex(branch, "/")+1:]
+	label = herdrTicketPrefix.ReplaceAllString(label, "")
+	label = strings.NewReplacer("-", " ", "_", " ").Replace(label)
+	label = strings.Join(strings.Fields(label), " ")
+
+	if label == "" {
+		return branch
+	}
+
+	return label
+}
 
 // openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. Herdr
 // keys a workspace on the checkout path, so the path is resolved first: a fresh
 // worktree carries the spelling the caller built, while a re-run carries the one
 // git recorded, and through a symlinked root those differ.
-func openWorktreeInHerdr(bareDir, worktreePath string) error {
+func openWorktreeInHerdr(bareDir, worktreePath, label string) error {
 	if _, err := exec.LookPath("herdr"); err != nil {
 		return fmt.Errorf("cannot open worktree %s in Herdr (ensure herdr is installed and on PATH): %w", worktreePath, err)
 	}
@@ -32,11 +48,16 @@ func openWorktreeInHerdr(bareDir, worktreePath string) error {
 		return fmt.Errorf("cannot resolve the workspace root of worktree %s for Herdr: %w", canonical, err)
 	}
 
+	arguments := []string{"worktree", "open", "--cwd", root, "--path", canonical, "--focus"}
+	if label != "" {
+		arguments = append(arguments, "--label", label)
+	}
+
 	// Herdr prints a JSON result on stdout, which the shell wrapper would
 	// otherwise echo as a cd target, and its failure reason on stderr, which
 	// belongs in the error.
 	var stderr bytes.Buffer
-	command := exec.Command("herdr", "worktree", "open", "--cwd", root, "--path", canonical, "--focus") //nolint:gosec // Paths are passed as arguments, not shell commands.
+	command := exec.Command("herdr", arguments...) //nolint:gosec // Paths are passed as arguments, not shell commands.
 	command.Stdout = io.Discard
 	command.Stderr = &stderr
 

@@ -260,7 +260,7 @@ func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bar
 		if info.Branch == branch {
 			if herdr {
 				releaseLock()
-				return openWorktreeInHerdr(bareDir, info.Path)
+				return openWorktreeInHerdr(bareDir, info.Path, herdrLabel(branch))
 			}
 
 			if switchTo {
@@ -324,7 +324,7 @@ func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bar
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, herdrLabel(branch), switchTo, herdr, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -415,7 +415,7 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 			}
 
 			releaseLock()
-			return openWorktreeInHerdr(bareDir, info.Path)
+			return openWorktreeInHerdr(bareDir, info.Path, "")
 		}
 	}
 
@@ -427,7 +427,7 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", "", switchTo, herdr, releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -505,12 +505,12 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 
 					logger.Warning("Opening %s without syncing it: %v", info.Path, err)
 					releaseLock()
-					return openWorktreeInHerdr(bareDir, info.Path)
+					return openWorktreeInHerdr(bareDir, info.Path, prInfo.Title)
 				}
 
 				if herdr {
 					releaseLock()
-					return openWorktreeInHerdr(bareDir, info.Path)
+					return openWorktreeInHerdr(bareDir, info.Path, prInfo.Title)
 				}
 
 				return nil
@@ -518,7 +518,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 
 			if herdr {
 				releaseLock()
-				return openWorktreeInHerdr(bareDir, info.Path)
+				return openWorktreeInHerdr(bareDir, info.Path, prInfo.Title)
 			}
 
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
@@ -533,7 +533,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
@@ -689,7 +689,7 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	return nil
 }
 
-func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switchTo, herdr bool, releaseLock func(), successFormat string, successArgs ...any) error {
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch, label string, switchTo, herdr bool, releaseLock func(), successFormat string, successArgs ...any) error {
 	if branch != "" {
 		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
@@ -705,7 +705,7 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 	}
 
 	if herdr {
-		if err := openWorktreeInHerdr(bareDir, worktreePath); err != nil {
+		if err := openWorktreeInHerdr(bareDir, worktreePath, label); err != nil {
 			return err
 		}
 	}

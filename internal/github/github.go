@@ -103,6 +103,7 @@ func ParseRepoURL(url string) (*RepoRef, error) {
 
 // PRInfo contains information about a GitHub pull request.
 type PRInfo struct {
+	Title     string
 	HeadRef   string // Branch name
 	HeadOwner string // Owner of the repository containing the branch
 	HeadRepo  string // Repository name containing the branch
@@ -111,6 +112,7 @@ type PRInfo struct {
 
 // ghPRResponse represents the JSON response from `gh pr view --json`.
 type ghPRResponse struct {
+	Title               string `json:"title"`
 	HeadRefName         string `json:"headRefName"`
 	HeadRepository      ghRepo `json:"headRepository"`
 	HeadRepositoryOwner ghUser `json:"headRepositoryOwner"`
@@ -136,6 +138,7 @@ func parsePRInfoJSON(data []byte, baseOwner string) (*PRInfo, error) {
 	}
 
 	info := &PRInfo{
+		Title:     resp.Title,
 		HeadRef:   resp.HeadRefName,
 		HeadOwner: resp.HeadRepositoryOwner.Login,
 		HeadRepo:  resp.HeadRepository.Name,
@@ -153,7 +156,7 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 	args := []string{
 		"pr", "view", strconv.Itoa(number),
 		"--repo", fmt.Sprintf("%s/%s", owner, repo),
-		"--json", "headRefName,headRepository,headRepositoryOwner",
+		"--json", "headRefName,headRepository,headRepositoryOwner,title",
 	}
 
 	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
