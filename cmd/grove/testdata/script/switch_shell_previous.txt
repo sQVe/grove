@@ -1,0 +1,30 @@
+# Exercise the generated wrapper in POSIX sh.
+# Skip on Windows: the POSIX wrapper is sourced by sh, whose paths differ from $WORK there.
+[windows] skip
+setup_workspace
+exec grove add feature
+exec grove switch shell-init --shell sh
+cp stdout $WORK/wrapper.sh
+
+exec sh -e $WORK/switch.sh
+stdout '/workspace/feature'
+! stderr .
+
+exec sh -ec '. "$WORK/wrapper.sh"; grove add short-switch -s; test "$PWD" = "$WORK/workspace/short-switch"; grove switch -; test "$PWD" = "$WORK/workspace/main"; grove add long-switch --switch; test "$PWD" = "$WORK/workspace/long-switch"; grove switch -; test "$PWD" = "$WORK/workspace/main"'
+
+! exec sh -c '. "$WORK/wrapper.sh"; unset GROVE_PREV_WORKTREE; grove switch -'
+stderr '^no previous worktree$'
+! stdout .
+
+-- switch.sh --
+set -u
+. "$WORK/wrapper.sh"
+grove >/dev/null
+grove switch feature
+test "$PWD" = "$WORK/workspace/feature"
+sh -c 'test "$GROVE_PREV_WORKTREE" = "$WORK/workspace/main"'
+grove switch -
+test "$PWD" = "$WORK/workspace/main"
+grove switch -
+test "$PWD" = "$WORK/workspace/feature"
+pwd

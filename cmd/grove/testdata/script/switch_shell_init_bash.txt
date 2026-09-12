@@ -3,6 +3,10 @@ setup_workspace
 
 exec grove switch shell-init --shell bash
 stdout 'grove\(\)'
-stdout 'case "\$1" in'
+stdout 'GROVE_SHELL=1 command grove'
+stdout 'case "\$\{1-\}" in'
 ! stdout '\[\['
+stdout 'GROVE_PREV_WORKTREE'
+stdout 'no previous worktree'
+stdout 'command grove remove'
 ! stderr .

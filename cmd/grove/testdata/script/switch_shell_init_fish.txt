@@ -3,7 +3,11 @@ setup_workspace
 
 exec grove switch shell-init --shell fish
 stdout 'function grove'
+stdout 'GROVE_SHELL=1 command grove'
 stdout 'command grove switch'
 stdout 'cd "\$target"'
 stdout 'set -l target'
+stdout 'GROVE_PREV_WORKTREE'
+stdout 'no previous worktree'
+stdout 'command grove remove'
 ! stderr .

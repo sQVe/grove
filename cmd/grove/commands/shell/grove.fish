@@ -1,29 +1,72 @@
 # Grove shell integration for fish
-# Wraps grove to enable 'grove switch' and 'grove add --switch' to change directories
+# Changes directories for switch, add --switch, and removal of the current worktree.
 function grove
     if test (count $argv) -gt 0 -a "$argv[1]" = "switch"
-        set -l target (command grove switch $argv[2..])
-        set -l exit_code $status
+        set -l target
+        set -l exit_code 0
+        if test (count $argv) -gt 1; and test "$argv[2]" = "-"
+            if not set -q GROVE_PREV_WORKTREE; or not test -d "$GROVE_PREV_WORKTREE"
+                printf '%s\n' 'no previous worktree' >&2
+                return 1
+            end
+
+            set target "$GROVE_PREV_WORKTREE"
+        else
+            set target (GROVE_SHELL=1 command grove switch $argv[2..])
+            set exit_code $status
+        end
         if test $exit_code -eq 0 -a -d "$target"
+            set -gx GROVE_PREV_WORKTREE "$PWD"
             cd "$target"
         else
             test -n "$target" && printf '%s\n' "$target"
             return $exit_code
         end
+    else if test (count $argv) -gt 0 -a "$argv[1]" = "remove"
+        set -l original "$PWD"
+        set -l after_terminator 0
+        for argument in $argv[2..]
+            if test $after_terminator -eq 0
+                if test "$argument" = "--"
+                    set after_terminator 1
+                    continue
+                end
+                if string match -q -- '-*' "$argument"
+                    continue
+                end
+            end
+
+            if set -l target (GROVE_SHELL=1 command grove switch -- "$argument" 2>/dev/null)
+                set -l physical (pwd -P)
+                if test "$physical" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$physical"
+                    cd (dirname "$target"); or return 1
+                end
+            end
+        end
+
+        GROVE_SHELL=1 command grove remove $argv[2..]
+        set -l exit_code $status
+        if test "$PWD" != "$original"; and test -d "$original"
+            set -gx GROVE_PREV_WORKTREE "$PWD"
+            cd "$original"
+        end
+
+        return $exit_code
     else if test (count $argv) -gt 0 -a "$argv[1]" = "add"
         if contains -- -s $argv[2..]; or contains -- --switch $argv[2..]
-            set -l target (command grove add $argv[2..])
+            set -l target (GROVE_SHELL=1 command grove add $argv[2..])
             set -l exit_code $status
             if test $exit_code -eq 0 -a -d "$target"
+                set -gx GROVE_PREV_WORKTREE "$PWD"
                 cd "$target"
             else
                 test -n "$target" && printf '%s\n' "$target"
                 return $exit_code
             end
         else
-            command grove $argv
+            GROVE_SHELL=1 command grove $argv
         end
     else
-        command grove $argv
+        GROVE_SHELL=1 command grove $argv
     end
 end
