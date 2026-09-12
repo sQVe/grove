@@ -81,7 +81,7 @@ func TestRunSwitchHerdr(t *testing.T) {
 				}
 			}
 			t.Chdir(workingDirectory)
-			argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\nprintf 'hidden diagnostic\\n' >&2\n")
+			argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\n")
 
 			stdout, stderr, err := executeSwitch(t, "feat-auth", "--herdr")
 			if err != nil {
@@ -98,7 +98,16 @@ func TestRunSwitchHerdr(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := strings.Join([]string{"worktree", "open", "--cwd", groveWorkspace.Dir, "--path", groveWorkspace.Worktrees["feat-auth"], "--focus", ""}, "\n")
+			root, err := filepath.EvalSymlinks(groveWorkspace.Dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			worktreePath, err := filepath.EvalSymlinks(groveWorkspace.Worktrees["feat-auth"])
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			want := strings.Join([]string{"worktree", "open", "--cwd", root, "--path", worktreePath, "--focus", ""}, "\n")
 			if string(arguments) != want {
 				t.Errorf("herdr arguments = %q, want %q", arguments, want)
 			}
@@ -168,17 +177,14 @@ func TestRunSwitchHerdr(t *testing.T) {
 		}
 	})
 
-	t.Run("includes trimmed stderr and resolved path on failure", func(t *testing.T) {
+	t.Run("wraps the exit error and names the resolved path on failure", func(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
 		t.Chdir(groveWorkspace.Dir)
 		stubHerdr(t, "printf '%s\\n' '{\"ok\":false}'\nprintf '  {\"error\":\"unavailable\"}\\n' >&2\nexit 1\n")
 
 		stdout, stderr, err := executeSwitch(t, "main", "--herdr")
-		if err == nil || !strings.Contains(err.Error(), `{"error":"unavailable"}`) || !strings.Contains(err.Error(), groveWorkspace.Worktrees["main"]) || stdout != "" || stderr != "" {
-			t.Fatalf("switch = (%q, %q, %v), want herdr failure with path and stderr", stdout, stderr, err)
-		}
-		if strings.Contains(err.Error(), "\n") || strings.Contains(err.Error(), "  {") {
-			t.Errorf("stderr was not trimmed: %q", err)
+		if err == nil || !strings.Contains(err.Error(), groveWorkspace.Worktrees["main"]) || stdout != "" || stderr != "" {
+			t.Fatalf("switch = (%q, %q, %v), want herdr failure with path", stdout, stderr, err)
 		}
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) {

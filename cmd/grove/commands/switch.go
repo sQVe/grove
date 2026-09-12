@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
+	"github.com/sqve/grove/internal/logger"
 )
 
 //go:embed shell/grove.sh
@@ -156,7 +157,12 @@ func runSwitch(target string, herdr bool) error {
 	}
 
 	if herdr {
-		return openWorktreeInHerdr(bareDir, resolved[0].Path)
+		if err := openWorktreeInHerdr(bareDir, resolved[0].Path); err != nil {
+			return err
+		}
+
+		logger.Success("Opened worktree %s in Herdr", resolved[0].Path)
+		return nil
 	}
 
 	fmt.Println(resolved[0].Path)
