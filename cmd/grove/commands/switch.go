@@ -42,8 +42,10 @@ func NewSwitchCmd() *cobra.Command {
 		Short: "Switch to a worktree",
 		Long: `Switch to a worktree by name or branch.
 
-Requires shell integration:
+Requires shell integration to change directories:
   eval "$(grove switch shell-init)"
+
+With --herdr the worktree opens in Herdr instead and no shell integration is needed.
 
 Accepts worktree name (directory) or branch name.
 
