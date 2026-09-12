@@ -15,7 +15,9 @@ stderr '^no previous worktree$'
 ! stdout .
 
 -- switch.sh --
+set -u
 . "$WORK/wrapper.sh"
+grove >/dev/null
 grove switch feature
 test "$PWD" = "$WORK/workspace/feature"
 sh -c 'test "$GROVE_PREV_WORKTREE" = "$WORK/workspace/main"'

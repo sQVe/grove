@@ -1,6 +1,7 @@
 # Grove shell integration for PowerShell
 # Changes directories for switch, add --switch, and removal of the current worktree.
 function grove {
+    $previousGroveShell = $env:GROVE_SHELL
     try {
         $env:GROVE_SHELL = "1"
 
@@ -34,13 +35,15 @@ function grove {
             }
 
             foreach ($argument in $removeArguments) {
-                if ($argument.StartsWith("-")) { continue }
+                if ("$argument".StartsWith("-")) { continue }
 
                 $target = & grove.exe switch $argument 2>$null
                 if ($LASTEXITCODE -eq 0 -and $target) {
-                    $current = (Get-Location).Path
+                    $target = [IO.Path]::GetFullPath("$target")
+                    $current = [IO.Path]::GetFullPath((Get-Location).Path)
                     $prefix = $target + [IO.Path]::DirectorySeparatorChar
                     if ($current.Equals($target, $comparison) -or $current.StartsWith($prefix, $comparison)) {
+                        $env:GROVE_PREV_WORKTREE = (Get-Location).Path
                         Set-Location -LiteralPath (Split-Path -Parent $target) -ErrorAction Stop
                     }
                 }
@@ -49,6 +52,7 @@ function grove {
             & grove.exe remove @removeArguments
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne 0 -and (Get-Location).Path -ne $original -and (Test-Path -LiteralPath $original -PathType Container)) {
+                $env:GROVE_PREV_WORKTREE = (Get-Location).Path
                 Set-Location -LiteralPath $original
             }
 
@@ -66,6 +70,10 @@ function grove {
             & grove.exe @args
         }
     } finally {
-        Remove-Item Env:GROVE_SHELL
+        if ($null -eq $previousGroveShell) {
+            Remove-Item Env:GROVE_SHELL -ErrorAction SilentlyContinue
+        } else {
+            $env:GROVE_SHELL = $previousGroveShell
+        }
     }
 }

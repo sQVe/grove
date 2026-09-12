@@ -32,6 +32,7 @@ function grove
             set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
             if test $status -eq 0
                 if test "$PWD" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$PWD"
+                    set -gx GROVE_PREV_WORKTREE "$PWD"
                     cd (dirname "$target"); or return 1
                 end
             end
@@ -40,6 +41,7 @@ function grove
         GROVE_SHELL=1 command grove remove $argv[2..]
         set -l exit_code $status
         if test $exit_code -ne 0; and test "$PWD" != "$original"; and test -d "$original"
+            set -gx GROVE_PREV_WORKTREE "$PWD"
             cd "$original"
         end
 

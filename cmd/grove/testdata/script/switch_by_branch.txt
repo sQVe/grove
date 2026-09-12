@@ -4,5 +4,5 @@ setup_workspace feature/auth
 exec grove add feature/auth
 env GROVE_SHELL=
 exec grove switch feature/auth
-stdout '^.*[/\\]workspace[/\\]feature-auth$'
+stdout '[/\\]workspace[/\\]feature-auth$'
 ! stderr .

@@ -17,26 +17,6 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-func TestShellRemoveIntegration(t *testing.T) {
-	tests := []struct {
-		name    string
-		wrapper string
-		command string
-	}{
-		{"sh", shellPOSIX, "command grove remove"},
-		{"fish", shellFish, "command grove remove"},
-		{"powershell", shellPowerShell, "grove.exe remove"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if !strings.Contains(test.wrapper, test.command) {
-				t.Errorf("wrapper does not handle removal with %q", test.command)
-			}
-		})
-	}
-}
-
 func TestShellSwitchPrevious(t *testing.T) {
 	shell, err := exec.LookPath("sh")
 	if err != nil {

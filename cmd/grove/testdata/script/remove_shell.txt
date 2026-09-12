@@ -21,6 +21,7 @@ exists $WORK/workspace/dirty/untracked
 grove switch current
 grove remove current
 test "$PWD" = "$WORK/workspace"
+test "$GROVE_PREV_WORKTREE" = "$WORK/workspace/current"
 test ! -d current
 
 grove switch nested
@@ -39,6 +40,7 @@ else
 fi
 test "$removal_status" -ne 0
 test "$PWD" = "$WORK/workspace/dirty"
+test "$GROVE_PREV_WORKTREE" = "$WORK/workspace"
 test -f untracked
 
 grove remove elsewhere

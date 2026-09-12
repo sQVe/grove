@@ -2,7 +2,7 @@
 # Grove shell integration for POSIX sh
 # Changes directories for switch, add --switch, and removal of the current worktree.
 grove() {
-  case "$1" in
+  case "${1-}" in
     switch)
       shift
       if [ "${1-}" = "-" ]; then
@@ -36,6 +36,7 @@ grove() {
         if _grove_target="$(GROVE_SHELL=1 command grove switch "${_grove_arg}" 2>/dev/null)"; then
           case "${PWD}" in
             "${_grove_target}" | "${_grove_target}"/*)
+              export GROVE_PREV_WORKTREE="${PWD}"
               cd "$(dirname "${_grove_target}")" || return 1
               ;;
           esac
@@ -47,6 +48,7 @@ grove() {
       else
         _grove_exit=$?
         if [ "${PWD}" != "${_grove_original}" ] && [ -d "${_grove_original}" ]; then
+          export GROVE_PREV_WORKTREE="${PWD}"
           cd "${_grove_original}" || :
         fi
       fi
