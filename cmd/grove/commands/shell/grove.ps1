@@ -43,7 +43,6 @@ function grove {
                     $current = [IO.Path]::GetFullPath((Get-Location).Path)
                     $prefix = $target + [IO.Path]::DirectorySeparatorChar
                     if ($current.Equals($target, $comparison) -or $current.StartsWith($prefix, $comparison)) {
-                        $env:GROVE_PREV_WORKTREE = (Get-Location).Path
                         Set-Location -LiteralPath (Split-Path -Parent $target) -ErrorAction Stop
                     }
                 }

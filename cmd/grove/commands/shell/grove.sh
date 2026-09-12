@@ -36,7 +36,6 @@ grove() {
         if _grove_target="$(GROVE_SHELL=1 command grove switch "${_grove_arg}" 2>/dev/null)"; then
           case "${PWD}" in
             "${_grove_target}" | "${_grove_target}"/*)
-              export GROVE_PREV_WORKTREE="${PWD}"
               cd "$(dirname "${_grove_target}")" || return 1
               ;;
           esac

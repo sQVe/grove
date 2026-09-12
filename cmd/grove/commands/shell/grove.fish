@@ -29,10 +29,8 @@ function grove
                 continue
             end
 
-            set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
-            if test $status -eq 0
+            if set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
                 if test "$PWD" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$PWD"
-                    set -gx GROVE_PREV_WORKTREE "$PWD"
                     cd (dirname "$target"); or return 1
                 end
             end
