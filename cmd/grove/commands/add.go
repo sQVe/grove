@@ -227,7 +227,7 @@ func runAddFromBranch(branch string, switchTo bool, baseBranch, name, bareDir, w
 		if info.Branch == branch {
 			if switchTo {
 				logger.Info("Switching to existing worktree")
-				fmt.Println(info.Path)
+				printSwitchPath(info.Path)
 				return nil
 			}
 			return fmt.Errorf("worktree already exists for branch %q at %s\n\nHint: Use 'grove list' to see existing worktrees, or use --name to choose a different directory", branch, info.Path)
@@ -461,7 +461,7 @@ func refreshExistingPRWorktree(bareDir, worktreePath, branch string, reset, swit
 		logger.Info("Already up to date: %s", branch)
 	}
 	if switchTo {
-		fmt.Println(worktreePath)
+		printSwitchPath(worktreePath)
 	}
 	return nil
 }
@@ -586,7 +586,7 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch string, switch
 	}
 
 	if switchTo {
-		fmt.Println(worktreePath)
+		printSwitchPath(worktreePath)
 	} else {
 		logger.Success(successFormat, successArgs...)
 	}

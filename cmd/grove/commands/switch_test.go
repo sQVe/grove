@@ -16,6 +16,33 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+func TestShouldHintShellIntegration(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		groveShell       string
+		stdoutIsTerminal bool
+		want             bool
+	}{
+		{"missing on terminal", "", true, true},
+		{"present on terminal", "1", true, false},
+		{"nonempty on terminal", "0", true, false},
+		{"missing with pipe", "", false, false},
+		{"present with pipe", "1", false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldHintShellIntegration(tt.groveShell, tt.stdoutIsTerminal)
+
+			if got != tt.want {
+				t.Errorf("shouldHintShellIntegration(%q, %v) = %v, want %v", tt.groveShell, tt.stdoutIsTerminal, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNewSwitchCmd(t *testing.T) {
 	cmd := NewSwitchCmd()
 	if cmd.Use != "switch <worktree>" {

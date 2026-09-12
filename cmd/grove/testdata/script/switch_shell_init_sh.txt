@@ -3,6 +3,7 @@ setup_workspace
 
 exec grove switch shell-init --shell sh
 stdout 'grove\(\)'
+stdout 'GROVE_SHELL=1 command grove'
 stdout 'command grove switch'
 stdout 'case "\$1" in'
 stdout 'grove add'

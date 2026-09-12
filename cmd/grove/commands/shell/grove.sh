@@ -5,7 +5,7 @@ grove() {
   case "$1" in
     switch)
       shift
-      _grove_target="$(command grove switch "$@")"
+      _grove_target="$(GROVE_SHELL=1 command grove switch "$@")"
       _grove_exit=$?
       if [ "${_grove_exit}" -eq 0 ] && [ -d "${_grove_target}" ]; then
         cd "${_grove_target}" || return 1
@@ -27,7 +27,7 @@ grove() {
       done
       if [ "${_grove_has_switch}" -eq 1 ]; then
         shift
-        _grove_target="$(command grove add "$@")"
+        _grove_target="$(GROVE_SHELL=1 command grove add "$@")"
         _grove_exit=$?
         if [ "${_grove_exit}" -eq 0 ] && [ -d "${_grove_target}" ]; then
           cd "${_grove_target}" || return 1
@@ -36,11 +36,11 @@ grove() {
           return "${_grove_exit}"
         fi
       else
-        command grove "$@"
+        GROVE_SHELL=1 command grove "$@"
       fi
       ;;
     *)
-      command grove "$@"
+      GROVE_SHELL=1 command grove "$@"
       ;;
   esac
 }

@@ -133,6 +133,20 @@ func printShellIntegration(shell string) error {
 	return nil
 }
 
+func shouldHintShellIntegration(groveShell string, stdoutIsTerminal bool) bool {
+	return groveShell == "" && stdoutIsTerminal
+}
+
+func printSwitchPath(path string) {
+	fmt.Println(path)
+
+	info, err := os.Stdout.Stat()
+	stdoutIsTerminal := err == nil && info.Mode()&os.ModeCharDevice != 0
+	if shouldHintShellIntegration(os.Getenv("GROVE_SHELL"), stdoutIsTerminal) {
+		_, _ = fmt.Fprintln(os.Stderr, "shell integration not detected; see 'grove switch shell-init --help'")
+	}
+}
+
 func runSwitch(target string) error {
 	target = strings.TrimSpace(target)
 
@@ -151,7 +165,7 @@ func runSwitch(target string) error {
 		resolved = []*git.WorktreeInfo{match}
 	}
 
-	fmt.Println(resolved[0].Path)
+	printSwitchPath(resolved[0].Path)
 	return nil
 }
 
