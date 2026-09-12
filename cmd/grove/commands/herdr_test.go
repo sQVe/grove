@@ -135,8 +135,12 @@ func TestRunSwitchHerdr(t *testing.T) {
 		if err != nil || stdout != "" {
 			t.Fatalf("switch = (%q, %v)", stdout, err)
 		}
+		worktreePath, err := filepath.EvalSymlinks(groveWorkspace.Worktrees["feat-auth"])
+		if err != nil {
+			t.Fatal(err)
+		}
 		arguments, err := os.ReadFile(argumentsPath) // nolint:gosec // The test creates this marker in t.TempDir().
-		if err != nil || !strings.Contains(string(arguments), "--path\n"+groveWorkspace.Worktrees["feat-auth"]+"\n") {
+		if err != nil || !strings.Contains(string(arguments), "--path\n"+worktreePath+"\n") {
 			t.Fatalf("herdr arguments = %q, error = %v", arguments, err)
 		}
 	})
@@ -159,6 +163,9 @@ func TestRunSwitchHerdr(t *testing.T) {
 	})
 
 	t.Run("names the missing binary and resolved path", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("PATH isolation via symlink is not portable to Windows")
+		}
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
 		t.Chdir(groveWorkspace.Dir)
 		gitPath, err := exec.LookPath("git")
@@ -177,14 +184,21 @@ func TestRunSwitchHerdr(t *testing.T) {
 		}
 	})
 
-	t.Run("wraps the exit error and names the resolved path on failure", func(t *testing.T) {
+	t.Run("includes trimmed stderr and the resolved path on failure", func(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
 		t.Chdir(groveWorkspace.Dir)
 		stubHerdr(t, "printf '%s\\n' '{\"ok\":false}'\nprintf '  {\"error\":\"unavailable\"}\\n' >&2\nexit 1\n")
+		worktreePath, err := filepath.EvalSymlinks(groveWorkspace.Worktrees["main"])
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		stdout, stderr, err := executeSwitch(t, "main", "--herdr")
-		if err == nil || !strings.Contains(err.Error(), groveWorkspace.Worktrees["main"]) || stdout != "" || stderr != "" {
-			t.Fatalf("switch = (%q, %q, %v), want herdr failure with path", stdout, stderr, err)
+		if err == nil || !strings.Contains(err.Error(), `{"error":"unavailable"}`) || !strings.Contains(err.Error(), worktreePath) || stdout != "" || stderr != "" {
+			t.Fatalf("switch = (%q, %q, %v), want herdr failure with path and stderr", stdout, stderr, err)
+		}
+		if strings.Contains(err.Error(), "\n") || strings.Contains(err.Error(), "  {") {
+			t.Errorf("stderr was not trimmed: %q", err)
 		}
 		var exitError *exec.ExitError
 		if !errors.As(err, &exitError) {
