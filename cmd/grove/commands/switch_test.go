@@ -58,6 +58,35 @@ func TestShellSwitchPrevious(t *testing.T) {
 	}
 }
 
+func TestPrintSwitchPathSkipsHintOnDevNull(t *testing.T) {
+	t.Setenv("GROVE_SHELL", "")
+
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open %s: %v", os.DevNull, err)
+	}
+	defer func() { _ = devNull.Close() }()
+	stderrFile, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatalf("create temp stderr: %v", err)
+	}
+	defer func() { _ = stderrFile.Close() }()
+
+	originalStdout, originalStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = devNull, stderrFile
+	defer func() { os.Stdout, os.Stderr = originalStdout, originalStderr }()
+
+	printSwitchPath("/workspace/feature")
+
+	captured, err := os.ReadFile(stderrFile.Name())
+	if err != nil {
+		t.Fatalf("read captured stderr: %v", err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("expected no hint when stdout is %s, got %q", os.DevNull, captured)
+	}
+}
+
 func TestShouldHintShellIntegration(t *testing.T) {
 	t.Parallel()
 

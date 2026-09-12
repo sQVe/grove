@@ -24,12 +24,19 @@ function grove
         end
     else if test (count $argv) -gt 0 -a "$argv[1]" = "remove"
         set -l original "$PWD"
+        set -l after_terminator 0
         for argument in $argv[2..]
-            if string match -q -- '-*' "$argument"
-                continue
+            if test $after_terminator -eq 0
+                if test "$argument" = "--"
+                    set after_terminator 1
+                    continue
+                end
+                if string match -q -- '-*' "$argument"
+                    continue
+                end
             end
 
-            if set -l target (GROVE_SHELL=1 command grove switch "$argument" 2>/dev/null)
+            if set -l target (GROVE_SHELL=1 command grove switch -- "$argument" 2>/dev/null)
                 set -l physical (pwd -P)
                 if test "$physical" = "$target"; or string match -qr -- '^'(string escape --style=regex -- "$target/") "$physical"
                     cd (dirname "$target"); or return 1
@@ -39,7 +46,7 @@ function grove
 
         GROVE_SHELL=1 command grove remove $argv[2..]
         set -l exit_code $status
-        if test $exit_code -ne 0; and test "$PWD" != "$original"; and test -d "$original"
+        if test "$PWD" != "$original"; and test -d "$original"
             set -gx GROVE_PREV_WORKTREE "$PWD"
             cd "$original"
         end

@@ -34,10 +34,14 @@ function grove {
                 $comparison = [StringComparison]::OrdinalIgnoreCase
             }
 
+            $afterTerminator = $false
             foreach ($argument in $removeArguments) {
-                if ("$argument".StartsWith("-")) { continue }
+                if (-not $afterTerminator) {
+                    if ("$argument" -eq "--") { $afterTerminator = $true; continue }
+                    if ("$argument".StartsWith("-")) { continue }
+                }
 
-                $target = & grove.exe switch $argument 2>$null
+                $target = & grove.exe switch -- $argument 2>$null
                 if ($LASTEXITCODE -eq 0 -and $target) {
                     $target = [IO.Path]::GetFullPath("$target")
                     $current = [IO.Path]::GetFullPath((Get-Location).Path)
@@ -50,7 +54,7 @@ function grove {
 
             & grove.exe remove @removeArguments
             $exitCode = $LASTEXITCODE
-            if ($exitCode -ne 0 -and (Get-Location).Path -ne $original -and (Test-Path -LiteralPath $original -PathType Container)) {
+            if ((Get-Location).Path -ne $original -and (Test-Path -LiteralPath $original -PathType Container)) {
                 $env:GROVE_PREV_WORKTREE = (Get-Location).Path
                 Set-Location -LiteralPath $original
             }

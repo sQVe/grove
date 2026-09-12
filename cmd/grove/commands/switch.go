@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/sqve/grove/internal/git"
 )
@@ -140,8 +141,7 @@ func shouldHintShellIntegration(groveShell string, stdoutIsTerminal bool) bool {
 func printSwitchPath(path string) {
 	fmt.Println(path)
 
-	info, err := os.Stdout.Stat()
-	stdoutIsTerminal := err == nil && info.Mode()&os.ModeCharDevice != 0
+	stdoutIsTerminal := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 	if shouldHintShellIntegration(os.Getenv("GROVE_SHELL"), stdoutIsTerminal) {
 		_, _ = fmt.Fprintln(os.Stderr, "shell integration not detected; see 'grove switch shell-init --help'")
 	}

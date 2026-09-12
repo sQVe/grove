@@ -6,6 +6,8 @@ exec grove add current
 exec grove add nested
 exec grove add dirty
 exec grove add elsewhere
+exec grove add feature-long
+exec grove add dashed --name=-dash
 exec grove switch shell-init --shell sh
 cp stdout $WORK/wrapper.sh
 
@@ -16,6 +18,8 @@ stderr 'uncommitted changes'
 ! exists $WORK/workspace/current
 ! exists $WORK/workspace/nested
 ! exists $WORK/workspace/elsewhere
+exists $WORK/workspace/feature-long
+! exists $WORK/workspace/-dash
 exists $WORK/workspace/dirty/untracked
 
 -- remove.sh --
@@ -47,4 +51,15 @@ test -f untracked
 grove remove elsewhere
 test "$PWD" = "$WORK/workspace/dirty"
 test ! -d ../elsewhere
+
+grove switch feature-long
+grove remove --ignore-missing feature
+test "$PWD" = "$WORK/workspace/feature-long"
+test -d "$WORK/workspace/feature-long"
+
+grove switch -- -dash
+test "$PWD" = "$WORK/workspace/-dash"
+grove remove -- -dash
+test "$PWD" = "$WORK/workspace"
+test ! -d "$WORK/workspace/-dash"
 printf '%s\n' 'removal checks passed'

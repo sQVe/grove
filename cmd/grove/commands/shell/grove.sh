@@ -28,12 +28,19 @@ grove() {
     remove)
       shift
       _grove_original="${PWD}"
+      _grove_after_terminator=0
       for _grove_arg in "$@"; do
-        case "${_grove_arg}" in
-          -*) continue ;;
-        esac
+        if [ "${_grove_after_terminator}" -eq 0 ]; then
+          case "${_grove_arg}" in
+            --)
+              _grove_after_terminator=1
+              continue
+              ;;
+            -*) continue ;;
+          esac
+        fi
 
-        if _grove_target="$(GROVE_SHELL=1 command grove switch "${_grove_arg}" 2>/dev/null)"; then
+        if _grove_target="$(GROVE_SHELL=1 command grove switch -- "${_grove_arg}" 2>/dev/null)"; then
           case "$(pwd -P)" in
             "${_grove_target}" | "${_grove_target}"/*)
               cd "$(dirname "${_grove_target}")" || return 1
@@ -46,10 +53,10 @@ grove() {
         _grove_exit=0
       else
         _grove_exit=$?
-        if [ "${PWD}" != "${_grove_original}" ] && [ -d "${_grove_original}" ]; then
-          export GROVE_PREV_WORKTREE="${PWD}"
-          cd "${_grove_original}" || :
-        fi
+      fi
+      if [ "${PWD}" != "${_grove_original}" ] && [ -d "${_grove_original}" ]; then
+        export GROVE_PREV_WORKTREE="${PWD}"
+        cd "${_grove_original}" || :
       fi
 
       return "${_grove_exit}"
