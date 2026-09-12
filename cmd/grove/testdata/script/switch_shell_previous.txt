@@ -1,4 +1,6 @@
 # Exercise the generated wrapper in POSIX sh.
+# Skip on Windows: the POSIX wrapper is sourced by sh, whose paths differ from $WORK there.
+[windows] skip
 setup_workspace
 exec grove add feature
 exec grove switch shell-init --shell sh

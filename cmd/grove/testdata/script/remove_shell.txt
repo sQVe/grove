@@ -1,4 +1,6 @@
 # Exercise removal through the generated POSIX wrapper.
+# Skip on Windows: the POSIX wrapper is sourced by sh, whose paths differ from $WORK there.
+[windows] skip
 setup_workspace
 exec grove add current
 exec grove add nested
