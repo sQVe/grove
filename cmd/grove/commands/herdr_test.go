@@ -161,6 +161,27 @@ func TestRunSwitchHerdr(t *testing.T) {
 		}
 	})
 
+	t.Run("keeps the label of a PR worktree", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main", "feat-auth")
+		t.Chdir(groveWorkspace.Dir)
+		if err := git.SetBranchConfig(groveWorkspace.BareDir, "feat-auth", "grovePr", "42"); err != nil {
+			t.Fatal(err)
+		}
+		argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\n")
+
+		if _, _, err := executeSwitch(t, "feat-auth", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		arguments, err := os.ReadFile(argumentsPath) // nolint:gosec // The test creates this marker in t.TempDir().
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(arguments), "--label") {
+			t.Errorf("herdr arguments = %q, want no --label for a PR worktree", arguments)
+		}
+	})
+
 	t.Run("prints the path without the flag", func(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
 		t.Chdir(groveWorkspace.Dir)
