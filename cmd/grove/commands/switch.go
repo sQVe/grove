@@ -159,8 +159,6 @@ func runSwitch(target string, herdr bool) error {
 	}
 
 	if herdr {
-		// A PR worktree was labeled with its PR title at add time, and switch
-		// has no title to send without a second gh call, so leave the label.
 		label := ""
 		if !resolved[0].Detached && resolved[0].PR == 0 {
 			label = herdrLabel(resolved[0].Branch)
