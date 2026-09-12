@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/git"
 	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/testutil"
 	testgit "github.com/sqve/grove/internal/testutil/git"
@@ -69,6 +70,30 @@ func assertHerdrNotCalled(t *testing.T, argumentsPath string) {
 	}
 }
 
+func TestHerdrLabel(t *testing.T) {
+	for _, scenario := range []struct {
+		branch string
+		want   string
+	}{
+		{branch: "feat/auth", want: "auth"},
+		{branch: "abu-377-set-nice-workspace-name-when-using-herdr", want: "set nice workspace name when using herdr"},
+		{branch: "fix_typo", want: "fix typo"},
+		{branch: "abu-377", want: "abu-377"},
+		{branch: "", want: ""},
+		{branch: "team/feat/ABU-377-fix__the---typo", want: "fix the typo"},
+		{branch: "feat/ABU-377-___", want: "feat/ABU-377-___"},
+		{branch: "feat/", want: "feat/"},
+	} {
+		t.Run(scenario.branch, func(t *testing.T) {
+			label := herdrLabel(scenario.branch)
+
+			if label != scenario.want {
+				t.Errorf("herdrLabel(%q) = %q, want %q", scenario.branch, label, scenario.want)
+			}
+		})
+	}
+}
+
 func TestRunSwitchHerdr(t *testing.T) {
 	for _, directory := range []string{"linked worktree", "worktree subdirectory"} {
 		t.Run("opens from "+directory, func(t *testing.T) {
@@ -107,12 +132,55 @@ func TestRunSwitchHerdr(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			want := strings.Join([]string{"worktree", "open", "--cwd", root, "--path", worktreePath, "--focus", ""}, "\n")
+			want := strings.Join([]string{"worktree", "open", "--cwd", root, "--path", worktreePath, "--focus", "--label", "feat auth", ""}, "\n")
 			if string(arguments) != want {
 				t.Errorf("herdr arguments = %q, want %q", arguments, want)
 			}
 		})
 	}
+
+	t.Run("opens a detached worktree without a label", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
+		t.Chdir(groveWorkspace.Dir)
+		worktreePath := filepath.Join(groveWorkspace.Dir, "parked")
+		if err := git.CreateWorktree(groveWorkspace.BareDir, worktreePath, git.CreateWorktreeOptions{Branch: "main", Detach: true}, true); err != nil {
+			t.Fatal(err)
+		}
+		argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\n")
+
+		if _, _, err := executeSwitch(t, "parked", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		arguments, err := os.ReadFile(argumentsPath) // nolint:gosec // The test creates this marker in t.TempDir().
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(arguments), "--label") {
+			t.Errorf("herdr arguments = %q, want no --label for a detached worktree", arguments)
+		}
+	})
+
+	t.Run("keeps the label of a PR worktree", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main", "feat-auth")
+		t.Chdir(groveWorkspace.Dir)
+		if err := git.SetBranchConfig(groveWorkspace.BareDir, "feat-auth", "grovePr", "42"); err != nil {
+			t.Fatal(err)
+		}
+		argumentsPath := stubHerdr(t, "printf '%s\\n' '{\"ok\":true}'\n")
+
+		if _, _, err := executeSwitch(t, "feat-auth", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		arguments, err := os.ReadFile(argumentsPath) // nolint:gosec // The test creates this marker in t.TempDir().
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(arguments), "--label") {
+			t.Errorf("herdr arguments = %q, want no --label for a PR worktree", arguments)
+		}
+	})
 
 	t.Run("prints the path without the flag", func(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main")

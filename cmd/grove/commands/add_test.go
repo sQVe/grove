@@ -23,21 +23,24 @@ func TestAddHerdr(t *testing.T) {
 	}
 
 	for _, scenario := range []struct {
-		name      string
-		arguments []string
-		hook      string
-		exitCode  string
-		missing   bool
-		wantCall  bool
-		wantError string
+		name         string
+		arguments    []string
+		hook         string
+		exitCode     string
+		missing      bool
+		wantCall     bool
+		wantError    string
+		wantLabel    string
+		worktreeName string
 	}{
-		{name: "branch", arguments: []string{"feature", "--herdr"}, wantCall: true},
+		{name: "branch", arguments: []string{"feature", "--herdr"}, wantCall: true, wantLabel: "feature"},
+		{name: "named branch", arguments: []string{"feature", "--herdr"}, worktreeName: "scratch", wantCall: true, wantLabel: "feature"},
 		{name: "detached", arguments: []string{"main", "--detach", "--herdr"}, wantCall: true},
-		{name: "pull request", arguments: []string{"https://github.com/owner/repo/pull/42", "--herdr"}, wantCall: true},
+		{name: "pull request", arguments: []string{"https://github.com/owner/repo/pull/42", "--herdr"}, wantCall: true, wantLabel: "Fix the login flow"},
 		{name: "without flag", arguments: []string{"feature"}},
 		{name: "failed hook", arguments: []string{"feature", "--herdr"}, hook: "exit 9", wantError: "hook failed"},
 		{name: "missing binary", arguments: []string{"feature", "--herdr"}, missing: true, wantError: "PATH"},
-		{name: "failed handoff", arguments: []string{"feature", "--herdr"}, exitCode: "7", wantCall: true, wantError: "exit status 7"},
+		{name: "failed handoff", arguments: []string{"feature", "--herdr"}, exitCode: "7", wantCall: true, wantError: "exit status 7", wantLabel: "feature"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			repository := testgit.NewTestRepo(t)
@@ -81,7 +84,7 @@ exit "${HERDR_EXIT:-0}"
 			}
 			testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
-printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
 `, fs.FileExec)
 			t.Setenv("PATH", binaryDir)
 
@@ -96,10 +99,15 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 				_ = stderr.Close()
 			})
 
+			worktreeName := scenario.worktreeName
+			if worktreeName == "" {
+				worktreeName = "prepared tree"
+			}
+
 			command := NewAddCmd()
-			command.SetArgs(append(scenario.arguments, "--name", "prepared tree", "--no-fetch"))
+			command.SetArgs(append(scenario.arguments, "--name", worktreeName, "--no-fetch"))
 			err = command.Execute()
-			worktreePath := filepath.Join(workspaceRoot, "prepared tree")
+			worktreePath := filepath.Join(workspaceRoot, worktreeName)
 			if scenario.wantError == "" {
 				if err != nil {
 					t.Fatal(err)
@@ -134,6 +142,10 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
 			if scenario.wantCall {
 				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+				if scenario.wantLabel != "" {
+					want += "--label\n" + scenario.wantLabel + "\n"
+				}
+
 				if readError != nil || string(calls) != want {
 					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
 				}
@@ -363,7 +375,7 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 `, fs.FileExec)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
-printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
 `, fs.FileExec)
 	t.Setenv("PATH", binaryDir)
 
@@ -404,7 +416,7 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	if err != nil {
 		t.Fatalf("dirty worktree never reached Herdr: %v", err)
 	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
 	if string(calls) != want {
 		t.Fatalf("calls = %q, want %q", calls, want)
 	}
@@ -454,7 +466,7 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 `, fs.FileExec)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
-printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
 `, fs.FileExec)
 	t.Setenv("PATH", binaryDir)
 
@@ -471,6 +483,11 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	command.SetArgs([]string{"https://github.com/owner/repo/pull/42", "--herdr"})
 	if err := command.Execute(); err != nil {
 		t.Fatalf("dirty PR re-run must open, got: %v", err)
+	}
+
+	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+	if err != nil || !strings.Contains(string(calls), "--label\nFix the login flow\n") {
+		t.Fatalf("calls = %q, error = %v, want PR title label", calls, err)
 	}
 
 	configs, err := git.GetBranchConfigs(bareDir, "grovePr")
@@ -516,7 +533,7 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
 if [ "$1" = repo ]; then printf '%s\n' "$GH_FORK_URL"; exit 0; fi
-printf '%s\n' '{"headRefName":"fork-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"contributor"}}'
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"fork-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"contributor"}}'
 `, fs.FileExec)
 	t.Setenv("GH_FORK_URL", repository.Path)
 	t.Setenv("PATH", binaryDir)
@@ -553,7 +570,7 @@ printf '%s\n' '{"headRefName":"fork-feature","headRepository":{"name":"repo"},"h
 	if err != nil {
 		t.Fatalf("fork PR rerun never reached Herdr: %v", err)
 	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
 	if string(calls) != want {
 		t.Fatalf("calls = %q, want the fork PR worktree %q", calls, want)
 	}
@@ -590,7 +607,7 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 `, fs.FileExec)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
-printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
 `, fs.FileExec)
 	t.Setenv("PATH", binaryDir)
 
@@ -632,7 +649,7 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	if err != nil {
 		t.Fatalf("unsynced worktree never reached Herdr: %v", err)
 	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
+	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
 	if string(calls) != want {
 		t.Fatalf("calls = %q, want %q", calls, want)
 	}

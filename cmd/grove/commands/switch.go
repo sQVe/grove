@@ -173,7 +173,12 @@ func runSwitch(target string, herdr bool) error {
 	}
 
 	if herdr {
-		if err := openWorktreeInHerdr(bareDir, resolved[0].Path); err != nil {
+		label := ""
+		if !resolved[0].Detached && resolved[0].PR == 0 {
+			label = herdrLabel(resolved[0].Branch)
+		}
+
+		if err := openWorktreeInHerdr(bareDir, resolved[0].Path, label); err != nil {
 			return err
 		}
 
