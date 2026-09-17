@@ -1,3 +1,0 @@
-kind: Changed
-body: '`grove prune --merged` accepts a target branch as `--merged=<branch>`, so merged candidates can be selected against any base branch.'
-time: 2026-09-11T08:55:00+02:00

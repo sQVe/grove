@@ -1,5 +1,0 @@
-kind: Fixed
-body: Reuse the existing worktree when grove add --herdr is run again, without repeating setup or hooks.
-time: 2026-09-11T11:46:01.691830575+02:00
-custom:
-  Issue: ''
