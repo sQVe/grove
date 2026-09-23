@@ -37,7 +37,7 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 
 	t.Setenv("PATH", filepath.Dir(ghPath)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, false, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	err := runAddFromPR("https://github.com/owner/repo/pull/42", false, false, "", bareDir, remote.TempDir, worktreePath, false, func() {}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 	t.Setenv("HERDR_CALLS", callPath)
 	testutil.WriteFileMode(t, filepath.Join(filepath.Dir(ghPath), "herdr"), "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$HERDR_CALLS\"\n", fs.FileExec)
 
-	err = runAddFromPR("https://github.com/owner/repo/pull/42", false, true, "", bareDir, remote.TempDir, worktreePath, false, func() {})
+	err = runAddFromPR("https://github.com/owner/repo/pull/42", false, true, "", bareDir, remote.TempDir, worktreePath, false, func() {}, false)
 	if err != nil {
 		t.Fatalf("handoff existing PR worktree: %v", err)
 	}

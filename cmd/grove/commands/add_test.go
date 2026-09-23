@@ -23,26 +23,30 @@ func TestAddHerdr(t *testing.T) {
 	}
 
 	for _, scenario := range []struct {
-		name         string
-		arguments    []string
-		hook         string
-		exitCode     string
-		missing      bool
-		wantCall     bool
-		wantError    string
-		wantLabel    string
-		worktreeName string
+		name                 string
+		arguments            []string
+		hook                 string
+		exitCode             string
+		missing              bool
+		wantCall             bool
+		wantError            string
+		wantLabel            string
+		worktreeName         string
+		linkDirectory        bool
+		wantHookSkipped      bool
+		checkHookEnvironment bool
+		wantHookBranch       string
 	}{
 		{name: "branch", arguments: []string{"feature", "--herdr"}, wantCall: true, wantLabel: "feature"},
 		{name: "named branch", arguments: []string{"feature", "--herdr"}, worktreeName: "scratch", wantCall: true, wantLabel: "feature"},
 		{name: "detached", arguments: []string{"main", "--detach", "--herdr"}, wantCall: true},
-		{name: "detached hook environment", arguments: []string{"main", "--detach"}, hook: `printf '%s' "$GROVE_BRANCH" > branch-env`},
-		{name: "pull request no hooks", arguments: []string{"https://github.com/owner/repo/pull/42", "--no-hooks"}, hook: "touch should-not-run"},
+		{name: "detached hook environment", arguments: []string{"main", "--detach"}, hook: `printf '%s\n' "$GROVE_WORKTREE" "$GROVE_SOURCE_WORKTREE" "$GROVE_BRANCH" "$GROVE_WORKSPACE_ROOT" > hook-env`, checkHookEnvironment: true},
+		{name: "pull request no hooks", arguments: []string{"https://github.com/owner/repo/pull/42", "--no-hooks"}, hook: "touch should-not-run", wantHookSkipped: true},
 		{name: "pull request", arguments: []string{"https://github.com/owner/repo/pull/42", "--herdr"}, wantCall: true, wantLabel: "Fix the login flow"},
 		{name: "without flag", arguments: []string{"feature"}},
 		{name: "failed hook", arguments: []string{"feature", "--herdr"}, hook: "exit 9", wantError: "hook failed"},
-		{name: "no hooks", arguments: []string{"feature", "--no-hooks"}, hook: "touch should-not-run"},
-		{name: "hook environment", arguments: []string{"feature"}, hook: `printf '%s\n' "$GROVE_WORKTREE" "$GROVE_SOURCE_WORKTREE" "$GROVE_BRANCH" "$GROVE_WORKSPACE_ROOT" > hook-env`},
+		{name: "no hooks", arguments: []string{"feature", "--no-hooks"}, hook: "touch should-not-run", linkDirectory: true, wantHookSkipped: true},
+		{name: "hook environment", arguments: []string{"feature"}, hook: `printf '%s\n' "$GROVE_WORKTREE" "$GROVE_SOURCE_WORKTREE" "$GROVE_BRANCH" "$GROVE_WORKSPACE_ROOT" > hook-env`, checkHookEnvironment: true, wantHookBranch: "feature"},
 		{name: "missing binary", arguments: []string{"feature", "--herdr"}, missing: true, wantError: "PATH"},
 		{name: "failed handoff", arguments: []string{"feature", "--herdr"}, exitCode: "7", wantCall: true, wantError: "exit status 7", wantLabel: "feature"},
 	} {
@@ -61,7 +65,7 @@ func TestAddHerdr(t *testing.T) {
 				hook = scenario.hook
 			}
 			hook = strings.ReplaceAll(hook, `"`, `\"`)
-			if scenario.name == "no hooks" {
+			if scenario.linkDirectory {
 				testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[link]\npatterns = [\"linked\"]\n[hooks]\nadd = [\""+hook+"\"]\n")
 				if err := os.MkdirAll(filepath.Join(mainPath, "linked"), 0o750); err != nil {
 					t.Fatal(err)
@@ -85,7 +89,7 @@ func TestAddHerdr(t *testing.T) {
 			callPath := filepath.Join(t.TempDir(), "calls")
 			t.Setenv("HERDR_CALLS", callPath)
 			t.Setenv("HERDR_EXIT", scenario.exitCode)
-			if scenario.name == "hook environment" || scenario.name == "detached hook environment" {
+			if scenario.checkHookEnvironment {
 				t.Setenv("GROVE_WORKTREE", "stale")
 				t.Setenv("GROVE_SOURCE_WORKTREE", "stale")
 				t.Setenv("GROVE_BRANCH", "stale")
@@ -156,26 +160,20 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 			if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
 				t.Fatalf("worktree must remain intact: %v", err)
 			}
-			if scenario.name == "no hooks" || scenario.name == "pull request no hooks" {
+			if scenario.wantHookSkipped {
 				if _, err := os.Stat(filepath.Join(worktreePath, "should-not-run")); !os.IsNotExist(err) {
 					t.Fatalf("hook ran despite --no-hooks: %v", err)
 				}
-				if scenario.name == "no hooks" {
-					link, err := os.Lstat(filepath.Join(worktreePath, "linked"))
-					if err != nil || link.Mode()&os.ModeSymlink == 0 {
-						t.Fatalf("--no-hooks skipped directory linking: %v", err)
-					}
+			}
+			if scenario.linkDirectory {
+				link, err := os.Lstat(filepath.Join(worktreePath, "linked"))
+				if err != nil || link.Mode()&os.ModeSymlink == 0 {
+					t.Fatalf("--no-hooks skipped directory linking: %v", err)
 				}
 			}
-			if scenario.name == "detached hook environment" {
-				got, err := os.ReadFile(filepath.Join(worktreePath, "branch-env")) //nolint:gosec // Test-owned temporary path.
-				if err != nil || len(got) != 0 {
-					t.Fatalf("detached hook branch = %q, error = %v, want empty", got, err)
-				}
-			}
-			if scenario.name == "hook environment" {
+			if scenario.checkHookEnvironment {
 				got, err := os.ReadFile(filepath.Join(worktreePath, "hook-env")) //nolint:gosec // Test-owned temporary path.
-				want := worktreePath + "\n" + mainPath + "\nfeature\n" + workspaceRoot + "\n"
+				want := worktreePath + "\n" + mainPath + "\n" + scenario.wantHookBranch + "\n" + workspaceRoot + "\n"
 				if err != nil || string(got) != want {
 					t.Fatalf("hook environment = %q, error = %v, want %q", got, err, want)
 				}
@@ -868,7 +866,7 @@ func TestRunAdd_NotInWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "", false)
+	err = runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "", false, false)
 	if !errors.Is(err, workspace.ErrNotInWorkspace) {
 		t.Errorf("expected ErrNotInWorkspace, got %v", err)
 	}
@@ -887,56 +885,56 @@ func TestRunAdd_PRValidation(t *testing.T) {
 	}
 
 	t.Run("base flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, false, "main", "", false, 123, false, "", false)
+		err := runAdd(nil, false, false, "main", "", false, 123, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with --pr", func(t *testing.T) {
-		err := runAdd(nil, false, false, "", "", true, 123, false, "", false)
+		err := runAdd(nil, false, false, "", "", true, 123, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("negative --pr gives clear error", func(t *testing.T) {
-		err := runAdd(nil, false, false, "", "", false, -5, false, "", false)
+		err := runAdd(nil, false, false, "", "", false, -5, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--pr must be a positive number") {
 			t.Errorf("expected positive number error, got %v", err)
 		}
 	})
 
 	t.Run("--pr cannot be combined with positional argument", func(t *testing.T) {
-		err := runAdd([]string{"feature"}, false, false, "", "", false, 123, false, "", false)
+		err := runAdd([]string{"feature"}, false, false, "", "", false, 123, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--pr flag cannot be combined with positional argument") {
 			t.Errorf("expected --pr/positional conflict error, got %v", err)
 		}
 	})
 
 	t.Run("old #N syntax gives helpful error", func(t *testing.T) {
-		err := runAdd([]string{"#123"}, false, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"#123"}, false, false, "", "", false, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "syntax no longer supported") {
 			t.Errorf("expected helpful migration error, got %v", err)
 		}
 	})
 
 	t.Run("base flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "main", "", false, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "main", "", false, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error, got %v", err)
 		}
 	})
 
 	t.Run("detach flag cannot be used with PR URL", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "", "", true, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/456"}, false, false, "", "", true, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error, got %v", err)
 		}
 	})
 
 	t.Run("reset flag can only be used with PR references", func(t *testing.T) {
-		err := runAdd([]string{"feature-branch"}, false, false, "", "", false, 0, true, "", false)
+		err := runAdd([]string{"feature-branch"}, false, false, "", "", false, 0, true, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--reset can only be used with PR references") {
 			t.Errorf("expected --reset/PR error, got %v", err)
 		}
@@ -945,7 +943,7 @@ func TestRunAdd_PRValidation(t *testing.T) {
 
 func TestRunAdd_DetachBaseValidation(t *testing.T) {
 	t.Run("detach and base cannot be used together", func(t *testing.T) {
-		err := runAdd([]string{"v1.0.0"}, false, false, "main", "", true, 0, false, "", false)
+		err := runAdd([]string{"v1.0.0"}, false, false, "main", "", true, 0, false, "", false, false)
 		if err == nil || err.Error() != "--detach and --base cannot be used together" {
 			t.Errorf("expected detach/base error, got %v", err)
 		}
@@ -968,14 +966,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("whitespace-only branch name", func(t *testing.T) {
 		// Whitespace is trimmed, resulting in empty string
 		// This should fail with "requires branch" error
-		err := runAdd([]string{"   "}, false, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"   "}, false, false, "", "", false, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error for whitespace-only branch name, got %v", err)
 		}
 	})
 
 	t.Run("no args and no --pr flag", func(t *testing.T) {
-		err := runAdd(nil, false, false, "", "", false, 0, false, "", false)
+		err := runAdd(nil, false, false, "", "", false, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "requires branch") {
 			t.Errorf("expected 'requires branch' error, got %v", err)
 		}
@@ -985,7 +983,7 @@ func TestRunAdd_InputValidation(t *testing.T) {
 		// The trimming happens, then workspace detection runs
 		// We're not in a workspace, so we'll get that error
 		// But this verifies the trim doesn't crash
-		err := runAdd([]string{"  feature-test  "}, false, false, "", "", false, 0, false, "", false)
+		err := runAdd([]string{"  feature-test  "}, false, false, "", "", false, 0, false, "", false, false)
 		if !errors.Is(err, workspace.ErrNotInWorkspace) {
 			t.Errorf("expected ErrNotInWorkspace after trimming, got %v", err)
 		}
@@ -994,14 +992,14 @@ func TestRunAdd_InputValidation(t *testing.T) {
 	t.Run("PR URL with /files suffix works", func(t *testing.T) {
 		// PR URLs with /files suffix should be detected as PR references
 		// Flag validation happens before workspace detection
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, false, "main", "", false, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123/files"}, false, false, "main", "", false, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--base cannot be used with PR") {
 			t.Errorf("expected base/PR error for URL with /files suffix, got %v", err)
 		}
 	})
 
 	t.Run("PR URL with query params works", func(t *testing.T) {
-		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, false, "", "", true, 0, false, "", false)
+		err := runAdd([]string{"https://github.com/owner/repo/pull/123?diff=split"}, false, false, "", "", true, 0, false, "", false, false)
 		if err == nil || !strings.Contains(err.Error(), "--detach cannot be used with PR") {
 			t.Errorf("expected detach/PR error for URL with query params, got %v", err)
 		}
@@ -1613,7 +1611,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err := runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "nonexistent", false)
+		err := runAdd([]string{"feature-test"}, false, false, "", "", false, 0, false, "nonexistent", false, false)
 		if err == nil {
 			t.Fatal("expected error for nonexistent --from worktree")
 		}
@@ -1650,7 +1648,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		})
 
 		// Create a new worktree with --from pointing to source
-		err := runAdd([]string{"feature-from-test"}, false, false, "", "", false, 0, false, "source", false)
+		err := runAdd([]string{"feature-from-test"}, false, false, "", "", false, 0, false, "source", false, false)
 		if err != nil {
 			t.Errorf("expected success with valid --from, got %v", err)
 		}
@@ -1731,7 +1729,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = runAdd([]string{"main"}, false, false, "", "", false, 0, false, "", false)
+	err = runAdd([]string{"main"}, false, false, "", "", false, 0, false, "", false, false)
 	if err == nil {
 		t.Fatal("expected error for existing worktree")
 	}
@@ -1807,7 +1805,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"feat"}, false, false, "", "", false, 0, false, "", false); err != nil {
+	if err := runAdd([]string{"feat"}, false, false, "", "", false, 0, false, "", false, false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 
@@ -1889,7 +1887,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runAdd([]string{"newwork"}, false, false, "", "", false, 0, false, "", false); err != nil {
+	if err := runAdd([]string{"newwork"}, false, false, "", "", false, 0, false, "", false, false); err != nil {
 		t.Fatalf("runAdd: %v", err)
 	}
 

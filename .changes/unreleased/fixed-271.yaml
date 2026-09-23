@@ -1,5 +1,5 @@
 kind: Fixed
-body: Run add hooks from the configured worktree and expose worktree context; add --no-hooks to skip them.
+body: Load add hooks from the worktree with .grove.toml, falling back to the --from source.
 time: 2026-09-23T16:28:44.592080999+02:00
 custom:
   Issue: '271'

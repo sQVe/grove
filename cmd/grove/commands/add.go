@@ -79,11 +79,7 @@ Examples:
 	return cmd
 }
 
-func noHooksFlag(values []bool) bool {
-	return len(values) > 0 && values[0]
-}
-
-func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool, noHooks ...bool) error {
+func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch, noHooks bool) error {
 	if herdr && switchTo {
 		return fmt.Errorf("--herdr and --switch cannot be used together")
 	}
@@ -209,21 +205,21 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooksFlag(noHooks))
+		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooks)
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooksFlag(noHooks))
+		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooks)
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, noHooksFlag(noHooks))
+		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, noHooks)
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase(), noHooksFlag(noHooks))
+	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase(), noHooks)
 }
 
 // A refresh can refuse for two reasons that describe the user's own in-progress
@@ -251,7 +247,7 @@ func samePath(a, b string) bool {
 	return fs.PathsEqual(resolve(a), resolve(b))
 }
 
-func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool, noHooks ...bool) error {
+func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase, noHooks bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -330,7 +326,7 @@ func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bar
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, herdrLabel(branch), switchTo, herdr, noHooksFlag(noHooks), releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, herdrLabel(branch), switchTo, herdr, noHooks, releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -378,7 +374,7 @@ func fastForwardIfBehind(bareDir, branch string, fetch bool) {
 	}
 }
 
-func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), noHooks ...bool) error {
+func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), noHooks bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(ref)
@@ -433,11 +429,11 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", "", switchTo, herdr, noHooksFlag(noHooks), releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", "", switchTo, herdr, noHooks, releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func(), noHooks ...bool) error {
+func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func(), noHooks bool) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -539,7 +535,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, noHooksFlag(noHooks), releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, noHooks, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
