@@ -1,0 +1,6 @@
+# grove doctor: performance analysis with JSON output
+setup_workspace
+
+exec sh -c 'grove doctor --perf --json | jq -e .disk_usage'
+stdout '"path": "main"'
+stdout '"path": "\.bare \(shared\)"'

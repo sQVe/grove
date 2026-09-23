@@ -287,6 +287,12 @@ type DoctorResult struct {
 	Errors      int
 	Warnings    int
 	AutoFixable int
+	DiskUsage   []DiskUsage
+}
+
+type DiskUsage struct {
+	Path  string `json:"path"`
+	Bytes int64  `json:"bytes"`
 }
 
 // NewDoctorCmd creates the doctor command
@@ -370,7 +376,8 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 		}
 
 		if perf {
-			if err := outputPerfAnalysis(bareDir); err != nil {
+			result.DiskUsage, err = collectDiskUsage(bareDir)
+			if err != nil {
 				return err
 			}
 		}
@@ -382,6 +389,10 @@ func runDoctor(fix, jsonOutput, perf bool) error {
 	}
 
 	// Output human-readable format
+	if perf && inWorkspace {
+		outputPerfAnalysis(result.DiskUsage)
+	}
+
 	return outputDoctorResult(result)
 }
 
@@ -957,8 +968,9 @@ type jsonSummary struct {
 }
 
 type jsonResult struct {
-	Issues  []jsonIssue `json:"issues"`
-	Summary jsonSummary `json:"summary"`
+	Issues    []jsonIssue `json:"issues"`
+	Summary   jsonSummary `json:"summary"`
+	DiskUsage []DiskUsage `json:"disk_usage,omitempty"`
 }
 
 func outputJSONResult(result *DoctorResult) error {
@@ -966,7 +978,8 @@ func outputJSONResult(result *DoctorResult) error {
 
 	// Convert to JSON-friendly structure
 	jsonRes := jsonResult{
-		Issues: make([]jsonIssue, 0, len(result.Issues)),
+		Issues:    make([]jsonIssue, 0, len(result.Issues)),
+		DiskUsage: result.DiskUsage,
 		Summary: jsonSummary{
 			Errors:      result.Errors,
 			Warnings:    result.Warnings,
@@ -995,38 +1008,40 @@ func outputJSONResult(result *DoctorResult) error {
 
 // Phase 6: Performance analysis
 
-func outputPerfAnalysis(bareDir string) error {
+func collectDiskUsage(bareDir string) ([]DiskUsage, error) {
 	workspaceRoot := filepath.Dir(bareDir)
-
-	fmt.Println("Disk Usage")
-	fmt.Println()
-
-	// Get worktrees
 	worktrees, err := git.ListWorktrees(bareDir)
 	if err != nil {
-		return fmt.Errorf("failed to list worktrees: %w", err)
+		return nil, fmt.Errorf("failed to list worktrees: %w", err)
 	}
 
-	// Calculate size for each worktree
+	usage := make([]DiskUsage, 0, len(worktrees)+1)
 	for _, worktreePath := range worktrees {
 		size, err := calculateDirSize(worktreePath)
 		if err != nil {
 			logger.Debug("Failed to calculate size for %s: %v", worktreePath, err)
-
 			continue
 		}
 
 		relPath, _ := filepath.Rel(workspaceRoot, worktreePath)
-		fmt.Printf("  %s  %s\n", formatSize(size), relPath)
+		usage = append(usage, DiskUsage{Path: relPath, Bytes: size})
 	}
 
-	// Calculate .bare size
 	bareSize, err := calculateDirSize(bareDir)
 	if err == nil {
-		fmt.Printf("  %s  .bare (shared)\n", formatSize(bareSize))
+		usage = append(usage, DiskUsage{Path: ".bare (shared)", Bytes: bareSize})
 	}
 
-	return nil
+	return usage, nil
+}
+
+func outputPerfAnalysis(usage []DiskUsage) {
+	fmt.Println("Disk Usage")
+	fmt.Println()
+
+	for _, entry := range usage {
+		fmt.Printf("  %s  %s\n", formatSize(entry.Bytes), entry.Path)
+	}
 }
 
 func calculateDirSize(path string) (int64, error) {
