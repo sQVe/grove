@@ -645,6 +645,52 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"fork-feature","headR
 	}
 }
 
+func TestAddForkPRHookSeesEmptyBranch(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell hooks are not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	repository.CreateBranch("fork-feature")
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[hooks]\nadd = [\"printf '%s' \\\"$GROVE_BRANCH\\\" > branch-env\"]\n")
+	t.Chdir(mainPath)
+
+	binaryDir := t.TempDir()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/bin/sh", filepath.Join(binaryDir, "sh")); err != nil {
+		t.Fatal(err)
+	}
+	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
+if [ "$1" = auth ]; then exit 0; fi
+if [ "$1" = repo ]; then printf '%s\n' "$GH_FORK_URL"; exit 0; fi
+printf '%s\n' '{"title":"Fix the login flow","headRefName":"fork-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"contributor"}}'
+`, fs.FileExec)
+	t.Setenv("GH_FORK_URL", repository.Path)
+	t.Setenv("PATH", binaryDir)
+
+	command := NewAddCmd()
+	command.SetArgs([]string{"https://github.com/owner/repo/pull/42"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(workspaceRoot, "pr-42", "branch-env")) //nolint:gosec // Test-owned temporary path.
+	if err != nil || len(got) != 0 {
+		t.Fatalf("fork hook branch = %q, error = %v, want empty", got, err)
+	}
+}
+
 // Local commits are work in progress too, so --herdr opens past that refusal
 // exactly as it does past a dirty worktree.
 func TestAddHerdrOpensUnsyncedPRWorktree(t *testing.T) {

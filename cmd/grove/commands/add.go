@@ -535,7 +535,12 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, noHooks, releaseLock,
+	worktreeBranch := branch
+	if prInfo.IsFork {
+		worktreeBranch = ""
+	}
+
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, worktreeBranch, prInfo.Title, switchTo, herdr, noHooks, releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
