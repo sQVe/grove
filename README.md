@@ -232,8 +232,15 @@ grove add --base main feat/auth
 grove add --pr 123             # PR by number
 grove add --pr 123 --reset     # PR, discarding local commits
 grove add --detach v1.0.0      # Tag in detached HEAD
+grove add feat/auth --no-hooks # Skip add hooks
 grove add --from dev feat/auth # Copy .env from dev worktree
 ```
+
+Add hooks use the worktree with `.grove.toml`, falling back to the selected `--from` source.
+They run in the new worktree with `GROVE_WORKTREE`, `GROVE_SOURCE_WORKTREE`,
+`GROVE_BRANCH`, and `GROVE_WORKSPACE_ROOT` set. `GROVE_BRANCH` is empty for detached
+worktrees. Use `--no-hooks` to skip add hooks while keeping worktree creation and file
+preservation/linking.
 
 New branches start from the default branch on origin, fetched with a five-second timeout.
 If fetching fails, Grove warns with the base ref and commit age, then uses the existing
