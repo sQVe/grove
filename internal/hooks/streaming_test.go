@@ -215,6 +215,28 @@ func TestRunAddHooksStreaming(t *testing.T) {
 		}
 	})
 
+	t.Run("passes hook environment while preserving inherited values", func(t *testing.T) {
+		workDir := testutil.TempDir(t)
+		t.Setenv("GROVE_WORKTREE", "stale")
+		t.Setenv("GROVE_SOURCE_WORKTREE", "stale")
+		t.Setenv("GROVE_BRANCH", "stale")
+		t.Setenv("GROVE_WORKSPACE_ROOT", "stale")
+		t.Setenv("INHERITED", "kept")
+		var output bytes.Buffer
+
+		command := `test "$GROVE_WORKTREE:$GROVE_SOURCE_WORKTREE:$GROVE_BRANCH:$GROVE_WORKSPACE_ROOT:$INHERITED" = "dest:source:feature:root:kept"`
+		result := RunAddHooksStreaming(workDir, []string{command}, &output,
+			"GROVE_WORKTREE=dest",
+			"GROVE_SOURCE_WORKTREE=source",
+			"GROVE_BRANCH=feature",
+			"GROVE_WORKSPACE_ROOT=root",
+		)
+
+		if result.Failed != nil {
+			t.Fatalf("hook failed: %v", result.Failed)
+		}
+	})
+
 	t.Run("handles command without trailing newline", func(t *testing.T) {
 		workDir := testutil.TempDir(t)
 		var output bytes.Buffer

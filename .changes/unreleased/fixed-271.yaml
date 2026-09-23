@@ -1,0 +1,5 @@
+kind: Fixed
+body: Run add hooks from the configured worktree and expose worktree context; add --no-hooks to skip them.
+time: 2026-09-23T16:28:44.592080999+02:00
+custom:
+  Issue: '271'

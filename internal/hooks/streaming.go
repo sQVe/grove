@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 
@@ -63,7 +64,7 @@ func (w *prefixWriter) Flush() error {
 	return nil
 }
 
-func RunAddHooksStreaming(workDir string, commands []string, output io.Writer) *RunResult {
+func RunAddHooksStreaming(workDir string, commands []string, output io.Writer, environment ...string) *RunResult {
 	result := &RunResult{}
 	if len(commands) == 0 {
 		return result
@@ -76,6 +77,7 @@ func RunAddHooksStreaming(workDir string, commands []string, output io.Writer) *
 
 		cmd := exec.Command("sh", "-c", cmdStr) //nolint:gosec // User-configured hooks are intentionally executed
 		cmd.Dir = workDir
+		cmd.Env = append(os.Environ(), environment...)
 
 		var mu sync.Mutex
 		prefix := styles.Render(&styles.Dimmed, fmt.Sprintf("  [%s]", cmdStr))

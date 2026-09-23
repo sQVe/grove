@@ -36,9 +36,13 @@ func TestAddHerdr(t *testing.T) {
 		{name: "branch", arguments: []string{"feature", "--herdr"}, wantCall: true, wantLabel: "feature"},
 		{name: "named branch", arguments: []string{"feature", "--herdr"}, worktreeName: "scratch", wantCall: true, wantLabel: "feature"},
 		{name: "detached", arguments: []string{"main", "--detach", "--herdr"}, wantCall: true},
+		{name: "detached hook environment", arguments: []string{"main", "--detach"}, hook: `printf '%s' "$GROVE_BRANCH" > branch-env`},
+		{name: "pull request no hooks", arguments: []string{"https://github.com/owner/repo/pull/42", "--no-hooks"}, hook: "touch should-not-run"},
 		{name: "pull request", arguments: []string{"https://github.com/owner/repo/pull/42", "--herdr"}, wantCall: true, wantLabel: "Fix the login flow"},
 		{name: "without flag", arguments: []string{"feature"}},
 		{name: "failed hook", arguments: []string{"feature", "--herdr"}, hook: "exit 9", wantError: "hook failed"},
+		{name: "no hooks", arguments: []string{"feature", "--no-hooks"}, hook: "touch should-not-run"},
+		{name: "hook environment", arguments: []string{"feature"}, hook: `printf '%s\n' "$GROVE_WORKTREE" "$GROVE_SOURCE_WORKTREE" "$GROVE_BRANCH" "$GROVE_WORKSPACE_ROOT" > hook-env`},
 		{name: "missing binary", arguments: []string{"feature", "--herdr"}, missing: true, wantError: "PATH"},
 		{name: "failed handoff", arguments: []string{"feature", "--herdr"}, exitCode: "7", wantCall: true, wantError: "exit status 7", wantLabel: "feature"},
 	} {
@@ -56,7 +60,15 @@ func TestAddHerdr(t *testing.T) {
 			if scenario.hook != "" {
 				hook = scenario.hook
 			}
-			testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[hooks]\nadd = [\""+hook+"\"]\n")
+			hook = strings.ReplaceAll(hook, `"`, `\"`)
+			if scenario.name == "no hooks" {
+				testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[link]\npatterns = [\"linked\"]\n[hooks]\nadd = [\""+hook+"\"]\n")
+				if err := os.MkdirAll(filepath.Join(mainPath, "linked"), 0o750); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[hooks]\nadd = [\""+hook+"\"]\n")
+			}
 
 			binaryDir := t.TempDir()
 			gitPath, err := exec.LookPath("git")
@@ -73,6 +85,12 @@ func TestAddHerdr(t *testing.T) {
 			callPath := filepath.Join(t.TempDir(), "calls")
 			t.Setenv("HERDR_CALLS", callPath)
 			t.Setenv("HERDR_EXIT", scenario.exitCode)
+			if scenario.name == "hook environment" || scenario.name == "detached hook environment" {
+				t.Setenv("GROVE_WORKTREE", "stale")
+				t.Setenv("GROVE_SOURCE_WORKTREE", "stale")
+				t.Setenv("GROVE_BRANCH", "stale")
+				t.Setenv("GROVE_WORKSPACE_ROOT", "stale")
+			}
 			if !scenario.missing {
 				testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
 [ -f "$6/prepared" ] || exit 8
@@ -138,6 +156,30 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 			if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
 				t.Fatalf("worktree must remain intact: %v", err)
 			}
+			if scenario.name == "no hooks" || scenario.name == "pull request no hooks" {
+				if _, err := os.Stat(filepath.Join(worktreePath, "should-not-run")); !os.IsNotExist(err) {
+					t.Fatalf("hook ran despite --no-hooks: %v", err)
+				}
+				if scenario.name == "no hooks" {
+					link, err := os.Lstat(filepath.Join(worktreePath, "linked"))
+					if err != nil || link.Mode()&os.ModeSymlink == 0 {
+						t.Fatalf("--no-hooks skipped directory linking: %v", err)
+					}
+				}
+			}
+			if scenario.name == "detached hook environment" {
+				got, err := os.ReadFile(filepath.Join(worktreePath, "branch-env")) //nolint:gosec // Test-owned temporary path.
+				if err != nil || len(got) != 0 {
+					t.Fatalf("detached hook branch = %q, error = %v, want empty", got, err)
+				}
+			}
+			if scenario.name == "hook environment" {
+				got, err := os.ReadFile(filepath.Join(worktreePath, "hook-env")) //nolint:gosec // Test-owned temporary path.
+				want := worktreePath + "\n" + mainPath + "\nfeature\n" + workspaceRoot + "\n"
+				if err != nil || string(got) != want {
+					t.Fatalf("hook environment = %q, error = %v, want %q", got, err, want)
+				}
+			}
 
 			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
 			if scenario.wantCall {
@@ -192,6 +234,35 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 				}
 			}
 		})
+	}
+}
+
+func TestAddRunsCanonicalHookWithSelectedSource(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell hooks are not executable on Windows")
+	}
+
+	repository := testgit.NewTestRepo(t)
+	workspaceRoot := filepath.Join(repository.TempDir, "workspace")
+	bareDir := filepath.Join(workspaceRoot, ".bare")
+	repository.RunOutput("clone", "--bare", repository.Path, bareDir)
+	mainPath := filepath.Join(workspaceRoot, "main")
+	repository.RunOutput("-C", bareDir, "worktree", "add", mainPath, "main")
+	sourcePath := filepath.Join(workspaceRoot, "source")
+	repository.RunOutput("-C", bareDir, "worktree", "add", "-b", "source", sourcePath, "main")
+	testutil.WriteFile(t, filepath.Join(mainPath, ".grove.toml"), "[hooks]\nadd = [\"printf '%s' \\\"$GROVE_SOURCE_WORKTREE\\\" > source-env\"]\n")
+	t.Chdir(mainPath)
+
+	command := NewAddCmd()
+	command.SetArgs([]string{"feature", "--from", "source", "--name", "destination", "--no-fetch"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	destination := filepath.Join(workspaceRoot, "destination")
+	got, err := os.ReadFile(filepath.Join(destination, "source-env")) //nolint:gosec // Test-owned temporary path.
+	if err != nil || string(got) != sourcePath {
+		t.Fatalf("hook source = %q, error = %v, want %q", got, err, sourcePath)
 	}
 }
 

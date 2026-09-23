@@ -28,6 +28,7 @@ func NewAddCmd() *cobra.Command {
 	var reset bool
 	var from string
 	var herdr bool
+	var noHooks bool
 
 	cmd := &cobra.Command{
 		Use:   "add [branch|PR-URL|ref]",
@@ -50,7 +51,7 @@ Examples:
 		ValidArgsFunction: completeAddArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switchTo, _ := cmd.Flags().GetBool("switch")
-			return runAdd(args, switchTo, herdr, baseBranch, name, detach, prNumber, reset, from, noFetch)
+			return runAdd(args, switchTo, herdr, baseBranch, name, detach, prNumber, reset, from, noFetch, noHooks)
 		},
 	}
 
@@ -63,6 +64,7 @@ Examples:
 	cmd.Flags().BoolVar(&reset, "reset", false, "Reset diverged PR branch to match remote (discards local commits and untracked files the remote now tracks)")
 	cmd.Flags().StringVar(&from, "from", "", "Source worktree for file preservation (name or branch)")
 	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "Skip fetching the base branch or an existing branch's upstream")
+	cmd.Flags().BoolVar(&noHooks, "no-hooks", false, "Skip add hooks")
 	cmd.Flags().BoolP("help", "h", false, "Help for add")
 
 	_ = cmd.RegisterFlagCompletionFunc("base", completeBaseBranch)
@@ -77,7 +79,11 @@ Examples:
 	return cmd
 }
 
-func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool) error {
+func noHooksFlag(values []bool) bool {
+	return len(values) > 0 && values[0]
+}
+
+func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach bool, prNumber int, reset bool, from string, noFetch bool, noHooks ...bool) error {
 	if herdr && switchTo {
 		return fmt.Errorf("--herdr and --switch cannot be used together")
 	}
@@ -203,21 +209,21 @@ func runAdd(args []string, switchTo, herdr bool, baseBranch, name string, detach
 	// Handle PR via --pr flag
 	if prFlag {
 		prRef := fmt.Sprintf("#%d", prNumber)
-		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(prRef, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooksFlag(noHooks))
 	}
 
 	// Handle PR via URL
 	if isPRURL {
-		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock)
+		return runAddFromPR(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, reset, releaseLock, noHooksFlag(noHooks))
 	}
 
 	// Detached worktree
 	if detach {
-		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock)
+		return runAddDetached(branchOrPR, switchTo, herdr, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, noHooksFlag(noHooks))
 	}
 
 	// Regular branch creation
-	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase())
+	return runAddFromBranch(branchOrPR, switchTo, herdr, baseBranch, name, bareDir, workspaceRoot, sourceWorktree, releaseLock, !noFetch && config.IsFetchBase(), noHooksFlag(noHooks))
 }
 
 // A refresh can refuse for two reasons that describe the user's own in-progress
@@ -245,7 +251,7 @@ func samePath(a, b string) bool {
 	return fs.PathsEqual(resolve(a), resolve(b))
 }
 
-func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool) error {
+func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), fetchBase bool, noHooks ...bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(branch)
@@ -324,7 +330,7 @@ func runAddFromBranch(branch string, switchTo, herdr bool, baseBranch, name, bar
 		}
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, herdrLabel(branch), switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, herdrLabel(branch), switchTo, herdr, noHooksFlag(noHooks), releaseLock,
 		"Created worktree at %s", styles.RenderPath(worktreePath))
 }
 
@@ -372,7 +378,7 @@ func fastForwardIfBehind(bareDir, branch string, fetch bool) {
 	}
 }
 
-func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func()) error {
+func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, releaseLock func(), noHooks ...bool) error {
 	dirName := name
 	if dirName == "" {
 		dirName = workspace.SanitizeBranchName(ref)
@@ -427,11 +433,11 @@ func runAddDetached(ref string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return git.HintGitTooOld(fmt.Errorf("failed to create detached worktree: %w", err))
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", "", switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, "", "", switchTo, herdr, noHooksFlag(noHooks), releaseLock,
 		"Created detached worktree at %s", styles.RenderPath(worktreePath))
 }
 
-func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func()) error {
+func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRoot, sourceWorktree string, reset bool, releaseLock func(), noHooks ...bool) error {
 	// Check gh is available
 	if err := github.CheckGhAvailable(); err != nil {
 		return err
@@ -533,7 +539,7 @@ func runAddFromPR(prRef string, switchTo, herdr bool, name, bareDir, workspaceRo
 		return err
 	}
 
-	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, releaseLock,
+	return finishWorktree(bareDir, sourceWorktree, worktreePath, branch, prInfo.Title, switchTo, herdr, noHooksFlag(noHooks), releaseLock,
 		"Created worktree for PR #%d at %s", ref.Number, styles.RenderPath(worktreePath))
 }
 
@@ -689,7 +695,7 @@ func checkoutPR(bareDir, worktreePath string, ref *github.PRRef, prInfo *github.
 	return nil
 }
 
-func finishWorktree(bareDir, sourceWorktree, worktreePath, branch, label string, switchTo, herdr bool, releaseLock func(), successFormat string, successArgs ...any) error {
+func finishWorktree(bareDir, sourceWorktree, worktreePath, branch, label string, switchTo, herdr, noHooks bool, releaseLock func(), successFormat string, successArgs ...any) error {
 	if branch != "" {
 		workspace.AutoLockIfMatched(bareDir, worktreePath, branch)
 	}
@@ -700,8 +706,10 @@ func finishWorktree(bareDir, sourceWorktree, worktreePath, branch, label string,
 	preserveResult := preserveFilesFromSource(sourceWorktree, worktreePath, configWorktree)
 	linkResult := linkDirectoriesFromSource(sourceWorktree, worktreePath, configWorktree)
 	spin.Stop()
-	if err := runAddHooks(sourceWorktree, worktreePath); err != nil {
-		return err
+	if !noHooks {
+		if err := runAddHooks(configWorktree, sourceWorktree, worktreePath, branch, filepath.Dir(bareDir)); err != nil {
+			return err
+		}
 	}
 
 	if herdr {
@@ -966,10 +974,13 @@ func logLinkResult(result *workspace.LinkResult) {
 	}
 }
 
-func runAddHooks(sourceWorktree, destWorktree string) error {
+func runAddHooks(configWorktree, sourceWorktree, destWorktree, branch, workspaceRoot string) error {
+	if configWorktree == "" {
+		configWorktree = sourceWorktree
+	}
 	var addHooks []string
-	if sourceWorktree != "" {
-		addHooks = hooks.GetAddHooks(sourceWorktree)
+	if configWorktree != "" {
+		addHooks = hooks.GetAddHooks(configWorktree)
 	}
 
 	if len(addHooks) == 0 {
@@ -978,7 +989,12 @@ func runAddHooks(sourceWorktree, destWorktree string) error {
 	}
 
 	logger.Info("Running %d hook(s)...", len(addHooks))
-	result := hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr)
+	result := hooks.RunAddHooksStreaming(destWorktree, addHooks, os.Stderr,
+		"GROVE_WORKTREE="+destWorktree,
+		"GROVE_SOURCE_WORKTREE="+sourceWorktree,
+		"GROVE_BRANCH="+branch,
+		"GROVE_WORKSPACE_ROOT="+workspaceRoot,
+	)
 	if result.Failed != nil {
 		return fmt.Errorf("hook failed: %s (exit code %d)", result.Failed.Command, result.Failed.ExitCode)
 	}
