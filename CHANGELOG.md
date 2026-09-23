@@ -1,3 +1,8 @@
+## [v1.12.1](https://github.com/sQVe/grove/releases/tag/v1.12.1) - 2026-09-23
+
+### Fixed
+- Keep grove doctor --perf --json output parseable.
+
 ## [v1.12.0](https://github.com/sQVe/grove/releases/tag/v1.12.0) - 2026-09-12
 
 ### Added
