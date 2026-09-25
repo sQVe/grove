@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sqve/grove/internal/fs"
 	"github.com/sqve/grove/internal/logger"
 )
 
@@ -133,12 +134,20 @@ func findHerdrWorkspaces(bareDir string) (herdrWorkspaces, error) {
 
 // lookup returns the workspace open on path, or "" when there is none. Resolve
 // before removal: once the directory is gone its symlinks cannot be followed.
+// Compare with fs.PathsEqual, not a map key, since Windows paths ignore case.
 func (w herdrWorkspaces) lookup(path string) string {
 	if len(w) == 0 {
 		return ""
 	}
 
-	return w[resolvePath(path)]
+	resolved := resolvePath(path)
+	for worktreePath, id := range w {
+		if fs.PathsEqual(worktreePath, resolved) {
+			return id
+		}
+	}
+
+	return ""
 }
 
 // resolvePath follows symlinks so the spelling Herdr reports and the one git

@@ -161,6 +161,21 @@ func TestHerdrLabel(t *testing.T) {
 	}
 }
 
+func TestHerdrWorkspacesLookup(t *testing.T) {
+	t.Run("matches paths that differ only in case on Windows", func(t *testing.T) {
+		if runtime.GOOS != "windows" {
+			t.Skip("paths are case-sensitive outside Windows")
+		}
+
+		worktree := filepath.Join(t.TempDir(), "feat-auth")
+		workspaces := herdrWorkspaces{resolvePath(strings.ToUpper(worktree)): "w1"}
+
+		if id := workspaces.lookup(strings.ToLower(worktree)); id != "w1" {
+			t.Errorf("lookup = %q, want w1", id)
+		}
+	})
+}
+
 func TestRunSwitchHerdr(t *testing.T) {
 	for _, directory := range []string{"linked worktree", "worktree subdirectory"} {
 		t.Run("opens from "+directory, func(t *testing.T) {
