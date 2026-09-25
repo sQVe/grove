@@ -46,6 +46,8 @@ type pruneCandidate struct {
 	reason    skipReason
 	pruneType pruneType
 	staleAge  string // Human-readable age for stale worktrees
+	// herdrWorkspace is the Herdr workspace that pruning this candidate closes.
+	herdrWorkspace string
 }
 
 // mergedDefaultTarget is the --merged value Cobra substitutes when the flag is
@@ -60,6 +62,7 @@ func NewPruneCmd() *cobra.Command {
 	var merged string
 	var detached bool
 	var jsonOutput bool
+	var herdr bool
 
 	cmd := &cobra.Command{
 		Use:   "prune",
@@ -67,6 +70,8 @@ func NewPruneCmd() *cobra.Command {
 		Long: `Remove worktrees with deleted upstream branches (marked "gone").
 
 For gone branches, local branches are also deleted after removing the worktree.
+With --herdr, the Herdr workspaces open on pruned worktrees are closed too;
+a dry run marks the candidates whose workspace would close.
 
 Examples:
   grove prune                 # Dry-run: show what would be removed
@@ -75,7 +80,8 @@ Examples:
   grove prune --merged        # Include branches merged into the default branch
   grove prune --merged=dev    # Include branches merged into dev (the = is required)
   grove prune --detached      # Include detached worktrees
-  grove prune --force         # Remove even if dirty or locked`,
+  grove prune --force         # Remove even if dirty or locked
+  grove prune --herdr         # Also close Herdr workspaces with --commit`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -91,7 +97,7 @@ Examples:
 			if cmd.Flags().Changed("merged") && merged == "" {
 				return fmt.Errorf("--merged requires a branch name")
 			}
-			return runPrune(commit, force, stale, merged, detached, jsonOutput)
+			return runPrune(commit, force, stale, merged, detached, jsonOutput, herdr)
 		},
 	}
 
@@ -102,6 +108,7 @@ Examples:
 	cmd.Flags().Lookup("merged").NoOptDefVal = mergedDefaultTarget
 	cmd.Flags().BoolVar(&detached, "detached", false, "Include detached worktrees")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output dry run as JSON")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Close the Herdr workspaces of pruned worktrees (requires herdr on PATH)")
 	cmd.Flags().BoolP("help", "h", false, "Help for prune")
 
 	_ = cmd.RegisterFlagCompletionFunc("stale", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -173,7 +180,7 @@ func resolveMergedTarget(bareDir, merged, defaultBranch string) (mergedTarget, e
 	return mergedTarget{}, fmt.Errorf("branch not found: %s", merged)
 }
 
-func runPrune(commit, force bool, stale, merged string, detached, jsonOutput bool) error {
+func runPrune(commit, force bool, stale, merged string, detached, jsonOutput, herdr bool) error {
 	if jsonOutput && commit {
 		return fmt.Errorf("--json applies to dry run only")
 	}
@@ -196,6 +203,14 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput boo
 	bareDir, err := workspace.FindBareDir(cwd)
 	if err != nil {
 		return err
+	}
+
+	var workspaces herdrWorkspaces
+	if herdr {
+		workspaces, err = findHerdrWorkspaces(bareDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Fetch and prune remote refs
@@ -299,6 +314,12 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput boo
 		}
 	}
 
+	for i := range candidates {
+		if candidates[i].reason == skipNone {
+			candidates[i].herdrWorkspace = workspaces.lookup(candidates[i].info.Path)
+		}
+	}
+
 	// Output results
 	if commit {
 		return executePrune(bareDir, candidates, force, defaultBranch)
@@ -336,24 +357,26 @@ func determineSkipReason(info *git.WorktreeInfo, cwd string, force bool) skipRea
 }
 
 type pruneJSON struct {
-	Name       string     `json:"name"`
-	Path       string     `json:"path"`
-	Branch     string     `json:"branch"`
-	Reason     pruneType  `json:"reason"`
-	SkipReason skipReason `json:"skip_reason"`
-	StaleAge   string     `json:"stale_age"`
+	Name             string     `json:"name"`
+	Path             string     `json:"path"`
+	Branch           string     `json:"branch"`
+	Reason           pruneType  `json:"reason"`
+	SkipReason       skipReason `json:"skip_reason"`
+	StaleAge         string     `json:"stale_age"`
+	HerdrWorkspaceID string     `json:"herdr_workspace_id,omitempty"`
 }
 
 func outputPruneJSON(candidates []pruneCandidate) error {
 	output := make([]pruneJSON, 0, len(candidates))
 	for _, candidate := range candidates {
 		output = append(output, pruneJSON{
-			Name:       filepath.Base(candidate.info.Path),
-			Path:       candidate.info.Path,
-			Branch:     candidate.info.Branch,
-			Reason:     candidate.pruneType,
-			SkipReason: candidate.reason,
-			StaleAge:   candidate.staleAge,
+			Name:             filepath.Base(candidate.info.Path),
+			Path:             candidate.info.Path,
+			Branch:           candidate.info.Branch,
+			Reason:           candidate.pruneType,
+			SkipReason:       candidate.reason,
+			StaleAge:         candidate.staleAge,
+			HerdrWorkspaceID: candidate.herdrWorkspace,
 		})
 	}
 
@@ -380,6 +403,10 @@ func displayDryRun(candidates []pruneCandidate) error {
 		}
 		if candidate.pruneType == pruneStale && candidate.staleAge != "" {
 			label = fmt.Sprintf("%s (%s)", label, candidate.staleAge)
+		}
+
+		if candidate.herdrWorkspace != "" {
+			label = fmt.Sprintf("%s (closes Herdr workspace %s)", label, candidate.herdrWorkspace)
 		}
 
 		if candidate.reason == skipNone {
@@ -444,6 +471,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 	var failed []string
 	var deletedBranches int
 	var keptBranches []string
+	var closeWorkspaces []string
 
 	// git worktree prune is a single repository-wide operation that reaps every
 	// path-gone entry at once, so run it lazily and share its result across all
@@ -497,6 +525,9 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 				continue
 			}
 			pruned = append(pruned, label)
+			if candidate.herdrWorkspace != "" {
+				closeWorkspaces = append(closeWorkspaces, candidate.herdrWorkspace)
+			}
 			continue
 		}
 
@@ -512,6 +543,9 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		}
 
 		pruned = append(pruned, label)
+		if candidate.herdrWorkspace != "" {
+			closeWorkspaces = append(closeWorkspaces, candidate.herdrWorkspace)
+		}
 
 		// Delete local branch for gone worktrees (not detached)
 		if candidate.pruneType == pruneGone && !candidate.info.Detached {
@@ -611,7 +645,12 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		for _, item := range failed {
 			logger.Dimmed("    %s", item)
 		}
+	}
 
+	// Close after all output, since closing the caller's workspace ends its pane.
+	closeHerdrWorkspaces(closeWorkspaces)
+
+	if len(failed) > 0 {
 		return fmt.Errorf("failed to prune %d worktree(s)", len(failed))
 	}
 

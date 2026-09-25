@@ -1,0 +1,3 @@
+kind: Added
+body: Add --herdr to grove remove and grove prune to close the Herdr workspaces of removed worktrees.
+time: 2026-09-25T12:00:00.000000000+02:00

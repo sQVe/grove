@@ -2,14 +2,16 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/sqve/grove/internal/logger"
 )
 
 var herdrTicketPrefix = regexp.MustCompile(`^[a-zA-Z]+-\d+(?:-|$)`)
@@ -53,12 +55,20 @@ func openWorktreeInHerdr(bareDir, worktreePath, label string) error {
 		arguments = append(arguments, "--label", label)
 	}
 
-	// Herdr prints a JSON result on stdout, which the shell wrapper would
-	// otherwise echo as a cd target, and its failure reason on stderr, which
-	// belongs in the error.
-	var stderr bytes.Buffer
+	if _, err := runHerdr(arguments...); err != nil {
+		return fmt.Errorf("herdr failed to open worktree %s: %w", canonical, err)
+	}
+
+	return nil
+}
+
+// runHerdr runs the Herdr CLI and returns its stdout. Herdr prints a JSON
+// result on stdout, which the shell wrapper would otherwise echo as a cd
+// target, and its failure reason on stderr, which belongs in the error.
+func runHerdr(arguments ...string) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
 	command := exec.Command("herdr", arguments...) //nolint:gosec // Paths are passed as arguments, not shell commands.
-	command.Stdout = io.Discard
+	command.Stdout = &stdout
 	command.Stderr = &stderr
 
 	if err := command.Run(); err != nil {
@@ -69,12 +79,101 @@ func openWorktreeInHerdr(bareDir, worktreePath, label string) error {
 				reason = "no output on stderr"
 			}
 
-			return fmt.Errorf("herdr failed to open worktree %s: %s: %w", canonical, reason, err)
+			return nil, fmt.Errorf("%s: %w", reason, err)
 		}
 
-		return fmt.Errorf("herdr could not start for worktree %s: %w", canonical, err)
+		return nil, fmt.Errorf("herdr could not start: %w", err)
 	}
 
 	_, _ = os.Stderr.Write(stderr.Bytes())
-	return nil
+	return stdout.Bytes(), nil
+}
+
+// herdrWorkspaces holds the Herdr workspaces open on worktrees, keyed by the
+// resolved worktree path.
+type herdrWorkspaces map[string]string
+
+// findHerdrWorkspaces asks Herdr which worktrees of the workspace have an open
+// workspace. Callers query before removing anything, so a missing or failing
+// herdr stops the command while every worktree is still intact.
+func findHerdrWorkspaces(bareDir string) (herdrWorkspaces, error) {
+	if _, err := exec.LookPath("herdr"); err != nil {
+		return nil, fmt.Errorf("cannot close Herdr workspaces (ensure herdr is installed and on PATH): %w", err)
+	}
+
+	root, err := filepath.EvalSymlinks(filepath.Dir(bareDir))
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve the workspace root for Herdr: %w", err)
+	}
+
+	output, err := runHerdr("worktree", "list", "--cwd", root)
+	if err != nil {
+		return nil, fmt.Errorf("herdr failed to list worktrees: %w", err)
+	}
+
+	var list struct {
+		Result struct {
+			Worktrees []struct {
+				Path            string `json:"path"`
+				OpenWorkspaceID string `json:"open_workspace_id"`
+			} `json:"worktrees"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(output, &list); err != nil {
+		return nil, fmt.Errorf("cannot parse herdr worktree list: %w", err)
+	}
+
+	workspaces := herdrWorkspaces{}
+	for _, worktree := range list.Result.Worktrees {
+		if worktree.OpenWorkspaceID != "" {
+			workspaces[resolvePath(worktree.Path)] = worktree.OpenWorkspaceID
+		}
+	}
+
+	return workspaces, nil
+}
+
+// lookup returns the workspace open on path, or "" when there is none. Resolve
+// before removal: once the directory is gone its symlinks cannot be followed.
+func (w herdrWorkspaces) lookup(path string) string {
+	if len(w) == 0 {
+		return ""
+	}
+
+	return w[resolvePath(path)]
+}
+
+// resolvePath follows symlinks when the path still exists, so the spelling
+// Herdr reports and the one git recorded compare equal.
+func resolvePath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+
+	return filepath.Clean(path)
+}
+
+// closeHerdrWorkspaces closes the workspaces of removed worktrees. The worktrees
+// are already gone, so a failed close is only a warning. The caller's own
+// workspace closes last because closing it ends the caller's pane.
+func closeHerdrWorkspaces(ids []string) {
+	current := os.Getenv("HERDR_WORKSPACE_ID")
+	closeCurrent := false
+	for _, id := range ids {
+		if id == current {
+			closeCurrent = true
+			continue
+		}
+		closeHerdrWorkspace(id)
+	}
+
+	if closeCurrent {
+		closeHerdrWorkspace(current)
+	}
+}
+
+func closeHerdrWorkspace(id string) {
+	if _, err := runHerdr("workspace", "close", id); err != nil {
+		logger.Warning("Could not close Herdr workspace %s: %v", id, err)
+	}
 }
