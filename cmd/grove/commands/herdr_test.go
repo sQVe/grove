@@ -36,9 +36,7 @@ func stubHerdr(t *testing.T, result string) string {
 	return argumentsPath
 }
 
-// stubHerdrCalls installs a fake herdr that appends each invocation to a log,
-// one line per call, and runs listScript or closeScript for the subcommands
-// grove uses to find and close workspaces.
+// Log one line per invocation so tests can assert close order.
 func stubHerdrCalls(t *testing.T, listScript, closeScript string) string {
 	t.Helper()
 
@@ -61,8 +59,6 @@ func stubHerdrCalls(t *testing.T, listScript, closeScript string) string {
 	return callsPath
 }
 
-// herdrListScript prints a `herdr worktree list` result where each worktree
-// path maps to its open workspace ID, or to "" when no workspace is open.
 func herdrListScript(t *testing.T, workspaces map[string]string) string {
 	t.Helper()
 
@@ -423,6 +419,9 @@ func TestRunRemoveHerdr(t *testing.T) {
 		groveWorkspace := testgit.NewGroveWorkspace(t, "main", "feat-a", "feat-b", "feat-c")
 		t.Chdir(groveWorkspace.Worktrees["main"])
 		testutil.WriteFile(t, filepath.Join(groveWorkspace.Worktrees["feat-b"], "dirty.txt"), "dirty")
+		if runtime.GOOS == "windows" {
+			t.Skip("symlinks need privileges on Windows")
+		}
 		// Herdr reports feat-a through a symlinked root; grove must still match it.
 		link := filepath.Join(t.TempDir(), "link")
 		if err := os.Symlink(groveWorkspace.Dir, link); err != nil {
@@ -594,12 +593,14 @@ func TestRunPruneHerdr(t *testing.T) {
 		if err := json.Unmarshal([]byte(stdout), &candidates); err != nil {
 			t.Fatalf("stdout = %q: %v", stdout, err)
 		}
-		workspaces := map[string]any{}
-		for _, candidate := range candidates {
-			workspaces[candidate["name"].(string)] = candidate["herdr_workspace_id"]
+		if len(candidates) != 2 {
+			t.Fatalf("candidates = %v, want parked and idle", candidates)
 		}
-		if len(workspaces) != 2 || workspaces["parked"] != "w1" || workspaces["idle"] != nil {
-			t.Errorf("herdr_workspace_id = %v, want parked w1 and idle absent", workspaces)
+		for _, candidate := range candidates {
+			id, marked := candidate["herdr_workspace_id"]
+			if candidate["name"] == "parked" && id != "w1" || candidate["name"] == "idle" && marked {
+				t.Errorf("candidate %v, want parked w1 and idle without herdr_workspace_id", candidate)
+			}
 		}
 		if calls := readHerdrCalls(t, callsPath); len(calls) != 1 {
 			t.Errorf("herdr calls = %q, want only the list", calls)
@@ -644,6 +645,84 @@ func TestRunPruneHerdr(t *testing.T) {
 		}
 		if calls := readHerdrCalls(t, callsPath); calls != nil {
 			t.Errorf("herdr calls = %q, want none", calls)
+		}
+	})
+
+	t.Run("commit removes nothing when the workspace list fails", func(t *testing.T) {
+		groveWorkspace, _ := setup(t)
+		callsPath := stubHerdrCalls(t, "printf 'server down\\n' >&2\nexit 1", "exit 0")
+
+		_, _, err := executeCommand(t, NewPruneCmd(), "--detached", "--herdr", "--commit")
+		if err == nil || !strings.Contains(err.Error(), "server down") {
+			t.Fatalf("prune = %v, want list failure", err)
+		}
+		registered, err := git.ListWorktrees(groveWorkspace.BareDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(registered) != 3 {
+			t.Errorf("registered worktrees = %q, want main, parked, and idle", registered)
+		}
+		for _, name := range []string{"parked", "idle"} {
+			testutil.AssertPathExists(t, filepath.Join(groveWorkspace.Dir, name))
+		}
+		if calls := readHerdrCalls(t, callsPath); len(calls) != 1 {
+			t.Errorf("herdr calls = %q, want only the list", calls)
+		}
+	})
+
+	t.Run("skipped candidates keep their workspace", func(t *testing.T) {
+		groveWorkspace, callsPath := setup(t)
+		testutil.WriteFile(t, filepath.Join(groveWorkspace.Dir, "parked", "dirty.txt"), "dirty")
+
+		_, stderr, err := executeCommand(t, NewPruneCmd(), "--detached", "--herdr")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(stderr, "closes Herdr workspace") {
+			t.Errorf("stderr = %q, want no marked candidate", stderr)
+		}
+		if _, _, err := executeCommand(t, NewPruneCmd(), "--detached", "--herdr", "--commit"); err != nil {
+			t.Fatal(err)
+		}
+		if calls := readHerdrCalls(t, callsPath); strings.Contains(strings.Join(calls, "|"), "workspace close") {
+			t.Errorf("herdr calls = %q, want no close", calls)
+		}
+		testutil.AssertPathExists(t, filepath.Join(groveWorkspace.Dir, "parked"))
+
+		if _, _, err := executeCommand(t, NewPruneCmd(), "--detached", "--herdr", "--commit", "--force"); err != nil {
+			t.Fatal(err)
+		}
+		if calls := readHerdrCalls(t, callsPath); calls[len(calls)-1] != "workspace close w1" {
+			t.Errorf("herdr calls = %q, want w1 closed with --force", calls)
+		}
+	})
+
+	t.Run("commit closes the workspace of a path-gone worktree under a symlinked root", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("symlinks need privileges on Windows")
+		}
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
+		t.Chdir(groveWorkspace.Worktrees["main"])
+		gone := filepath.Join(groveWorkspace.Dir, "gone")
+		if err := git.CreateWorktree(groveWorkspace.BareDir, gone, git.CreateWorktreeOptions{Branch: "main", Detach: true}, true); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.RemoveAll(gone); err != nil {
+			t.Fatal(err)
+		}
+		// Herdr spells the missing worktree through an alias of the root git recorded.
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(groveWorkspace.Dir, link); err != nil {
+			t.Fatal(err)
+		}
+		callsPath := stubHerdrCalls(t, herdrListScript(t, map[string]string{filepath.Join(link, "gone"): "w1"}), "exit 0")
+
+		if _, _, err := executeCommand(t, NewPruneCmd(), "--herdr", "--commit"); err != nil {
+			t.Fatal(err)
+		}
+		if calls := readHerdrCalls(t, callsPath); len(calls) != 2 || calls[1] != "workspace close w1" {
+			t.Errorf("herdr calls = %q, want w1 closed", calls)
 		}
 	})
 }

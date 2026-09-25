@@ -42,11 +42,10 @@ const (
 
 // pruneCandidate represents a worktree that could be pruned
 type pruneCandidate struct {
-	info      *git.WorktreeInfo
-	reason    skipReason
-	pruneType pruneType
-	staleAge  string // Human-readable age for stale worktrees
-	// herdrWorkspace is the Herdr workspace that pruning this candidate closes.
+	info           *git.WorktreeInfo
+	reason         skipReason
+	pruneType      pruneType
+	staleAge       string // Human-readable age for stale worktrees
 	herdrWorkspace string
 }
 
@@ -74,14 +73,14 @@ With --herdr, the Herdr workspaces open on pruned worktrees are closed too;
 a dry run marks the candidates whose workspace would close.
 
 Examples:
-  grove prune                 # Dry-run: show what would be removed
-  grove prune --commit        # Actually remove worktrees
-  grove prune --stale 30d     # Include inactive worktrees
-  grove prune --merged        # Include branches merged into the default branch
-  grove prune --merged=dev    # Include branches merged into dev (the = is required)
-  grove prune --detached      # Include detached worktrees
-  grove prune --force         # Remove even if dirty or locked
-  grove prune --herdr         # Also close Herdr workspaces with --commit`,
+  grove prune                  # Dry-run: show what would be removed
+  grove prune --commit         # Actually remove worktrees
+  grove prune --stale 30d      # Include inactive worktrees
+  grove prune --merged         # Include branches merged into the default branch
+  grove prune --merged=dev     # Include branches merged into dev (the = is required)
+  grove prune --detached       # Include detached worktrees
+  grove prune --force          # Remove even if dirty or locked
+  grove prune --commit --herdr # Also close Herdr workspaces`,
 		Args: cobra.NoArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -314,6 +313,7 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput, he
 		}
 	}
 
+	// Skipped candidates keep their workspace, so dry runs must not mark them.
 	for i := range candidates {
 		if candidates[i].reason == skipNone {
 			candidates[i].herdrWorkspace = workspaces.lookup(candidates[i].info.Path)
@@ -647,7 +647,7 @@ func executePrune(bareDir string, candidates []pruneCandidate, force bool, defau
 		}
 	}
 
-	// Close after all output, since closing the caller's workspace ends its pane.
+	// Close last: closing the caller's own workspace ends its pane.
 	closeHerdrWorkspaces(closeWorkspaces)
 
 	if len(failed) > 0 {

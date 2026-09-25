@@ -264,7 +264,7 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 		}
 	}
 
-	// Close after all output, since closing the caller's workspace ends its pane.
+	// Close last: closing the caller's own workspace ends its pane.
 	closeHerdrWorkspaces(closeWorkspaces)
 
 	if len(failed) > 0 {

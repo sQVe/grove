@@ -89,13 +89,11 @@ func runHerdr(arguments ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// herdrWorkspaces holds the Herdr workspaces open on worktrees, keyed by the
-// resolved worktree path.
+// herdrWorkspaces maps normalized worktree paths to Herdr workspace IDs.
 type herdrWorkspaces map[string]string
 
-// findHerdrWorkspaces asks Herdr which worktrees of the workspace have an open
-// workspace. Callers query before removing anything, so a missing or failing
-// herdr stops the command while every worktree is still intact.
+// findHerdrWorkspaces queries Herdr before removing worktrees so a missing or
+// failing Herdr leaves them intact.
 func findHerdrWorkspaces(bareDir string) (herdrWorkspaces, error) {
 	if _, err := exec.LookPath("herdr"); err != nil {
 		return nil, fmt.Errorf("cannot close Herdr workspaces (ensure herdr is installed and on PATH): %w", err)
@@ -143,14 +141,21 @@ func (w herdrWorkspaces) lookup(path string) string {
 	return w[resolvePath(path)]
 }
 
-// resolvePath follows symlinks when the path still exists, so the spelling
-// Herdr reports and the one git recorded compare equal.
+// resolvePath follows symlinks so the spelling Herdr reports and the one git
+// recorded compare equal. It resolves the nearest existing ancestor too, because
+// prunable worktrees may already be missing.
 func resolvePath(path string) string {
+	path = filepath.Clean(path)
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		return resolved
 	}
 
-	return filepath.Clean(path)
+	parent := filepath.Dir(path)
+	if parent == path {
+		return path
+	}
+
+	return filepath.Join(resolvePath(parent), filepath.Base(path))
 }
 
 // closeHerdrWorkspaces closes the workspaces of removed worktrees. The worktrees

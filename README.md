@@ -89,9 +89,9 @@ See [GitHub CLI installation](https://github.com/cli/cli#installation) for setup
 
 ### Optional: Herdr
 
-Installing `herdr`, a terminal workspace manager for AI coding agents, enables two extra features:
+Installing `herdr`, a terminal workspace manager for AI coding agents, enables workspace integration:
 
-- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to Herdr, which opens and focuses a workspace labeled from the branch or PR title. Re-running the command focuses the workspace that already exists.
+- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to Herdr, which opens and focuses a workspace labeled from the branch or PR title. Re-running the command focuses the workspace that already exists. `grove switch <worktree> --herdr` does the same for an existing worktree.
 - **Close a workspace on removal**: `grove remove feat-auth --herdr` and `grove prune --commit --herdr` close the Herdr workspace open on each worktree they remove. Grove still removes the worktree itself, and a worktree it refuses to remove keeps its workspace.
 
 Grove only needs `herdr` on PATH. Without the flag it is never called.
