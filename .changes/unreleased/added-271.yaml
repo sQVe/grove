@@ -1,5 +1,0 @@
-kind: Added
-body: Pass GROVE_WORKTREE, GROVE_SOURCE_WORKTREE, GROVE_BRANCH, and GROVE_WORKSPACE_ROOT to add hooks, and add --no-hooks to skip them.
-time: 2026-09-23T16:28:44.592080999+02:00
-custom:
-  Issue: '271'
