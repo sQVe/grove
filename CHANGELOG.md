@@ -1,3 +1,13 @@
+## [v1.13.0](https://github.com/sQVe/grove/releases/tag/v1.13.0) - 2026-09-25
+
+### Added
+- Pass GROVE_WORKTREE, GROVE_SOURCE_WORKTREE, GROVE_BRANCH, and GROVE_WORKSPACE_ROOT to add hooks, and add --no-hooks to skip them. ([#271](https://github.com/sQVe/grove/issues/271))
+- Add --herdr to grove remove and grove prune to close the Herdr workspaces of removed worktrees.
+
+### Fixed
+- Keep grove doctor --perf --json output parseable.
+- Load add hooks from the worktree with .grove.toml, falling back to the --from source. ([#271](https://github.com/sQVe/grove/issues/271))
+
 ## [v1.12.0](https://github.com/sQVe/grove/releases/tag/v1.12.0) - 2026-09-12
 
 ### Added
