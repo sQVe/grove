@@ -1,3 +1,8 @@
+## [v2.0.0](https://github.com/sQVe/grove/releases/tag/v2.0.0) - 2026-11-03
+
+### Breaking
+- Drive Herdr spaces through `herdr-app` instead of the old `herdr` CLI. Old herdr is no longer supported, and `grove prune --json` renames `herdr_workspace_id` to `herdr_space_id`.
+
 ## [v1.13.0](https://github.com/sQVe/grove/releases/tag/v1.13.0) - 2026-09-25
 
 ### Added
