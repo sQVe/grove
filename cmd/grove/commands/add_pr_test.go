@@ -50,19 +50,20 @@ printf '%s\n' '{"headRefName":"Feature/topic.v2","headRepository":{"name":"repo"
 		t.Fatalf("PR number = %q, want 42", configs["Feature/topic.v2"])
 	}
 
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(filepath.Dir(ghPath), "herdr"), "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$HERDR_CALLS\"\n", fs.FileExec)
+	callPath := writeHerdrAppStub(t, filepath.Dir(ghPath), herdrListScript(t), "")
 
 	err = runAddFromPR("https://github.com/owner/repo/pull/42", false, true, "", bareDir, remote.TempDir, worktreePath, false, func() {}, false)
 	if err != nil {
 		t.Fatalf("handoff existing PR worktree: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	want := "worktree\nopen\n--cwd\n" + remote.TempDir + "\n--path\n" + worktreePath + "\n--focus\n"
-	if err != nil || string(calls) != want {
-		t.Fatalf("calls = %q (%v), want %q", calls, err, want)
+	canonical, err := filepath.EvalSymlinks(worktreePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ls", "do space.new --name existing --folder " + canonical}
+	if calls := readHerdrAppCalls(t, callPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("herdr-app calls = %q, want %q", calls, want)
 	}
 	if _, err := os.Stat(filepath.Join(worktreePath, ".git")); err != nil {
 		t.Fatalf("existing worktree must remain intact: %v", err)

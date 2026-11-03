@@ -62,7 +62,7 @@ Examples:
 	}
 
 	cmd.Flags().BoolP("help", "h", false, "Help for switch")
-	cmd.Flags().BoolVar(&herdr, "herdr", false, "Open the worktree in Herdr instead of changing directories (requires herdr)")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Open the worktree in Herdr instead of changing directories (requires herdr-app)")
 
 	cmd.AddCommand(newShellInitCmd())
 
@@ -157,7 +157,7 @@ func printSwitchPath(path string) {
 func runSwitch(target string, herdr bool) error {
 	target = strings.TrimSpace(target)
 
-	_, bareDir, infos, err := loadWorkspace(true)
+	_, _, infos, err := loadWorkspace(true)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func runSwitch(target string, herdr bool) error {
 			label = herdrLabel(resolved[0].Branch)
 		}
 
-		if err := openWorktreeInHerdr(bareDir, resolved[0].Path, label); err != nil {
+		if err := openWorktreeInHerdr(resolved[0].Path, label); err != nil {
 			return err
 		}
 
