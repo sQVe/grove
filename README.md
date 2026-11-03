@@ -50,7 +50,7 @@ The catch: `git worktree` is clunky. Grove makes it feel like `git checkout` —
 Optional, each enabling one feature and never required:
 
 - **[`gh`](https://cli.github.com/)** — [PR worktrees and squash-merge detection](#optional-github-cli)
-- **`herdr`** — [opening worktrees in workspaces and closing them on removal](#optional-herdr)
+- **`herdr-app`** — [opening worktrees in spaces and closing them on removal](#optional-herdr)
 
 ## 📦 Installation
 
@@ -89,12 +89,12 @@ See [GitHub CLI installation](https://github.com/cli/cli#installation) for setup
 
 ### Optional: Herdr
 
-Installing `herdr`, a terminal workspace manager for AI coding agents, enables workspace integration:
+Installing `herdr-app`, the app for the [Herdr](https://github.com/sqve/herdr) terminal workspace manager, enables space integration:
 
-- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to Herdr, which opens and focuses a workspace labeled from the branch or PR title. Re-running the command focuses the workspace that already exists. `grove switch <worktree> --herdr` does the same for an existing worktree.
-- **Close a workspace on removal**: `grove remove feat-auth --herdr` and `grove prune --commit --herdr` close the Herdr workspace open on each worktree they remove. Grove still removes the worktree itself, and a worktree it refuses to remove keeps its workspace.
+- **Open a worktree on creation**: `grove add feat/auth --herdr` hands the prepared worktree to herdr-app, which opens and focuses a space named from the label (branch or PR title) or the directory name. Re-running the command focuses the space that already exists. `grove switch <worktree> --herdr` does the same for an existing worktree.
+- **Close a space on removal**: `grove remove feat-auth --herdr` and `grove prune --commit --herdr` close the Herdr space open on each worktree they remove. Grove still removes the worktree itself, and a worktree it refuses to remove keeps its space.
 
-Grove only needs `herdr` on PATH. Without the flag it is never called.
+Grove only needs `herdr-app` on PATH. Without the flag it is never called.
 
 ## 🔧 Setup
 
@@ -214,7 +214,7 @@ Add a worktree for a branch, pull request, or ref.
 **Flags:**
 
 - `-s, --switch` — Switch to the worktree; prints the path of an existing one instead of erroring
-- `--herdr` — Open the prepared worktree in Herdr after setup and hooks succeed; re-running it for an existing worktree hands that worktree to Herdr without repeating preserve, link, or add hooks. Requires `herdr` on PATH and cannot combine with `--switch`
+- `--herdr` — Open the prepared worktree in Herdr after setup and hooks succeed; re-running it for an existing worktree hands that worktree to Herdr without repeating preserve, link, or add hooks. Requires `herdr-app` on PATH and cannot combine with `--switch`
 - `--base <branch>` — Create new branch from this base instead of the default branch
 - `--no-fetch` — Skip fetching the base branch or the existing branch's upstream
 - `--name <name>` — Custom directory name
@@ -273,8 +273,8 @@ Switch to a worktree by directory or branch name.
 
 Requires shell integration (see Setup section) to change directories.
 
-Use `--herdr` to open and focus the worktree in Herdr instead, without changing your shell's directory.
-This requires the `herdr` executable on `PATH`; shell integration is not required.
+Use `--herdr` to open and focus a space for the worktree in Herdr instead, without changing your shell's directory.
+This requires the `herdr-app` executable on `PATH`; shell integration is not required.
 
 **Examples:**
 
@@ -371,7 +371,7 @@ Remove one or more worktrees. With `--branch`, unmerged branches are rejected be
 - `-f, --force` — Remove even if dirty or locked; with `--branch`, delete unmerged and unpushed commits
 - `--branch` — Also delete the branch
 - `--ignore-missing` — Skip unknown targets with a warning
-- `--herdr` — Close the Herdr workspace open on each removed worktree, closing your own workspace last. Requires `herdr` on PATH; nothing is removed when Herdr cannot be queried
+- `--herdr` — Close the Herdr space open on each removed worktree, closing your own space last. Requires `herdr-app` on PATH; nothing is removed when Herdr cannot be queried
 
 **Examples:**
 
@@ -381,7 +381,7 @@ grove remove feat-auth --branch
 grove remove --force wip
 grove remove feat-auth bugfix-123 # Remove multiple
 grove remove --ignore-missing feat-auth bugfix-123 # Skip missing worktrees
-grove remove feat-auth --herdr # Also close its Herdr workspace
+grove remove feat-auth --herdr # Also close its Herdr space
 ```
 
 </details>
@@ -455,7 +455,7 @@ When removing worktrees whose upstream was deleted on remote, local branches are
 - `--merged[=<branch>]` — Include branches merged into `<branch>`, defaulting to the default branch
 - `--detached` — Include detached worktrees
 - `--json` — Print the dry run as a JSON array (dry run only)
-- `--herdr` — Close the Herdr workspace open on each pruned worktree. A dry run marks those candidates instead, and `--json` adds `herdr_workspace_id` to them. Requires `herdr` on PATH
+- `--herdr` — Close the Herdr space open on each pruned worktree. A dry run marks those candidates instead, and `--json` adds `herdr_space_id` to them. Requires `herdr-app` on PATH
 
 **Examples:**
 
@@ -467,7 +467,7 @@ grove prune --merged --commit
 grove prune --merged=develop --commit # The = is required when naming a branch
 grove prune --detached --commit
 grove prune --json   # Dry run as JSON
-grove prune --commit --herdr # Also close Herdr workspaces
+grove prune --commit --herdr # Also close Herdr spaces
 ```
 
 </details>

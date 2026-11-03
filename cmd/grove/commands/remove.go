@@ -28,14 +28,14 @@ func NewRemoveCmd() *cobra.Command {
 
 Accepts worktree names (directories) or branch names.
 With --branch, unmerged branches are rejected before removal unless --force is set.
-With --herdr, the Herdr workspaces open on removed worktrees are closed too.
+With --herdr, the Herdr spaces open on removed worktrees are closed too.
 
 Examples:
   grove remove feat-auth            # Remove worktree
   grove remove --branch feat        # Remove worktree and branch
   grove remove --force wip          # Force remove if dirty or locked
   grove remove feat-auth bugfix-123 # Remove multiple worktrees
-  grove remove feat-auth --herdr    # Also close its Herdr workspace`,
+  grove remove feat-auth --herdr    # Also close its Herdr space`,
 		Args:              cobra.ArbitraryArgs,
 		ValidArgsFunction: worktreeCompletionWithBranches(0, false, true, notCurrentWorktree),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +46,7 @@ Examples:
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Remove even if dirty or locked; with --branch, delete unmerged and unpushed commits")
 	cmd.Flags().BoolVar(&deleteBranch, "branch", false, "Also delete the branch")
 	cmd.Flags().BoolVar(&ignoreMissing, "ignore-missing", false, "Skip worktrees that are not found")
-	cmd.Flags().BoolVar(&herdr, "herdr", false, "Close the Herdr workspaces of removed worktrees (requires herdr on PATH)")
+	cmd.Flags().BoolVar(&herdr, "herdr", false, "Close the Herdr spaces of removed worktrees (requires herdr-app on PATH)")
 	cmd.Flags().BoolP("help", "h", false, "Help for remove")
 
 	return cmd
@@ -83,9 +83,9 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 		logger.Warning("%s: not found (skipped)", target)
 	}
 
-	var workspaces herdrWorkspaces
+	var spaces *herdrSpaces
 	if herdr {
-		workspaces, err = findHerdrWorkspaces(bareDir)
+		spaces, err = findHerdrSpaces()
 		if err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 	var removed []removedWorktree
 	var deletedBranches int
 	var failed []string
-	var closeWorkspaces []string
+	var closeSpaces []string
 
 	var spin *logger.Spinner
 	if len(toRemove) > 1 {
@@ -141,7 +141,7 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 
 		displayName := formatter.WorktreeLabel(info)
 		dirName := filepath.Base(info.Path)
-		workspaceID := workspaces.lookup(info.Path)
+		spaceID := spaces.lookup(info.Path)
 
 		// Check if user is inside the worktree being deleted
 		if fs.PathsEqual(cwd, info.Path) || fs.PathHasPrefix(cwd, info.Path) {
@@ -215,8 +215,8 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 			continue
 		}
 		removed = append(removed, removedWorktree{path: info.Path, branch: info.Branch, detached: info.Detached})
-		if workspaceID != "" {
-			closeWorkspaces = append(closeWorkspaces, workspaceID)
+		if spaceID != "" {
+			closeSpaces = append(closeSpaces, spaceID)
 		}
 
 		// Optionally delete the branch
@@ -264,8 +264,8 @@ func runRemove(targets []string, force, deleteBranch, ignoreMissing, herdr bool)
 		}
 	}
 
-	// Close last: closing the caller's own workspace ends its pane.
-	closeHerdrWorkspaces(closeWorkspaces)
+	// Close last: closing the caller's own space ends its pane.
+	closeHerdrSpaces(closeSpaces, spaces.current())
 
 	if len(failed) > 0 {
 		return fmt.Errorf("failed: %s", strings.Join(failed, ", "))

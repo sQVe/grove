@@ -17,6 +17,26 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
+func addHerdrAppStub(t *testing.T, directory, exitCode string, checks bool) string {
+	t.Helper()
+
+	spacesPath := filepath.Join(t.TempDir(), "spaces.json")
+	t.Setenv("HERDR_APP_SPACES", spacesPath)
+	t.Setenv("HERDR_EXIT", exitCode)
+	listScript := "if [ -f \"$HERDR_APP_SPACES\" ]; then while IFS= read -r line || [ -n \"$line\" ]; do printf '%s\\n' \"$line\"; done < \"$HERDR_APP_SPACES\"; else printf '%s\\n' '{\"spaces\":[]}'; fi"
+	doScript := "if [ \"$2\" = space.new ]; then\n"
+	if checks {
+		doScript += "[ -f \"$6/prepared\" ] || exit 8\n" +
+			"[ -e \"$6/../.grove-worktree.lock\" ] && exit 7\n"
+	}
+	doScript += "printf '{\"spaces\":[{\"id\":\"sp1\",\"name\":\"%s\",\"folder\":\"%s\",\"machine\":null}]}\\n' \"$4\" \"$6\" > \"$HERDR_APP_SPACES\"\n" +
+		"fi\n" +
+		"printf 'herdr diagnostic\\n' >&2\n" +
+		"exit \"${HERDR_EXIT:-0}\""
+
+	return writeHerdrAppStub(t, directory, listScript, doScript)
+}
+
 func TestAddHerdr(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell herdr stub is not executable on Windows")
@@ -86,8 +106,7 @@ func TestAddHerdr(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			callPath := filepath.Join(t.TempDir(), "calls")
-			t.Setenv("HERDR_CALLS", callPath)
+			callPath := ""
 			t.Setenv("HERDR_EXIT", scenario.exitCode)
 			if scenario.checkHookEnvironment {
 				t.Setenv("GROVE_WORKTREE", "stale")
@@ -96,13 +115,7 @@ func TestAddHerdr(t *testing.T) {
 				t.Setenv("GROVE_WORKSPACE_ROOT", "stale")
 			}
 			if !scenario.missing {
-				testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-[ -f "$6/prepared" ] || exit 8
-[ -e "$4/.grove-worktree.lock" ] && exit 7
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-printf 'herdr diagnostic\n' >&2
-exit "${HERDR_EXIT:-0}"
-`, fs.FileExec)
+				callPath = addHerdrAppStub(t, binaryDir, scenario.exitCode, true)
 			}
 			testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
@@ -143,14 +156,14 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 				}
 			}
 			if scenario.missing {
-				if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "ensure herdr is installed and on PATH") {
+				if !errors.Is(err, exec.ErrNotFound) || !strings.Contains(err.Error(), "ensure herdr-app is installed and on PATH") {
 					t.Fatalf("expected missing binary with install hint, got %v", err)
 				}
 			}
 			if scenario.exitCode != "" {
 				var exitError *exec.ExitError
-				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "herdr failed to open") || !strings.Contains(err.Error(), "herdr diagnostic") {
-					t.Errorf("expected failed exit carrying Herdr stderr, got %v", err)
+				if !errors.As(err, &exitError) || !strings.Contains(err.Error(), "herdr-app failed to open") || !strings.Contains(err.Error(), "herdr diagnostic") {
+					t.Errorf("expected failed exit carrying herdr-app stderr, got %v", err)
 				}
 				if strings.Contains(err.Error(), "installed") || strings.Contains(err.Error(), "PATH") {
 					t.Errorf("unexpected install hint after Herdr ran: %v", err)
@@ -179,22 +192,29 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 				}
 			}
 
-			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+			var calls []string
+			if callPath != "" {
+				calls = readHerdrAppCalls(t, callPath)
+			}
 			if scenario.wantCall {
-				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
-				if scenario.wantLabel != "" {
-					want += "--label\n" + scenario.wantLabel + "\n"
+				wantName := scenario.wantLabel
+				if wantName == "" {
+					wantName = worktreeName
 				}
-
-				if readError != nil || string(calls) != want {
-					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
+				canonical, err := filepath.EvalSymlinks(worktreePath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := []string{"ls", "do space.new --name " + wantName + " --folder " + canonical}
+				if strings.Join(calls, "|") != strings.Join(want, "|") {
+					t.Fatalf("herdr-app calls = %q, want %q", calls, want)
 				}
 				diagnostic, err := os.ReadFile(stderr.Name())
 				if err != nil || !strings.Contains(string(diagnostic), "herdr diagnostic") {
 					t.Fatalf("missing inherited stderr: %q (%v)", diagnostic, err)
 				}
-			} else if !os.IsNotExist(readError) {
-				t.Fatalf("unexpected herdr call: %q (%v)", calls, readError)
+			} else if calls != nil {
+				t.Fatalf("unexpected herdr-app call: %q", calls)
 			}
 
 			if scenario.wantCall && scenario.wantError == "" {
@@ -210,13 +230,16 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 				}
 				command = NewAddCmd()
 				command.SetArgs(append(scenario.arguments, "--name", rerunName, "--no-fetch"))
+				if err := os.Remove(callPath); err != nil {
+					t.Fatal(err)
+				}
 				if err := command.Execute(); err != nil {
 					t.Fatalf("handoff-only rerun: %v", err)
 				}
 
-				rerunCalls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-				if err != nil || string(rerunCalls) != string(calls)+string(calls) {
-					t.Fatalf("rerun must use identical argv: %q (%v)", rerunCalls, err)
+				wantRerun := []string{"ls", "do space.select --id sp1"}
+				if rerunCalls := readHerdrAppCalls(t, callPath); strings.Join(rerunCalls, "|") != strings.Join(wantRerun, "|") {
+					t.Fatalf("rerun must select the existing space: %q", rerunCalls)
 				}
 				worktreesAfter := repository.RunOutput("-C", bareDir, "worktree", "list", "--porcelain")
 				if worktreesAfter != worktreesBefore || strings.Count(worktreesAfter, "worktree "+worktreePath+"\n") != 1 {
@@ -302,11 +325,7 @@ func TestAddHerdrDetachedRerun(t *testing.T) {
 			if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 				t.Fatal(err)
 			}
-			callPath := filepath.Join(t.TempDir(), "calls")
-			t.Setenv("HERDR_CALLS", callPath)
-			testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+			callPath := addHerdrAppStub(t, binaryDir, "", false)
 			t.Setenv("PATH", binaryDir)
 
 			worktreePath := filepath.Join(workspaceRoot, "probe")
@@ -328,14 +347,14 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 			command.SetArgs([]string{scenario.ref, "--detach", "--herdr", "--name", "probe", "--no-fetch"})
 			err = command.Execute()
 
-			calls, readError := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
+			calls := readHerdrAppCalls(t, callPath)
 			if scenario.wantCall {
 				if err != nil {
 					t.Fatalf("rerun must hand off: %v", err)
 				}
-				want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n"
-				if readError != nil || string(calls) != want {
-					t.Fatalf("calls = %q, error = %v, want %q", calls, readError, want)
+				want := []string{"ls", "do space.select --id sp1"}
+				if strings.Join(calls, "|") != strings.Join(want, "|") {
+					t.Fatalf("herdr-app calls = %q, want %q", calls, want)
 				}
 				return
 			}
@@ -343,8 +362,8 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 			if err == nil || !strings.Contains(err.Error(), scenario.wantError) {
 				t.Fatalf("error = %v, want %q", err, scenario.wantError)
 			}
-			if !os.IsNotExist(readError) {
-				t.Fatalf("mismatched HEAD must not reach Herdr: %q", calls)
+			if calls != nil {
+				t.Fatalf("mismatched HEAD must not reach herdr-app: %q", calls)
 			}
 		})
 	}
@@ -383,11 +402,7 @@ func TestAddHerdrSymlinkedRoot(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	t.Setenv("PATH", binaryDir)
 
 	command := NewAddCmd()
@@ -402,16 +417,14 @@ printf '%s\n' "$@" >> "$HERDR_CALLS"
 		t.Fatalf("rerun through the symlinked root must hand off, got: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	if err != nil {
-		t.Fatal(err)
-	}
+	calls := readHerdrAppCalls(t, callPath)
 
-	// Both runs must send one identity, in the resolved namespace, or Herdr
-	// treats them as two workspaces.
-	want := "worktree\nopen\n--cwd\n" + realRoot + "\n--path\n" + filepath.Join(realRoot, "probe") + "\n--focus\n"
-	if string(calls) != want+want {
-		t.Fatalf("calls = %q, want two identical resolved calls %q", calls, want)
+	want := []string{
+		"ls", "do space.new --name probe --folder " + filepath.Join(realRoot, "probe"),
+		"ls", "do space.select --id sp1",
+	}
+	if strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("herdr-app calls = %q, want the resolved identity %q", calls, want)
 	}
 }
 
@@ -437,11 +450,7 @@ func TestAddHerdrOpensDirtyPRWorktree(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
 printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
@@ -481,13 +490,9 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 		t.Fatalf("dirty worktree must still open in Herdr, got: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	if err != nil {
-		t.Fatalf("dirty worktree never reached Herdr: %v", err)
-	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
-	if string(calls) != want {
-		t.Fatalf("calls = %q, want %q", calls, want)
+	want := []string{"ls", "do space.select --id sp1"}
+	if calls := readHerdrAppCalls(t, callPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("dirty worktree never reached herdr-app: %q, want %q", calls, want)
 	}
 
 	// The handoff must open the work in progress, never discard it.
@@ -528,11 +533,7 @@ func TestAddHerdrRecordsPROnDirtyWorktree(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
 printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
@@ -554,9 +555,13 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 		t.Fatalf("dirty PR re-run must open, got: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	if err != nil || !strings.Contains(string(calls), "--label\nFix the login flow\n") {
-		t.Fatalf("calls = %q, error = %v, want PR title label", calls, err)
+	canonical, err := filepath.EvalSymlinks(worktreePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ls", "do space.new --name Fix the login flow --folder " + canonical}
+	if calls := readHerdrAppCalls(t, callPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("herdr-app calls = %q, want %q", calls, want)
 	}
 
 	configs, err := git.GetBranchConfigs(bareDir, "grovePr")
@@ -592,11 +597,7 @@ func TestAddHerdrRerunsForkPRWorktree(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	// headRepositoryOwner differs from the URL's owner, which is what makes it a
 	// fork; repo view hands back the local repo standing in for the fork.
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
@@ -635,13 +636,9 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"fork-feature","headR
 		t.Fatalf("fork PR rerun must hand off, got: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	if err != nil {
-		t.Fatalf("fork PR rerun never reached Herdr: %v", err)
-	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
-	if string(calls) != want {
-		t.Fatalf("calls = %q, want the fork PR worktree %q", calls, want)
+	want := []string{"ls", "do space.select --id sp1"}
+	if calls := readHerdrAppCalls(t, callPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("fork PR rerun calls = %q, want the fork PR worktree %q", calls, want)
 	}
 }
 
@@ -715,11 +712,7 @@ func TestAddHerdrOpensUnsyncedPRWorktree(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
 printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
@@ -760,13 +753,9 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 		t.Fatalf("unsynced worktree must still open in Herdr, got: %v", err)
 	}
 
-	calls, err := os.ReadFile(callPath) //nolint:gosec // Test-owned temporary path.
-	if err != nil {
-		t.Fatalf("unsynced worktree never reached Herdr: %v", err)
-	}
-	want := "worktree\nopen\n--cwd\n" + workspaceRoot + "\n--path\n" + worktreePath + "\n--focus\n--label\nFix the login flow\n"
-	if string(calls) != want {
-		t.Fatalf("calls = %q, want %q", calls, want)
+	want := []string{"ls", "do space.select --id sp1"}
+	if calls := readHerdrAppCalls(t, callPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("unsynced worktree never reached herdr-app: %q, want %q", calls, want)
 	}
 
 	// Without --reset the local commits must survive being opened.
@@ -804,11 +793,7 @@ func TestAddHerdrAbortsOnBrokenPRRefresh(t *testing.T) {
 	if err := os.Symlink(gitPath, filepath.Join(binaryDir, "git")); err != nil {
 		t.Fatal(err)
 	}
-	callPath := filepath.Join(t.TempDir(), "calls")
-	t.Setenv("HERDR_CALLS", callPath)
-	testutil.WriteFileMode(t, filepath.Join(binaryDir, "herdr"), `#!/bin/sh
-printf '%s\n' "$@" >> "$HERDR_CALLS"
-`, fs.FileExec)
+	callPath := addHerdrAppStub(t, binaryDir, "", false)
 	testutil.WriteFileMode(t, filepath.Join(binaryDir, "gh"), `#!/bin/sh
 if [ "$1" = auth ]; then exit 0; fi
 printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"headRepositoryOwner":{"login":"owner"}}'
@@ -835,8 +820,8 @@ printf '%s\n' '{"headRefName":"pr-feature","headRepository":{"name":"repo"},"hea
 	if err == nil || !strings.Contains(err.Error(), "fetch") {
 		t.Fatalf("a broken fetch must abort, got %v", err)
 	}
-	if calls, readError := os.ReadFile(callPath); !os.IsNotExist(readError) { //nolint:gosec // Test-owned temporary path.
-		t.Fatalf("a broken refresh must not reach Herdr: %q", calls)
+	if calls := readHerdrAppCalls(t, callPath); calls != nil {
+		t.Fatalf("a broken refresh must not reach herdr-app: %q", calls)
 	}
 }
 

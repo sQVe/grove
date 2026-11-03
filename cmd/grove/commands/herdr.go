@@ -3,7 +3,6 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,13 +29,31 @@ func herdrLabel(branch string) string {
 	return label
 }
 
-// openWorktreeInHerdr hands worktreePath to the Herdr CLI and focuses it. Herdr
-// keys a workspace on the checkout path, so the path is resolved first: a fresh
-// worktree carries the spelling the caller built, while a re-run carries the one
-// git recorded, and through a symlinked root those differ.
-func openWorktreeInHerdr(bareDir, worktreePath, label string) error {
-	if _, err := exec.LookPath("herdr"); err != nil {
-		return fmt.Errorf("cannot open worktree %s in Herdr (ensure herdr is installed and on PATH): %w", worktreePath, err)
+type herdrSpace struct {
+	ID      string     `json:"id"`
+	Folder  string     `json:"folder"`
+	Machine *string    `json:"machine"`
+	Tabs    []herdrTab `json:"tabs"`
+
+	resolvedFolder string
+}
+
+type herdrTab struct {
+	Terminals []herdrTerminal `json:"terminals"`
+}
+
+type herdrTerminal struct {
+	Terminal string `json:"terminal"`
+}
+
+type herdrSpaces struct {
+	list      []herdrSpace
+	currentID string
+}
+
+func openWorktreeInHerdr(worktreePath, label string) error {
+	if _, err := exec.LookPath("herdr-app"); err != nil {
+		return fmt.Errorf("cannot open worktree %s in Herdr (ensure herdr-app is installed and on PATH): %w", worktreePath, err)
 	}
 
 	canonical, err := filepath.EvalSymlinks(worktreePath)
@@ -44,115 +61,126 @@ func openWorktreeInHerdr(bareDir, worktreePath, label string) error {
 		return fmt.Errorf("cannot resolve the path of worktree %s for Herdr: %w", worktreePath, err)
 	}
 
-	// Both arguments must land in the same namespace: Herdr resolves the
-	// workspace from --cwd and the worktree from --path.
-	root, err := filepath.EvalSymlinks(filepath.Dir(bareDir))
+	output, err := runHerdrApp("ls")
 	if err != nil {
-		return fmt.Errorf("cannot resolve the workspace root of worktree %s for Herdr: %w", canonical, err)
+		return fmt.Errorf("herdr-app failed to list spaces for worktree %s: %w", canonical, err)
 	}
 
-	arguments := []string{"worktree", "open", "--cwd", root, "--path", canonical, "--focus"}
-	if label != "" {
-		arguments = append(arguments, "--label", label)
+	spaces, err := parseHerdrSpaces(output)
+	if err != nil {
+		return err
 	}
 
-	if _, err := runHerdr(arguments...); err != nil {
-		return fmt.Errorf("herdr failed to open worktree %s: %w", canonical, err)
+	if id := spaces.lookup(canonical); id != "" {
+		if _, err := runHerdrApp("do", "space.select", "--id", id); err != nil {
+			return fmt.Errorf("herdr-app failed to open worktree %s: %w", canonical, err)
+		}
+
+		return nil
+	}
+
+	name := label
+	if name == "" {
+		name = filepath.Base(canonical)
+	}
+	if _, err := runHerdrApp("do", "space.new", "--name", name, "--folder", canonical); err != nil {
+		return fmt.Errorf("herdr-app failed to open worktree %s: %w", canonical, err)
 	}
 
 	return nil
 }
 
-// runHerdr runs the Herdr CLI and returns its stdout. Herdr prints a JSON
+// runHerdrApp runs herdr-app and returns its stdout. herdr-app prints a JSON
 // result on stdout, which the shell wrapper would otherwise echo as a cd
-// target, and its failure reason on stderr, which belongs in the error.
-func runHerdr(arguments ...string) ([]byte, error) {
+// target, so stdout never reaches grove's stdout. A failure carries herdr-app's
+// own reason: the error object it prints on stdout, or its stderr when no
+// window is open.
+func runHerdrApp(arguments ...string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	command := exec.Command("herdr", arguments...) //nolint:gosec // Paths are passed as arguments, not shell commands.
+	command := exec.Command("herdr-app", arguments...) //nolint:gosec // Paths are passed as arguments, not shell commands.
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
 	if err := command.Run(); err != nil {
-		var exitError *exec.ExitError
-		if errors.As(err, &exitError) {
-			reason := strings.TrimSpace(stderr.String())
-			if reason == "" {
-				reason = "no output on stderr"
-			}
-
-			return nil, fmt.Errorf("%s: %w", reason, err)
-		}
-
-		return nil, fmt.Errorf("herdr could not start: %w", err)
+		return nil, fmt.Errorf("%s: %w", herdrAppReason(&stdout, &stderr), err)
 	}
 
 	_, _ = os.Stderr.Write(stderr.Bytes())
 	return stdout.Bytes(), nil
 }
 
-// herdrWorkspaces maps normalized worktree paths to Herdr workspace IDs.
-type herdrWorkspaces map[string]string
-
-// findHerdrWorkspaces queries Herdr before removing worktrees so a missing or
-// failing Herdr leaves them intact.
-func findHerdrWorkspaces(bareDir string) (herdrWorkspaces, error) {
-	if _, err := exec.LookPath("herdr"); err != nil {
-		return nil, fmt.Errorf("cannot close Herdr workspaces (ensure herdr is installed and on PATH): %w", err)
+func herdrAppReason(stdout, stderr *bytes.Buffer) string {
+	var result struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(stdout.Bytes(), &result) == nil && result.Error != "" {
+		return result.Error
 	}
 
-	root, err := filepath.EvalSymlinks(filepath.Dir(bareDir))
-	if err != nil {
-		return nil, fmt.Errorf("cannot resolve the workspace root for Herdr: %w", err)
+	if reason := strings.TrimSpace(stderr.String()); reason != "" {
+		return reason
 	}
 
-	output, err := runHerdr("worktree", "list", "--cwd", root)
-	if err != nil {
-		return nil, fmt.Errorf("herdr failed to list worktrees: %w", err)
-	}
+	return "no output on stdout or stderr"
+}
 
+func parseHerdrSpaces(output []byte) (*herdrSpaces, error) {
 	var list struct {
-		Result struct {
-			Worktrees []struct {
-				Path            string `json:"path"`
-				OpenWorkspaceID string `json:"open_workspace_id"`
-			} `json:"worktrees"`
-		} `json:"result"`
+		Spaces []herdrSpace `json:"spaces"`
 	}
 	if err := json.Unmarshal(output, &list); err != nil {
-		return nil, fmt.Errorf("cannot parse herdr worktree list: %w", err)
+		return nil, fmt.Errorf("cannot parse herdr-app space list: %w", err)
 	}
 
-	workspaces := herdrWorkspaces{}
-	for _, worktree := range list.Result.Worktrees {
-		if worktree.OpenWorkspaceID != "" {
-			workspaces[resolvePath(worktree.Path)] = worktree.OpenWorkspaceID
+	currentTerminal := os.Getenv("HC_TERMINAL_ID")
+	spaces := &herdrSpaces{}
+	for _, space := range list.Spaces {
+		if space.Machine != nil {
+			continue
+		}
+
+		space.resolvedFolder = resolvePath(space.Folder)
+		spaces.list = append(spaces.list, space)
+		for _, tab := range space.Tabs {
+			for _, terminal := range tab.Terminals {
+				if currentTerminal != "" && terminal.Terminal == currentTerminal {
+					spaces.currentID = space.ID
+				}
+			}
 		}
 	}
 
-	return workspaces, nil
+	return spaces, nil
 }
 
-// lookup returns the workspace open on path, or "" when there is none. Resolve
-// before removal: once the directory is gone its symlinks cannot be followed.
-// Compare with fs.PathsEqual, not a map key, since Windows paths ignore case.
-func (w herdrWorkspaces) lookup(path string) string {
-	if len(w) == 0 {
+// lookup returns the id of the first local space open on path, or "" when there
+// is none. Space folders are resolved once in parseHerdrSpaces, before any
+// worktree is removed. Resolve path before its own directory is removed: once
+// the directory is gone its symlinks cannot be followed. Compare with
+// fs.PathsEqual, since Windows paths ignore case.
+func (s *herdrSpaces) lookup(path string) string {
+	if s == nil {
 		return ""
 	}
 
 	resolved := resolvePath(path)
-	for worktreePath, id := range w {
-		if fs.PathsEqual(worktreePath, resolved) {
-			return id
+	for _, space := range s.list {
+		if fs.PathsEqual(space.resolvedFolder, resolved) {
+			return space.ID
 		}
 	}
 
 	return ""
 }
 
-// resolvePath follows symlinks so the spelling Herdr reports and the one git
-// recorded compare equal. It resolves the nearest existing ancestor too, because
-// prunable worktrees may already be missing.
+func (s *herdrSpaces) current() string {
+	if s == nil {
+		return ""
+	}
+
+	return s.currentID
+}
+
 func resolvePath(path string) string {
 	path = filepath.Clean(path)
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
@@ -167,27 +195,36 @@ func resolvePath(path string) string {
 	return filepath.Join(resolvePath(parent), filepath.Base(path))
 }
 
-// closeHerdrWorkspaces closes the workspaces of removed worktrees. The worktrees
-// are already gone, so a failed close is only a warning. The caller's own
-// workspace closes last because closing it ends the caller's pane.
-func closeHerdrWorkspaces(ids []string) {
-	current := os.Getenv("HERDR_WORKSPACE_ID")
+func findHerdrSpaces() (*herdrSpaces, error) {
+	if _, err := exec.LookPath("herdr-app"); err != nil {
+		return nil, fmt.Errorf("cannot close Herdr spaces (ensure herdr-app is installed and on PATH): %w", err)
+	}
+
+	output, err := runHerdrApp("ls")
+	if err != nil {
+		return nil, fmt.Errorf("herdr-app failed to list spaces: %w", err)
+	}
+
+	return parseHerdrSpaces(output)
+}
+
+func closeHerdrSpaces(ids []string, currentID string) {
 	closeCurrent := false
 	for _, id := range ids {
-		if id == current {
+		if id == currentID {
 			closeCurrent = true
 			continue
 		}
-		closeHerdrWorkspace(id)
+		closeHerdrSpace(id)
 	}
 
 	if closeCurrent {
-		closeHerdrWorkspace(current)
+		closeHerdrSpace(currentID)
 	}
 }
 
-func closeHerdrWorkspace(id string) {
-	if _, err := runHerdr("workspace", "close", id); err != nil {
-		logger.Warning("Could not close Herdr workspace %s: %v", id, err)
+func closeHerdrSpace(id string) {
+	if _, err := runHerdrApp("do", "space.close", "--id", id, "--confirmed", "true"); err != nil {
+		logger.Warning("Could not close Herdr space %s: %v", id, err)
 	}
 }
