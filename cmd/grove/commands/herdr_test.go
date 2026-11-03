@@ -19,7 +19,6 @@ import (
 	testgit "github.com/sqve/grove/internal/testutil/git"
 )
 
-// testHerdrSpace describes one local space for a herdr-app ls stub.
 type testHerdrSpace struct {
 	ID       string
 	Folder   string
@@ -52,8 +51,6 @@ func herdrListJSON(t *testing.T, spaces ...testHerdrSpace) string {
 	return string(data)
 }
 
-// herdrListScript returns a shell command that prints the given spaces as the
-// JSON herdr-app ls writes.
 func herdrListScript(t *testing.T, spaces ...testHerdrSpace) string {
 	t.Helper()
 
@@ -63,9 +60,6 @@ func herdrListScript(t *testing.T, spaces ...testHerdrSpace) string {
 	return "cat '" + listPath + "'"
 }
 
-// writeHerdrAppStub writes a herdr-app shell stub into directory. listScript
-// runs for `ls` and doScript for `do`; every invocation's arguments are
-// appended to the file named by HERDR_APP_CALLS, one argument per line.
 func writeHerdrAppStub(t *testing.T, directory, listScript, doScript string) string {
 	t.Helper()
 
@@ -84,8 +78,6 @@ func writeHerdrAppStub(t *testing.T, directory, listScript, doScript string) str
 	return callsPath
 }
 
-// stubHerdrApp creates a temporary directory with a herdr-app stub and a fake
-// gh, prepends it to PATH, and returns the calls path.
 func stubHerdrApp(t *testing.T, listScript, doScript string) string {
 	t.Helper()
 
@@ -97,8 +89,6 @@ func stubHerdrApp(t *testing.T, listScript, doScript string) string {
 	return callsPath
 }
 
-// readHerdrAppCalls groups the recorded argument lines back into one string per
-// invocation, for example "do space.select --id w1".
 func readHerdrAppCalls(t *testing.T, callsPath string) []string {
 	t.Helper()
 
@@ -510,7 +500,6 @@ func TestRunRemoveHerdr(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("symlinks need privileges on Windows")
 		}
-		// herdr-app reports feat-a through a symlinked root; grove must still match it.
 		link := filepath.Join(t.TempDir(), "link")
 		if err := os.Symlink(groveWorkspace.Dir, link); err != nil {
 			t.Fatal(err)
@@ -822,7 +811,6 @@ func TestRunPruneHerdr(t *testing.T) {
 		if err := os.RemoveAll(gone); err != nil {
 			t.Fatal(err)
 		}
-		// herdr-app spells the missing worktree through an alias of the root git recorded.
 		link := filepath.Join(t.TempDir(), "link")
 		if err := os.Symlink(groveWorkspace.Dir, link); err != nil {
 			t.Fatal(err)

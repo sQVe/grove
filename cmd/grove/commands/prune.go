@@ -313,7 +313,6 @@ func runPrune(commit, force bool, stale, merged string, detached, jsonOutput, he
 		}
 	}
 
-	// Skipped candidates keep their space, so dry runs must not mark them.
 	for i := range candidates {
 		if candidates[i].reason == skipNone {
 			candidates[i].herdrSpace = spaces.lookup(candidates[i].info.Path)

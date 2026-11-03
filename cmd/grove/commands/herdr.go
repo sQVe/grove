@@ -29,7 +29,6 @@ func herdrLabel(branch string) string {
 	return label
 }
 
-// herdrSpace is one local space from `herdr-app ls`.
 type herdrSpace struct {
 	ID      string     `json:"id"`
 	Folder  string     `json:"folder"`
@@ -45,20 +44,11 @@ type herdrTerminal struct {
 	Terminal string `json:"terminal"`
 }
 
-// herdrSpaces indexes the local Herdr spaces in the order herdr-app reported
-// them. The order matters: when several spaces share a folder, Grove selects
-// the first one.
 type herdrSpaces struct {
 	list      []herdrSpace
 	currentID string
 }
 
-// openWorktreeInHerdr shows worktreePath as a Herdr space, focusing the space
-// already open on it or creating one named after the label. Herdr keys a space
-// on the folder, so the path is resolved first: a fresh worktree carries the
-// spelling the caller built, while a re-run carries the one git recorded, and
-// through a symlinked root those differ. A detached worktree has no label, so
-// its directory names the space.
 func openWorktreeInHerdr(worktreePath, label string) error {
 	if _, err := exec.LookPath("herdr-app"); err != nil {
 		return fmt.Errorf("cannot open worktree %s in Herdr (ensure herdr-app is installed and on PATH): %w", worktreePath, err)
@@ -117,8 +107,6 @@ func runHerdrApp(arguments ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// herdrAppReason prefers the JSON error `do` prints on stdout, then the stderr
-// line, so both an error object and a no-window failure reach the caller.
 func herdrAppReason(stdout, stderr *bytes.Buffer) string {
 	var result struct {
 		Error string `json:"error"`
@@ -180,7 +168,6 @@ func (s *herdrSpaces) lookup(path string) string {
 	return ""
 }
 
-// current returns the space holding the caller's own terminal, or "".
 func (s *herdrSpaces) current() string {
 	if s == nil {
 		return ""
@@ -189,9 +176,6 @@ func (s *herdrSpaces) current() string {
 	return s.currentID
 }
 
-// resolvePath follows symlinks so the spelling herdr-app reports and the one git
-// recorded compare equal. It resolves the nearest existing ancestor too, because
-// prunable worktrees may already be missing.
 func resolvePath(path string) string {
 	path = filepath.Clean(path)
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
@@ -206,8 +190,6 @@ func resolvePath(path string) string {
 	return filepath.Join(resolvePath(parent), filepath.Base(path))
 }
 
-// findHerdrSpaces queries herdr-app before removing worktrees so a missing or
-// failing herdr-app leaves them intact.
 func findHerdrSpaces() (*herdrSpaces, error) {
 	if _, err := exec.LookPath("herdr-app"); err != nil {
 		return nil, fmt.Errorf("cannot close Herdr spaces (ensure herdr-app is installed and on PATH): %w", err)
@@ -221,9 +203,6 @@ func findHerdrSpaces() (*herdrSpaces, error) {
 	return parseHerdrSpaces(output)
 }
 
-// closeHerdrSpaces closes the spaces of removed worktrees. The worktrees are
-// already gone, so a failed close is only a warning. The caller's own space
-// closes last because closing it ends the caller's pane.
 func closeHerdrSpaces(ids []string, currentID string) {
 	closeCurrent := false
 	for _, id := range ids {

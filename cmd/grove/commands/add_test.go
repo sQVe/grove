@@ -17,10 +17,6 @@ import (
 	"github.com/sqve/grove/internal/workspace"
 )
 
-// addHerdrAppStub writes a herdr-app stub for the add tests. It remembers a
-// created space so a rerun selects it. When checks is true, a `do` fails unless
-// the worktree at the --folder path is prepared and the workspace lock in its
-// parent directory is released. exitCode makes `do` fail.
 func addHerdrAppStub(t *testing.T, directory, exitCode string, checks bool) string {
 	t.Helper()
 
@@ -423,8 +419,6 @@ func TestAddHerdrSymlinkedRoot(t *testing.T) {
 
 	calls := readHerdrAppCalls(t, callPath)
 
-	// The first run creates the space under the resolved root; the rerun must
-	// resolve the symlinked worktree to the same folder and select it.
 	want := []string{
 		"ls", "do space.new --name probe --folder " + filepath.Join(realRoot, "probe"),
 		"ls", "do space.select --id sp1",
