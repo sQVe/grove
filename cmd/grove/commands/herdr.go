@@ -34,6 +34,8 @@ type herdrSpace struct {
 	Folder  string     `json:"folder"`
 	Machine *string    `json:"machine"`
 	Tabs    []herdrTab `json:"tabs"`
+
+	resolvedFolder string
 }
 
 type herdrTab struct {
@@ -137,6 +139,7 @@ func parseHerdrSpaces(output []byte) (*herdrSpaces, error) {
 			continue
 		}
 
+		space.resolvedFolder = resolvePath(space.Folder)
 		spaces.list = append(spaces.list, space)
 		for _, tab := range space.Tabs {
 			for _, terminal := range tab.Terminals {
@@ -151,8 +154,10 @@ func parseHerdrSpaces(output []byte) (*herdrSpaces, error) {
 }
 
 // lookup returns the id of the first local space open on path, or "" when there
-// is none. Resolve before removal: once the directory is gone its symlinks
-// cannot be followed. Compare with fs.PathsEqual, since Windows paths ignore case.
+// is none. Space folders are resolved once in parseHerdrSpaces, before any
+// worktree is removed. Resolve path before its own directory is removed: once
+// the directory is gone its symlinks cannot be followed. Compare with
+// fs.PathsEqual, since Windows paths ignore case.
 func (s *herdrSpaces) lookup(path string) string {
 	if s == nil {
 		return ""
@@ -160,7 +165,7 @@ func (s *herdrSpaces) lookup(path string) string {
 
 	resolved := resolvePath(path)
 	for _, space := range s.list {
-		if fs.PathsEqual(resolvePath(space.Folder), resolved) {
+		if fs.PathsEqual(space.resolvedFolder, resolved) {
 			return space.ID
 		}
 	}

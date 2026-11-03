@@ -60,6 +60,20 @@ func herdrListScript(t *testing.T, spaces ...testHerdrSpace) string {
 	return "cat '" + listPath + "'"
 }
 
+func addPullRequestWorktree(t *testing.T, groveWorkspace *testgit.GroveWorkspace) string {
+	t.Helper()
+
+	worktreePath := filepath.Join(groveWorkspace.Dir, "scratch")
+	if err := git.CreateWorktree(groveWorkspace.BareDir, worktreePath, git.CreateWorktreeOptions{Branch: "feat/auth", NewBranch: true}, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.SetBranchConfig(groveWorkspace.BareDir, "feat/auth", "grovePr", "42"); err != nil {
+		t.Fatal(err)
+	}
+
+	return worktreePath
+}
+
 func writeHerdrAppStub(t *testing.T, directory, listScript, doScript string) string {
 	t.Helper()
 
@@ -201,19 +215,50 @@ func TestHerdrSpacesLookup(t *testing.T) {
 		}
 
 		worktree := filepath.Join(t.TempDir(), "feat-auth")
-		spaces := &herdrSpaces{list: []herdrSpace{{ID: "w1", Folder: strings.ToUpper(worktree)}}}
+		spaces, err := parseHerdrSpaces([]byte(herdrListJSON(t, testHerdrSpace{ID: "w1", Folder: strings.ToUpper(worktree)})))
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if id := spaces.lookup(strings.ToLower(worktree)); id != "w1" {
 			t.Errorf("lookup = %q, want w1", id)
 		}
 	})
 
+	t.Run("matches a folder reached through a symlink removed after parsing", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("symlinks need privileges on Windows")
+		}
+		worktree := filepath.Join(t.TempDir(), "feat-auth")
+		if err := os.Mkdir(worktree, fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(worktree, link); err != nil {
+			t.Fatal(err)
+		}
+		spaces, err := parseHerdrSpaces([]byte(herdrListJSON(t, testHerdrSpace{ID: "w1", Folder: link})))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(link); err != nil {
+			t.Fatal(err)
+		}
+
+		if id := spaces.lookup(worktree); id != "w1" {
+			t.Errorf("lookup = %q, want w1", id)
+		}
+	})
+
 	t.Run("returns the first of several spaces on one folder", func(t *testing.T) {
 		worktree := filepath.Join(t.TempDir(), "feat-auth")
-		spaces := &herdrSpaces{list: []herdrSpace{
-			{ID: "w1", Folder: worktree},
-			{ID: "w2", Folder: worktree},
-		}}
+		spaces, err := parseHerdrSpaces([]byte(herdrListJSON(t,
+			testHerdrSpace{ID: "w1", Folder: worktree},
+			testHerdrSpace{ID: "w2", Folder: worktree},
+		)))
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if id := spaces.lookup(worktree); id != "w1" {
 			t.Errorf("lookup = %q, want w1", id)
@@ -302,6 +347,46 @@ func TestRunSwitchHerdr(t *testing.T) {
 		want := []string{"ls", "do space.new --name parked --folder " + canonical}
 		if calls := readHerdrAppCalls(t, callsPath); strings.Join(calls, "|") != strings.Join(want, "|") {
 			t.Errorf("herdr-app calls = %q, want a directory-named new space %q", calls, want)
+		}
+	})
+
+	t.Run("names a PR worktree after its branch when it has no space", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
+		t.Chdir(groveWorkspace.Dir)
+		worktreePath := addPullRequestWorktree(t, groveWorkspace)
+		binaryDir := t.TempDir()
+		callsPath := writeHerdrAppStub(t, binaryDir, herdrListScript(t), "")
+		t.Setenv("PATH", binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+		if _, _, err := executeSwitch(t, "scratch", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		canonical, err := filepath.EvalSymlinks(worktreePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"ls", "do space.new --name auth --folder " + canonical}
+		if calls := readHerdrAppCalls(t, callsPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+			t.Errorf("herdr-app calls = %q, want the branch-named new space %q", calls, want)
+		}
+	})
+
+	t.Run("selects the space of a PR worktree without renaming it", func(t *testing.T) {
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main")
+		t.Chdir(groveWorkspace.Dir)
+		worktreePath := addPullRequestWorktree(t, groveWorkspace)
+		binaryDir := t.TempDir()
+		callsPath := writeHerdrAppStub(t, binaryDir, herdrListScript(t, testHerdrSpace{ID: "sp9", Folder: worktreePath}), "")
+		t.Setenv("PATH", binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+		if _, _, err := executeSwitch(t, "scratch", "--herdr"); err != nil {
+			t.Fatal(err)
+		}
+
+		want := []string{"ls", "do space.select --id sp9"}
+		if calls := readHerdrAppCalls(t, callsPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+			t.Errorf("herdr-app calls = %q, want %q", calls, want)
 		}
 	})
 
@@ -541,6 +626,31 @@ func TestRunRemoveHerdr(t *testing.T) {
 		want := []string{"ls", "do space.close --id w2 --confirmed true", "do space.close --id w1 --confirmed true"}
 		if strings.Join(calls, "|") != strings.Join(want, "|") {
 			t.Errorf("herdr-app calls = %q, want the current w1 closed last", calls)
+		}
+	})
+
+	t.Run("closes a later space whose folder is reached through an earlier removed worktree", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("symlinks need privileges on Windows")
+		}
+		groveWorkspace := testgit.NewGroveWorkspace(t, "main", "feat-a", "feat-b")
+		t.Chdir(groveWorkspace.Dir)
+		alias := filepath.Join(groveWorkspace.Worktrees["feat-a"], "alias")
+		if err := os.Symlink(groveWorkspace.Worktrees["feat-b"], alias); err != nil {
+			t.Fatal(err)
+		}
+		callsPath := stubHerdrApp(t, herdrListScript(t,
+			testHerdrSpace{ID: "w1", Folder: groveWorkspace.Worktrees["feat-a"]},
+			testHerdrSpace{ID: "w2", Folder: alias},
+		), "")
+
+		if _, _, err := executeCommand(t, NewRemoveCmd(), "feat-a", "feat-b", "--herdr", "--force"); err != nil {
+			t.Fatal(err)
+		}
+
+		want := []string{"ls", "do space.close --id w1 --confirmed true", "do space.close --id w2 --confirmed true"}
+		if calls := readHerdrAppCalls(t, callsPath); strings.Join(calls, "|") != strings.Join(want, "|") {
+			t.Errorf("herdr-app calls = %q, want %q", calls, want)
 		}
 	})
 

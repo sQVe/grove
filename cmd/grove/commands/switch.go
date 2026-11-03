@@ -174,7 +174,7 @@ func runSwitch(target string, herdr bool) error {
 
 	if herdr {
 		label := ""
-		if !resolved[0].Detached && resolved[0].PR == 0 {
+		if !resolved[0].Detached {
 			label = herdrLabel(resolved[0].Branch)
 		}
 
