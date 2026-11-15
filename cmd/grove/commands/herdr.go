@@ -97,7 +97,7 @@ func openWorktreeInHerdr(worktreePath, label string) error {
 // window is open.
 func runHerdrApp(arguments ...string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	command := exec.Command("herdr-app", arguments...) //nolint:gosec // Paths are passed as arguments, not shell commands.
+	command := exec.Command("herdr-app", arguments...) //nolint:gosec // G204: fixed binary; arguments are separate argv entries, not shell input.
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 

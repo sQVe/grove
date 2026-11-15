@@ -75,7 +75,7 @@ func RunAddHooksStreaming(workDir string, commands []string, output io.Writer, e
 	for _, cmdStr := range commands {
 		logger.Debug("Executing hook: %s", cmdStr)
 
-		cmd := exec.Command("sh", "-c", cmdStr) //nolint:gosec // User-configured hooks are intentionally executed
+		cmd := exec.Command("sh", "-c", cmdStr) //nolint:gosec // G204: hooks run the shell commands the user configured.
 		cmd.Dir = workDir
 		cmd.Env = append(os.Environ(), environment...)
 

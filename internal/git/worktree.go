@@ -64,7 +64,7 @@ func FastForwardWorktree(worktreePath, hash string) error {
 	}
 
 	logger.Debug("Executing: git merge --ff-only %s in %s", hash, worktreePath)
-	cmd, cancel := GitCommand("git", "merge", "--ff-only", hash) // nolint:gosec
+	cmd, cancel := GitCommand("git", "merge", "--ff-only", hash)
 	defer cancel()
 	cmd.Dir = worktreePath
 
@@ -78,7 +78,7 @@ func ResetWorktreeHard(worktreePath, hash string) error {
 	}
 
 	logger.Debug("Executing: git reset --hard %s in %s", hash, worktreePath)
-	cmd, cancel := GitCommand("git", "reset", "--hard", hash, "--") // nolint:gosec
+	cmd, cancel := GitCommand("git", "reset", "--hard", hash, "--")
 	defer cancel()
 	cmd.Dir = worktreePath
 
@@ -153,7 +153,7 @@ func RemoveWorktree(bareDir, worktreePath string, force bool) error {
 		args = append(args, "--force")
 	}
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd, cancel := GitCommand("git", args...) // nolint:gosec // Worktree path comes from git worktree list
+	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
@@ -474,7 +474,7 @@ func LockWorktree(bareDir, worktreePath, reason string) error {
 	}
 	args = append(args, worktreePath)
 	logger.Debug("Executing: git %s in %s", strings.Join(args, " "), bareDir)
-	cmd, cancel := GitCommand("git", args...) //nolint:gosec // Worktree path validated
+	cmd, cancel := GitCommand("git", args...)
 	defer cancel()
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)
@@ -491,7 +491,7 @@ func GetWorktreeLockReason(worktreePath string) string {
 		return ""
 	}
 	lockFile := filepath.Join(gitdir, "locked")
-	content, err := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
+	content, err := os.ReadFile(lockFile)
 	if err != nil {
 		return ""
 	}
@@ -501,7 +501,7 @@ func GetWorktreeLockReason(worktreePath string) string {
 // UnlockWorktree unlocks a locked worktree
 func UnlockWorktree(bareDir, worktreePath string) error {
 	logger.Debug("Executing: git worktree unlock %s in %s", worktreePath, bareDir)
-	cmd, cancel := GitCommand("git", "worktree", "unlock", worktreePath) //nolint:gosec // Worktree path validated
+	cmd, cancel := GitCommand("git", "worktree", "unlock", worktreePath)
 	defer cancel()
 	cmd.Dir = bareDir
 	return runGitCommand(cmd, true)

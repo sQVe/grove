@@ -201,7 +201,7 @@ func TestFetchRemote(t *testing.T) {
 	t.Run("preserves the remote HEAD and error when fetching fails", func(t *testing.T) {
 		repo, _ := newRemoteFixture(t)
 		headPath := filepath.Join(repo.Path, "refs", "remotes", "origin", "HEAD")
-		before, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		before, err := os.ReadFile(headPath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -216,7 +216,7 @@ func TestFetchRemote(t *testing.T) {
 		if err := FetchRemote(repo.Path, "origin"); err == nil || err.Error() != wantErr.Error() {
 			t.Fatalf("FetchRemote() error = %v, want %v", err, wantErr)
 		}
-		after, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		after, err := os.ReadFile(headPath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -230,7 +230,7 @@ func TestFetchRemote(t *testing.T) {
 		remote.RunOutput("branch", "feature")
 		remote.RunOutput("symbolic-ref", "HEAD", "refs/heads/missing")
 		headPath := filepath.Join(repo.Path, "refs", "remotes", "origin", "HEAD")
-		before, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		before, err := os.ReadFile(headPath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -253,7 +253,7 @@ func TestFetchRemote(t *testing.T) {
 			}
 		}
 		repo.RunOutput("rev-parse", "--verify", "refs/remotes/origin/feature")
-		after, err := os.ReadFile(headPath) //nolint:gosec // Path belongs to the local test fixture.
+		after, err := os.ReadFile(headPath)
 		if err != nil {
 			t.Fatal(err)
 		}

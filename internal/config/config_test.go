@@ -248,7 +248,7 @@ func TestLoadRuntimeConfigPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(FileName, []byte("plain = true\ndebug = true\n"), 0o644); err != nil { //nolint:gosec
+	if err := os.WriteFile(FileName, []byte("plain = true\ndebug = true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

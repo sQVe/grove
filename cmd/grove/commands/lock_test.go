@@ -66,7 +66,7 @@ func TestRunLock_AlreadyLocked(t *testing.T) {
 	ws := testgit.NewGroveWorkspace(t, "main", "feature")
 
 	// Lock the feature worktree
-	cmd := exec.Command("git", "worktree", "lock", "--reason", "existing lock", ws.WorktreePath("feature")) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "lock", "--reason", "existing lock", ws.WorktreePath("feature"))
 	cmd.Dir = ws.BareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock worktree: %v", err)
@@ -88,7 +88,7 @@ func TestRunLock_AlreadyLockedHint(t *testing.T) {
 
 	ws := testgit.NewGroveWorkspace(t, "main", "feature")
 
-	cmd := exec.Command("git", "worktree", "lock", ws.WorktreePath("feature")) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "lock", ws.WorktreePath("feature"))
 	cmd.Dir = ws.BareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock worktree: %v", err)
@@ -214,7 +214,7 @@ func TestRunLock_DuplicateViaBranchAndDirName(t *testing.T) {
 	// Create worktree where directory name differs from branch name
 	// Branch: feature/auth, Directory: feature-auth
 	featurePath := ws.Dir + "/feature-auth"
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath)
 	cmd.Dir = ws.BareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -241,7 +241,7 @@ func TestRunLock_OutputShowsWorktreeLabel(t *testing.T) {
 
 	// Create worktree where directory name differs from branch name
 	featurePath := ws.Dir + "/feat-auth"
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath)
 	cmd.Dir = ws.BareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -299,7 +299,7 @@ func TestCompleteLockArgs(t *testing.T) {
 	ws := testgit.NewGroveWorkspace(t, "main", "feature", "bugfix")
 
 	// Lock bugfix worktree
-	cmd := exec.Command("git", "worktree", "lock", ws.WorktreePath("bugfix")) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "lock", ws.WorktreePath("bugfix"))
 	cmd.Dir = ws.BareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock bugfix worktree: %v", err)

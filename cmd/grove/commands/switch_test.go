@@ -40,7 +40,7 @@ func TestShellSwitchPrevious(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			command := exec.Command(shell, "-c", shellPOSIX+"\nPATH=/nonexistent\n"+test.script) //nolint:gosec // Runs the embedded wrapper with fixed test scripts.
+			command := exec.Command(shell, "-c", shellPOSIX+"\nPATH=/nonexistent\n"+test.script)
 			command.Dir = directory
 			output, err := command.CombinedOutput()
 			if err != nil {

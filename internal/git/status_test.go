@@ -192,7 +192,7 @@ func TestHasLockFiles(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "wt-locks")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec // test-controlled path
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -417,7 +417,7 @@ func TestHasUnpushedCommits(t *testing.T) {
 
 		remoteRepo := testgit.NewTestRepo(t)
 
-		cmd := exec.Command("git", "remote", "add", "origin", remoteRepo.Path) // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "remote", "add", "origin", remoteRepo.Path)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add remote: %v", err)
@@ -499,7 +499,7 @@ func TestGetSyncStatus(t *testing.T) {
 		// Create bare repo to act as remote
 		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
-		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
 			t.Fatal(err)
 		}
 		cmd := exec.Command("git", "init", "--bare")
@@ -510,7 +510,7 @@ func TestGetSyncStatus(t *testing.T) {
 
 		// Create local repo and push
 		repo := testgit.NewTestRepo(t)
-		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec // Test uses controlled temp directory
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -523,7 +523,7 @@ func TestGetSyncStatus(t *testing.T) {
 
 		// Create local commit
 		testFile := filepath.Join(repo.Path, "new.txt")
-		if err := os.WriteFile(testFile, []byte("new"), fs.FileStrict); err != nil { // nolint:gosec // Test uses controlled temp directory
+		if err := os.WriteFile(testFile, []byte("new"), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
 		cmd = exec.Command("git", "add", ".")
@@ -557,7 +557,7 @@ func TestGetSyncStatus(t *testing.T) {
 		// Create bare repo to act as remote
 		remoteDir := testutil.TempDir(t)
 		remoteRepo := filepath.Join(remoteDir, "remote.git")
-		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil { // nolint:gosec // Test uses controlled temp directory
+		if err := os.MkdirAll(remoteRepo, fs.DirGit); err != nil {
 			t.Fatal(err)
 		}
 		cmd := exec.Command("git", "init", "--bare")
@@ -568,7 +568,7 @@ func TestGetSyncStatus(t *testing.T) {
 
 		// Create local repo and push
 		repo := testgit.NewTestRepo(t)
-		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec // Test uses controlled temp directory
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -581,7 +581,7 @@ func TestGetSyncStatus(t *testing.T) {
 
 		// Create commit on remote (via a separate clone)
 		tempClone := testutil.TempDir(t)
-		cmd = exec.Command("git", "clone", remoteRepo, tempClone) // nolint:gosec // Test uses controlled temp directory
+		cmd = exec.Command("git", "clone", remoteRepo, tempClone)
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)
 		}
@@ -595,7 +595,7 @@ func TestGetSyncStatus(t *testing.T) {
 		cmd.Dir = tempClone
 		_ = cmd.Run()
 		testFile := filepath.Join(tempClone, "remote.txt")
-		if err := os.WriteFile(testFile, []byte("remote"), fs.FileStrict); err != nil { // nolint:gosec // Test uses controlled temp directory
+		if err := os.WriteFile(testFile, []byte("remote"), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
 		cmd = exec.Command("git", "add", ".")
@@ -645,7 +645,7 @@ func TestGetSyncStatus(t *testing.T) {
 
 		// Create local repo and push main
 		repo := testgit.NewTestRepo(t)
-		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)

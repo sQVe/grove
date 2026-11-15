@@ -132,7 +132,7 @@ func readHerdrAppCalls(t *testing.T, callsPath string) []string {
 func readHerdrCalls(t *testing.T, callsPath string) []string {
 	t.Helper()
 
-	data, err := os.ReadFile(callsPath) // nolint:gosec // The test creates this log in t.TempDir().
+	data, err := os.ReadFile(callsPath)
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -557,7 +557,7 @@ test "$PWD" = "$original_directory"; or exit 2
 `
 			}
 
-			command := exec.Command(shellPath, "-c", script) // nolint:gosec // The shell runs only the fixed test script.
+			command := exec.Command(shellPath, "-c", script)
 			command.Dir = directory
 			output, err := command.CombinedOutput()
 			if err != nil || len(output) != 0 {

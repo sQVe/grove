@@ -36,7 +36,7 @@ func DirectoryExists(path string) bool {
 
 // IsEmptyDir checks if a directory is empty
 func IsEmptyDir(path string) (bool, error) {
-	f, err := os.Open(path) // nolint:gosec // Controlled path for workspace validation
+	f, err := os.Open(path)
 	if err != nil {
 		return false, err
 	}
@@ -145,13 +145,13 @@ func CopyFileExclusive(src, dst string, perm os.FileMode) error {
 }
 
 func copyFile(src, dst string, perm os.FileMode, flags int) error {
-	in, err := os.Open(src) // nolint:gosec // Controlled path from git ignored files
+	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 
-	out, err := os.OpenFile(dst, flags, perm) // nolint:gosec // Controlled path for worktree files
+	out, err := os.OpenFile(dst, flags, perm)
 	if err != nil {
 		return err
 	}

@@ -55,7 +55,7 @@ func TestRunUnlock_WorktreeNotFound(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -88,7 +88,7 @@ func TestRunUnlock_NotLocked(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -96,7 +96,7 @@ func TestRunUnlock_NotLocked(t *testing.T) {
 
 	// Create feature worktree (not locked)
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -130,7 +130,7 @@ func TestRunUnlock_Success(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -138,14 +138,14 @@ func TestRunUnlock_Success(t *testing.T) {
 
 	// Create feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
 
 	// Lock the feature worktree
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock worktree: %v", err)
@@ -185,7 +185,7 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -193,12 +193,12 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 
 	// Create and lock feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock feature worktree: %v", err)
@@ -206,12 +206,12 @@ func TestRunUnlock_MultipleWorktrees(t *testing.T) {
 
 	// Create and lock bugfix worktree
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock bugfix worktree: %v", err)
@@ -255,7 +255,7 @@ func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -263,12 +263,12 @@ func TestRunUnlock_MultipleWithOneInvalid(t *testing.T) {
 
 	// Create and lock feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock feature worktree: %v", err)
@@ -306,7 +306,7 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -314,12 +314,12 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 
 	// Create and lock feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock feature worktree: %v", err)
@@ -327,7 +327,7 @@ func TestRunUnlock_MultipleWithOneNotLocked(t *testing.T) {
 
 	// Create bugfix worktree (NOT locked)
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
@@ -365,7 +365,7 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 
 	// Create main worktree
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -373,12 +373,12 @@ func TestRunUnlock_MultipleDuplicateArgs(t *testing.T) {
 
 	// Create and lock feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock feature worktree: %v", err)
@@ -411,7 +411,7 @@ func TestRunUnlock_OutputShowsWorktreeLabel(t *testing.T) {
 	}
 
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -419,14 +419,14 @@ func TestRunUnlock_OutputShowsWorktreeLabel(t *testing.T) {
 
 	// Create worktree where directory name differs from branch name
 	featurePath := filepath.Join(tempDir, "feat-auth")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
 
 	// Lock the feature worktree
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock worktree: %v", err)
@@ -466,7 +466,7 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 
 	// Create main worktree (unlocked)
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -474,12 +474,12 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 
 	// Create and lock feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock feature worktree: %v", err)
@@ -487,12 +487,12 @@ func TestCompleteUnlockArgs_MultipleArgs(t *testing.T) {
 
 	// Create and lock bugfix worktree
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock bugfix worktree: %v", err)
@@ -536,7 +536,7 @@ func TestCompleteUnlockArgs(t *testing.T) {
 
 	// Create main worktree (unlocked)
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -544,7 +544,7 @@ func TestCompleteUnlockArgs(t *testing.T) {
 
 	// Create feature worktree (unlocked)
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -552,12 +552,12 @@ func TestCompleteUnlockArgs(t *testing.T) {
 
 	// Create bugfix worktree and lock it
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
 	}
-	cmd = exec.Command("git", "worktree", "lock", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "lock", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to lock bugfix worktree: %v", err)

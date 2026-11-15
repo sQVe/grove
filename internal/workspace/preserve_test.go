@@ -45,7 +45,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		}
 
 		destFile := filepath.Join(destDir, ".env")
-		content, err := os.ReadFile(destFile) //nolint:gosec
+		content, err := os.ReadFile(destFile)
 		if err != nil {
 			t.Fatalf("Failed to read copied file: %v", err)
 		}
@@ -83,7 +83,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 skipped file, got %d", len(result.Skipped))
 		}
 
-		content, _ := os.ReadFile(destEnvPath) //nolint:gosec
+		content, _ := os.ReadFile(destEnvPath)
 		if string(content) != "DEST_VALUE" {
 			t.Errorf("Destination file was overwritten: got %q", string(content))
 		}
@@ -371,7 +371,7 @@ func TestGetPreservePatternsForCreate(t *testing.T) {
 patterns = [".custom", "*.secret"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -436,7 +436,7 @@ func TestPreserveDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 copied file, got %d: %v", len(result.Copied), result.Copied)
 		}
 
-		content, err := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		content, err := os.ReadFile(filepath.Join(destDir, "config", "app.toml"))
 		if err != nil {
 			t.Fatalf("Failed to read copied file: %v", err)
 		}
@@ -503,7 +503,7 @@ func TestPreserveDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 skipped file, got %d: %v", len(result.Skipped), result.Skipped)
 		}
 
-		content, _ := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		content, _ := os.ReadFile(filepath.Join(destDir, "config", "app.toml"))
 		if string(content) != "existing" {
 			t.Errorf("Existing file was overwritten: got %q", string(content))
 		}

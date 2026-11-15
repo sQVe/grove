@@ -106,7 +106,7 @@ func cmdSetupWorkspace(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("mkdir workspace: %v", err)
 	}
 
-	cmd := exec.Command("grove", "clone", "file://"+repoDir, wsDir) // nolint:gosec
+	cmd := exec.Command("grove", "clone", "file://"+repoDir, wsDir)
 	cmd.Dir = workDir
 	cmd.Env = testEnv(ts)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -151,7 +151,7 @@ func cmdAssertWorktree(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("expected worktree %s to exist", dirName)
 	}
 
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD") // nolint:gosec
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = worktreePath
 	out, err := cmd.Output()
 	if err != nil {
@@ -175,7 +175,7 @@ func cmdAssertBranch(ts *testscript.TestScript, neg bool, args []string) {
 	branch := args[1]
 
 	cwd, _ := os.Getwd()
-	cmd := exec.Command("git", "branch", "--list", branch) // nolint:gosec
+	cmd := exec.Command("git", "branch", "--list", branch)
 	cmd.Dir = cwd
 	out, _ := cmd.Output()
 	exists := strings.TrimSpace(string(out)) != ""
@@ -219,7 +219,7 @@ func cmdAssertOutsideError(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("mkdir outside: %v", err)
 	}
 
-	cmd := exec.Command(args[0], args[1:]...) // nolint:gosec
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = outsideDir
 	out, err := cmd.CombinedOutput()
 
@@ -239,7 +239,7 @@ func cmdAssertOutsideError(ts *testscript.TestScript, neg bool, args []string) {
 }
 
 func gitRun(ts *testscript.TestScript, dir string, args ...string) {
-	cmd := exec.Command("git", args...) // nolint:gosec
+	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = testEnv(ts)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -314,7 +314,7 @@ func fakeGh() {
 			fmt.Fprintln(os.Stderr, "fake gh: FAKE_GH_REPO is required")
 			os.Exit(2)
 		}
-		cmd := exec.Command("git", "clone", "--bare", os.Getenv("FAKE_GH_REPO"), args[3]) //nolint:gosec
+		cmd := exec.Command("git", "clone", "--bare", os.Getenv("FAKE_GH_REPO"), args[3])
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {

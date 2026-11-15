@@ -185,7 +185,7 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 				}
 			}
 			if scenario.checkHookEnvironment {
-				got, err := os.ReadFile(filepath.Join(worktreePath, "hook-env")) //nolint:gosec // Test-owned temporary path.
+				got, err := os.ReadFile(filepath.Join(worktreePath, "hook-env"))
 				want := worktreePath + "\n" + mainPath + "\n" + scenario.wantHookBranch + "\n" + workspaceRoot + "\n"
 				if err != nil || string(got) != want {
 					t.Fatalf("hook environment = %q, error = %v, want %q", got, err, want)
@@ -281,7 +281,7 @@ func TestAddRunsCanonicalHookWithSelectedSource(t *testing.T) {
 	}
 
 	destination := filepath.Join(workspaceRoot, "destination")
-	got, err := os.ReadFile(filepath.Join(destination, "source-env")) //nolint:gosec // Test-owned temporary path.
+	got, err := os.ReadFile(filepath.Join(destination, "source-env"))
 	if err != nil || string(got) != sourcePath {
 		t.Fatalf("hook source = %q, error = %v, want %q", got, err, sourcePath)
 	}
@@ -496,14 +496,14 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 	}
 
 	// The handoff must open the work in progress, never discard it.
-	edited, err := os.ReadFile(filepath.Join(worktreePath, "test.txt")) //nolint:gosec // Test-owned temporary path.
+	edited, err := os.ReadFile(filepath.Join(worktreePath, "test.txt"))
 	if err != nil || string(edited) != "edited in the worktree" {
 		t.Fatalf("handoff destroyed the uncommitted edit: %q (%v)", edited, err)
 	}
 
 	// Pin the reason, so a fetch failure taking the same path is not mistaken
 	// for the dirty-worktree branch this test is named for.
-	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	warning, err := os.ReadFile(stderr.Name())
 	if err != nil || !strings.Contains(string(warning), "uncommitted changes") {
 		t.Fatalf("expected the uncommitted-changes warning, got %q (%v)", warning, err)
 	}
@@ -682,7 +682,7 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"fork-feature","headR
 		t.Fatal(err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(workspaceRoot, "pr-42", "branch-env")) //nolint:gosec // Test-owned temporary path.
+	got, err := os.ReadFile(filepath.Join(workspaceRoot, "pr-42", "branch-env"))
 	if err != nil || len(got) != 0 {
 		t.Fatalf("fork hook branch = %q, error = %v, want empty", got, err)
 	}
@@ -763,7 +763,7 @@ printf '%s\n' '{"title":"Fix the login flow","headRefName":"pr-feature","headRep
 		t.Fatalf("handoff discarded the local commit, HEAD is now %q", subject)
 	}
 
-	warning, err := os.ReadFile(stderr.Name()) //nolint:gosec // Test-owned temporary path.
+	warning, err := os.ReadFile(stderr.Name())
 	if err != nil || !strings.Contains(string(warning), "not on remote") {
 		t.Fatalf("expected the local-commits warning, got %q (%v)", warning, err)
 	}
@@ -1116,7 +1116,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		}
 
 		// Init with specified default branch
-		cmd := exec.Command("git", "init", "-b", defaultBranch) //nolint:gosec
+		cmd := exec.Command("git", "init", "-b", defaultBranch)
 		cmd.Dir = srcDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to init: %v", err)
@@ -1128,7 +1128,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 			{"user.name", "Test"},
 			{"commit.gpgsign", "false"},
 		} {
-			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd = exec.Command("git", "config", cfg[0], cfg[1])
 			cmd.Dir = srcDir
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to set config: %v", err)
@@ -1151,7 +1151,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		}
 
 		// Clone as bare repo
-		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir) //nolint:gosec
+		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone bare: %v", err)
 		}
@@ -1164,14 +1164,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree for develop branch
 		developDir := filepath.Join(tempDir, "develop")
-		cmd := exec.Command("git", "worktree", "add", developDir, "develop") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", developDir, "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", developDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", developDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1186,7 +1186,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create main branch from develop
-		cmd := exec.Command("git", "branch", "main", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "main", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create main branch: %v", err)
@@ -1194,14 +1194,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Only create worktree for main (not develop which is the default)
 		mainDir := filepath.Join(tempDir, "main")
-		cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1216,7 +1216,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create master branch
-		cmd := exec.Command("git", "branch", "master", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "master", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create master branch: %v", err)
@@ -1224,14 +1224,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Only create worktree for master
 		masterDir := filepath.Join(tempDir, "master")
-		cmd = exec.Command("git", "worktree", "add", masterDir, "master") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", masterDir, "master")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add master worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", masterDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", masterDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1255,7 +1255,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create feature branch
-		cmd := exec.Command("git", "branch", "feature-x", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "feature-x", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature branch: %v", err)
@@ -1263,14 +1263,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Only create worktree for feature-x (not develop/main/master)
 		featureDir := filepath.Join(tempDir, "feature-x")
-		cmd = exec.Command("git", "worktree", "add", featureDir, "feature-x") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", featureDir, "feature-x")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add feature worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1285,7 +1285,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create feature branch
-		cmd := exec.Command("git", "branch", "feature-working", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "feature-working", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature branch: %v", err)
@@ -1293,14 +1293,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree in directory named "main" but checked out on feature-working
 		mainDir := filepath.Join(tempDir, "main")
-		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-working") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-working")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1316,14 +1316,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree for main branch
 		mainDir := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1339,14 +1339,14 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create main branch
-		cmd := exec.Command("git", "branch", "main", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "main", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create main branch: %v", err)
 		}
 
 		// Create feature branch
-		cmd = exec.Command("git", "branch", "feature-x", "develop") //nolint:gosec
+		cmd = exec.Command("git", "branch", "feature-x", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature branch: %v", err)
@@ -1354,7 +1354,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree checked out on main branch, but in directory named "other"
 		mainBranchDir := filepath.Join(tempDir, "other")
-		cmd = exec.Command("git", "worktree", "add", mainBranchDir, "main") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainBranchDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main branch worktree: %v", err)
@@ -1362,17 +1362,17 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree in directory named "main" but checked out on feature-x
 		mainNameDir := filepath.Join(tempDir, "main")
-		cmd = exec.Command("git", "worktree", "add", mainNameDir, "feature-x") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainNameDir, "feature-x")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main-named worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainNameDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainNameDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
-			cmd = exec.Command("git", "worktree", "remove", "--force", mainBranchDir) //nolint:gosec
+			cmd = exec.Command("git", "worktree", "remove", "--force", mainBranchDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1388,13 +1388,13 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 		tempDir, bareDir := setupBareRepo(t, "develop")
 
 		// Create two feature branches
-		cmd := exec.Command("git", "branch", "feature-a", "develop") //nolint:gosec
+		cmd := exec.Command("git", "branch", "feature-a", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature-a branch: %v", err)
 		}
 
-		cmd = exec.Command("git", "branch", "feature-b", "develop") //nolint:gosec
+		cmd = exec.Command("git", "branch", "feature-b", "develop")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature-b branch: %v", err)
@@ -1402,7 +1402,7 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree in directory named "master" on feature-a
 		masterDir := filepath.Join(tempDir, "master")
-		cmd = exec.Command("git", "worktree", "add", masterDir, "feature-a") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", masterDir, "feature-a")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add master-named worktree: %v", err)
@@ -1410,17 +1410,17 @@ func TestFindFallbackSourceWorktree(t *testing.T) {
 
 		// Create worktree in directory named "main" on feature-b
 		mainDir := filepath.Join(tempDir, "main")
-		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-b") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainDir, "feature-b")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main-named worktree: %v", err)
 		}
 
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
-			cmd = exec.Command("git", "worktree", "remove", "--force", masterDir) //nolint:gosec
+			cmd = exec.Command("git", "worktree", "remove", "--force", masterDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1472,7 +1472,7 @@ func TestFindConfigWorktree(t *testing.T) {
 		}
 		run := func(dir, name string, args ...string) {
 			t.Helper()
-			cmd := exec.Command(name, args...) //nolint:gosec
+			cmd := exec.Command(name, args...)
 			cmd.Dir = dir
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("%s %v: %v", name, args, err)
@@ -1494,7 +1494,7 @@ func TestFindConfigWorktree(t *testing.T) {
 	removeWorktree := func(t *testing.T, bareDir, wtDir string) {
 		t.Helper()
 		t.Cleanup(func() {
-			cmd := exec.Command("git", "worktree", "remove", "--force", wtDir) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", wtDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1503,7 +1503,7 @@ func TestFindConfigWorktree(t *testing.T) {
 	t.Run("returns main worktree with .grove.toml", func(t *testing.T) {
 		tempDir, bareDir := setupBare(t)
 		mainDir := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
@@ -1521,7 +1521,7 @@ func TestFindConfigWorktree(t *testing.T) {
 	t.Run("falls back to any worktree with .grove.toml", func(t *testing.T) {
 		tempDir, bareDir := setupBare(t)
 		featDir := filepath.Join(tempDir, "feat")
-		cmd := exec.Command("git", "worktree", "add", "-b", "feat", featDir) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", "-b", "feat", featDir)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
@@ -1539,7 +1539,7 @@ func TestFindConfigWorktree(t *testing.T) {
 	t.Run("returns empty when no worktree has .grove.toml", func(t *testing.T) {
 		tempDir, bareDir := setupBare(t)
 		mainDir := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("worktree add: %v", err)
@@ -1583,7 +1583,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 			{"user.name", "Test"},
 			{"commit.gpgsign", "false"},
 		} {
-			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd = exec.Command("git", "config", cfg[0], cfg[1])
 			cmd.Dir = srcDir
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to set config: %v", err)
@@ -1606,7 +1606,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		}
 
 		// Clone as bare repo
-		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir) //nolint:gosec
+		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone bare: %v", err)
 		}
@@ -1618,7 +1618,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 
 		// Create main worktree
 		mainDir := filepath.Join(tempDir, "main")
-		cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main worktree: %v", err)
@@ -1626,8 +1626,8 @@ func TestRunAdd_FromValidation(t *testing.T) {
 
 		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
 		t.Cleanup(func() {
-			_ = os.Chdir(origDir)                                                // Exit temp dir entirely (Windows requirement)
-			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			_ = os.Chdir(origDir) // Exit temp dir entirely (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1660,7 +1660,7 @@ func TestRunAdd_FromValidation(t *testing.T) {
 
 		// Create another worktree to use as --from source
 		sourceDir := filepath.Join(tempDir, "source")
-		cmd := exec.Command("git", "worktree", "add", "-b", "source", sourceDir, "main") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", "-b", "source", sourceDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create source worktree: %v", err)
@@ -1669,11 +1669,11 @@ func TestRunAdd_FromValidation(t *testing.T) {
 		// Register cleanup for worktrees created in this subtest (Windows file locks)
 		featureDir := filepath.Join(tempDir, "feature-from-test")
 		t.Cleanup(func() {
-			_ = os.Chdir(origDir)                                                   // Exit temp dir entirely (Windows requirement)
-			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			_ = os.Chdir(origDir) // Exit temp dir entirely (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
-			cmd = exec.Command("git", "worktree", "remove", "--force", sourceDir) //nolint:gosec
+			cmd = exec.Command("git", "worktree", "remove", "--force", sourceDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})
@@ -1712,7 +1712,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		{"user.name", "Test"},
 		{"commit.gpgsign", "false"},
 	} {
-		cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+		cmd = exec.Command("git", "config", cfg[0], cfg[1])
 		cmd.Dir = srcDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to set config: %v", err)
@@ -1733,7 +1733,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 		t.Fatalf("failed to commit: %v", err)
 	}
 
-	cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir) //nolint:gosec
+	cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to clone bare: %v", err)
 	}
@@ -1743,7 +1743,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 	}
 
 	mainDir := filepath.Join(tempDir, "main")
-	cmd = exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", mainDir, "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to add main worktree: %v", err)
@@ -1751,7 +1751,7 @@ func TestRunAddFromBranch_WorktreeExistsHint(t *testing.T) {
 
 	t.Cleanup(func() {
 		_ = os.Chdir(origDir)
-		cmd := exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "remove", "--force", mainDir)
 		cmd.Dir = bareDir
 		_ = cmd.Run()
 	})
@@ -1789,7 +1789,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 
 	run := func(dir, name string, args ...string) {
 		t.Helper()
-		cmd := exec.Command(name, args...) //nolint:gosec
+		cmd := exec.Command(name, args...)
 		cmd.Dir = dir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("%s %v: %v", name, args, err)
@@ -1810,7 +1810,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 	}
 
 	mainDir := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainDir, "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("worktree add main: %v", err)
@@ -1819,7 +1819,7 @@ func TestRunAdd_LinkPatternsAppliedFromOutsideWorktree(t *testing.T) {
 		_ = os.Chdir(origDir)
 		featDir := filepath.Join(tempDir, "feat")
 		for _, wt := range []string{featDir, mainDir} {
-			cmd := exec.Command("git", "worktree", "remove", "--force", wt) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", wt)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		}
@@ -1866,7 +1866,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 
 	run := func(dir, name string, args ...string) {
 		t.Helper()
-		cmd := exec.Command(name, args...) //nolint:gosec
+		cmd := exec.Command(name, args...)
 		cmd.Dir = dir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("%s %v: %v", name, args, err)
@@ -1892,7 +1892,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 	// empty unless the code falls back to the config worktree.
 	run(bareDir, "git", "branch", "feat-x", "dev")
 	featDir := filepath.Join(tempDir, "feat-x")
-	cmd := exec.Command("git", "worktree", "add", featDir, "feat-x") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", featDir, "feat-x")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("worktree add feat-x: %v", err)
@@ -1901,7 +1901,7 @@ func TestRunAdd_LinkAppliedWhenOnlyNonMainWorktreeHasConfig(t *testing.T) {
 		_ = os.Chdir(origDir)
 		newworkDir := filepath.Join(tempDir, "newwork")
 		for _, wt := range []string{newworkDir, featDir} {
-			cmd := exec.Command("git", "worktree", "remove", "--force", wt) //nolint:gosec
+			cmd := exec.Command("git", "worktree", "remove", "--force", wt)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		}
@@ -1961,7 +1961,7 @@ func TestCompleteFromWorktree(t *testing.T) {
 			{"user.name", "Test"},
 			{"commit.gpgsign", "false"},
 		} {
-			cmd = exec.Command("git", "config", cfg[0], cfg[1]) //nolint:gosec
+			cmd = exec.Command("git", "config", cfg[0], cfg[1])
 			cmd.Dir = srcDir
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to set config: %v", err)
@@ -1982,7 +1982,7 @@ func TestCompleteFromWorktree(t *testing.T) {
 			t.Fatalf("failed to commit: %v", err)
 		}
 
-		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir) //nolint:gosec
+		cmd = exec.Command("git", "clone", "--bare", srcDir, bareDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone bare: %v", err)
 		}
@@ -1999,14 +1999,14 @@ func TestCompleteFromWorktree(t *testing.T) {
 
 		// Create worktrees
 		mainDir := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainDir, "main") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add main worktree: %v", err)
 		}
 
 		featureDir := filepath.Join(tempDir, "feature")
-		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featureDir, "main") //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featureDir, "main")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add feature worktree: %v", err)
@@ -2014,11 +2014,11 @@ func TestCompleteFromWorktree(t *testing.T) {
 
 		// Register cleanup to remove worktrees before temp dir cleanup (Windows file locks)
 		t.Cleanup(func() {
-			_ = os.Chdir(origDir)                                                   // Exit temp dir entirely (Windows requirement)
-			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir) //nolint:gosec
+			_ = os.Chdir(origDir) // Exit temp dir entirely (Windows requirement)
+			cmd := exec.Command("git", "worktree", "remove", "--force", featureDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
-			cmd = exec.Command("git", "worktree", "remove", "--force", mainDir) //nolint:gosec
+			cmd = exec.Command("git", "worktree", "remove", "--force", mainDir)
 			cmd.Dir = bareDir
 			_ = cmd.Run()
 		})

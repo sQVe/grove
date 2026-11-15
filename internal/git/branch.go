@@ -38,7 +38,7 @@ func CountUnreachableCommits(repoPath, branch string) (int, error) {
 		}
 	}
 
-	cmd, cancel := GitCommand("git", "rev-list", "--count", targetRef, "--stdin") //nolint:gosec // Refs come from git
+	cmd, cancel := GitCommand("git", "rev-list", "--count", targetRef, "--stdin")
 	defer cancel()
 	cmd.Dir = repoPath
 	cmd.Stdin = strings.NewReader(exclusions.String())
@@ -98,7 +98,7 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 		return false, errors.New("repository path and branch name cannot be empty")
 	}
 
-	cmd, cancel := GitCommand("git", "rev-parse", "--verify", "--quiet", branchName) // nolint:gosec // Branch name validated by git
+	cmd, cancel := GitCommand("git", "rev-parse", "--verify", "--quiet", branchName)
 	cmd.Dir = repoPath
 	err := cmd.Run()
 	cancel()
@@ -120,7 +120,7 @@ func BranchExists(repoPath, branchName string) (bool, error) {
 			continue
 		}
 		remoteBranch := remote + "/" + branchName
-		cmd, cancelCmd := GitCommand("git", "rev-parse", "--verify", "--quiet", remoteBranch) // nolint:gosec // Branch name validated by git
+		cmd, cancelCmd := GitCommand("git", "rev-parse", "--verify", "--quiet", remoteBranch)
 		cmd.Dir = repoPath
 		err := cmd.Run()
 		cancelCmd()
@@ -144,7 +144,7 @@ func GetCurrentBranch(path string) (string, error) {
 	}
 
 	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	content, err := os.ReadFile(headFile)
 	if err != nil {
 		return "", err
 	}
@@ -217,7 +217,7 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	}
 
 	headFile := filepath.Join(bareDir, "HEAD")
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	content, err := os.ReadFile(headFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read HEAD: %w", err)
 	}
@@ -268,7 +268,7 @@ func IsUnbornHead(path string) (bool, error) {
 // gitDir must be the actual git directory (e.g., .bare/, or .git/).
 func isHeadDangling(gitDir string) (bool, error) {
 	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile) // nolint:gosec // Reading git HEAD file
+	content, err := os.ReadFile(headFile)
 	if err != nil {
 		return false, err
 	}
@@ -282,7 +282,7 @@ func isHeadDangling(gitDir string) (bool, error) {
 	// Resolve the ref through git so linked worktrees (whose refs live in the
 	// common dir) and packed refs are handled correctly. A non-existent ref
 	// means HEAD dangles; show-ref --quiet exits non-zero in that case.
-	cmd, cancel := GitCommand("git", "--git-dir", gitDir, "show-ref", "--verify", "--quiet", refPath) //nolint:gosec // refPath read from git's HEAD
+	cmd, cancel := GitCommand("git", "--git-dir", gitDir, "show-ref", "--verify", "--quiet", refPath)
 	defer cancel()
 	return runGitCommand(cmd, true) != nil, nil
 }
@@ -294,7 +294,7 @@ func SetSymbolicRef(repoPath, name, target string) error {
 	}
 
 	logger.Debug("Executing: git symbolic-ref %s %s in %s", name, target, repoPath)
-	cmd, cancel := GitCommand("git", "symbolic-ref", name, target) //nolint:gosec // refs validated by git
+	cmd, cancel := GitCommand("git", "symbolic-ref", name, target)
 	defer cancel()
 	cmd.Dir = repoPath
 	return runGitCommand(cmd, true)
@@ -388,7 +388,7 @@ func DeleteBranch(repoPath, branchName string, force bool) error {
 		flag = "-D"
 	}
 	logger.Debug("Executing: git branch %s %s in %s", flag, branchName, repoPath)
-	cmd, cancel := GitCommand("git", "branch", flag, branchName) //nolint:gosec // Branch name comes from validated input
+	cmd, cancel := GitCommand("git", "branch", flag, branchName)
 	defer cancel()
 	cmd.Dir = repoPath
 	return runGitCommand(cmd, true)
@@ -401,7 +401,7 @@ func RenameBranch(repoPath, oldName, newName string) error {
 	}
 
 	logger.Debug("Executing: git branch -m %s %s in %s", oldName, newName, repoPath)
-	cmd, cancel := GitCommand("git", "branch", "-m", oldName, newName) // nolint:gosec // Branch names from validated input
+	cmd, cancel := GitCommand("git", "branch", "-m", oldName, newName)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -415,7 +415,7 @@ func SetUpstreamBranch(worktreePath, upstream string) error {
 	}
 
 	logger.Debug("Executing: git branch --set-upstream-to=%s in %s", upstream, worktreePath)
-	cmd, cancel := GitCommand("git", "branch", "--set-upstream-to="+upstream) // nolint:gosec // Upstream from validated input
+	cmd, cancel := GitCommand("git", "branch", "--set-upstream-to="+upstream)
 	defer cancel()
 	cmd.Dir = worktreePath
 
@@ -429,7 +429,7 @@ func LocalBranchExists(repoPath, branch string) (bool, error) {
 	}
 
 	logger.Debug("Executing: git show-ref --verify --quiet refs/heads/%s in %s", branch, repoPath)
-	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch) // nolint:gosec
+	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -452,7 +452,7 @@ func RemoteBranchExists(repoPath, remote, branch string) (bool, error) {
 
 	ref := fmt.Sprintf("refs/remotes/%s/%s", remote, branch)
 	logger.Debug("Executing: git show-ref --verify --quiet %s in %s", ref, repoPath)
-	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", ref) // nolint:gosec
+	cmd, cancel := GitCommand("git", "show-ref", "--verify", "--quiet", ref)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -478,7 +478,7 @@ func CompareBranchRefs(repoPath, localRef, remoteRef string) (ahead, behind int,
 
 	refRange := localRef + "..." + remoteRef
 	logger.Debug("Executing: git rev-list --left-right --count %s in %s", refRange, repoPath)
-	cmd, cancel := GitCommand("git", "rev-list", "--left-right", "--count", refRange) // nolint:gosec
+	cmd, cancel := GitCommand("git", "rev-list", "--left-right", "--count", refRange)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -507,7 +507,7 @@ func RevParse(repoPath, ref string) (string, error) {
 	}
 
 	logger.Debug("Executing: git rev-parse %s in %s", ref, repoPath)
-	cmd, cancel := GitCommand("git", "rev-parse", ref) // nolint:gosec
+	cmd, cancel := GitCommand("git", "rev-parse", ref)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -528,7 +528,7 @@ func UpdateBranchRef(repoPath, branch, targetRef string) error {
 
 	// First resolve the target ref to a commit hash
 	logger.Debug("Executing: git rev-parse %s in %s", targetRef, repoPath)
-	resolveCmd, cancelResolve := GitCommand("git", "rev-parse", targetRef) // nolint:gosec
+	resolveCmd, cancelResolve := GitCommand("git", "rev-parse", targetRef)
 	resolveCmd.Dir = repoPath
 	targetHash, err := executeWithOutput(resolveCmd)
 	cancelResolve()
@@ -539,7 +539,7 @@ func UpdateBranchRef(repoPath, branch, targetRef string) error {
 	// Now update the branch ref
 	refPath := "refs/heads/" + branch
 	logger.Debug("Executing: git update-ref %s %s in %s", refPath, targetHash, repoPath)
-	cmd, cancel := GitCommand("git", "update-ref", refPath, targetHash) // nolint:gosec
+	cmd, cancel := GitCommand("git", "update-ref", refPath, targetHash)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -571,7 +571,7 @@ func IsBranchMerged(repoPath, branch, targetBranch string) (bool, error) {
 // isMergedByAncestry checks if branch is an ancestor of targetBranch
 func isMergedByAncestry(repoPath, branch, targetBranch string) bool {
 	// git merge-base --is-ancestor returns 0 if branch is ancestor of targetBranch
-	cmd, cancel := GitCommand("git", "merge-base", "--is-ancestor", branch, targetBranch) // nolint:gosec
+	cmd, cancel := GitCommand("git", "merge-base", "--is-ancestor", branch, targetBranch)
 	defer cancel()
 	cmd.Dir = repoPath
 	return cmd.Run() == nil
@@ -583,7 +583,7 @@ func isMergedByPatchID(repoPath, branch, targetBranch string) (bool, error) {
 	// git cherry marks commits with "-" if an equivalent patch exists in target,
 	// and "+" if the commit is unique to the branch (not in target).
 	// This does the patch-id comparison internally in a single call.
-	cmd, cancel := GitCommand("git", "cherry", "-v", targetBranch, branch) // nolint:gosec
+	cmd, cancel := GitCommand("git", "cherry", "-v", targetBranch, branch)
 	defer cancel()
 	cmd.Dir = repoPath
 	output, err := cmd.Output()
@@ -657,7 +657,7 @@ func BranchUpstream(repoPath, branch string) (remoteRef, remote, remoteBranch st
 	// refs/heads/feature/sub; the refname field lets us keep the exact match only.
 	refName := "refs/heads/" + branch
 	logger.Debug("Executing: git for-each-ref %s in %s", refName, repoPath)
-	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname) %(upstream:short) %(upstream:remotename) %(upstream:remoteref)", refName) // nolint:gosec
+	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname) %(upstream:short) %(upstream:remotename) %(upstream:remoteref)", refName)
 	defer cancel()
 	cmd.Dir = repoPath
 

@@ -104,7 +104,7 @@ func TestRunMove_CurrentWorktreeHint(t *testing.T) {
 	}
 
 	mainPath := filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)

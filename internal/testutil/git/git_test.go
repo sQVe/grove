@@ -218,7 +218,7 @@ func TestTestRepo_WriteFile(t *testing.T) {
 		repo.WriteFile("nested/deep/file.txt", "nested content")
 
 		nestedPath := filepath.Join(repo.Path, "nested", "deep", "file.txt")
-		content, err := os.ReadFile(nestedPath) // nolint:gosec // Test-controlled path
+		content, err := os.ReadFile(nestedPath)
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
@@ -388,7 +388,7 @@ func TestCleanupWorktree(t *testing.T) {
 	t.Run("standalone function registers cleanup", func(t *testing.T) {
 		repo := NewBareTestRepo(t)
 		worktreePath := filepath.Join(repo.Dir, "wt-test")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "test-branch") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "test-branch")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -402,7 +402,7 @@ func TestBareTestRepo_CleanupWorktree(t *testing.T) {
 	t.Run("method registers cleanup", func(t *testing.T) {
 		repo := NewBareTestRepo(t)
 		worktreePath := filepath.Join(repo.Dir, "wt-method")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "method-branch") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "method-branch")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)

@@ -33,7 +33,7 @@ func AssertPathExists(t *testing.T, path string) {
 // AssertFileContent fails if file content doesn't match expected.
 func AssertFileContent(t *testing.T, path, expected string) {
 	t.Helper()
-	content, err := os.ReadFile(path) // nolint:gosec // Test helper with controlled input
+	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read file %s: %v", path, err)
 	}

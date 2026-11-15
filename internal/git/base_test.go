@@ -282,7 +282,7 @@ func TestResolveWorktreeBase(t *testing.T) {
 		if base != "origin/main" {
 			t.Fatalf("base = %q, want origin/main", base)
 		}
-		output, err := os.ReadFile(trace) //nolint:gosec // Trace path is inside the test's temporary directory.
+		output, err := os.ReadFile(trace)
 		if err != nil {
 			t.Fatal(err)
 		}

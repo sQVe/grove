@@ -139,7 +139,7 @@ func TestCreateWorktree(t *testing.T) {
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 
 		// Create a branch first
-		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd := exec.Command("git", "branch", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create branch: %v", err)
@@ -166,7 +166,7 @@ func TestCreateWorktree(t *testing.T) {
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
 
 		// Create a branch first
-		cmd := exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd := exec.Command("git", "branch", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create branch: %v", err)
@@ -179,7 +179,7 @@ func TestCreateWorktree(t *testing.T) {
 
 		// Read the .git file and verify it contains a relative path
 		gitFile := filepath.Join(worktreeDir, ".git")
-		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		content, err := os.ReadFile(gitFile)
 		if err != nil {
 			t.Fatalf("failed to read .git file: %v", err)
 		}
@@ -371,7 +371,7 @@ func TestListWorktrees(t *testing.T) {
 
 		worktreeDir := filepath.Join(repo.TempDir, "branch-worktree")
 
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -397,7 +397,7 @@ func TestListWorktrees(t *testing.T) {
 		// Create a worktree with spaces in the path
 		worktreeDir := filepath.Join(repo.TempDir, "branch with spaces")
 
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature-spaces") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature-spaces")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -564,7 +564,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		// Create a worktree
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -591,7 +591,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -620,14 +620,14 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			repo := testgit.NewTestRepo(t)
 
 			liveDir := filepath.Join(repo.TempDir, "live-wt")
-			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live")
 			cmd.Dir = repo.Path
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to create live worktree: %v", err)
 			}
 
 			goneDir := filepath.Join(repo.TempDir, "gone-wt")
-			cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone") // nolint:gosec // Test uses controlled temp directory
+			cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone")
 			cmd.Dir = repo.Path
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to create gone worktree: %v", err)
@@ -655,7 +655,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			repo := testgit.NewTestRepo(t)
 
 			liveDir := filepath.Join(repo.TempDir, "live-wt")
-			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+			cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live")
 			cmd.Dir = repo.Path
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to create live worktree: %v", err)
@@ -665,7 +665,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			// unreadable: git still lists it (no prunable marker), so it must be
 			// skipped by validation, not returned as usable.
 			corruptDir := filepath.Join(repo.TempDir, "corrupt-wt")
-			cmd = exec.Command("git", "worktree", "add", corruptDir, "-b", "corrupt") // nolint:gosec // Test uses controlled temp directory
+			cmd = exec.Command("git", "worktree", "add", corruptDir, "-b", "corrupt")
 			cmd.Dir = repo.Path
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("failed to create corrupt worktree: %v", err)
@@ -691,13 +691,13 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		// Create worktrees in unsorted order
-		cmd := exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "zebra-wt"), "-b", "zebra") // nolint:gosec // Test
+		cmd := exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "zebra-wt"), "-b", "zebra")
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
-		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "alpha-wt"), "-b", "alpha") // nolint:gosec // Test
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "alpha-wt"), "-b", "alpha")
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
-		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "mid-wt"), "-b", "mid") // nolint:gosec // Test
+		cmd = exec.Command("git", "worktree", "add", filepath.Join(repo.TempDir, "mid-wt"), "-b", "mid")
 		cmd.Dir = repo.Path
 		_ = cmd.Run()
 
@@ -719,7 +719,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -736,7 +736,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 			t.Error("expected Locked to be false for unlocked worktree")
 		}
 
-		cmd = exec.Command("git", "worktree", "lock", worktreeDir) // nolint:gosec
+		cmd = exec.Command("git", "worktree", "lock", worktreeDir)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to lock worktree: %v", err)
@@ -758,7 +758,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		worktreeDir := filepath.Join(repo.TempDir, "feature-worktree")
-		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreeDir, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -775,7 +775,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		// Lock with reason
 		expectedReason := "important work"
-		cmd = exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreeDir) // nolint:gosec
+		cmd = exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreeDir)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to lock worktree: %v", err)
@@ -795,7 +795,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		// Create a detached worktree
 		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
-		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create detached worktree: %v", err)
@@ -824,7 +824,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 
 		// Create a detached worktree
 		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
-		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create detached worktree: %v", err)
@@ -851,7 +851,7 @@ func TestListWorktreesWithInfo(t *testing.T) {
 	t.Run("falls back when detached HEAD cannot be resolved", func(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreeDir := filepath.Join(repo.TempDir, "detached-worktree")
-		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", "--detach", worktreeDir, "HEAD")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create detached worktree: %v", err)
@@ -898,14 +898,14 @@ func TestListPrunableWorktrees(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		liveDir := filepath.Join(repo.TempDir, "live-wt")
-		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create live worktree: %v", err)
 		}
 
 		goneDir := filepath.Join(repo.TempDir, "gone-wt")
-		cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone") // nolint:gosec // Test uses controlled temp directory
+		cmd = exec.Command("git", "worktree", "add", goneDir, "-b", "gone")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create gone worktree: %v", err)
@@ -931,7 +931,7 @@ func TestListPrunableWorktrees(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 
 		liveDir := filepath.Join(repo.TempDir, "live-wt")
-		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live") // nolint:gosec // Test uses controlled temp directory
+		cmd := exec.Command("git", "worktree", "add", liveDir, "-b", "live")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create live worktree: %v", err)
@@ -954,7 +954,7 @@ func TestCreateWorktreeNewBranch(t *testing.T) {
 
 		// Clone it as bare to simulate grove workspace structure
 		bareDir := filepath.Join(testutil.TempDir(t), ".bare")
-		cmd := exec.Command("git", "clone", "--bare", sourceRepo.Path, bareDir) // nolint:gosec // Test
+		cmd := exec.Command("git", "clone", "--bare", sourceRepo.Path, bareDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create bare clone: %v", err)
 		}
@@ -1020,7 +1020,7 @@ func TestCreateWorktreeNewBranch(t *testing.T) {
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")
-		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		content, err := os.ReadFile(gitFile)
 		if err != nil {
 			t.Fatalf("failed to read .git file: %v", err)
 		}
@@ -1110,7 +1110,7 @@ func TestCreateWorktreeFromBase(t *testing.T) {
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")
-		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		content, err := os.ReadFile(gitFile)
 		if err != nil {
 			t.Fatalf("failed to read .git file: %v", err)
 		}
@@ -1163,7 +1163,7 @@ func TestCreateWorktreeDetach(t *testing.T) {
 		}
 
 		gitFile := filepath.Join(worktreeDir, ".git")
-		content, err := os.ReadFile(gitFile) //nolint:gosec // Test file path is controlled
+		content, err := os.ReadFile(gitFile)
 		if err != nil {
 			t.Fatalf("failed to read .git file: %v", err)
 		}
@@ -1181,7 +1181,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1197,7 +1197,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1228,7 +1228,7 @@ func TestIsWorktreeLocked(t *testing.T) {
 
 		// Create worktree with original name
 		originalPath := filepath.Join(repo.TempDir, "original")
-		cmd := exec.Command("git", "worktree", "add", originalPath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", originalPath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1241,14 +1241,14 @@ func TestIsWorktreeLocked(t *testing.T) {
 		}
 
 		// Repair the worktree so git knows about the new location
-		repairCmd := exec.Command("git", "worktree", "repair", renamedPath) //nolint:gosec
+		repairCmd := exec.Command("git", "worktree", "repair", renamedPath)
 		repairCmd.Dir = repo.Path
 		if err := repairCmd.Run(); err != nil {
 			t.Fatalf("failed to repair worktree: %v", err)
 		}
 
 		// Lock using git directly (which uses the path)
-		lockCmd := exec.Command("git", "worktree", "lock", "--reason", "test lock", renamedPath) //nolint:gosec
+		lockCmd := exec.Command("git", "worktree", "lock", "--reason", "test lock", renamedPath)
 		lockCmd.Dir = repo.Path
 		if err := lockCmd.Run(); err != nil {
 			t.Fatalf("failed to lock worktree: %v", err)
@@ -1281,7 +1281,7 @@ func TestRemoveWorktree(t *testing.T) {
 		}
 
 		worktreePath := filepath.Join(tempDir, "feature")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1313,7 +1313,7 @@ func TestRemoveWorktree(t *testing.T) {
 		}
 
 		worktreePath := filepath.Join(tempDir, "feature")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1347,7 +1347,7 @@ func TestRemoveWorktree(t *testing.T) {
 		}
 
 		worktreePath := filepath.Join(tempDir, "feature")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") // nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1501,7 +1501,7 @@ func TestLockWorktree(t *testing.T) {
 		bareDir := repo.Path
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1521,7 +1521,7 @@ func TestLockWorktree(t *testing.T) {
 		bareDir := repo.Path
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1555,7 +1555,7 @@ func TestLockWorktree(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1579,7 +1579,7 @@ func TestGetWorktreeLockReason(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -1595,14 +1595,14 @@ func TestGetWorktreeLockReason(t *testing.T) {
 		repo := testgit.NewTestRepo(t)
 		worktreePath := filepath.Join(repo.TempDir, "feature")
 
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature") //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", "feature")
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
 		expectedReason := "important work in progress"
-		lockCmd := exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreePath) //nolint:gosec
+		lockCmd := exec.Command("git", "worktree", "lock", "--reason", expectedReason, worktreePath)
 		lockCmd.Dir = repo.Path
 		if err := lockCmd.Run(); err != nil {
 			t.Fatalf("failed to lock worktree: %v", err)

@@ -27,7 +27,7 @@ type gitRunner struct {
 // Run executes a git command and returns combined stdout/stderr and error.
 func (r *gitRunner) Run(args ...string) (string, error) {
 	r.t.Helper()
-	cmd := exec.Command("git", args...) // nolint:gosec
+	cmd := exec.Command("git", args...)
 	cmd.Dir = r.Path
 	out, err := cmd.CombinedOutput()
 	return string(out), err
@@ -70,7 +70,7 @@ func NewTestRepo(t *testing.T, branchName ...string) *TestRepo {
 		branch = branchName[0]
 	}
 
-	cmd := exec.Command("git", "init", "-b", branch) // nolint:gosec
+	cmd := exec.Command("git", "init", "-b", branch)
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init repo: %v", err)
@@ -113,7 +113,7 @@ func setGitConfigs(t *testing.T, repoPath string) {
 		{"user.name", "Test User"},
 	}
 	for _, cfg := range configs {
-		cmd := exec.Command("git", "config", cfg.key, cfg.value) // nolint:gosec
+		cmd := exec.Command("git", "config", cfg.key, cfg.value)
 		cmd.Dir = repoPath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Failed to set git config %s: %v", cfg.key, err)
@@ -124,7 +124,7 @@ func setGitConfigs(t *testing.T, repoPath string) {
 // AddRemote adds a remote to the repository
 func (r *TestRepo) AddRemote(name, url string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "remote", "add", name, url) // nolint:gosec
+	cmd := exec.Command("git", "remote", "add", name, url)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to add remote: %v", err)
@@ -134,7 +134,7 @@ func (r *TestRepo) AddRemote(name, url string) {
 // CreateBranch creates a new branch at the current HEAD
 func (r *TestRepo) CreateBranch(name string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "branch", name) // nolint:gosec
+	cmd := exec.Command("git", "branch", name)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to create branch: %v", err)
@@ -144,7 +144,7 @@ func (r *TestRepo) CreateBranch(name string) {
 // Checkout switches to a branch
 func (r *TestRepo) Checkout(name string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "checkout", name) // nolint:gosec
+	cmd := exec.Command("git", "checkout", name)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to checkout: %v", err)
@@ -167,7 +167,7 @@ func (r *TestRepo) WriteFile(name, content string) {
 // Add stages a file
 func (r *TestRepo) Add(name string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "add", name) // nolint:gosec
+	cmd := exec.Command("git", "add", name)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to add file: %v", err)
@@ -177,7 +177,7 @@ func (r *TestRepo) Add(name string) {
 // Commit creates a commit with the given message
 func (r *TestRepo) Commit(message string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "commit", "-m", message) // nolint:gosec
+	cmd := exec.Command("git", "commit", "-m", message)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to commit: %v", err)
@@ -187,7 +187,7 @@ func (r *TestRepo) Commit(message string) {
 // Merge merges a branch into the current branch
 func (r *TestRepo) Merge(branch string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "merge", branch, "--no-edit") // nolint:gosec
+	cmd := exec.Command("git", "merge", branch, "--no-edit")
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to merge: %v", err)
@@ -197,13 +197,13 @@ func (r *TestRepo) Merge(branch string) {
 // SquashMerge performs a squash merge of a branch into the current branch
 func (r *TestRepo) SquashMerge(branch string) {
 	r.t.Helper()
-	cmd := exec.Command("git", "merge", "--squash", branch) // nolint:gosec
+	cmd := exec.Command("git", "merge", "--squash", branch)
 	cmd.Dir = r.Path
 	if err := cmd.Run(); err != nil {
 		r.t.Fatalf("Failed to squash merge: %v", err)
 	}
 	// Squash merge requires a separate commit
-	commitCmd := exec.Command("git", "commit", "-m", "Squash merge "+branch) // nolint:gosec
+	commitCmd := exec.Command("git", "commit", "-m", "Squash merge "+branch)
 	commitCmd.Dir = r.Path
 	if err := commitCmd.Run(); err != nil {
 		r.t.Fatalf("Failed to commit squash merge: %v", err)
@@ -215,7 +215,7 @@ func (r *TestRepo) SquashMerge(branch string) {
 func CleanupWorktree(t *testing.T, bareDir, worktreePath string) {
 	t.Helper()
 	t.Cleanup(func() {
-		cmd := exec.Command("git", "worktree", "remove", "--force", worktreePath) // nolint:gosec
+		cmd := exec.Command("git", "worktree", "remove", "--force", worktreePath)
 		cmd.Dir = bareDir
 		_ = cmd.Run()
 	})
@@ -270,7 +270,7 @@ func NewBareTestRepo(t *testing.T) *BareTestRepo {
 	dir := testutil.TempDir(t)
 	bareDir := filepath.Join(dir, "repo.git")
 
-	cmd := exec.Command("git", "init", "--bare", "-b", defaultBranch) // nolint:gosec
+	cmd := exec.Command("git", "init", "--bare", "-b", defaultBranch)
 	if err := os.MkdirAll(bareDir, fs.DirGit); err != nil {
 		t.Fatalf("Failed to create bare repo dir: %v", err)
 	}
@@ -316,7 +316,7 @@ func NewGroveWorkspace(t *testing.T, branches ...string) *GroveWorkspace {
 		t.Fatalf("Failed to create bare dir: %v", err)
 	}
 
-	cmd := exec.Command("git", "init", "--bare", "-b", branches[0]) // nolint:gosec
+	cmd := exec.Command("git", "init", "--bare", "-b", branches[0])
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Failed to init bare repo: %v", err)
@@ -366,9 +366,9 @@ func (w *GroveWorkspace) CreateWorktree(branch string) string {
 	var cmd *exec.Cmd
 	if len(w.Worktrees) == 0 {
 		// First worktree needs --orphan since bare repo has no commits
-		cmd = exec.Command("git", "worktree", "add", "--orphan", "-b", branch, worktreePath) // nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", "--orphan", "-b", branch, worktreePath)
 	} else {
-		cmd = exec.Command("git", "worktree", "add", "-b", branch, worktreePath) // nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
 	}
 	cmd.Dir = w.BareDir
 	if err := cmd.Run(); err != nil {
