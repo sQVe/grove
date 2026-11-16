@@ -36,7 +36,7 @@ func DirectoryExists(path string) bool {
 
 // IsEmptyDir checks if a directory is empty
 func IsEmptyDir(path string) (bool, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: opens the directory the caller asks about.
 	if err != nil {
 		return false, err
 	}
@@ -135,23 +135,13 @@ func RenameWithFallback(oldpath, newpath string) error {
 
 // CopyFile copies content from src to dst using streaming I/O and sets given permissions
 func CopyFile(src, dst string, perm os.FileMode) error {
-	return copyFile(src, dst, perm, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
-}
-
-// CopyFileExclusive copies content from src to dst, failing if dst already exists.
-// Returns os.ErrExist if destination file exists. This avoids TOCTOU races.
-func CopyFileExclusive(src, dst string, perm os.FileMode) error {
-	return copyFile(src, dst, perm, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
-}
-
-func copyFile(src, dst string, perm os.FileMode, flags int) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) //nolint:gosec // G304: copies from the path the caller chooses; this function does not check containment.
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
 
-	out, err := os.OpenFile(dst, flags, perm)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm) //nolint:gosec // G304: copies to the path the caller chooses; this function does not check containment.
 	if err != nil {
 		return err
 	}
