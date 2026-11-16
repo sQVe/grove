@@ -150,7 +150,7 @@ func WriteToFile(dir string, cfg *FileConfig) error {
 	path := filepath.Join(dir, FileName)
 	tmpPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())
 
-	f, err := os.Create(tmpPath) //nolint:gosec // Path is derived from user-provided dir, not external input
+	f, err := os.Create(tmpPath) //nolint:gosec // G304: creates a temporary file next to .grove.toml in the target directory.
 	if err != nil {
 		return err
 	}
@@ -172,5 +172,5 @@ func WriteToFile(dir string, cfg *FileConfig) error {
 // WriteTemplateToFile writes the default config template with comments.
 func WriteTemplateToFile(dir string) error {
 	path := filepath.Join(dir, FileName)
-	return os.WriteFile(path, []byte(initTemplate), 0o644) //nolint:gosec // Fixed permissions for config file
+	return os.WriteFile(path, []byte(initTemplate), 0o644) //nolint:gosec // G306: .grove.toml is shared project config that others must read.
 }

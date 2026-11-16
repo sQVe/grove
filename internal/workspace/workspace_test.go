@@ -97,7 +97,7 @@ func TestConvert(t *testing.T) {
 		}
 
 		for name, want := range files {
-			content, err := os.ReadFile(filepath.Join(repo.Path, name)) //nolint:gosec // controlled test path
+			content, err := os.ReadFile(filepath.Join(repo.Path, name))
 			if err != nil {
 				t.Errorf("expected %s to be restored: %v", name, err)
 				continue
@@ -297,7 +297,7 @@ func TestPreserveIgnoredFilesFromList_ValidPreserve(t *testing.T) {
 		if _, err := os.Stat(preservedFile); err != nil {
 			t.Errorf("expected preserved file %s in branch %q, error: %v", preservedFile, branch, err)
 		} else {
-			c, err := os.ReadFile(preservedFile) // nolint:gosec // Test file - controlled path
+			c, err := os.ReadFile(preservedFile)
 			if err != nil {
 				t.Errorf("failed to read file %s: %v", preservedFile, err)
 			}

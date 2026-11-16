@@ -3,6 +3,7 @@ package workspace
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,45 @@ import (
 type PreserveResult struct {
 	Copied  []string
 	Skipped []string // Already exist in destination
+}
+
+func copyFileIntoRoot(root *os.Root, sourcePath, relativePath string) error {
+	input, err := os.Open(sourcePath) //nolint:gosec // G304: source path is selected by preserve configuration; source containment is not checked here.
+	if err != nil {
+		return err
+	}
+	defer func() { _ = input.Close() }()
+
+	output, err := root.OpenFile(relativePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(output, input); err != nil {
+		_ = output.Close()
+		_ = root.Remove(relativePath)
+		return err
+	}
+	return output.Close()
+}
+
+func copyPreservedFile(root *os.Root, sourcePath, relativePath string, result *PreserveResult) error {
+	if err := root.MkdirAll(filepath.Dir(relativePath), fs.DirGit); err != nil {
+		logger.Warning("Skipping preserved file %s: cannot create its directory in the worktree: %v", relativePath, err)
+		return nil
+	}
+
+	err := copyFileIntoRoot(root, sourcePath, relativePath)
+	if errors.Is(err, os.ErrExist) {
+		result.Skipped = append(result.Skipped, relativePath)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	result.Copied = append(result.Copied, relativePath)
+	return nil
 }
 
 // PreserveFilesToWorktree copies matching files, skips existing (never overwrites).
@@ -44,31 +84,25 @@ func PreserveFilesToWorktree(sourceDir, destDir string, patterns, ignoredFiles, 
 		return result, nil
 	}
 
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+
 	logger.Debug("Preserving files from %s to %s: %v", sourceDir, destDir, filesToCopy)
 
 	for _, file := range filesToCopy {
 		sourcePath := filepath.Join(sourceDir, file)
-		destPath := filepath.Join(destDir, file)
 
 		if _, err := os.Stat(sourcePath); err != nil {
 			logger.Debug("Source file does not exist, skipping: %s", sourcePath)
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
+		if err := copyPreservedFile(root, sourcePath, file, result); err != nil {
 			return nil, err
 		}
-
-		// Use exclusive copy to atomically skip existing files (avoids TOCTOU race)
-		if err := fs.CopyFileExclusive(sourcePath, destPath, fs.FileGit); err != nil {
-			if errors.Is(err, os.ErrExist) {
-				result.Skipped = append(result.Skipped, file)
-				continue
-			}
-			return nil, err
-		}
-
-		result.Copied = append(result.Copied, file)
 	}
 
 	return result, nil
@@ -83,6 +117,12 @@ func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []stri
 	if len(directories) == 0 {
 		return result, nil
 	}
+
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
 
 	for _, dir := range directories {
 		cleaned := filepath.Clean(dir)
@@ -112,26 +152,13 @@ func PreserveDirectoriesToWorktree(sourceDir, destDir string, directories []stri
 				return err
 			}
 
-			destPath := filepath.Join(destDir, relPath)
-
 			if d.IsDir() {
-				return os.MkdirAll(destPath, fs.DirGit)
+				// Visit files even when directory creation fails so each gets a warning.
+				_ = root.MkdirAll(relPath, fs.DirGit)
+				return nil
 			}
 
-			if err := os.MkdirAll(filepath.Dir(destPath), fs.DirGit); err != nil {
-				return err
-			}
-
-			if err := fs.CopyFileExclusive(path, destPath, fs.FileGit); err != nil {
-				if errors.Is(err, os.ErrExist) {
-					result.Skipped = append(result.Skipped, relPath)
-					return nil
-				}
-				return err
-			}
-
-			result.Copied = append(result.Copied, relPath)
-			return nil
+			return copyPreservedFile(root, path, relPath, result)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to preserve directory %s: %w", dir, err)

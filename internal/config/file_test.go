@@ -16,7 +16,7 @@ func TestLoadFromFile(t *testing.T) {
 patterns = [".env", ".env.local", "*.secret"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -42,7 +42,7 @@ patterns = [".env", ".env.local", "*.secret"]
 exclude = ["node_modules", "vendor", ".cache"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -68,7 +68,7 @@ exclude = ["node_modules", "vendor", ".cache"]
 directories = ["config", ".run", "scripts"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -94,7 +94,7 @@ directories = ["config", ".run", "scripts"]
 add = ["pnpm i", "pnpm build"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -120,7 +120,7 @@ add = ["pnpm i", "pnpm build"]
 debug = false
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -159,7 +159,7 @@ debug = false
 patterns = [".claude", ".cursor"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -185,7 +185,7 @@ patterns = [".claude", ".cursor"]
 patterns = invalid
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -249,7 +249,7 @@ func TestWriteToFile(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
 
-		if err := os.WriteFile(tomlPath, []byte("plain = false\n"), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte("plain = false\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -282,7 +282,7 @@ func TestFileConfigExists(t *testing.T) {
 	t.Run("returns true when file exists", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(""), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(""), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -320,7 +320,7 @@ func setupGitRepoForFileTests(t *testing.T) (tmpDir string, cleanup func()) {
 		{"git", "config", "user.email", "test@example.com"},
 	}
 	for _, args := range cmds {
-		if err := exec.Command(args[0], args[1:]...).Run(); err != nil { //nolint:gosec
+		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
 			_ = os.Chdir(oldWd)
 			t.Fatal(err)
 		}
@@ -334,12 +334,12 @@ func TestMergedConfig(t *testing.T) {
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.preserve", ".gitconfig-pattern").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.preserve", ".gitconfig-pattern").Run()
 
 		tomlContent := `[preserve]
 patterns = [".toml-pattern"]
 `
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
 		patterns := GetMergedPreservePatterns(tmpDir)
 
@@ -352,7 +352,7 @@ patterns = [".toml-pattern"]
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.preserve", ".gitconfig-pattern").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.preserve", ".gitconfig-pattern").Run()
 
 		patterns := GetMergedPreservePatterns(tmpDir)
 
@@ -379,9 +379,9 @@ patterns = [".toml-pattern"]
 		defer cleanup()
 
 		tomlContent := `plain = false`
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
-		_ = exec.Command("git", "config", "grove.plain", "true").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.plain", "true").Run()
 
 		plain := GetMergedPlain(tmpDir)
 
@@ -396,7 +396,7 @@ patterns = [".toml-pattern"]
 		defer cleanup()
 
 		tomlContent := `plain = true`
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
 		plain := GetMergedPlain(tmpDir)
 
@@ -411,7 +411,7 @@ patterns = [".toml-pattern"]
 
 		// This tests the bug fix: plain = false should be explicitly set, not treated as "not set"
 		tomlContent := `plain = false`
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
 		plain := GetMergedPlain(tmpDir)
 
@@ -426,9 +426,9 @@ patterns = [".toml-pattern"]
 		defer cleanup()
 
 		tomlContent := `debug = false`
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
-		_ = exec.Command("git", "config", "grove.debug", "true").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.debug", "true").Run()
 
 		debug := GetMergedDebug(tmpDir)
 
@@ -444,8 +444,8 @@ patterns = [".toml-pattern"]
 		tomlContent := `[preserve]
 exclude = ["vendor", ".cache"]
 `
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
-		_ = exec.Command("git", "config", "grove.preserveExclude", "node_modules").Run()   //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
+		_ = exec.Command("git", "config", "grove.preserveExclude", "node_modules").Run()
 
 		patterns := GetMergedPreserveExcludePatterns(tmpDir)
 
@@ -468,7 +468,7 @@ exclude = ["vendor", ".cache"]
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run()
 
 		patterns := GetMergedLinkPatterns(tmpDir)
 
@@ -481,11 +481,11 @@ exclude = ["vendor", ".cache"]
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.link", ".gitconfig-link").Run()
 		tomlContent := `[link]
 patterns = [".toml-link"]
 `
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
 		patterns := GetMergedLinkPatterns(tmpDir)
 		if len(patterns) != 1 || patterns[0] != ".toml-link" {
@@ -497,11 +497,11 @@ patterns = [".toml-link"]
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run()
 		tomlContent := `[preserve]
 directories = ["toml-dir"]
 `
-		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644) //nolint:gosec
+		_ = os.WriteFile(filepath.Join(tmpDir, ".grove.toml"), []byte(tomlContent), 0o644)
 
 		dirs := GetMergedPreserveDirectories(tmpDir)
 
@@ -514,7 +514,7 @@ directories = ["toml-dir"]
 		tmpDir, cleanup := setupGitRepoForFileTests(t)
 		defer cleanup()
 
-		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run() //nolint:gosec
+		_ = exec.Command("git", "config", "grove.preserveDirectory", "gitconfig-dir").Run()
 
 		dirs := GetMergedPreserveDirectories(tmpDir)
 

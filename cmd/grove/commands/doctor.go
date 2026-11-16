@@ -520,7 +520,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		gitdirFile := filepath.Join(worktreesDir, worktreeName, "gitdir")
 
 		// Read the gitdir file to find the worktree path
-		content, err := os.ReadFile(gitdirFile) //nolint:gosec // Path derived from validated workspace
+		content, err := os.ReadFile(gitdirFile) //nolint:gosec // G304: reads git's gitdir file inside the bare repository's worktrees directory.
 		if err != nil {
 			// No gitdir file means stale entry
 			result.Issues = append(result.Issues, Issue{
@@ -546,7 +546,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 			gitFilePath = filepath.Clean(filepath.Join(worktreesDir, worktreeName, gitFilePath))
 		}
 		worktreeDir := filepath.Dir(gitFilePath)
-		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) { //nolint:gosec // path derived from git's gitdir file
+		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) { //nolint:gosec // G703: doctor only checks that the path from git's gitdir file exists.
 			result.Issues = append(result.Issues, Issue{
 				Category:    CategoryGit,
 				Severity:    severity,
@@ -795,7 +795,7 @@ func detectInvalidToml(workspaceRoot string, result *DoctorResult) {
 	}
 
 	// Try to parse the TOML file
-	content, err := os.ReadFile(tomlPath) //nolint:gosec // Path derived from validated workspace
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // G304: reads the workspace's .grove.toml.
 	if err != nil {
 		logger.Debug("Failed to read .grove.toml: %v", err)
 
@@ -825,7 +825,7 @@ func detectInvalidHooks(workspaceRoot string, result *DoctorResult) {
 	}
 
 	// Parse config to get hooks
-	content, err := os.ReadFile(tomlPath) //nolint:gosec // Path derived from validated workspace
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // G304: reads the workspace's .grove.toml.
 	if err != nil {
 		return
 	}
@@ -945,7 +945,7 @@ func fixBrokenGitPointer(bareDir, workspaceRoot string, issue *Issue) error {
 
 	content := fmt.Sprintf("gitdir: %s\n", relPath)
 
-	return os.WriteFile(gitFile, []byte(content), fs.FileGit) //nolint:gosec // Git files need 0644 permissions
+	return os.WriteFile(gitFile, []byte(content), fs.FileGit)
 }
 
 // Phase 5: JSON output

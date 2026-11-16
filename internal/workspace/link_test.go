@@ -491,7 +491,7 @@ func TestLinkDirectoriesToWorktree(t *testing.T) {
 		sourceDir := testutil.TempDir(t)
 		destDir := testutil.TempDir(t)
 
-		if err := os.WriteFile(filepath.Join(sourceDir, ".claude"), []byte("file"), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(filepath.Join(sourceDir, ".claude"), []byte("file"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 

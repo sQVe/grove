@@ -264,13 +264,13 @@ func TestBranchExists(t *testing.T) {
 
 		tempDir := testutil.TempDir(t)
 		bareRepoPath := filepath.Join(tempDir, "bare")
-		cloneCmd := exec.Command("git", "clone", "--bare", originRepo.Path, bareRepoPath) // nolint:gosec
+		cloneCmd := exec.Command("git", "clone", "--bare", originRepo.Path, bareRepoPath)
 		if err := cloneCmd.Run(); err != nil {
 			t.Fatalf("failed to create bare clone: %v", err)
 		}
 
 		localRepoPath := filepath.Join(tempDir, "local")
-		localCloneCmd := exec.Command("git", "clone", bareRepoPath, localRepoPath) // nolint:gosec
+		localCloneCmd := exec.Command("git", "clone", bareRepoPath, localRepoPath)
 		if err := localCloneCmd.Run(); err != nil {
 			t.Fatalf("failed to clone locally: %v", err)
 		}
@@ -300,20 +300,20 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create a worktree to have something to work with
 		worktreePath := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
 		}
 
 		// Configure git for commits
-		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.email", "test@test.com")
 		cmd.Dir = worktreePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.name", "Test")
 		cmd.Dir = worktreePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
 		cmd.Dir = worktreePath
 		_ = cmd.Run()
 
@@ -322,19 +322,19 @@ func TestDeleteBranch(t *testing.T) {
 		if err := os.WriteFile(testFile, []byte("init"), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
-		cmd = exec.Command("git", "add", "init.txt") //nolint:gosec
+		cmd = exec.Command("git", "add", "init.txt")
 		cmd.Dir = worktreePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add file: %v", err)
 		}
-		cmd = exec.Command("git", "commit", "-m", "initial commit") //nolint:gosec
+		cmd = exec.Command("git", "commit", "-m", "initial commit")
 		cmd.Dir = worktreePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit: %v", err)
 		}
 
 		// Create a feature branch
-		cmd = exec.Command("git", "branch", "feature") //nolint:gosec
+		cmd = exec.Command("git", "branch", "feature")
 		cmd.Dir = worktreePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature branch: %v", err)
@@ -378,7 +378,7 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create a worktree to initialize the repo
 		worktreePath := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", worktreePath, "-b", testDefaultBranch)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create worktree: %v", err)
@@ -404,7 +404,7 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create main worktree
 		mainPath := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create main worktree: %v", err)
@@ -412,20 +412,20 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create feature worktree with new branch
 		featurePath := filepath.Join(tempDir, "feature")
-		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature worktree: %v", err)
 		}
 
 		// Configure git for commits
-		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.email", "test@test.com")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.name", "Test")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
 
@@ -434,12 +434,12 @@ func TestDeleteBranch(t *testing.T) {
 		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
-		cmd = exec.Command("git", "add", "test.txt") //nolint:gosec
+		cmd = exec.Command("git", "add", "test.txt")
 		cmd.Dir = featurePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add file: %v", err)
 		}
-		cmd = exec.Command("git", "commit", "-m", "test commit") //nolint:gosec
+		cmd = exec.Command("git", "commit", "-m", "test commit")
 		cmd.Dir = featurePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit: %v", err)
@@ -471,7 +471,7 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create main worktree
 		mainPath := filepath.Join(tempDir, "main")
-		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch) //nolint:gosec
+		cmd := exec.Command("git", "worktree", "add", mainPath, "-b", testDefaultBranch)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create main worktree: %v", err)
@@ -479,20 +479,20 @@ func TestDeleteBranch(t *testing.T) {
 
 		// Create feature worktree with new branch
 		featurePath := filepath.Join(tempDir, "feature")
-		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+		cmd = exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 		cmd.Dir = bareDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create feature worktree: %v", err)
 		}
 
 		// Configure git for commits
-		cmd = exec.Command("git", "config", "user.email", "test@test.com") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.email", "test@test.com")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "user.name", "Test") //nolint:gosec
+		cmd = exec.Command("git", "config", "user.name", "Test")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
-		cmd = exec.Command("git", "config", "commit.gpgsign", "false") //nolint:gosec
+		cmd = exec.Command("git", "config", "commit.gpgsign", "false")
 		cmd.Dir = featurePath
 		_ = cmd.Run()
 
@@ -501,12 +501,12 @@ func TestDeleteBranch(t *testing.T) {
 		if err := os.WriteFile(testFile, []byte("test"), fs.FileStrict); err != nil {
 			t.Fatal(err)
 		}
-		cmd = exec.Command("git", "add", "test.txt") //nolint:gosec
+		cmd = exec.Command("git", "add", "test.txt")
 		cmd.Dir = featurePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add file: %v", err)
 		}
-		cmd = exec.Command("git", "commit", "-m", "test commit") //nolint:gosec
+		cmd = exec.Command("git", "commit", "-m", "test commit")
 		cmd.Dir = featurePath
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to commit: %v", err)
@@ -715,7 +715,7 @@ func TestLocalBranchExists(t *testing.T) {
 
 		// Clone it
 		cloneDir := filepath.Join(origin.TempDir, "clone")
-		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
 		}
@@ -1056,7 +1056,7 @@ func TestRemoteBranchExists(t *testing.T) {
 
 		// Clone it (creates remote tracking refs)
 		cloneDir := filepath.Join(origin.TempDir, "clone")
-		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
 		}
@@ -1075,7 +1075,7 @@ func TestRemoteBranchExists(t *testing.T) {
 		origin := testgit.NewTestRepo(t)
 
 		cloneDir := filepath.Join(origin.TempDir, "clone")
-		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
 		}
@@ -1094,13 +1094,13 @@ func TestRemoteBranchExists(t *testing.T) {
 		origin := testgit.NewTestRepo(t)
 
 		cloneDir := filepath.Join(origin.TempDir, "clone")
-		cmd := exec.Command("git", "clone", origin.Path, cloneDir) //nolint:gosec
+		cmd := exec.Command("git", "clone", origin.Path, cloneDir)
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to clone: %v", err)
 		}
 
 		// Create local-only branch
-		cmd = exec.Command("git", "checkout", "-b", "local-only") //nolint:gosec
+		cmd = exec.Command("git", "checkout", "-b", "local-only")
 		cmd.Dir = cloneDir
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to create local branch: %v", err)
@@ -1203,7 +1203,7 @@ func TestIsUnbornHead(t *testing.T) {
 		}
 		hash := strings.TrimSpace(string(out))
 
-		cmd = exec.Command("git", "checkout", hash) // nolint:gosec
+		cmd = exec.Command("git", "checkout", hash)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to checkout: %v", err)

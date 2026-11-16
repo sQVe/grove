@@ -23,6 +23,13 @@ linters:
       - path: '(.+)_test\.go'
         linters:
           - goconst
+      # Tests and test helpers run git and the grove binary with test-built
+      # arguments, read and write files under t.TempDir(), and create fixture
+      # files with normal permissions. No input comes from outside the test.
+      - path: '_test\.go$|^internal/testutil/'
+        text: 'G204|G304|G306'
+        linters:
+          - gosec
       # SA5011 false positives: t.Fatal terminates the test, but staticcheck's
       # flow analysis doesn't know that. Scope narrowly to files where the
       # "if x == nil { t.Fatal }; x.Field" pattern is used.

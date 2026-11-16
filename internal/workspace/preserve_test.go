@@ -1,16 +1,102 @@
 package workspace
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/sqve/grove/internal/config"
 	"github.com/sqve/grove/internal/fs"
+	"github.com/sqve/grove/internal/logger"
 	"github.com/sqve/grove/internal/testutil"
 )
+
+func testPreserveBlockedDestination(t *testing.T, blockWithFile bool, preserve func(string, string) (*PreserveResult, error)) {
+	t.Helper()
+	sourceDir := t.TempDir()
+	destDir := t.TempDir()
+	outsideDir := t.TempDir()
+	for _, directory := range []string{"config", "normal"} {
+		if err := os.Mkdir(filepath.Join(sourceDir, directory), fs.DirGit); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sourceDir, directory, ".env"), []byte("preserved"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if blockWithFile {
+		if err := os.WriteFile(filepath.Join(destDir, "config"), []byte("existing"), fs.FileGit); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := os.Symlink(outsideDir, filepath.Join(destDir, "config")); err != nil {
+		t.Fatal(err)
+	}
+
+	var output bytes.Buffer
+	previous := logger.SetOutput(&output)
+	t.Cleanup(func() { logger.SetOutput(previous) })
+	result, err := preserve(sourceDir, destDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(outsideDir, ".env")); !os.IsNotExist(err) {
+		t.Errorf("file written outside destination: %v", err)
+	}
+	copied := make([]string, 0, len(result.Copied))
+	for _, path := range result.Copied {
+		copied = append(copied, filepath.ToSlash(path))
+	}
+	if slices.Contains(copied, "config/.env") {
+		t.Errorf("escaping file reported as copied: %v", result.Copied)
+	}
+	if len(result.Skipped) != 0 {
+		t.Errorf("escaping file reported as already existing: %v", result.Skipped)
+	}
+	if !slices.Contains(copied, "normal/.env") {
+		t.Errorf("normal file not copied: %v", result.Copied)
+	}
+	content, err := os.ReadFile(filepath.Join(destDir, "normal", ".env"))
+	if err != nil || string(content) != "preserved" {
+		t.Errorf("normal file content = %q, error = %v", content, err)
+	}
+	if blockWithFile {
+		content, err := os.ReadFile(filepath.Join(destDir, "config"))
+		if err != nil || string(content) != "existing" {
+			t.Errorf("blocking file changed: content = %q, error = %v", content, err)
+		}
+	}
+	if !strings.Contains(filepath.ToSlash(output.String()), "Skipping preserved file config/.env: cannot create its directory in the worktree:") {
+		t.Errorf("missing warning for escaping file: %q", output.String())
+	}
+}
+
+func testPreserveDestinationEscape(t *testing.T, preserve func(string, string) (*PreserveResult, error)) {
+	t.Helper()
+	t.Run("symlink outside destination", func(t *testing.T) {
+		testPreserveBlockedDestination(t, false, preserve)
+	})
+	t.Run("non-directory parent", func(t *testing.T) {
+		testPreserveBlockedDestination(t, true, preserve)
+	})
+}
+
+func TestPreserveFilesToWorktreeDestinationEscape(t *testing.T) {
+	testPreserveDestinationEscape(t, func(sourceDir, destDir string) (*PreserveResult, error) {
+		return PreserveFilesToWorktree(sourceDir, destDir, []string{".env"}, []string{"config/.env", "normal/.env"}, nil)
+	})
+}
+
+func TestPreserveDirectoriesToWorktreeDestinationEscape(t *testing.T) {
+	testPreserveDestinationEscape(t, func(sourceDir, destDir string) (*PreserveResult, error) {
+		return PreserveDirectoriesToWorktree(sourceDir, destDir, []string{"config", "normal"})
+	})
+}
 
 func TestPreserveFilesToWorktree(t *testing.T) {
 	t.Parallel()
@@ -45,7 +131,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 		}
 
 		destFile := filepath.Join(destDir, ".env")
-		content, err := os.ReadFile(destFile) //nolint:gosec
+		content, err := os.ReadFile(destFile)
 		if err != nil {
 			t.Fatalf("Failed to read copied file: %v", err)
 		}
@@ -83,7 +169,7 @@ func TestPreserveFilesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 skipped file, got %d", len(result.Skipped))
 		}
 
-		content, _ := os.ReadFile(destEnvPath) //nolint:gosec
+		content, _ := os.ReadFile(destEnvPath)
 		if string(content) != "DEST_VALUE" {
 			t.Errorf("Destination file was overwritten: got %q", string(content))
 		}
@@ -371,7 +457,7 @@ func TestGetPreservePatternsForCreate(t *testing.T) {
 patterns = [".custom", "*.secret"]
 `
 		tomlPath := filepath.Join(tmpDir, ".grove.toml")
-		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil { //nolint:gosec
+		if err := os.WriteFile(tomlPath, []byte(tomlContent), 0o644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -436,7 +522,7 @@ func TestPreserveDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 copied file, got %d: %v", len(result.Copied), result.Copied)
 		}
 
-		content, err := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		content, err := os.ReadFile(filepath.Join(destDir, "config", "app.toml"))
 		if err != nil {
 			t.Fatalf("Failed to read copied file: %v", err)
 		}
@@ -503,7 +589,7 @@ func TestPreserveDirectoriesToWorktree(t *testing.T) {
 			t.Errorf("Expected 1 skipped file, got %d: %v", len(result.Skipped), result.Skipped)
 		}
 
-		content, _ := os.ReadFile(filepath.Join(destDir, "config", "app.toml")) //nolint:gosec
+		content, _ := os.ReadFile(filepath.Join(destDir, "config", "app.toml"))
 		if string(content) != "existing" {
 			t.Errorf("Existing file was overwritten: got %q", string(content))
 		}

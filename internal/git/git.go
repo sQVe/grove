@@ -62,9 +62,9 @@ func GitCommand(name string, arg ...string) (*exec.Cmd, context.CancelFunc) {
 	timeout := config.GetTimeout()
 	if timeout > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		return exec.CommandContext(ctx, name, arg...), cancel //nolint:gosec
+		return exec.CommandContext(ctx, name, arg...), cancel //nolint:gosec // G204: every caller passes "git"; args are separate argv entries.
 	}
-	return exec.Command(name, arg...), func() {} //nolint:gosec
+	return exec.Command(name, arg...), func() {} //nolint:gosec // G204: every caller passes "git"; args are separate argv entries.
 }
 
 // runGitCommand executes a git command with consistent stderr capture and error handling
@@ -222,7 +222,7 @@ func FetchBranch(repoPath, remote, branch string) error {
 	}
 
 	logger.Debug("Executing: git fetch %s %s in %s", remote, branch, repoPath)
-	cmd, cancel := GitCommand("git", "fetch", remote, branch) // nolint:gosec // Validated input
+	cmd, cancel := GitCommand("git", "fetch", remote, branch)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -258,7 +258,7 @@ func GetGitDir(path string) (string, error) {
 	}
 
 	if fs.FileExists(gitPath) {
-		content, err := os.ReadFile(gitPath) // nolint:gosec // Path is constructed internally
+		content, err := os.ReadFile(gitPath) //nolint:gosec // G304: reads the .git file of a worktree.
 		if err != nil {
 			return "", err
 		}
@@ -291,7 +291,7 @@ func AddRemote(repoPath, name, url string) error {
 	}
 
 	logger.Debug("Executing: git remote add %s %s in %s", name, url, repoPath)
-	cmd, cancel := GitCommand("git", "remote", "add", name, url) // nolint:gosec // Validated input
+	cmd, cancel := GitCommand("git", "remote", "add", name, url)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -308,7 +308,7 @@ func RemoveRemote(repoPath, name string) error {
 	}
 
 	logger.Debug("Executing: git remote remove %s in %s", name, repoPath)
-	cmd, cancel := GitCommand("git", "remote", "remove", name) // nolint:gosec // Validated input
+	cmd, cancel := GitCommand("git", "remote", "remove", name)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -324,7 +324,7 @@ func RemoteExists(repoPath, name string) (bool, error) {
 		return false, errors.New("remote name cannot be empty")
 	}
 
-	cmd, cancel := GitCommand("git", "remote", "get-url", name) // nolint:gosec // Validated input
+	cmd, cancel := GitCommand("git", "remote", "get-url", name)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -349,7 +349,7 @@ func GetRemoteURL(repoPath, name string) (string, error) {
 		return "", errors.New("remote name cannot be empty")
 	}
 
-	cmd, cancel := GitCommand("git", "remote", "get-url", name) // nolint:gosec // Validated input
+	cmd, cancel := GitCommand("git", "remote", "get-url", name)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -394,7 +394,7 @@ func IsRemoteReachable(repoPath, remote string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), reachabilityTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", remote) //nolint:gosec
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", remote) //nolint:gosec // G204: fixed binary; remote is one argv entry, not shell input.
 	cmd.Dir = repoPath
 	cmd.Env = append(os.Environ(),
 		"GIT_TERMINAL_PROMPT=0",

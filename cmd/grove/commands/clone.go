@@ -207,7 +207,7 @@ func cloneWithGh(repoSpec, bareDir string, verbose, shallow bool) error {
 		args = append(args, "--depth", "1")
 	}
 
-	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
+	cmd := exec.Command("gh", args...) //nolint:gosec // G204: fixed binary; args are separate argv entries, not shell input.
 	var stderr bytes.Buffer
 	if verbose {
 		cmd.Stdout = os.Stdout

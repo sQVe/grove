@@ -1,0 +1,3 @@
+kind: Security
+body: grove add no longer follows a symlinked directory in the new worktree when it copies preserved files. A file whose directory would be outside the worktree is skipped with a warning.
+time: 2026-11-15T12:00:00.000000000+01:00

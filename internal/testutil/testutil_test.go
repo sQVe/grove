@@ -155,7 +155,7 @@ func TestWriteFile(t *testing.T) {
 
 		WriteFile(t, path, "hello world")
 
-		content, err := os.ReadFile(path) // nolint:gosec // Test-controlled path
+		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}
@@ -170,7 +170,7 @@ func TestWriteFile(t *testing.T) {
 
 		WriteFile(t, path, "nested content")
 
-		content, err := os.ReadFile(path) // nolint:gosec // Test-controlled path
+		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("failed to read file: %v", err)
 		}

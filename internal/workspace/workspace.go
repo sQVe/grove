@@ -550,7 +550,7 @@ func checkoutFirstWorktree(targetDir, firstBranch string, verbose bool) error {
 	firstWorktreeAbsPath := filepath.Join(targetDir, firstSanitizedName)
 
 	logger.Debug("Executing: git checkout -f %s in %s", firstBranch, firstWorktreeAbsPath)
-	checkoutCmd, cancel := git.GitCommand("git", "checkout", "-f", firstBranch) // nolint:gosec
+	checkoutCmd, cancel := git.GitCommand("git", "checkout", "-f", firstBranch)
 	defer cancel()
 	checkoutCmd.Dir = firstWorktreeAbsPath
 
@@ -810,7 +810,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 	}
 
 	lockFile := filepath.Join(targetDir, ".grove-convert.lock")
-	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit) // nolint:gosec // Controlled path from validated directory
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit) //nolint:gosec // G304: creates grove's conversion lock file in the target directory.
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return fmt.Errorf("conversion already in progress or failed previously; remove %s to proceed", lockFile)

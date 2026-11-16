@@ -1,0 +1,34 @@
+setup_workspace
+
+cp $WORK/grove-toml .grove.toml
+cp $WORK/gitignore .gitignore
+exec git add .grove.toml .gitignore
+exec git commit -m 'add grove config and gitignore'
+
+exec git checkout -b symlink-branch
+mkdir $WORK/outside
+symlink config -> $WORK/outside
+exec git add config
+exec git commit -m 'commit config symlink'
+
+exec git checkout main
+mkdir config normal
+cp $WORK/dot-env config/data.txt
+cp $WORK/dot-env normal/data.txt
+
+exec grove add symlink-branch
+stderr 'Created worktree at .*[/\\]symlink-branch'
+stderr 'Skipping preserved file config[/\\]data\.txt: cannot create its directory in the worktree:'
+exists ../symlink-branch/normal/data.txt
+! exists $WORK/outside/data.txt
+
+-- grove-toml --
+[preserve]
+directories = ["config", "normal"]
+
+-- gitignore --
+config/
+normal/
+
+-- dot-env --
+SECRET=value

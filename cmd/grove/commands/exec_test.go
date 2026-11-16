@@ -99,7 +99,7 @@ func setupExecTestWorkspace(t *testing.T) (tempDir, bareDir, mainPath string) {
 
 	// Create main worktree
 	mainPath = filepath.Join(tempDir, "main")
-	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main") //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", mainPath, "-b", "main")
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create worktree: %v", err)
@@ -111,7 +111,7 @@ func setupExecTestWorkspace(t *testing.T) (tempDir, bareDir, mainPath string) {
 		{"config", "user.name", "Test"},
 		{"config", "commit.gpgsign", "false"},
 	} {
-		cmd = exec.Command("git", args...) //nolint:gosec
+		cmd = exec.Command("git", args...)
 		cmd.Dir = mainPath
 		_ = cmd.Run()
 	}
@@ -121,12 +121,12 @@ func setupExecTestWorkspace(t *testing.T) (tempDir, bareDir, mainPath string) {
 	if err := os.WriteFile(testFile, []byte("init"), fs.FileStrict); err != nil {
 		t.Fatal(err)
 	}
-	cmd = exec.Command("git", "add", "init.txt") //nolint:gosec
+	cmd = exec.Command("git", "add", "init.txt")
 	cmd.Dir = mainPath
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
-	cmd = exec.Command("git", "commit", "-m", "initial commit") //nolint:gosec
+	cmd = exec.Command("git", "commit", "-m", "initial commit")
 	cmd.Dir = mainPath
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestRunExec_AllWorktrees(t *testing.T) {
 
 	// Create feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -173,14 +173,14 @@ func TestRunExec_SpecificWorktrees(t *testing.T) {
 
 	// Create feature and bugfix worktrees
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
 
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
@@ -232,7 +232,7 @@ func TestRunExec_CommandFails_ContinuesByDefault(t *testing.T) {
 
 	// Create feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -297,7 +297,7 @@ func TestRunExec_FailFast(t *testing.T) {
 	// Create worktree with name that sorts before "main" alphabetically.
 	// This ensures deterministic execution order for the test.
 	aaaPath := filepath.Join(tempDir, "aaa")
-	cmd := exec.Command("git", "worktree", "add", "-b", "aaa", aaaPath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "aaa", aaaPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create aaa worktree: %v", err)
@@ -332,7 +332,7 @@ func TestRunExec_FindsByDirectoryName(t *testing.T) {
 
 	// Create worktree where directory name differs from branch name
 	featurePath := filepath.Join(tempDir, "feat-auth")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -359,7 +359,7 @@ func TestCompleteExecArgs_ReturnsDirectoryNames(t *testing.T) {
 
 	// Create worktree where directory name differs from branch name
 	featurePath := filepath.Join(tempDir, "feat-auth")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature/auth", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -392,14 +392,14 @@ func TestCompleteExecArgs(t *testing.T) {
 
 	// Create feature and bugfix worktrees
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
 	}
 
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
@@ -438,7 +438,7 @@ func TestRunExec_PartialFailure(t *testing.T) {
 
 	// Create feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -446,7 +446,7 @@ func TestRunExec_PartialFailure(t *testing.T) {
 
 	// Create bugfix worktree
 	bugfixPath := filepath.Join(tempDir, "bugfix")
-	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath) //nolint:gosec
+	cmd = exec.Command("git", "worktree", "add", "-b", "bugfix", bugfixPath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create bugfix worktree: %v", err)
@@ -478,7 +478,7 @@ func TestRunExec_DuplicateWorktrees(t *testing.T) {
 
 	// Create feature worktree
 	featurePath := filepath.Join(tempDir, "feature")
-	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath) //nolint:gosec
+	cmd := exec.Command("git", "worktree", "add", "-b", "feature", featurePath)
 	cmd.Dir = bareDir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to create feature worktree: %v", err)
@@ -493,7 +493,7 @@ func TestRunExec_DuplicateWorktrees(t *testing.T) {
 		t.Fatalf("runExec failed: %v", err)
 	}
 
-	content, err := os.ReadFile(filepath.Join(featurePath, "dedup-marker.txt")) //nolint:gosec
+	content, err := os.ReadFile(filepath.Join(featurePath, "dedup-marker.txt"))
 	if err != nil {
 		t.Fatalf("failed to read marker file: %v", err)
 	}

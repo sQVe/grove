@@ -58,7 +58,7 @@ func AcquireWorkspaceLock(lockFile string) (*os.File, error) {
 // (nil, false, nil) if a stale lock was removed, or (nil, false, err) if the lock
 // is held by a live process or was released mid-check and the caller should poll.
 func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
-	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // path derived from validated workspace
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // G304: creates grove's lock file in the workspace.
 	if err == nil {
 		_, _ = lockHandle.WriteString(strconv.Itoa(os.Getpid()))
 		_ = lockHandle.Sync() // Ensure PID is flushed to disk before returning
@@ -78,7 +78,7 @@ func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 		return nil, true, fmt.Errorf("failed to inspect lock: %w", statErr)
 	}
 
-	content, readErr := os.ReadFile(lockFile) //nolint:gosec // path derived from validated workspace
+	content, readErr := os.ReadFile(lockFile) //nolint:gosec // G304: reads grove's lock file in the workspace.
 	if errors.Is(readErr, os.ErrNotExist) {
 		return nil, false, errLockReleased
 	}
@@ -105,7 +105,7 @@ func tryAcquireLock(lockFile string, attempt int) (*os.File, bool, error) {
 
 		logger.Debug("Lock held by terminated process %d, removing stale lock (attempt %d)", pid, attempt+1)
 		// Re-verify file hasn't changed before removing (minimize TOCTOU window)
-		if content2, err := os.ReadFile(lockFile); err == nil && strings.TrimSpace(string(content2)) == pidStr { //nolint:gosec // path derived from validated workspace
+		if content2, err := os.ReadFile(lockFile); err == nil && strings.TrimSpace(string(content2)) == pidStr { //nolint:gosec // G304: reads grove's lock file in the workspace.
 			_ = os.Remove(lockFile)
 		}
 		return nil, false, nil // Retry regardless - if remove failed, next attempt will handle it

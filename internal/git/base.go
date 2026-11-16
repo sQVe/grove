@@ -62,7 +62,7 @@ func ResolveWorktreeBase(bareDir, base string, fetch bool) (string, error) {
 		if hasOrigin, originErr := RemoteExists(bareDir, "origin"); originErr != nil || hasOrigin {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // Fixed executable; branch is part of one refspec argument, not shell input.
+			cmd := exec.CommandContext(ctx, "git", "fetch", "--no-tags", "--refmap=", "origin", "+refs/heads/"+branch+":refs/remotes/origin/"+branch) //nolint:gosec // G204: fixed binary; branch is part of one refspec argument, not shell input.
 			cmd.Dir = bareDir
 			// The missing-ref message is matched below, so keep git's output untranslated.
 			cmd.Env = append(os.Environ(), "LC_ALL=C")

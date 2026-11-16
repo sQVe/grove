@@ -220,7 +220,7 @@ func TestRenameWithFallback(t *testing.T) {
 			t.Error("new file should exist after rename")
 		}
 
-		readContent, err := os.ReadFile(newFile) // nolint:gosec // Controlled test path
+		readContent, err := os.ReadFile(newFile)
 		if err != nil {
 			t.Fatalf("failed to read renamed file: %v", err)
 		}
@@ -285,7 +285,7 @@ func TestCopyFile(t *testing.T) {
 			t.Fatalf("CopyFile should not fail: %v", err)
 		}
 
-		readContent, err := os.ReadFile(dstFile) // nolint:gosec // Controlled test path
+		readContent, err := os.ReadFile(dstFile)
 		if err != nil {
 			t.Fatalf("failed to read destination file: %v", err)
 		}
@@ -440,7 +440,7 @@ func TestWriteFileAtomic(t *testing.T) {
 			t.Fatalf("WriteFileAtomic should not fail: %v", err)
 		}
 
-		readContent, err := os.ReadFile(testFile) // nolint:gosec // Controlled test path
+		readContent, err := os.ReadFile(testFile)
 		if err != nil {
 			t.Fatalf("failed to read atomic file: %v", err)
 		}

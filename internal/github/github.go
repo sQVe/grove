@@ -159,7 +159,7 @@ func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {
 		"--json", "headRefName,headRepository,headRepositoryOwner,title",
 	}
 
-	cmd := exec.Command("gh", args...) //nolint:gosec // Args are constructed from validated input
+	cmd := exec.Command("gh", args...) //nolint:gosec // G204: fixed binary; args are separate argv entries, not shell input.
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -222,7 +222,7 @@ func GetMergedPRBranches(repoPath string) (map[string]bool, error) {
 		return nil, err
 	}
 
-	cmd := exec.Command("gh", "pr", "list", //nolint:gosec // Args are static
+	cmd := exec.Command("gh", "pr", "list",
 		"--state", "merged",
 		"--json", "headRefName",
 		"--limit", "200")
@@ -247,7 +247,7 @@ func GetMergedPRBranches(repoPath string) (map[string]bool, error) {
 // Uses gh CLI to get the URL with the user's configured protocol (SSH or HTTPS).
 func GetRepoCloneURL(owner, repo string) (string, error) {
 	repoSpec := fmt.Sprintf("%s/%s", owner, repo)
-	cmd := exec.Command("gh", "repo", "view", repoSpec, "--json", "url", "-q", ".url") //nolint:gosec // Args are constructed from validated input
+	cmd := exec.Command("gh", "repo", "view", repoSpec, "--json", "url", "-q", ".url") //nolint:gosec // G204: fixed binary; repoSpec is one argv entry, not shell input.
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

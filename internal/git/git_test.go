@@ -198,7 +198,7 @@ func TestFetchPrune(t *testing.T) {
 		}
 
 		repo := testgit.NewTestRepo(t)
-		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) // nolint:gosec
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo)
 		cmd.Dir = repo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)
@@ -587,7 +587,7 @@ func TestFetchBranch(t *testing.T) {
 		downstream := testgit.NewTestRepo(t)
 
 		// Add upstream as remote
-		cmd = exec.Command("git", "remote", "add", "upstream", upstream.Path) //nolint:gosec // Test helper
+		cmd = exec.Command("git", "remote", "add", "upstream", upstream.Path)
 		cmd.Dir = downstream.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add remote: %v", err)
@@ -612,7 +612,7 @@ func TestFetchBranch(t *testing.T) {
 		downstream := testgit.NewTestRepo(t)
 
 		// Add upstream as remote
-		cmd := exec.Command("git", "remote", "add", "upstream", upstream.Path) //nolint:gosec // Test helper
+		cmd := exec.Command("git", "remote", "add", "upstream", upstream.Path)
 		cmd.Dir = downstream.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("failed to add remote: %v", err)
@@ -722,7 +722,7 @@ func TestIsRemoteReachable(t *testing.T) {
 
 		// Create a local repo with that remote
 		localRepo := testgit.NewTestRepo(t)
-		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo) //nolint:gosec
+		cmd = exec.Command("git", "remote", "add", "origin", remoteRepo)
 		cmd.Dir = localRepo.Path
 		if err := cmd.Run(); err != nil {
 			t.Fatal(err)

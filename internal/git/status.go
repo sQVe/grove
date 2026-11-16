@@ -180,7 +180,7 @@ func GetSyncStatus(path string) *SyncStatus {
 	status := &SyncStatus{}
 
 	// Get current branch name
-	cmdBranch, cancelBranch := GitCommand("git", "rev-parse", "--abbrev-ref", "HEAD") // nolint:gosec
+	cmdBranch, cancelBranch := GitCommand("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmdBranch.Dir = path
 	var branchOut bytes.Buffer
 	cmdBranch.Stdout = &branchOut
@@ -200,7 +200,7 @@ func GetSyncStatus(path string) *SyncStatus {
 
 	// Use for-each-ref to get upstream info and track status in one command
 	// Format: "upstream_ref track_info" e.g. "refs/remotes/origin/main [ahead 1, behind 2]" or "refs/remotes/origin/gone [gone]"
-	cmdRef, cancelRef := GitCommand("git", "for-each-ref", "--format=%(upstream) %(upstream:track)", fmt.Sprintf("refs/heads/%s", branch)) // nolint:gosec
+	cmdRef, cancelRef := GitCommand("git", "for-each-ref", "--format=%(upstream) %(upstream:track)", fmt.Sprintf("refs/heads/%s", branch))
 	defer cancelRef()
 	cmdRef.Dir = path
 	var refOut bytes.Buffer

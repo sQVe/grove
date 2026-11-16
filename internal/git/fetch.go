@@ -89,7 +89,7 @@ func GetRemoteRefs(repoPath, remote string) (map[string]string, error) {
 	refPattern := fmt.Sprintf("refs/remotes/%s/", remote)
 	logger.Debug("Executing: git for-each-ref --format=%%(refname) %%(objectname) %s in %s", refPattern, repoPath)
 
-	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname) %(objectname)", refPattern) //nolint:gosec
+	cmd, cancel := GitCommand("git", "for-each-ref", "--format=%(refname) %(objectname)", refPattern)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -130,7 +130,7 @@ func FetchRemote(repoPath, remote string) error {
 	}
 
 	logger.Debug("Executing: git fetch --prune %s in %s", remote, repoPath)
-	cmd, cancel := GitCommand("git", "fetch", "--prune", remote) //nolint:gosec
+	cmd, cancel := GitCommand("git", "fetch", "--prune", remote)
 	defer cancel()
 	cmd.Dir = repoPath
 
@@ -139,7 +139,7 @@ func FetchRemote(repoPath, remote string) error {
 	}
 
 	logger.Debug("Executing: git remote set-head %s --auto in %s", remote, repoPath)
-	cmd, cancel = GitCommand("git", "remote", "set-head", remote, "--auto") //nolint:gosec
+	cmd, cancel = GitCommand("git", "remote", "set-head", remote, "--auto")
 	defer cancel()
 	cmd.Dir = repoPath
 	if err := runGitCommand(cmd, true); err != nil {
@@ -149,7 +149,7 @@ func FetchRemote(repoPath, remote string) error {
 }
 
 func CountCommits(repoPath, fromHash, toHash string) int {
-	cmd, cancel := GitCommand("git", "rev-list", "--count", fromHash+".."+toHash) //nolint:gosec
+	cmd, cancel := GitCommand("git", "rev-list", "--count", fromHash+".."+toHash)
 	defer cancel()
 	cmd.Dir = repoPath
 

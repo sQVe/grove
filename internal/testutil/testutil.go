@@ -47,7 +47,7 @@ func WriteFileMode(t *testing.T, path, content string, perm os.FileMode) {
 // MustExec runs a command in dir, fails on error, returns combined output.
 func MustExec(t *testing.T, dir, name string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command(name, args...) // nolint:gosec
+	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -197,7 +197,7 @@ func runExec(all, failFast, jsonOutput bool, parallel int, worktrees, command []
 
 	runOne := func(target execTarget, streaming bool) execResult {
 		result := execResult{Name: target.name, Path: target.path}
-		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec
+		cmd := exec.Command(command[0], command[1:]...) //nolint:gosec // G204: grove exec runs the command the user typed.
 		cmd.Dir = target.path
 		if streaming {
 			if !jsonOutput {
