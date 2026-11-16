@@ -1,4 +1,3 @@
-# Test: grove add skips preserved files that would escape through a symlink
 setup_workspace
 
 cp $WORK/grove-toml .grove.toml
@@ -6,14 +5,12 @@ cp $WORK/gitignore .gitignore
 exec git add .grove.toml .gitignore
 exec git commit -m 'add grove config and gitignore'
 
-# Commit a symlink at a directory path on a new branch
 exec git checkout -b symlink-branch
 mkdir $WORK/outside
 symlink config -> $WORK/outside
 exec git add config
 exec git commit -m 'commit config symlink'
 
-# Return to the source branch, where config is a real directory
 exec git checkout main
 mkdir config normal
 cp $WORK/dot-env config/.env
