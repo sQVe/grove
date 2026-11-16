@@ -31,7 +31,7 @@ test-integration:
 	@echo "Running integration tests..."
 	@echo "→ Installing grove binary..."
 	@go install ./cmd/grove
-	@gotestsum -- -tags=integration -timeout=600s ./cmd/grove/...
+	@gotestsum -- -tags=integration -timeout=600s ./cmd/grove
 
 test-coverage:
 	@echo "Running unit tests with coverage..."
