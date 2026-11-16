@@ -520,7 +520,7 @@ func detectStaleWorktreeEntries(bareDir string, result *DoctorResult) {
 		gitdirFile := filepath.Join(worktreesDir, worktreeName, "gitdir")
 
 		// Read the gitdir file to find the worktree path
-		content, err := os.ReadFile(gitdirFile)
+		content, err := os.ReadFile(gitdirFile) //nolint:gosec // G304: reads git's gitdir file inside the bare repository's worktrees directory.
 		if err != nil {
 			// No gitdir file means stale entry
 			result.Issues = append(result.Issues, Issue{
@@ -795,7 +795,7 @@ func detectInvalidToml(workspaceRoot string, result *DoctorResult) {
 	}
 
 	// Try to parse the TOML file
-	content, err := os.ReadFile(tomlPath)
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // G304: reads the workspace's .grove.toml.
 	if err != nil {
 		logger.Debug("Failed to read .grove.toml: %v", err)
 
@@ -825,7 +825,7 @@ func detectInvalidHooks(workspaceRoot string, result *DoctorResult) {
 	}
 
 	// Parse config to get hooks
-	content, err := os.ReadFile(tomlPath)
+	content, err := os.ReadFile(tomlPath) //nolint:gosec // G304: reads the workspace's .grove.toml.
 	if err != nil {
 		return
 	}

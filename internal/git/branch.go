@@ -144,7 +144,7 @@ func GetCurrentBranch(path string) (string, error) {
 	}
 
 	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile)
+	content, err := os.ReadFile(headFile) //nolint:gosec // G304: reads the HEAD file inside a git directory.
 	if err != nil {
 		return "", err
 	}
@@ -217,7 +217,7 @@ func GetDefaultBranch(bareDir string) (string, error) {
 	}
 
 	headFile := filepath.Join(bareDir, "HEAD")
-	content, err := os.ReadFile(headFile)
+	content, err := os.ReadFile(headFile) //nolint:gosec // G304: reads the HEAD file inside a git directory.
 	if err != nil {
 		return "", fmt.Errorf("failed to read HEAD: %w", err)
 	}
@@ -268,7 +268,7 @@ func IsUnbornHead(path string) (bool, error) {
 // gitDir must be the actual git directory (e.g., .bare/, or .git/).
 func isHeadDangling(gitDir string) (bool, error) {
 	headFile := filepath.Join(gitDir, "HEAD")
-	content, err := os.ReadFile(headFile)
+	content, err := os.ReadFile(headFile) //nolint:gosec // G304: reads the HEAD file inside a git directory.
 	if err != nil {
 		return false, err
 	}

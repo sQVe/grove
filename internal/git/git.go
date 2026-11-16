@@ -258,7 +258,7 @@ func GetGitDir(path string) (string, error) {
 	}
 
 	if fs.FileExists(gitPath) {
-		content, err := os.ReadFile(gitPath)
+		content, err := os.ReadFile(gitPath) //nolint:gosec // G304: reads the .git file of a worktree.
 		if err != nil {
 			return "", err
 		}

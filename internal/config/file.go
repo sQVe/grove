@@ -150,7 +150,7 @@ func WriteToFile(dir string, cfg *FileConfig) error {
 	path := filepath.Join(dir, FileName)
 	tmpPath := fmt.Sprintf("%s.tmp.%d.%d", path, os.Getpid(), time.Now().UnixNano())
 
-	f, err := os.Create(tmpPath)
+	f, err := os.Create(tmpPath) //nolint:gosec // G304: creates a temporary file next to .grove.toml in the target directory.
 	if err != nil {
 		return err
 	}

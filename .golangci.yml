@@ -26,7 +26,7 @@ linters:
       # Tests and test helpers run git and the grove binary with test-built
       # arguments, read and write files under t.TempDir(), and create fixture
       # files with normal permissions. No input comes from outside the test.
-      - path: '(.+)_test\.go|internal/testutil/'
+      - path: '_test\.go$|^internal/testutil/'
         text: 'G204|G304|G306'
         linters:
           - gosec
@@ -89,13 +89,6 @@ linters:
         - '^(true|false|yes|no|on|off)$' # Boolean strings
         - '^[0-9]+$' # Numeric strings like "1", "0"
         - '^origin$'
-
-    gosec:
-      excludes:
-        # grove is a local CLI. It reads files at paths from the user's
-        # arguments, git, and the workspace layout, with the user's own
-        # permissions. No untrusted caller chooses a path.
-        - G304
 
     gocritic:
       enabled-tags:

@@ -810,7 +810,7 @@ func Convert(targetDir, branches string, verbose bool) error {
 	}
 
 	lockFile := filepath.Join(targetDir, ".grove-convert.lock")
-	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit)
+	lockHandle, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, fs.FileGit) //nolint:gosec // G304: creates grove's conversion lock file in the target directory.
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return fmt.Errorf("conversion already in progress or failed previously; remove %s to proceed", lockFile)

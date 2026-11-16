@@ -491,7 +491,7 @@ func GetWorktreeLockReason(worktreePath string) string {
 		return ""
 	}
 	lockFile := filepath.Join(gitdir, "locked")
-	content, err := os.ReadFile(lockFile)
+	content, err := os.ReadFile(lockFile) //nolint:gosec // G304: reads git's lock file for a worktree.
 	if err != nil {
 		return ""
 	}
