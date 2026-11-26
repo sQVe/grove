@@ -1,3 +1,8 @@
+## [v1.14.1](https://github.com/sQVe/grove/releases/tag/v1.14.1) - 2026-11-16
+
+### Security
+- grove add no longer follows a symlinked directory in the new worktree when it copies preserved files. A file whose directory would be outside the worktree is skipped with a warning.
+
 ## [v1.14.0](https://github.com/sQVe/grove/releases/tag/v1.14.0) - 2026-11-03
 
 ### Changed
