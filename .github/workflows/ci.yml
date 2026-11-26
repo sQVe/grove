@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: '1.25.8'
+  GO_VERSION: '1.26.11'
 
 jobs:
   changes:
@@ -45,7 +45,7 @@ jobs:
           cache: true
       - uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
         with:
-          version: v2.8.0
+          version: v2.15.0
 
   test-unit:
     needs: changes
